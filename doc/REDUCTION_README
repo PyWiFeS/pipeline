@@ -1,0 +1,41 @@
+2012-07-20
+
+The script 'reduce_all_data.py' runs a series of data reduction steps for a batch of data (typically one night worth of data from one channel - blue or red) as defined using the 'save_metadata.py' script.  It is a very high-level, complex script, so I describe its parts in detail below.
+
+If any of this is unclear or you want some further details, please email or call me at:
+Mike Childress
+mjc@mso.anu.edu.au
+(02) 6125-0235
+
+------------------------------------------------------------------------
+BEFORE YOU START REDUCING THE DATA
+
+First, you will need to tell the script where the data is located.  Currently I assume that all the raw data will be in the same directory called 'data_dir', and that you want to output all the processed data to a single directory 'out_dir' (which could also be the same as the data_dir).  By default I have the script find the current working directory, but you can define these in the script (at the very beginning) if you want to run the reduction from a different place than the data.
+
+The script will produce a number of global calibration files (e.g. super-bias frame, master wavelength solution, master flat field response function), all of which are tagged with a prefix 'calib_prefix' which you should also change to some label you prefer (e.g. 'wifesB_20120221' will store filed such as 'wifesB_20120221_wire_soln.fits'). Optionally, you can also change the names of the master calibration files (defined at about line 125 of the script).
+
+------------------------------------------------------------------------
+HOW THE REDUCTION WORKS
+
+The reduction script runs through a series of steps defined by the user in the section marked 'USER REDUCTION DESIGN IS SET HERE'.  These steps are stored as a list ('proc_steps') and each step is a Python dictionary with the following keys:
+ - 'step'   : The name of the reduction step, which the script uses to decide which function is used. For example the step 'sky_sub' will run the Python function 'run_sky_sub'
+ - 'run'    : A Python boolean which when set to True tells the script to run this step (useful for skipping steps that have already been run)
+ - 'suffix' : A string added to the end of the original file name to denote which step it has been processed through (e.g. x.fits processed through a step with suffix '04' would be x.p04.fits). This is so the next step knows what filename to look for.
+ - 'args'   : Any additional arguments to be passed to the 'run_XXX' function. For example, the 'run_superflat' function works exactly the same way for domeflats and twiflats, and will operate on one or the other based on which argument you pass in.
+
+IMPORTANT NOTE: If you want to completely remove a step from the reduction chain, you must comment it out (using '#') rather than set 'run':False.  This is because the script looks for output from the previous step whether it was run this time or not, so if you skip a step you need to tell the script to not look for data output from that step.
+
+------------------------------------------------------------------------
+HOW TO RUN THE REDUCTION
+
+If you know that the reduction scheme in the script will work with your data, then just set 'run':True for all steps and run the script from the command line passing the metadata file as input:
+./reduce_all_data.py metadata.pkl
+
+For first-time users, I would recommend setting 'run':True for one step at a time and running each step separately this way.  This will let you get accustomed to the data output format and check that each step is producing results you expect.
+
+------------------------------------------------------------------------
+NOD+SHUFFLE INSTRUCTIONS
+
+In principle nod+shuffle data works exactly the same way as a separate sky observation except that the data are initially contained in the same file.  Thus if you set 'ns':True for the MEF, cosmic rays, and sky subtraction steps, it will work correctly.  
+
+The only difficulty is if you have *some* science observations in N+S and others not.  I plan to make the script robust enough to tell the difference in the future, but for now you should run the reduction script on science data of all the same format (note you can rewrite the script to not use N+S on science observations but not standard star observations).

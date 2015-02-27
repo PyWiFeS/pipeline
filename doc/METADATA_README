@@ -1,0 +1,9 @@
+2012-07-20
+
+The data reduction script 'reduce_all_data.py' works with an abstract metadata format where all your observations are flagged as a particular type of data (i.e. flats, arcs, science targets, standards, etc.) and then used in the appropriate part of the reduction scheme.  The metadata is stored in a Python dictionary as defined by the 'save_metadata.py' script, which is described below.
+
+Basic calibration files are stored in lists defined at the beginning of the script.  For these you simply collect the list of e.g. bias frames and define them in the 'bias_obs' list (and so on for other calibration data).  These are then stored in the master dictionary as simple keywords like 'bias' 'domeflat' etc.
+
+Science and standard star calibrations are stored as lists of python dictionaries.  This is instituted so that if you the user want to perform calibration using specific files for specific observations (e.g. if you take an arc lamp exposure for wavelength calibration at each pointing) then these calibration files can be associated directly in the 'arc' (etc.) lists within each observation dictionary. If this is the way you want to reduce your data then you will also need to adjust the reduction script to achieve this (really requires a Python-savvy scripter, if you want help I am willing to assist). Alternatively if you just want to use master calibration solutions on all observations then you need only define the 'sci' list of each observation dictionary.
+
+IMPORTANT NOTE: This metadata structure is my preferred format, but you are by no means bound to use this.  The reduction script is just a particular usage of the processing routines based on this metadata format.  You can write your own reduction scripts using your own metadata format, as the processing routines are not dependent on the metadata format.

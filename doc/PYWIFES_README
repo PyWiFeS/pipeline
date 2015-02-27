@@ -1,0 +1,173 @@
+2013-Sep.-06
+Mike Childress
+mjc@mso.anu.edu.au
+
+Important new note: The WiFeS detectors were replaced in early 2013 (red - March, blue - May).  Integration of these into the pypeline was rather easy, and is fully supported.  Be wary though that any calibration files from the 1st generation detectors will be completely incompatible with the new 2nd generation detectors.
+
+This version of the pipeline (v0.6.0) is intended to be the first *official* release of the pipeline, and is meant to coincide with the release of our PyWiFeS paper in ApSS.  If you use this pipeline, we would greatly appreciate a citation to our paper:
+
+
+------------------------------------------------------------------------
+All of the python modules, reference data, and reduction scripts are contained in the pipeline tar file:
+wifes_pypeline_v0.6.0.tar.gz
+
+Use of the pipeline does not require any installation script to be run. Instead just unpack the tar file into some directory and it will create the following four upacked subdirectories:
+ 'src/'               - contains the image reduction Python modules
+ 'doc/'               - documentation on how to "install" the package (this 
+                        README file) and how to use the metadata preparation 
+                        script and data reduction script
+ 'reference_data/'    - contains the metadata file with baseline wavelength
+                        solutions, as well as some reference standard star
+			spectra and the SSO extinction curve from Bessel
+			(1999). NOTE: If you use the '.tab' standard,
+                        please cite Bessel 1999 (PASP), if you use the '.dat'
+                        standards, please cite Oke et al. 1990 (AJ 99 1621).
+ 'reduction_scripts/' - some high-level scripts which go through a full
+                        reduction procedure similar to what I myself use, you
+			should feel free to write you own scripts which use
+			the 'pywifes' package to perform your preferred
+			reduction routine
+ 'extractor_gui/'     - a PyGTK-based GUI used for extracting spectra from
+                        hand-selected spaxels, mostly intended for me to be
+			able to extract supernova spectra
+
+To be able to run the pipeline, you need to do the following:
+1. Add the 'src/' subdirectory to your PYTHONPATH
+2. Tell the code where the reference data is stored by defining the environment variable 'PYWIFES_DIR' to point to the location of the 'reference_data/' directory.  Alternatively if you cannot define environment variables (Windows??) then you can update the reference directory location in the file 'src/wifes_metadata.py'.
+
+The only software dependencies are standard Python modules:
+ - NumPy
+ - SciPy (note: versions before 0.9 will not work with the interpolation
+          routine used here)
+ - PyFITS
+
+DISCLAIMER / ENCOURAGEMENT: The code has worked very well for me reducing data from the data sets I have been given. I am keen to get others testing it out for themselves so if something does not work, don't despair! I and my colleagues here at ANU will be actively working to make the code viable for all possible observing modes. 
+
+Both half-frame readout and nod-and-shuffle modes are fully supported.
+
+Currently the only known deficiency is if you mix and match your data formats (this does not mean nod-and-shuffle, which is handled seamlessly). If you run the reduction script the data *must* all have the same:
+ - camera (red/blue)
+ - binning
+ - detector size (full/half-frame readout)
+ - grating (this won't explicitly break the code but your results will be nonsense)
+
+I plan to make this subtlety seamless as well, but for now you should only reduce data and calibrations all taken in the same format.
+
+------------------------------------------------------------------------
+DATA REDUCTION PROCEDURE:
+
+1. SAVE METADATA: **NEW**  Run the 'generate_metadata_script.py' either in the directory where your data is, or passing the data directory as a command line argument like './generate_metadata_script.py /home/mjc/wifes_data/20120922/' etc.  This will generate the 'save_red_metadata.py' and 'save_blue_metadata.py' scripts.  Run these from the command line as 'python save_red_metadata.py' etc. or edit if the automated metadata structure is not what you desire for your reduction script.
+2. REDUCE THE DATA: Copy the reduction script 'reduce_all_data.py' from the 'reduction_scripts/' directory and edit the steps if desired.  Run the reduction script like './reduce_all_data.py my_metadata.pkl', this will open the metadata file and run your desired reduction steps.
+
+------------------------------------------------------------------------
+VERSION NOTES:
+0.6.0   (2013-09-06)
+        - Optical model for wavelength solution implemented (Neilsen/Sharp)
+        - Vastly improved arc line finding with MPFIT (Vogt)
+        - Scattered light correction for flat-fields (Vogt)
+        - New data format flux calibration solution (MC) - means v0.6.0
+          is INCOMPATIBLE with v0.5.0 and previous.
+        - Adjustable airmass dependency of telluric corrections (MC)
+        - Detector definitions for new "2nd generation" detectors
+        - Bad pixel correction for new detector "dead" columns
+
+0.5.1   (2012-11-??)
+        - Fixed bug with uneven nod+shuffle exposure times.  Apparently the
+          header keyword 'SEXP' does not refer to exposure time on sky, but
+          is the object sub-exposure time (I had swapped 'NEXP' and 'SEXP').
+          Thanks to Matt Owers for alerting me to this.
+
+0.5.0   (2012-11-09)
+        - Full support for half-frame readout mode. Data format is still 
+          uniform (25 slitlets) but last 13 are left blank and ignored for
+          half-frame data.
+        - Automatic identification of nod+shuffle data. No need to tell the
+          reduction script 'ns':True anymore.
+        - BUG FIX: The 'calibrate' task was not applying the extinction
+          curve (thanks to Fred for picking this up). All data were being
+          calibrated as if observed at airmass 1. This is now corrected.
+        - New function 'subtract_wifes_interslit_bias' which fits the bias
+          level using the pixels between slitlets (obviously this does not
+          work for nod+shuffle).
+
+0.4.2   (2012-10-22) - many upgrades thanks to Fred Vogt!
+        - Local calibration files now supported automatically (i.e. if you want
+          to use a nearby bias, arc, wire to calibrate a specific science
+          observation).
+        - Bias frames now fitted as smooth function for subtracting correct
+          bias shape.
+        - Atmospheric Differential Refraction (ADR) now incorporated!  This is
+          implemented at the data cube generation step. Edges where ADR would
+          request data off the actual science field of view are *not* shifted
+          for ADR (since the required data is not present) so users should be
+          cautious of edge effects (as always).
+        - 3D data cube generation now supported (final step in reduction) to
+          make data compatible with output of previous IRAF pipeline.
+
+0.4.0   (2012-10-05)
+        - Historical support for all detector epochs.  The overscan and bias
+          subtraction routines now automatically know how many amplifiers have
+          been used, their physical location in the FITS files, and their gain
+          and readnoise.  Optional keyword overrides still available as before.
+        - (Optional) New bias subtraction routine 'subtract_wifes_bias' can 
+          fit constant value or 2D plane to bias frame (in each amplifier).  
+          We are still investigating the proper functional form of the bias
+          structure but interested users can adjust the 'run_bias_sub' step
+          in the reduction script to use this now if desired.
+        - More generic wavelength solution procedures.  Wavelength guesses
+          are now based only on the grating (no dichroic dependence) and 
+          common arc lamp linelist are used for all instrument setups.  Thus
+          the code should be able to automatically derive a wavelength solution
+          for all instrument setup and arc lamp combinations.
+        - Wire frames now fitted with lower order polynomials.  Per speaking
+          with Mike Dopita this is the most appropriate format, and corrects
+          the overfitting done by the (former default) high order polynomial.
+
+0.3.1   (2012-09-27)
+        - Included script 'generate_metadata_script.py' which automatically
+          generates the metadata save scripts based on the data contents of
+          the specified directory.  See instruction above for details.
+        - Multithreading now incoroporated for cosmic ray and cube generation 
+          functions (formerly the rate limiting steps). Can be accessed by
+          passing 'multithread=True' as a kwarg to these functions, or directly
+          in the reduction script by uncommenting the 'multithread=True' line.
+
+0.3.0   (2012-08-24)
+        - IMPORTANT: New wavelength standard!!  Now wavelength solution is
+          saved as a FITS file in the same shape as the MEF data, with the
+          value at each pixel equal to the fitted wavelength.  This was being
+          calculated anyway at each step requiring knowledge of the wavelength
+          solution.  Most importantly, this now allows the source of the 
+          wavelength solution to be more generic, allowing compatibility
+          with the planned future optical model wavelength solution.
+        - Slitlet profile now fitted from coadd flat, used to generate MEF
+          files for all observations.
+        - Absolute flux calibration now standard.
+        - Automatic standard star extraction now uses maximum flux spaxel
+          as the guess for the star location (versus the former centroid
+          method).
+        - Massive speed-up of lacosmic routine, achieved by switching from
+          the (unnecessary) 2D interpolation to 1D interpolation.  Similar
+          speed up for response function calculation.
+        - Adjusted default lacosmic thresholds to very high values, which
+          successfully excises most cosmics without clipping narrow emission
+          line features.
+        - Fixed flatfielding normalization issues, so now the flatfield
+          response function from 'wifes_2dim_response' is truly spatially
+          flat (~0.5% RMS).
+        - Updated reduction scripts following my own data reduction from
+          my first WiFeS observing run two weeks ago!
+
+0.2.1   (2012-07-20)    
+        - Documentation on script use included
+        - Reference data environment variable capability added
+        - Fixed bug for N+S binned data which has detector region definition
+          going outside the actual detector! (thanks Sinem Ozbilgen)
+        - Includes many calls to the python 'garbage collector' package gc,
+          as it was found that the pipeline had a tendency to freeze up on
+          linux (thanks Cat de Burgh-Day).  Apparently python loops do NOT
+          actually clear out temporary variable definitions.
+
+0.2     (2012-07-10)
+        - First release of pywifes pipeline
+
