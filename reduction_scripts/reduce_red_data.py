@@ -403,10 +403,16 @@ def run_slitlet_profile(metadata, prev_suffix, curr_suffix, **args):
 # Create MEF files
 def run_superflat_mef(metadata, prev_suffix, curr_suffix, source):
     if source == 'dome':
-        in_fn  = super_dflat_fn
+        if os.path.isfile(super_dflat_fn):
+            in_fn  = super_dflat_fn
+        else:
+            in_fn = super_dflat_raw
         out_fn = super_dflat_mef
     elif source == 'twi':
-        in_fn  = super_tflat_fn
+        if os.path.isfile(super_tflat_fn):
+            in_fn  = super_tflat_fn
+        else :
+            in_fn = super_tflat_raw
         out_fn = super_tflat_mef
     else:
         raise ValueError, 'Flatfield type not recognized'
@@ -466,15 +472,15 @@ def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
         # Check if the file has a dedicated arc associated with it ...
         # Only for Science and Std stars for now (sky not required at this stage)
         # (less critical for the rest anyway ...)
-        local_arcs = get_associated_calib(metadata,fn, 'arc')            
-        if local_arcs :
-            local_arc_fn = '%s%s.p%s.fits' % (out_dir, local_arcs[0], prev_suffix)
-            local_wsol_out_fn = '%s%s.wsol.fits' % (out_dir, local_arcs[0])
+        #Mike I addition - reduce all local arcs (rather than just the first)
+        local_arcs = get_associated_calib(metadata,fn, 'arc')   
+        for local_arc in local_arcs :
+            local_arc_fn = '%s%s.p%s.fits' % (out_dir, local_arc, prev_suffix)
+            local_wsol_out_fn = '%s%s.wsol.fits' % (out_dir, local_arc)
             if os.path.isfile(local_wsol_out_fn):
                 continue
-            print 'Deriving local wavelength solution for %s' % local_arcs[0]
-            pywifes.derive_wifes_wave_solution(local_arc_fn, local_wsol_out_fn,
-                                               **args)
+            print 'Deriving local wavelength solution for %s' % local_arc
+            pywifes.derive_wifes_wave_solution(local_arc_fn, local_wsol_out_fn,**args)
     return
 
 #------------------------------------------------------
@@ -672,11 +678,48 @@ def run_cube_gen(metadata, prev_suffix, curr_suffix, **args):
         else:
             wire_fn = wire_out_fn
         local_arcs = get_associated_calib(metadata,fn, 'arc')
-        if local_wires :
-            wsol_fn = '%s%s.wsol.fits' % (out_dir, local_arcs[0])
-            print '(Note: using %s as wsol file)' % wsol_fn.split('/')[-1]
+        #Mike I addition: enable linear interpolation between wavelength
+        #scales found from a before and after arc file.
+        if local_arcs :
+            if len(local_arcs)==1:
+                wsol_fn = '%s%s.wsol.fits' % (out_dir, local_arcs[0])
+                print '(Note: using %s as wsol file)' % wsol_fn.split('/')[-1]
+            else:
+                #Assume that the two arc files are before and after.
+                #(WARNING: Probably not a great assumption - the code
+                #behaviour could be different with e.g. two low SNR arcs
+                #both before the science data)
+                fn0 = '%s%s.wsol.fits' % (out_dir, local_arcs[0])
+                fn1 = '%s%s.wsol.fits' % (out_dir, local_arcs[1])
+                fits0 = pyfits.open(fn0)
+                fits1 = pyfits.open(fn1)
+                #Compute the weights w from the filenames, which have the times in them.
+                #Unfortunately, there are no times in the headers. That would be a better
+                #way to do this though!
+                ix = fn0.rfind('-')
+                t0 = float(fn0[ix-6:ix-4]) + \
+                     float(fn0[ix-4:ix-2])/60.0 + \
+                     float(fn0[ix-2:ix])/60.0/60.0
+                ix = fn1.rfind('-')
+                t1 = float(fn1[ix-6:ix-4]) + \
+                     float(fn1[ix-4:ix-2])/60.0 + \
+                     float(fn1[ix-2:ix])/60.0/60.0
+                ix = fn.rfind('-')
+                ts = float(fn[ix-6:ix-4]) + \
+                     float(fn[ix-4:ix-2])/60.0 + \
+                     float(fn[ix-2:ix])/60.0/60.0
+                w0 = (t1 - ts)/(t1 - t0)
+                w1 = (ts - t0)/(t1 - t0)
+                #Now find a weighted average of the wavelength solution slices
+                #and save to a file named according to the target name.
+                n_slices = len(fits0) 
+                for i in range(1,n_slices):
+                    fits0[i].data = w0*fits0[i].data + w1*fits1[i].data
+                wsol_fn = '%s%s.wsol.fits' % (out_dir, fn) 
+                fits0.writeto(wsol_fn)
         else:
             wsol_fn = wsol_out_fn
+        #Now that we've sorted the file names out, generate the cube!
         pywifes.generate_wifes_cube(
             in_fn, out_fn,
             wire_fn=wire_fn,
