@@ -2,6 +2,7 @@ import numpy
 from scipy.interpolate import splrep
 import pickle
 import pyfits
+import os
 import scipy.interpolate
 import wifes_ephemeris
 from wifes_metadata import metadata_dir
@@ -10,7 +11,7 @@ from wifes_metadata import __version__
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
 # reference star information!
-stdstar_fn = metadata_dir+'stdstar_lookup_table.dat'
+stdstar_fn = os.path.join(metadata_dir,'stdstar_lookup_table.dat')
 f1 = open(stdstar_fn, 'r')
 stdstar_lines = f1.readlines()[1:]
 f1.close()
@@ -26,7 +27,7 @@ for line in stdstar_lines:
     ref_coords_lookup[name] = radec
 
 # extinction interpolation object
-extinct_fn = metadata_dir+'sso_extinction.dat'
+extinct_fn = os.path.join(metadata_dir,'sso_extinction.dat')
 extinct_data = numpy.loadtxt(extinct_fn)
 sso_extinct_interp = scipy.interpolate.interp1d(extinct_data[:,0],
                                                 extinct_data[:,1],
@@ -253,10 +254,10 @@ def extract_wifes_stdstar(cube_fn,
         numpy.savetxt(save_fn, save_data)
     elif save_mode == 'iraf':
         out_header = f[1].header
-        out_header.update('CD1_1', f[1].header['CDELT1'], savecomment=True)
-        out_header.update('CD2_2', 1)
-        out_header.update('CD3_3', 1)
-        out_header.update('LTM3_3', 1)
+        out_header.set('CD1_1', f[1].header['CDELT1'])
+        out_header.set('CD2_2', 1)
+        out_header.set('CD3_3', 1)
+        out_header.set('LTM3_3', 1)
         out_data = numpy.zeros([4,1,nlam],dtype='d')
         out_data[0,0,:] = std_flux
         out_data[1,0,:] = sky_flux
@@ -266,7 +267,7 @@ def extract_wifes_stdstar(cube_fn,
             data=out_data,
             header=out_header)
         outfits = pyfits.HDUList([out_hdu])
-        outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+        outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
         outfits.writeto(save_fn, clobber=True)
         f.close()
     else:
@@ -300,7 +301,7 @@ def wifes_cube_divide(inimg, outimg,
         # save to data cube
         outfits[i].data = out_flux
         outfits[i+25].data = out_var
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f3.close()
     return
@@ -467,7 +468,7 @@ def derive_wifes_calibration(cube_fn_list,
         if wave_max == None:
             wave_max = numpy.max(obs_wave)
         # get reference data
-        ref_data = numpy.loadtxt(ref_dir+ref_fname)
+        ref_data = numpy.loadtxt(os.path.join(ref_dir,ref_fname))
         ref_interp = scipy.interpolate.interp1d(
             ref_data[:,0], ref_data[:,1],
             bounds_error=False, fill_value=numpy.nan)
@@ -695,7 +696,7 @@ def calibrate_wifes_cube(inimg, outimg,
         # save to data cube
         outfits[i].data = out_flux
         outfits[i+25].data = out_var
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f3.close()
     return  
@@ -917,7 +918,7 @@ def apply_wifes_telluric(inimg,
         # save to data cube
         outfits[i].data = out_flux
         outfits[i+25].data = out_var
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f3.close()
     return

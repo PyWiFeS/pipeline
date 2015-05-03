@@ -18,7 +18,7 @@ from wifes_metadata import __version__
 import os
 
 #------------------------------------------------------------------------
-f0 = open(metadata_dir + 'basic_wifes_metadata.pkl', 'r')
+f0 = open(os.path.join(metadata_dir,'basic_wifes_metadata.pkl'), 'r')
 wifes_metadata = pickle.load(f0)
 f0.close()
 base_wsols = wifes_metadata['baseline_wsols']
@@ -539,7 +539,8 @@ def find_lines_and_guess_refs(slitlet_data,
             print ' Arc lamp not supported for Xcorr identification method !'
             print " I will crash now... bye !"
             print ' '
-        ref_fn = metadata_dir+'arclines.'+grating+'.'+arc_name+'.txt'
+        ref_fn = os.path.join(metadata_dir,
+                              'arclines.'+grating+'.'+arc_name+'.txt')
         if os.path.exists(ref_fn) :
             ref_arc = numpy.loadtxt(ref_fn,skiprows=1)
         else : 
@@ -565,7 +566,7 @@ def find_lines_and_guess_refs(slitlet_data,
         # Fred, 04.2013
 
         # Stretch value is not varying much over 1 slice.
-        # So, get it in the middle, and use it hroughout. 
+        # So, get it in the middle, and use it throughout. 
         # Gain some ~6.3 sec per slice by doing this !
         mid_row = numpy.int(nrows/2)
         mid_row_ind = (init_y_array == mid_row)
@@ -612,7 +613,8 @@ def find_lines_and_guess_refs(slitlet_data,
         iter_ref_array = ref_array[good_inds]
         
         if plot :
-            plot_detected_lines(chosen_slitlet, iter_x_array, iter_y_array, iter_ref_array)
+            plot_detected_lines(chosen_slitlet, iter_x_array, 
+                                iter_y_array, iter_ref_array, ncols)
         
         return  iter_x_array,iter_y_array, iter_ref_array
             
@@ -639,14 +641,15 @@ def find_lines_and_guess_refs(slitlet_data,
     iter_y_array   = start_full_y_array[iter0_good_inds]
 
     if plot :
-        plot_detected_lines(chosen_slitlet, iter_x_array, iter_y_array, iter_ref_array)
+        plot_detected_lines(chosen_slitlet, iter_x_array, iter_y_array, 
+                            iter_ref_array,ncols)
 
     return iter_x_array, iter_y_array, iter_ref_array
 
-def plot_detected_lines(slitlet, x, y, ref):
+def plot_detected_lines(slitlet, x, y, ref,ncols):
       pylab.figure()
       pylab.plot(x, ref, 'k.')
-      #pylab.xlim([0,ncols])
+      pylab.xlim([0,ncols])
       pylab.xlabel('Detected arc lines position (spectral dir.) [pixel]')
       pylab.ylabel('Associated wavelength [Angstroem]')
       pylab.title('Slice '+str(slitlet))
@@ -657,8 +660,8 @@ def plot_detected_lines(slitlet, x, y, ref):
       for a in numpy.unique(ref):
           args = ref == a
           pylab.plot(x[args], y[args], next(linestylecycler))
-      #pylab.xlim([0,ncols])
-      pylab.xlabel( 'Detected arc lines position (spectral dir.) [pixel]')
+      pylab.xlim([0,ncols])
+      pylab.xlabel('Detected arc lines position (spectral dir.) [pixel]')
       pylab.ylabel('Detected arc lines position (spatial dir.) [pixel]')
       pylab.title('Slice '+str(slitlet))
       pylab.show()

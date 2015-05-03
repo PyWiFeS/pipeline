@@ -7,7 +7,6 @@ mdir = os.getenv('PYWIFES_DIR')
 
 # Otherwise, just look where we are right now, and go from there
 if mdir == None:
-    #metadata_dir = '/Users/fvogt/Tools/Python/pywifes/pywifes_v0.5.6/reference_data/'
     # Where are we located ?
     src_dir = os.path.dirname(__file__)
     # Where are the reference data ?
