@@ -1,6 +1,6 @@
 import os
 
-__version__ = '0.7.0'
+__version__ = '0.7.2'
 
 # If you set the environment variable 'PYWIFES_DIR' then it will be found
 mdir = os.getenv('PYWIFES_DIR')
