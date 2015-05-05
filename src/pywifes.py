@@ -3011,9 +3011,7 @@ def generate_wifes_cube_multithread(
         sys.stdout.flush()
     threads = []
 
-    pylab.figure()
-
-    for i in [1,12,25]:#range(1,nslits+1):
+    for i in range(1,nslits+1):
         f4 = pyfits.open(wsol_fn)
         wave = f4[i].data
         wave_hdr = f4[i].header
@@ -3038,9 +3036,6 @@ def generate_wifes_cube_multithread(
         wave_flat = wave.flatten()
         all_ypos_flat = all_ypos.flatten()
     
-        pylab.plot(wave[(wave>6295)*(wave<6305)],curr_flux[[(wave>6295)*(wave<6305)]],'.')
-
-        '''
         # Calculate the ADR corrections (this is slow)
         if adr :
             adr = adr_x_y(wave_flat,secz, ha, dec, lat, teltemp = 0.0,
@@ -3096,10 +3091,7 @@ def generate_wifes_cube_multithread(
                     'hdr' : wave_hdr})
         new_dq_thread.start()
         threads.append(new_dq_thread)
-    '''
-    pylab.show()
-    import pdb
-    pdb.set_trace()
+
     for i in range(len(threads)):
         t = threads[i]
         t.join()
@@ -3108,6 +3100,7 @@ def generate_wifes_cube_multithread(
             sys.stdout.write('\r\r %d' % ((i+1)/(float(len(threads)))*100.) + '%')
             sys.stdout.flush()
             if i == (len(threads)-1) : sys.stdout.write('\n')
+
     #---------------------------
     # GATHER ALL TRANSFORMED DATA
     # Create a temporary storage array for first iteration
