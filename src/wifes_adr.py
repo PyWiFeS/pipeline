@@ -1,6 +1,6 @@
 import numpy
 import pylab
-import pyfits
+from astropy.io import fits as pyfits
 import scipy.optimize
 
 def ha_degrees(ha_str):

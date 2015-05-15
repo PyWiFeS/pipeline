@@ -1,5 +1,5 @@
 import re
-import pyfits
+from astropy.io import fits as pyfits
 import numpy
 import pylab
 import pickle

@@ -12,7 +12,7 @@ from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-import pyfits as pf
+from astropy.io import fits as pf
 import functools
 import multiprocessing
 import pickle

@@ -3,7 +3,7 @@
 import sys
 import os
 import pickle
-import pyfits
+from astropy.io import fits as pyfits
 import pywifes
 import gc
 import datetime
