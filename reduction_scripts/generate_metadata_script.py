@@ -2,7 +2,7 @@
 
 import sys
 import os
-import pyfits
+from astropy.io import fits as pyfits
 import wifes_calib
 
 stdstar_list = wifes_calib.ref_fname_lookup.keys()

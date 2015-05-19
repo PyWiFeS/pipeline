@@ -1,7 +1,7 @@
 import numpy
 from scipy.interpolate import splrep
 import pickle
-import pyfits
+from astropy.io import fits as pyfits
 import scipy.interpolate
 import wifes_ephemeris
 from wifes_metadata import metadata_dir

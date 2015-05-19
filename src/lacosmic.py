@@ -1,4 +1,4 @@
-import pyfits
+from astropy.io import fits as pyfits
 import numpy
 import subprocess
 import multiprocessing

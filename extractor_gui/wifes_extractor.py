@@ -8,7 +8,7 @@ import gtk
 import numpy
 import os
 import re
-import pyfits
+from astropy.io import fits as pyfits
 
 import pylab
 import matplotlib.cm

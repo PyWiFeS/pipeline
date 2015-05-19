@@ -1,4 +1,4 @@
-import pyfits
+from astropy.io import fits as pyfits
 import numpy
 import pickle
 import scipy.interpolate
@@ -9,10 +9,8 @@ from wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
 import gc
 import mpfit
 import sys
-
-# Fred's update (bias fit)
+import os
 import scipy.ndimage as ndimage
-# Fred's update (flat corr)
 import scipy.interpolate as interp
 import pylab
 
@@ -21,7 +19,7 @@ from wifes_metadata import __version__
 
 #------------------------------------------------------------------------
 # NEED TO OPEN / ACCESS WIFES METADATA FILE!!
-f0 = open(metadata_dir + 'basic_wifes_metadata.pkl', 'r')
+f0 = open(os.path.join(metadata_dir,'basic_wifes_metadata.pkl'), 'r')
 wifes_metadata = pickle.load(f0)
 f0.close()
 blue_slitlet_defs = wifes_metadata['blue_slitlet_defs']
@@ -135,21 +133,21 @@ def imcombine(inimg_list, outimg,
         last_hdr = f2[data_hdu].header
         f2.close()
         # HAEND, ZDEND, EXPTIME
-        outfits[data_hdu].header.update(
-            'EXPTIME', sum(exptime_list), savecomment=True)
-        outfits[data_hdu].header.update(
-            'LSTEND', last_hdr['LSTEND'], savecomment=True)
-        outfits[data_hdu].header.update(
-            'UTCEND', last_hdr['UTCEND'], savecomment=True)
-        outfits[data_hdu].header.update(
-            'HAEND', last_hdr['HAEND'], savecomment=True)
-        outfits[data_hdu].header.update(
-            'ZDEND', last_hdr['ZDEND'], savecomment=True)
-        outfits[data_hdu].header.update(
+        outfits[data_hdu].header.set(
+            'EXPTIME', sum(exptime_list))
+        outfits[data_hdu].header.set(
+            'LSTEND', last_hdr['LSTEND'])
+        outfits[data_hdu].header.set(
+            'UTCEND', last_hdr['UTCEND'])
+        outfits[data_hdu].header.set(
+            'HAEND', last_hdr['HAEND'])
+        outfits[data_hdu].header.set(
+            'ZDEND', last_hdr['ZDEND'])
+        outfits[data_hdu].header.set(
             'AIRMASS',
-            numpy.mean(numpy.array(airmass_list)), savecomment=True)
+            numpy.mean(numpy.array(airmass_list)))
     # (5) write to outfile!
-    outfits[data_hdu].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[data_hdu].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     gc.collect()
     return
@@ -214,35 +212,35 @@ def imcombine_mef(inimg_list, outimg,
         last_hdr = f2[1].header
         f2.close()
         # HAEND, ZDEND, EXPTIME
-        outfits[1].header.update(
-            'EXPTIME', sum(exptime_list), savecomment=True)
+        outfits[1].header.set(
+            'EXPTIME', sum(exptime_list))
         try:
-            outfits[1].header.update(
-                'LSTEND', last_hdr['LSTEND'], savecomment=True)
+            outfits[1].header.set(
+                'LSTEND', last_hdr['LSTEND'])
         except:
             pass
         try:
-            outfits[1].header.update(
-                'UTCEND', last_hdr['UTCEND'], savecomment=True)
+            outfits[1].header.set(
+                'UTCEND', last_hdr['UTCEND'])
         except:
             pass
         try:
-            outfits[1].header.update(
-                'HAEND', last_hdr['HAEND'], savecomment=True)
+            outfits[1].header.set(
+                'HAEND', last_hdr['HAEND'])
         except:
             pass
         try:
-            outfits[1].header.update(
-                'ZDEND', last_hdr['ZDEND'], savecomment=True)
+            outfits[1].header.set(
+                'ZDEND', last_hdr['ZDEND'])
         except:
             pass
         if len(airmass_list) > 0:
-            outfits[1].header.update(
+            outfits[1].header.set(
                 'AIRMASS',
-                numpy.mean(numpy.array(airmass_list)), savecomment=True)
+                numpy.mean(numpy.array(airmass_list)))
     # (5) write to outfile!
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
-    outfits[1].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[1].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f.close()
     gc.collect()
@@ -318,7 +316,7 @@ def imarith_mef(inimg1, operator, inimg2, outimg):
         outfits[dq_hdu].data = op_dq
         gc.collect()
     # (5) write to outfile!
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f1.close()
     f2.close()
@@ -395,7 +393,7 @@ def scaled_imarith_mef(inimg1, operator, inimg2, outimg,
         op_dq = dq1+dq2
         outfits[dq_hdu].data = op_dq
     # (5) write to outfile!
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f1.close()
     f2.close()
@@ -419,7 +417,7 @@ def imarith(inimg1, operator, inimg2, outimg, data_hdu=0):
     else:
         raise ValueError
     outfits[data_hdu].data = op_data
-    outfits[data_hdu].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[data_hdu].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f1.close()
     f2.close()
@@ -480,7 +478,7 @@ def imarith_float_mef(inimg1, operator, scale, outimg):
         op_dq = dq1
         outfits[dq_hdu].data = op_dq
     # (5) write to outfile!
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f1.close()
     return
@@ -726,14 +724,14 @@ def subtract_overscan(inimg, outimg,
         subbed_data = next_data
     # (4) only modify data part of data_hdu for output
     detsize_str = '[%d:%d,%d:%d]' % (1, ny, 1, nx)
-    outfits[data_hdu].header.update('DETSIZE', detsize_str, savecomment=True)
-    outfits[data_hdu].header.update('CCDSIZE', detsize_str, savecomment=True)
-    #outfits[data_hdu].header.update('CCDSEC',  detsize_str, savecomment=True)
-    outfits[data_hdu].header.update('DATASEC', detsize_str, savecomment=True)
-    outfits[data_hdu].header.update('TRIMSEC', detsize_str, savecomment=True)
-    outfits[data_hdu].header.update('RDNOISE', max(rdnoise), savecomment=True)
-    outfits[data_hdu].header.update('GAIN', 1.0, savecomment=True)
-    outfits[data_hdu].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[data_hdu].header.set('DETSIZE', detsize_str)
+    outfits[data_hdu].header.set('CCDSIZE', detsize_str)
+    #outfits[data_hdu].header.set('CCDSEC',  detsize_str)
+    outfits[data_hdu].header.set('DATASEC', detsize_str)
+    outfits[data_hdu].header.set('TRIMSEC', detsize_str)
+    outfits[data_hdu].header.set('RDNOISE', max(rdnoise))
+    outfits[data_hdu].header.set('GAIN', 1.0)
+    outfits[data_hdu].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits[data_hdu].data = subbed_data
     # (5) write to outfile!
     outfits.writeto(outimg, clobber=True)
@@ -1017,7 +1015,7 @@ def save_wifes_interslit_bias(inimg, outimg,
                                         plot=plot)
     # (2) save it!
     outfits[data_hdu].data = out_data
-    outfits[data_hdu].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[data_hdu].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f.close()
     return
@@ -1043,7 +1041,7 @@ def subtract_wifes_interslit_bias(inimg, outimg,
                                         plot=plot)
     # (2) save it!
     outfits[data_hdu].data = orig_data - out_data
-    outfits[data_hdu].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[data_hdu].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     return
 
@@ -1241,7 +1239,7 @@ def generate_wifes_bias_fit(bias_img, outimg, data_hdu=0,
     # save it!
     outfits = pyfits.HDUList(f1)
     outfits[data_hdu].data = out_data
-    outfits[data_hdu].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[data_hdu].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f1.close()
     return
@@ -1507,7 +1505,7 @@ def interslice_cleanup(input_fn, output_fn,
     f[0].data = fitted
     f.writeto(input_fn[:-5]+'_corr.fits',clobber=True) # Save the corretion image separately just in case
     f[0].data = data - fitted + offset*numpy.mean(fitted)
-    f[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    f[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     f.writeto(output_fn,clobber=True)
     f.close()
     if verbose:    
@@ -1643,9 +1641,9 @@ def wifes_slitlet_mef(inimg, outimg, data_hdu=0,
         # create fits hdu
         hdu_name = 'SCI%d' % (i+1)
         new_hdu = pyfits.ImageHDU(new_data, old_hdr, name=hdu_name)
-        new_hdu.header.update('CCDSEC',  dim_str, savecomment=True)
-        new_hdu.header.update('DATASEC', dim_str, savecomment=True)
-        new_hdu.header.update('TRIMSEC', dim_str, savecomment=True)
+        new_hdu.header.set('CCDSEC',  dim_str)
+        new_hdu.header.set('DATASEC', dim_str)
+        new_hdu.header.set('TRIMSEC', dim_str)
         outfits.append(new_hdu)
         gc.collect()
     #print squirrel
@@ -1680,9 +1678,9 @@ def wifes_slitlet_mef(inimg, outimg, data_hdu=0,
         # create fits hdu
         hdu_name = 'VAR%d' % (i+1)
         new_hdu = pyfits.ImageHDU(var_data, old_hdr, name=hdu_name)
-        new_hdu.header.update('CCDSEC',  dim_str, savecomment=True)
-        new_hdu.header.update('DATASEC', dim_str, savecomment=True)
-        new_hdu.header.update('TRIMSEC', dim_str, savecomment=True)
+        new_hdu.header.set('CCDSEC',  dim_str)
+        new_hdu.header.set('DATASEC', dim_str)
+        new_hdu.header.set('TRIMSEC', dim_str)
         outfits.append(new_hdu)
         gc.collect()
     # DATA QUALITY EXTENSIONS
@@ -1720,12 +1718,12 @@ def wifes_slitlet_mef(inimg, outimg, data_hdu=0,
         # create fits hdu
         hdu_name = 'DQ%d' % (i+1)
         new_hdu = pyfits.ImageHDU(dq_data, old_hdr, name=hdu_name)
-        new_hdu.header.update('CCDSEC',  dim_str, savecomment=True)
-        new_hdu.header.update('DATASEC', dim_str, savecomment=True)
-        new_hdu.header.update('TRIMSEC', dim_str, savecomment=True)
+        new_hdu.header.set('CCDSEC',  dim_str)
+        new_hdu.header.set('DATASEC', dim_str)
+        new_hdu.header.set('TRIMSEC', dim_str)
         outfits.append(new_hdu)
         gc.collect()
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     return
 
@@ -1806,12 +1804,12 @@ def wifes_slitlet_mef_ns(inimg, outimg_obj, outimg_sky,
         # create fits hdu for object
         hdu_name = 'SCI%d' % (i+1)
         obj_hdu = pyfits.ImageHDU(obj_data, old_hdr, name=hdu_name)
-        obj_hdu.header.update('CCDSEC',  obj_dim_str, savecomment=True)
-        obj_hdu.header.update('DATASEC', obj_dim_str, savecomment=True)
-        obj_hdu.header.update('TRIMSEC', obj_dim_str, savecomment=True)
+        obj_hdu.header.set('CCDSEC',  obj_dim_str)
+        obj_hdu.header.set('DATASEC', obj_dim_str)
+        obj_hdu.header.set('TRIMSEC', obj_dim_str)
         # fix the exposure time!!
         exptime_true = float(old_hdr['SEXP'])*float(old_hdr['NSUBEXPS'])
-        obj_hdu.header.update('EXPTIME', exptime_true,
+        obj_hdu.header.set('EXPTIME', exptime_true,
                               comment='Total NS exposure time')
         outfits_obj.append(obj_hdu)
         #------------------
@@ -1836,12 +1834,12 @@ def wifes_slitlet_mef_ns(inimg, outimg_obj, outimg_sky,
         # create fits hdu for sky
         hdu_name = 'SCI%d' % (i+1)
         sky_hdu = pyfits.ImageHDU(sky_data, old_hdr, name=hdu_name)
-        sky_hdu.header.update('CCDSEC',  sky_dim_str, savecomment=True)
-        sky_hdu.header.update('DATASEC', sky_dim_str, savecomment=True)
-        sky_hdu.header.update('TRIMSEC', sky_dim_str, savecomment=True)
+        sky_hdu.header.set('CCDSEC',  sky_dim_str)
+        sky_hdu.header.set('DATASEC', sky_dim_str)
+        sky_hdu.header.set('TRIMSEC', sky_dim_str)
         # fix the exposure time!!
         exptime_true = float(old_hdr['NEXP'])*float(old_hdr['NSUBEXPS'])
-        sky_hdu.header.update('EXPTIME', exptime_true,
+        sky_hdu.header.set('EXPTIME', exptime_true,
                               comment='Total NS exposure time')
         outfits_sky.append(sky_hdu)
         gc.collect()
@@ -1890,12 +1888,12 @@ def wifes_slitlet_mef_ns(inimg, outimg_obj, outimg_sky,
         # create fits hdu
         hdu_name = 'VAR%d' % (i+1)
         obj_hdu = pyfits.ImageHDU(obj_var, old_hdr, name=hdu_name)
-        obj_hdu.header.update('CCDSEC',  obj_dim_str, savecomment=True)
-        obj_hdu.header.update('DATASEC', obj_dim_str, savecomment=True)
-        obj_hdu.header.update('TRIMSEC', obj_dim_str, savecomment=True)
+        obj_hdu.header.set('CCDSEC',  obj_dim_str)
+        obj_hdu.header.set('DATASEC', obj_dim_str)
+        obj_hdu.header.set('TRIMSEC', obj_dim_str)
         # fix the exposure time!!
         exptime_true = float(old_hdr['SEXP'])*float(old_hdr['NSUBEXPS'])
-        obj_hdu.header.update('EXPTIME', exptime_true,
+        obj_hdu.header.set('EXPTIME', exptime_true,
                               comment='Total NS exposure time')
         outfits_obj.append(obj_hdu)
         #------------------
@@ -1921,12 +1919,12 @@ def wifes_slitlet_mef_ns(inimg, outimg_obj, outimg_sky,
         # create fits hdu
         hdu_name = 'VAR%d' % (i+1)
         sky_hdu = pyfits.ImageHDU(sky_var, old_hdr, name=hdu_name)
-        sky_hdu.header.update('CCDSEC',  sky_dim_str, savecomment=True)
-        sky_hdu.header.update('DATASEC', sky_dim_str, savecomment=True)
-        sky_hdu.header.update('TRIMSEC', sky_dim_str, savecomment=True)
+        sky_hdu.header.set('CCDSEC',  sky_dim_str)
+        sky_hdu.header.set('DATASEC', sky_dim_str)
+        sky_hdu.header.set('TRIMSEC', sky_dim_str)
         # fix the exposure time!!
         exptime_true = float(old_hdr['NEXP'])*float(old_hdr['NSUBEXPS'])
-        sky_hdu.header.update('EXPTIME', exptime_true,
+        sky_hdu.header.set('EXPTIME', exptime_true,
                               comment='Total NS exposure time')
         outfits_sky.append(sky_hdu)
         gc.collect()
@@ -1975,30 +1973,30 @@ def wifes_slitlet_mef_ns(inimg, outimg_obj, outimg_sky,
         # create fits hdu for object
         hdu_name = 'DQ%d' % (i+1)
         obj_hdu = pyfits.ImageHDU(obj_dq, old_hdr, name=hdu_name)
-        obj_hdu.header.update('CCDSEC',  obj_dim_str, savecomment=True)
-        obj_hdu.header.update('DATASEC', obj_dim_str, savecomment=True)
-        obj_hdu.header.update('TRIMSEC', obj_dim_str, savecomment=True)
+        obj_hdu.header.set('CCDSEC',  obj_dim_str)
+        obj_hdu.header.set('DATASEC', obj_dim_str)
+        obj_hdu.header.set('TRIMSEC', obj_dim_str)
         # fix the exposure time!!
         exptime_true = float(old_hdr['SEXP'])*float(old_hdr['NSUBEXPS'])
-        obj_hdu.header.update('EXPTIME', exptime_true,
+        obj_hdu.header.set('EXPTIME', exptime_true,
                               comment='Total NS exposure time')
         outfits_obj.append(obj_hdu)
         #------------------
         # create fits hdu for object
         hdu_name = 'DQ%d' % (i+1)
         sky_hdu = pyfits.ImageHDU(sky_dq, old_hdr, name=hdu_name)
-        sky_hdu.header.update('CCDSEC',  sky_dim_str, savecomment=True)
-        sky_hdu.header.update('DATASEC', sky_dim_str, savecomment=True)
-        sky_hdu.header.update('TRIMSEC', sky_dim_str, savecomment=True)
+        sky_hdu.header.set('CCDSEC',  sky_dim_str)
+        sky_hdu.header.set('DATASEC', sky_dim_str)
+        sky_hdu.header.set('TRIMSEC', sky_dim_str)
         # fix the exposure time!!
         exptime_true = float(old_hdr['NEXP'])*float(old_hdr['NSUBEXPS'])
-        sky_hdu.header.update('EXPTIME', exptime_true,
+        sky_hdu.header.set('EXPTIME', exptime_true,
                               comment='Total NS exposure time')
         outfits_sky.append(sky_hdu)
         gc.collect()
     #------------------------------------
-    outfits_obj[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
-    outfits_sky[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits_obj[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
+    outfits_sky[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits_obj.writeto(outimg_obj, clobber=True)
     outfits_sky.writeto(outimg_sky, clobber=True)
     return
@@ -2042,7 +2040,7 @@ def wifes_response_pixel(inimg, outimg, wsol_fn = None):
             normed_data = orig_data / curr_model
         outfits[curr_hdu].data = normed_data
         # need to fit this for each slitlet
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f.close()
     return
@@ -2133,7 +2131,7 @@ def wifes_response_poly(inimg, outimg,
             var_hdu = curr_hdu+25
             outfits[var_hdu].data *= 0.0
         # need to fit this for each slitlet
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f.close()
     return
@@ -2327,7 +2325,7 @@ def wifes_2dim_response(spec_inimg,
             var_hdu = curr_hdu+25
             outfits[var_hdu].data *= 0.0
         # need to fit this for each slitlet
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f1.close()
     f2.close()
@@ -2441,7 +2439,7 @@ def wifes_illumination(spatial_inimg,
             var_hdu = curr_hdu+25
             outfits[var_hdu].data *= 0.0
         # need to fit this for each slitlet
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f1.close()
     f2.close()
@@ -2577,7 +2575,7 @@ def derive_wifes_wire_solution(inimg, out_file,
     f.close()
     results = pyfits.PrimaryHDU(data = ctr_results)
     g = pyfits.HDUList([results])
-    g[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    g[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     g.writeto(out_file, clobber=True)
     return
 
@@ -2861,12 +2859,12 @@ def generate_wifes_cube_oneproc(
     for i in range(1,26):
         # save to data cube
         outfits[i].data = flux_data_cube_tmp[i-1,:,:]
-        outfits[i].header.update('CRVAL1', final_frame_wmin)
-        outfits[i].header.update('CDELT1', disp_ave)
+        outfits[i].header.set('CRVAL1', final_frame_wmin)
+        outfits[i].header.set('CDELT1', disp_ave)
         outfits[i+25].data = var_data_cube_tmp[i-1,:,:]
         outfits[i+50].data = dq_data_cube_tmp[i-1,:,:]
-        #outfits[i].header.update('NAXIS1', len(out_lambda))
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+        #outfits[i].header.set('NAXIS1', len(out_lambda))
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f3.close()
     return 
@@ -2886,7 +2884,7 @@ def save_wifes_cube_single_thread(
     # save to a fits file
     outfits = pyfits.HDUList([pyfits.PrimaryHDU(data = interp_flux,
                                                 header = hdr)])
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(out_fn, clobber=True)
     return
 
@@ -3012,6 +3010,7 @@ def generate_wifes_cube_multithread(
         sys.stdout.write('\r 0%')
         sys.stdout.flush()
     threads = []
+
     for i in range(1,nslits+1):
         f4 = pyfits.open(wsol_fn)
         wave = f4[i].data
@@ -3036,6 +3035,7 @@ def generate_wifes_cube_multithread(
         # for the desired output y-lambda grid
         wave_flat = wave.flatten()
         all_ypos_flat = all_ypos.flatten()
+    
         # Calculate the ADR corrections (this is slow)
         if adr :
             adr = adr_x_y(wave_flat,secz, ha, dec, lat, teltemp = 0.0,
@@ -3091,6 +3091,7 @@ def generate_wifes_cube_multithread(
                     'hdr' : wave_hdr})
         new_dq_thread.start()
         threads.append(new_dq_thread)
+
     for i in range(len(threads)):
         t = threads[i]
         t.join()
@@ -3099,6 +3100,7 @@ def generate_wifes_cube_multithread(
             sys.stdout.write('\r\r %d' % ((i+1)/(float(len(threads)))*100.) + '%')
             sys.stdout.flush()
             if i == (len(threads)-1) : sys.stdout.write('\n')
+
     #---------------------------
     # GATHER ALL TRANSFORMED DATA
     # Create a temporary storage array for first iteration
@@ -3181,12 +3183,12 @@ def generate_wifes_cube_multithread(
     for i in range(1,26):
         # save to data cube
         outfits[i].data = flux_data_cube_tmp[i-1,:,:]
-        outfits[i].header.update('CRVAL1', final_frame_wmin)
-        outfits[i].header.update('CDELT1', disp_ave)
+        outfits[i].header.set('CRVAL1', final_frame_wmin)
+        outfits[i].header.set('CDELT1', disp_ave)
         outfits[i+25].data = var_data_cube_tmp[i-1,:,:]
         outfits[i+50].data = dq_data_cube_tmp[i-1,:,:]
-        #outfits[i].header.update('NAXIS1', len(out_lambda))
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+        #outfits[i].header.set('NAXIS1', len(out_lambda))
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f3.close()
     return    
@@ -3244,24 +3246,24 @@ def generate_wifes_3dcube(inimg, outimg):
     # save to data cube
     # DATA
     cube_hdu = pyfits.PrimaryHDU(obj_cube_data, header = f[0].header)
-    cube_hdu.header.update('CRVAL3',lam0, 'Reference wavelength')
-    cube_hdu.header.update('CDELT3',dlam, 'Wavelength step')
-    #cube_hdu.header.update('PYWIFES',__version__, 'Pywifes version'))
+    cube_hdu.header.set('CRVAL3',lam0, 'Reference wavelength')
+    cube_hdu.header.set('CDELT3',dlam, 'Wavelength step')
+    #cube_hdu.header.set('PYWIFES',__version__, 'Pywifes version'))
     outfits = pyfits.HDUList([cube_hdu])
     # VARIANCE
     var_hdu = pyfits.PrimaryHDU(obj_cube_var, header = f[0].header)
-    var_hdu.header.update('CRVAL3',lam0, 'Reference wavelength')
-    var_hdu.header.update('CDELT3',dlam, 'Wavelength step')
-    #var_hdu.header.update('PYWIFES',__version__, 'Pywifes version')
+    var_hdu.header.set('CRVAL3',lam0, 'Reference wavelength')
+    var_hdu.header.set('CDELT3',dlam, 'Wavelength step')
+    #var_hdu.header.set('PYWIFES',__version__, 'Pywifes version')
     outfits.append(var_hdu)
     # DQ
     dq_hdu = pyfits.PrimaryHDU(obj_cube_dq, header = f[0].header)
-    dq_hdu.header.update('CRVAL3',lam0, 'Reference wavelength')
-    dq_hdu.header.update('CDELT3',dlam, 'Wavelength step')
-    #dq_hdu.header.update('PYWIFES',__version__, 'Pywifes version')
+    dq_hdu.header.set('CRVAL3',lam0, 'Reference wavelength')
+    dq_hdu.header.set('CDELT3',dlam, 'Wavelength step')
+    #dq_hdu.header.set('PYWIFES',__version__, 'Pywifes version')
     outfits.append(dq_hdu)
     # SAVE IT
-    outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
+    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, clobber=True)
     f.close()
     return

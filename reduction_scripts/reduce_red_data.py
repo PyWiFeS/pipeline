@@ -3,36 +3,37 @@
 import sys
 import os
 import pickle
-import pyfits
+from astropy.io import fits as pyfits
 import pywifes
 import gc
-
-#--- required for Fred's updates -------
 import datetime
-
-#---------------------- Fred's update -----------------------------------
-start_time = datetime.datetime.now()
+import warnings
 
 #------------------------------------------------------------------------
+start_time = datetime.datetime.now()
+#------------------------------------------------------------------------
+
 # get name of metadata file
 meta_fn = sys.argv[1]
 f1 = open(meta_fn, 'r')
 obs_metadata = pickle.load(f1)
 f1.close()
 
-# testing on Fred's data
-proj_dir = '/priv/maipenrai/skymap/mjc/wifes/20130622/'
-data_dir = proj_dir+'raw_data/'
-out_dir  = proj_dir+'proc_data/'
+# Where is everything ?
+# New in 0.7.x: get the project directory from the file location !
+proj_dir = os.path.dirname(__file__)
+data_dir = os.path.join(proj_dir,'raw_data/')
+out_dir  = os.path.join(proj_dir,'reduc_r/')
+calib_prefix = os.path.join(out_dir,'wifesR_20150314')
 
-calib_prefix = out_dir+'wifesR_20130622'
+# Some WiFeS specific things
 my_data_hdu=0
 
-# SET MULTITHREAD
+# SET MULTITHREAD ?
 #multithread=False
 multithread=True
 
-# SET SKIP ALREADY DONE FILES
+# SET SKIP ALREADY DONE FILES ?
 skip_done=False
 #skip_done=True
 
@@ -41,23 +42,25 @@ skip_done=False
 #************************************************************************
 #*****                USER REDUCTION DESIGN IS SET HERE             *****
 #************************************************************************
-#  sky subtraction, no image combination
 proc_steps = [
     #------------------
     {'step':'overscan_sub'   , 'run':False, 'suffix':'00', 'args':{}},
     {'step':'bpm_repair'     , 'run':False, 'suffix':'01', 'args':{}},
     #------------------
     {'step':'superbias'      , 'run':False, 'suffix':None,
-     'args':{'method':'row_med', 'plot':True, 
+     'args':{'method':'row_med', 
+             'plot':True, 
              'verbose':False}},
     {'step':'bias_sub'       , 'run':False, 'suffix':'02',
-     'args':{'method':'subtract', 'plot':False, 
+     'args':{'method':'subtract', 
+             'plot':False, 
              'verbose':False}},
     #------------------
     {'step':'superflat'      , 'run':False, 'suffix':None,
      'args':{'source':'dome'}},
     {'step':'superflat'      , 'run':False, 'suffix':None,
-     'args':{'source':'twi', 'scale':'median_nonzero'}},
+     'args':{'source':'twi', 
+             'scale':'median_nonzero'}},
     {'step':'slitlet_profile', 'run':False, 'suffix':None, 'args':{}},
     #------------------
     {'step':'flat_cleanup'   , 'run':False, 'suffix':None,
@@ -81,7 +84,7 @@ proc_steps = [
      'args':{'verbose':True,
              'method' : 'optical',
              'doalphapfit' : True,
-             'doplot' : True,
+             'doplot' : ['step2'],
              'shift_method' : 'xcorr_all',
              'find_method' : 'mpfit',
              'dlam_cut_start':5.0}},
@@ -90,38 +93,43 @@ proc_steps = [
      'args':{'mode':'all'}},
     #------------------
     {'step':'cosmic_rays'    , 'run':False, 'suffix':'04',
-     'args':{'ns':False, 'multithread':multithread}},
+     'args':{'ns':False, 
+             'multithread':multithread}},
     #------------------
-    {'step':'sky_sub'        , 'run':False, 'suffix':'05',
+    {'step':'sky_sub'        , 'run':True, 'suffix':'05',
      'args':{'ns':False}},
     #------------------
-    {'step':'obs_coadd'      , 'run':False, 'suffix':'06',
+    {'step':'obs_coadd'      , 'run':True, 'suffix':'06',
      'args':{'method':'sum'}},
     #------------------
     {'step':'flatfield'      , 'run':False, 'suffix':'07', 'args':{}},
     #------------------
-    {'step':'cube_gen'       , 'run':False, 'suffix':'08',
-     'args':{'multithread':multithread,'adr':True,
-             'wmin_set':5400.0}},
+    {'step':'cube_gen'       , 'run':True, 'suffix':'08',
+     'args':{'multithread':multithread,
+             'adr':False,
+             #'dw_set':0.44,
+             'wmin_set':5400.0,
+             'wmax_set':7000.0}},
     #------------------
-    {'step':'extract_stars'  , 'run':False, 'suffix':None,
-     'args':{'ytrim':4, 'type':'flux'}},
-    {'step':'derive_calib'   , 'run':False, 'suffix':None,
-     'args':{'plot_stars':False,
+    {'step':'extract_stars'  , 'run':True, 'suffix':None,
+     'args':{'ytrim':4, 
+             'type':'flux'}},
+    {'step':'derive_calib'   , 'run':True, 'suffix':None,
+     'args':{'plot_stars':True,
              'plot_sensf':True,
              'polydeg':10,
-             'method':'poly',
+             'method':'smooth_SG',
              'norm_stars':True}},
-    {'step':'flux_calib'     , 'run':False, 'suffix':'09', 'args':{}},
+    {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}},
     #------------------
-    {'step':'extract_stars'  , 'run':False, 'suffix':None,
-     'args':{'ytrim':4, 'type':'telluric'}},
-    {'step':'derive_telluric', 'run':False, 'suffix':None,
+    {'step':'extract_stars'  , 'run':True, 'suffix':None,
+     'args':{'ytrim':4, 
+             'type':'telluric'}},
+    {'step':'derive_telluric', 'run':True, 'suffix':None,
      'args':{'plot':True}},
-    {'step':'telluric_corr'  , 'run':False, 'suffix':'10', 'args':{}},
-    # Fred's update -> save the cube in a standard shape
+    {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
     #------------------
-    {'step':'save_3dcube'    , 'run':False, 'suffix':'11', 'args':{}}
+    {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
     #------------------
     ]
 
