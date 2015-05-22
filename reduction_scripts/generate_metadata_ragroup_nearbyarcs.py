@@ -41,9 +41,7 @@ for fn in all_files:
             continue
         else:
             red_obs.append(obs)
-print blue_obs
-print red_obs
-#print obs_date
+
 
 #---------------------------------------------
 #  ***  BLUE CHANNEL  ***
@@ -63,7 +61,6 @@ ra = []
 dec = []
 count=0
 for obs in blue_obs:
-    print obs
     fn = data_dir+obs+'.fits'
     f = pyfits.open(fn)
     imagetype = f[0].header['IMAGETYP']
@@ -94,21 +91,13 @@ for obs in blue_obs:
         else:
             thisdec = f[0].header['DEC']
             thisra  = f[0].header['RA']
-           # print thisra,thisdec
-           # stop
             thisdec = thisdec[0:9]
             thisra = thisra[0:8]
             object = thisra+' '+thisdec
-            #print object
             if thisra in ra and thisdec in dec: ##if ra and dec verbatim already seen
                 blue_science[object].append(obs)
-               # print blue_science[object]
-               # stop
             else:
-               #stop
                 blue_science[object] = [obs]
-            ##append the current ra and dec to the lists for the next stars
-            #ra  = [ra,thisra]
             ra.append(thisra)
             dec. append(thisdec)
 
@@ -179,7 +168,6 @@ for object in blue_science.keys():
     
     obs_list = blue_science[object]
     obs_str = '\'%s\'' % obs_list[0]
-    print 'dude'
     obsnumber = int(obs_str[24:28])
     for runarc in blue_arc:
         thisarc_str = '\'%s\'' % runarc
@@ -197,11 +185,8 @@ for object in blue_science.keys():
                 curaarc=thisarcnum
                 curaarcstr=thisarc_str
     
-    #print curaarcstr
-    #print curbarcstr
     sciarc_str = curbarcstr
     sciarc_str += ',\n               '+curaarcstr
-    #stop
 
     for i in range(1,len(obs_list)):
         obs = obs_list[i]
@@ -310,16 +295,12 @@ for obs in red_obs:
             #if object == '':
             ##re-label objects
             object = thisra+' '+thisdec
-            print object
             if thisra in ra and thisdec in dec: ##if ra and dec verbatim already seen
                 red_science[object].append(obs)
             else:
                 red_science[object] = [obs]
             
-           ## print red_science[object]
             ##append the current ra and dec to the lists for the next stars
-            #ra  = [ra,thisra]
-            #dec = [dec,thisdec]
             ra.append(thisra)
             dec.append(thisdec)    
 #------------------------------------------------------
@@ -389,7 +370,6 @@ for object in red_science.keys():
     
     obs_list = red_science[object]
     obs_str = '\'%s\'' % obs_list[0]
-    ##print 'dude'
     obsnumber = int(obs_str[24:28])
     for runarc in red_arc:
         thisarc_str = '\'%s\'' % runarc
@@ -407,12 +387,9 @@ for object in red_science.keys():
                 curaarc=thisarcnum
                 curaarcstr=thisarc_str
     
-    #print curaarcstr
-    #print curbarcstr
     sciarc_str = curbarcstr
-    sciarc_str += ',\n               '+curaarcstr#print object
+    sciarc_str += ',\n               '+curaarcstr
     obs_list = red_science[object]
-    #print obs_list
     obs_str = '\'%s\'' % obs_list[0]
     for i in range(1,len(obs_list)):
         obs = obs_list[i]
