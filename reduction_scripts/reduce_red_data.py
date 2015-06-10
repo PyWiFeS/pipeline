@@ -89,46 +89,46 @@ proc_steps = [
              'shift_method' : 'xcorr_all',
              'find_method' : 'mpfit',
              'dlam_cut_start':5.0}},
-    {'step':'wire_soln'      , 'run':False, 'suffix':None, 'args':{}},
-    {'step':'flat_response'  , 'run':False, 'suffix':None,
+    {'step':'wire_soln'      , 'run':True, 'suffix':None, 'args':{}},
+    {'step':'flat_response'  , 'run':True, 'suffix':None,
      'args':{'mode':'all'}},
     #------------------
-    {'step':'cosmic_rays'    , 'run':False, 'suffix':'04',
+    {'step':'cosmic_rays'    , 'run':True, 'suffix':'04',
      'args':{'ns':False, 
              'multithread':multithread}},
     #------------------
-    {'step':'sky_sub'        , 'run':False, 'suffix':'05',
+    {'step':'sky_sub'        , 'run':True, 'suffix':'05',
      'args':{'ns':False}},
     #------------------
-    {'step':'obs_coadd'      , 'run':False, 'suffix':'06',
+    {'step':'obs_coadd'      , 'run':True, 'suffix':'06',
      'args':{'method':'sum'}},
     #------------------
-    {'step':'flatfield'      , 'run':False, 'suffix':'07', 'args':{}},
+    {'step':'flatfield'      , 'run':True, 'suffix':'07', 'args':{}},
     #------------------
-    {'step':'cube_gen'       , 'run':False, 'suffix':'08',
+    {'step':'cube_gen'       , 'run':True, 'suffix':'08',
      'args':{'multithread':multithread,
              'adr':True,
              #'dw_set':0.44,
              'wmin_set':5400.0,
              'wmax_set':7000.0}},
     #------------------
-    {'step':'extract_stars'  , 'run':False, 'suffix':None,
+    {'step':'extract_stars'  , 'run':True, 'suffix':None,
      'args':{'ytrim':4, 
              'type':'flux'}},
-    {'step':'derive_calib'   , 'run':False, 'suffix':None,
+    {'step':'derive_calib'   , 'run':True, 'suffix':None,
      'args':{'plot_stars':True,
              'plot_sensf':True,
              'polydeg':10,
              'method':'smooth_SG', # 'poly' or 'smooth_SG'
              'norm_stars':True}},
-    {'step':'flux_calib'     , 'run':False, 'suffix':'09', 'args':{}},
+    {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}},
     #------------------
-    {'step':'extract_stars'  , 'run':False, 'suffix':None,
+    {'step':'extract_stars'  , 'run':True, 'suffix':None,
      'args':{'ytrim':4, 
              'type':'telluric'}},
-    {'step':'derive_telluric', 'run':False, 'suffix':None,
+    {'step':'derive_telluric', 'run':True, 'suffix':None,
      'args':{'plot':True}},
-    {'step':'telluric_corr'  , 'run':False, 'suffix':'10', 'args':{}},
+    {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
     #------------------
     {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
     #------------------

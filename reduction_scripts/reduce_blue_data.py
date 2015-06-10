@@ -44,26 +44,26 @@ skip_done=False
 #************************************************************************
 proc_steps = [
     #------------------
-    {'step':'overscan_sub'   , 'run':False, 'suffix':'00', 'args':{}},
-    {'step':'bpm_repair'     , 'run':False, 'suffix':'01', 'args':{}},
+    {'step':'overscan_sub'   , 'run':True, 'suffix':'00', 'args':{}},
+    {'step':'bpm_repair'     , 'run':True, 'suffix':'01', 'args':{}},
     #------------------
-    {'step':'superbias'      , 'run':False, 'suffix':None,
+    {'step':'superbias'      , 'run':True, 'suffix':None,
      'args':{'method':'row_med', 
              'plot':True, 
              'verbose':False}},
-    {'step':'bias_sub'       , 'run':False, 'suffix':'02',
+    {'step':'bias_sub'       , 'run':True, 'suffix':'02',
      'args':{'method':'subtract', 
              'plot':True, 
              'verbose':False}},
     #------------------
-    {'step':'superflat'      , 'run':False, 'suffix':None,
+    {'step':'superflat'      , 'run':True, 'suffix':None,
      'args':{'source':'dome'}},
-    {'step':'superflat'      , 'run':False, 'suffix':None,
+    {'step':'superflat'      , 'run':True, 'suffix':None,
      'args':{'source':'twi', 
              'scale':'median_nonzero'}},
-    {'step':'slitlet_profile', 'run':False, 'suffix':None, 'args':{}},
+    {'step':'slitlet_profile', 'run':True, 'suffix':None, 'args':{}},
     #------------------
-    {'step':'flat_cleanup'   , 'run':False, 'suffix':None,
+    {'step':'flat_cleanup'   , 'run':True, 'suffix':None,
      'args':{'type':['dome','twi'], 
              'verbose':True, 
              'plot':True,
@@ -72,58 +72,58 @@ proc_steps = [
              'radius':10.0,
              'nsig_lim':3.0}},
     #------------------
-    {'step':'superflat_mef'  , 'run':False, 'suffix':None,
+    {'step':'superflat_mef'  , 'run':True, 'suffix':None,
      'args':{'source':'dome'}},
-    {'step':'superflat_mef'  , 'run':False, 'suffix':None,
+    {'step':'superflat_mef'  , 'run':True, 'suffix':None,
      'args':{'source':'twi'}},
     #------------------
-    {'step':'slitlet_mef'    , 'run':False, 'suffix':'03',
+    {'step':'slitlet_mef'    , 'run':True, 'suffix':'03',
      'args':{'ns':False}},
     #------------------
-    {'step':'wave_soln'      , 'run':False, 'suffix':None,
+    {'step':'wave_soln'      , 'run':True, 'suffix':None,
      'args':{'verbose':True,
              'method' : 'optical',
              'shift_method' : 'xcorr_all',
              'find_method' : 'mpfit',
              'doalphapfit' : True,
-             'doplot' : True, # True, False, or ['step1','step2']
+             'doplot' : ['step2'], # True, False, or ['step1','step2']
              'dlam_cut_start':5.0}},
-    {'step':'wire_soln'      , 'run':False, 'suffix':None, 'args':{}},
-    {'step':'flat_response'  , 'run':False, 'suffix':None,
+    {'step':'wire_soln'      , 'run':True, 'suffix':None, 'args':{}},
+    {'step':'flat_response'  , 'run':True, 'suffix':None,
      'args':{'mode':'all'}},
     #------------------
-    {'step':'cosmic_rays'    , 'run':False, 'suffix':'04',
+    {'step':'cosmic_rays'    , 'run':True, 'suffix':'04',
      'args':{'ns':False,
              'multithread':multithread}},
     #------------------
-    {'step':'sky_sub'        , 'run':False, 'suffix':'05',
+    {'step':'sky_sub'        , 'run':True, 'suffix':'05',
      'args':{'ns':False}},
     #------------------
-    {'step':'obs_coadd'      , 'run':False, 'suffix':'06',
+    {'step':'obs_coadd'      , 'run':True, 'suffix':'06',
      'args':{'method':'sum'}},
     #------------------
-    {'step':'flatfield'      , 'run':False, 'suffix':'07', 'args':{}},
+    {'step':'flatfield'      , 'run':True, 'suffix':'07', 'args':{}},
     #------------------
-    {'step':'cube_gen'       , 'run':False, 'suffix':'08',
+    {'step':'cube_gen'       , 'run':True, 'suffix':'08',
      'args':{'multithread':multithread,
              'adr':True,
              #'dw_set':0.77,
              'wmin_set':3500.0, 
              'wmax_set':5700.0}},
     #------------------
-    {'step':'extract_stars'  , 'run':False, 'suffix':None,
+    {'step':'extract_stars'  , 'run':True, 'suffix':None,
      'args':{'ytrim':4, 
              'type':'flux'}},
-    {'step':'derive_calib'   , 'run':False, 'suffix':None,
+    {'step':'derive_calib'   , 'run':True, 'suffix':None,
      'args':{'plot_stars':True,
              'plot_sensf':True,
              'polydeg':25,
              'excise_cut' : 0.005,
              'method':'poly',# 'poly' or 'smooth_SG'
              'norm_stars':True}},
-    {'step':'flux_calib'     , 'run':False, 'suffix':'10', 'args':{}},
+    {'step':'flux_calib'     , 'run':True, 'suffix':'10', 'args':{}},
     #------------------
-    {'step':'save_3dcube'    , 'run':False, 'suffix':'11', 'args':{}}
+    {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
     #------------------
     ]
 
