@@ -13,6 +13,8 @@ import os
 import scipy.ndimage as ndimage
 import scipy.interpolate as interp
 import pylab
+import pdb
+import matplotlib.pyplot as plt
 
 # CODE VERSION
 from wifes_metadata import __version__
@@ -2455,14 +2457,14 @@ from wifes_wsol import derive_wifes_skyline_solution
 def derive_wifes_wire_solution(inimg, out_file,
                                bin_x=None, bin_y=None,
                                #fit_zones=[10,30,45,65],
-                               fit_zones=[10,26,54,70],
+                               fit_zones=[16,26,54,70],
                                flux_threshold=20,
                                wire_polydeg=1,
                                xlims='default'):
     # note: later have these parameters as user-input kwargs
     # SOME PARAMTERS FOR THE FITTING
     init_nave = 10
-    bg_polydeg = 6
+    bg_polydeg = 3
     ctr_polydeg = 15
     xlim_defaults = {'U7000' : [1,2500],
                      'B7000' : [1,4096],
@@ -2540,7 +2542,7 @@ def derive_wifes_wire_solution(inimg, out_file,
         for i in range(ng):
             # get median profile
             yprof = numpy.median(
-                test_data[:,nave*i-nave/2:nave*i+nave/2+1],axis=1)
+                test_data[:,numpy.max([0,nave*i-nave/2]):numpy.min([nave*i+nave/2,test_data.shape[1]])+1],axis=1)
             # if there is no usable data, use previous value!
             if numpy.max(yprof) < flux_threshold:
                 wire_ctr = frame_fit_y[-1]
@@ -2567,6 +2569,7 @@ def derive_wifes_wire_solution(inimg, out_file,
                                    fit_y_arr[good_inds],
                                    wire_polydeg)
         trend_y = numpy.polyval(wire_trend, ccd_x)
+        #pdb.set_trace()
         #pylab.figure()
         #pylab.plot(fit_x_arr, fit_y_arr, 'b')
         #pylab.plot(ccd_x, trend_y, 'r')
@@ -2704,7 +2707,7 @@ def generate_wifes_cube_oneproc(
         wire_trans = f5[0].data
         f5.close()
     except:
-        wire_trans = numpy.zeros([ndy, ndx], dtype='d')
+        wire_trans = numpy.zeros([ndy, ndx], dtype='d')+numpy.max(yarr)/2
     #ny=70/bin_y+1
     wire_offset = float(offset_orig)/float(bin_y)
     ny=ny_orig/bin_y
@@ -2746,6 +2749,7 @@ def generate_wifes_cube_oneproc(
     flux_data_cube_tmp = numpy.zeros([nx,ny,nlam])
     var_data_cube_tmp = numpy.ones([nx,ny,nlam])
     dq_data_cube_tmp = numpy.ones([nx,ny,nlam])
+    orig_flux        = numpy.zeros([25,43,4096])
     # First interpolation : Wavelength + y (=wire & ADR)
     if verbose:
         print ' -> Step 1: interpolating along lambda and y (2D interp.)\r'
@@ -2787,6 +2791,10 @@ def generate_wifes_cube_oneproc(
             (out_lambda_full, out_y_full),
             method='linear',
             fill_value=0.0).T
+        ##two images that can be checked in testing
+        #orig_flux[i-1,:,:] = curr_flux
+        #ospat = numpy.sum(orig_flux,axis=2)
+        #spat = numpy.sum(flux_data_cube_tmp,axis=2)
         var_data_cube_tmp[i-1,:,:] = (disp_ave**2) * scipy.interpolate.griddata(
             (wave_flat, all_ypos_flat),
             curr_var_flat,
