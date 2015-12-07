@@ -36,7 +36,7 @@ def single_centroid_prof_fit(y,
                              width_guess=None,
                              return_width=False):
     N = len(y)
-    if x == None:
+    if x is None:
         x = numpy.arange(N,dtype='d')
     # choose x,y subregions for this line
     if ctr_guess != None and width_guess != None:
