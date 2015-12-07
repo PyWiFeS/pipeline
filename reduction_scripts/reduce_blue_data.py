@@ -120,6 +120,7 @@ proc_steps = [
              'polydeg':25,
              'excise_cut' : 0.005,
              'method':'poly',# 'poly' or 'smooth_SG'
+             'boxcar':10, # smoothing for smooth_SG only
              'norm_stars':True}},
     {'step':'flux_calib'     , 'run':True, 'suffix':'10', 'args':{}},
     #------------------

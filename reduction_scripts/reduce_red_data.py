@@ -120,6 +120,7 @@ proc_steps = [
              'plot_sensf':True,
              'polydeg':10,
              'method':'smooth_SG', # 'poly' or 'smooth_SG'
+             'boxcar':10, # smoothing for smooth_SG only
              'norm_stars':True}},
     {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}},
     #------------------
