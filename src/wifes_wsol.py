@@ -156,7 +156,6 @@ def mpfit_gauss_line( (nline, guess_center, width_guess, xfit, yfit) ):
                {'value':width_guess/2., 'fixed':0, 
                 'limited':[1,1], 'limits':[width_guess/20.,width_guess]},
                ]
-    p0 = [yfit[xfit==guess_center],guess_center,width_guess]
 
     my_fit = mpfit.mpfit(err_gauss_line,functkw=fa, parinfo=parinfo, 
                              quiet=True)
@@ -180,9 +179,6 @@ def mpfit_gauss_line( (nline, guess_center, width_guess, xfit, yfit) ):
     else:
         return[nline,p1[1]]
     # return desired values, for now only care about centers
-
-def mpfit_gauss_line_init(q):
-    mpfit_gauss_line.q = q
 
 def weighted_loggauss_arc_fit(subbed_arc_data,
                               peak_centers,
@@ -253,27 +249,19 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
             jobs.append( (i,curr_ctr_guess, width_guess, xfit, yfit) )
         if len(jobs)>0:
         # Do the threading (see below and http://stackoverflow.com/a/3843313)
-            queue = multiprocessing.Queue()
-            mypool = multiprocessing.Pool(cpu, mpfit_gauss_line_init, [queue])
-            results = mypool.imap(mpfit_gauss_line,jobs)
+            mypool = multiprocessing.Pool(cpu)
+            results = mypool.imap_unordered(mpfit_gauss_line,jobs)
+            # Close off the pool now that we're done with it
             mypool.close()
             mypool.join()            
-         #All done. Now let's collect the results.
-        for i in range(len(jobs)):
-            #print results
-            #print results.__dict__['_items'][i][0]
-            #print results.__dict__['_items'][i][1]
-            #print squirrel
-            this_fit = results.__dict__['_items'][i][1]
-            try:
-                this_line = this_fit[0]
-                this_center = this_fit[1]
-            except:
-                continue
-                #print this_fit
-                #print squirrel
-            #print float(this_line)
-            fitted_centers[this_line] = float(this_center)
+            # Process the results
+            for r in results:
+                try:
+                    this_line = r[0]
+                    this_center = r[1]
+                except:
+                    continue
+                fitted_centers[this_line] = float(this_center)
 
     if find_method == 'loggauss':
         return numpy.array(fitted_centers)
@@ -324,7 +312,7 @@ def quick_arcline_fit(arc_data,
     # 30-50% are rubbsih ... so, if we do it once, we could avoid to do it
     # again and again ...
     # Use Xcorrelation to do that ...
-    if find_method == 'mpfit' and prev_centers != None:
+    if find_method == 'mpfit' and not prev_centers is None:
         # Find the shift between this set of lines and the previous ones
         prev_lines = numpy.zeros(N)
         curr_lines = numpy.zeros(N)
@@ -587,18 +575,16 @@ def find_lines_and_guess_refs(slitlet_data,
             cpu = None
         else :
             cpu = 1
-        queue = multiprocessing.Queue()
         if verbose :
             print '  ... assign lambdas using up to %d cpu(s) ...' % multiprocessing.cpu_count()
-        mypool = multiprocessing.Pool(cpu, xcorr_shift_all_init,[queue])
-        results = mypool.imap(xcorr_shift_all,jobs)
+        mypool = multiprocessing.Pool(cpu)
+        results = mypool.imap_unordered(xcorr_shift_all,jobs)
         mypool.close()
         mypool.join()
 
         # All done ! Now, let's collect the results ...
         # Careful, the order may be random ... !
-        for i in range(len(jobs)):
-            this_fit = results.__dict__['_items'][i][1]
+        for this_fit in results:
             try:
                 this_row = this_fit[0]
                 this_row_inds = (init_y_array == this_row+1)
@@ -778,9 +764,6 @@ def xcorr_shift_grid(slitlet_data,
     #------------------------------------
     return shift_poly, best_stretch
 
-# Fred's update (wsol)
-def xcorr_shift_all_init(q):
-    xcorr_shift_all.q = q
 # Fred's update (wsol)
 
 def xcorr_shift_all( (slitlet_data,
