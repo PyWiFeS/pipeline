@@ -1472,9 +1472,7 @@ def interslice_cleanup(input_fn, output_fn,
     dx = 10
     dy = 3
     for slit in slitlets_n:
-	print "slit =", slit
         [xmin,xmax,y2,y3] = slitlet_defs[numpy.str(slit)]
-	print "slitlet_defs =", slitlet_defs
         # Account for binning
         xmin = numpy.round(xmin/bin_x)
         xmax = numpy.round(xmax/bin_x)
@@ -1492,15 +1490,11 @@ def interslice_cleanup(input_fn, output_fn,
         else :
             y4 = numpy.round(slitlet_defs[numpy.str(slit-1)][2]/bin_y)
             y1 = numpy.round(slitlet_defs[numpy.str(slit+1)][3]/bin_y)
-	print "y1, y2, y3, y4=", y1, y2, y3, y4         
         # Select a subsample of point to do the integration
         x = numpy.arange(xmin+3,xmax-3,dx)
         y = numpy.append(numpy.arange(y1+1,y2-1,dy),
                          numpy.arange(y3+1,y4-1,dy))
         grid = numpy.zeros((len(y),len(x)))
-	print "y =", y
-        print "numpy.shape(inter_smooth) =", numpy.shape(inter_smooth)
-	print "inter_smooth =", inter_smooth
         for i in range(len(x)):
             for j in range(len(y)):
                 grid[j,i] = inter_smooth[y[j],x[i]]
@@ -2982,9 +2976,12 @@ def generate_wifes_cube_multithread(
     out_lambda = numpy.arange(final_frame_wmin, final_frame_wmax, disp_ave)
     # set up output data
     # load in spatial solutions
-    f5 = pyfits.open(wire_fn)
-    wire_trans = f5[0].data
-    f5.close()
+    try:
+        f5 = pyfits.open(wire_fn)
+        wire_trans = f5[0].data
+        f5.close()
+    except:
+        wire_trans = numpy.zeros([ndy, ndx], dtype='d')+numpy.max(yarr)/2
     #ny=70/bin_y+1
     wire_offset = float(offset_orig)/float(bin_y)
     ny=ny_orig/bin_y
