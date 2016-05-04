@@ -1417,7 +1417,9 @@ def interslice_cleanup(input_fn, output_fn,
         nslits = 12
     else :
         nslits = 25
-    slitlets_n = numpy.arange(1,nslits+1,1)
+    #Rajika's edit. slitlets_n had been defined incorrectly for half frame,
+    #This is fixed now
+    slitlets_n = numpy.arange(26-nslits,26,1)
     #------------------------------------
     # 4) Get rid of the 'science-full region' and leave only the interslice
     # (and smooth it as well)
@@ -1470,7 +1472,9 @@ def interslice_cleanup(input_fn, output_fn,
     dx = 10
     dy = 3
     for slit in slitlets_n:
+	print "slit =", slit
         [xmin,xmax,y2,y3] = slitlet_defs[numpy.str(slit)]
+	print "slitlet_defs =", slitlet_defs
         # Account for binning
         xmin = numpy.round(xmin/bin_x)
         xmax = numpy.round(xmax/bin_x)
@@ -1482,14 +1486,21 @@ def interslice_cleanup(input_fn, output_fn,
         elif slit == 25 :
             y4 = numpy.round(slitlet_defs['24'][2]/bin_y)
             y1 = 1
+	elif slit == 12:
+	    y4 = numpy.round(slitlet_defs['11'][2]/bin_y)
+            y1 = 1
         else :
             y4 = numpy.round(slitlet_defs[numpy.str(slit-1)][2]/bin_y)
-            y1 = numpy.round(slitlet_defs[numpy.str(slit+1)][3]/bin_y)         
+            y1 = numpy.round(slitlet_defs[numpy.str(slit+1)][3]/bin_y)
+	print "y1, y2, y3, y4=", y1, y2, y3, y4         
         # Select a subsample of point to do the integration
         x = numpy.arange(xmin+3,xmax-3,dx)
         y = numpy.append(numpy.arange(y1+1,y2-1,dy),
                          numpy.arange(y3+1,y4-1,dy))
         grid = numpy.zeros((len(y),len(x)))
+	print "y =", y
+        print "numpy.shape(inter_smooth) =", numpy.shape(inter_smooth)
+	print "inter_smooth =", inter_smooth
         for i in range(len(x)):
             for j in range(len(y)):
                 grid[j,i] = inter_smooth[y[j],x[i]]
