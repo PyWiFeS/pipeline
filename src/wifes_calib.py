@@ -412,6 +412,7 @@ def derive_wifes_calibration(cube_fn_list,
                                                     fill_value=numpy.nan)
     # first extract stdstar spectra and compare to reference
     fratio_results = []
+    print "cube_fn_list=", cube_fn_list
     for i in range(len(cube_fn_list)):
         f = pyfits.open(cube_fn_list[i])
         cube_hdr = f[1].header
@@ -481,7 +482,8 @@ def derive_wifes_calibration(cube_fn_list,
                                   (obs_flux > 0.0))[0]
         init_flux_ratio = -2.5*numpy.log10(obs_flux[good_inds] /
                                            ref_flux[good_inds])
-        flux_ratio = init_flux_ratio + (secz-1.0)*std_ext[good_inds]
+        print "obs_wave[good_inds],init_flux_ratio=", obs_wave[good_inds], init_flux_ratio
+	flux_ratio = init_flux_ratio + (secz-1.0)*std_ext[good_inds]
         fratio_results.append([obs_wave[good_inds], init_flux_ratio])
         if plot_stars or savefigs:
             scaled_flux = obs_flux[good_inds]/numpy.mean(

@@ -2532,8 +2532,9 @@ def derive_wifes_wire_solution(inimg, out_file,
     ng = nx/nave - 1
     for q in range(nslits):
         slit_ind = q+1
-        #print slit_ind
+	print "slit_ind=", slit_ind
         test_data = f[slit_ind].data
+	print "test_data=", test_data
         nr, junk = numpy.shape(test_data)
         fit_inds = numpy.nonzero(
             ((numpy.arange(nr) >= fit_pmin_1)*
@@ -2548,7 +2549,7 @@ def derive_wifes_wire_solution(inimg, out_file,
             # get median profile
             yprof = numpy.median(
                 test_data[:,numpy.max([0,nave*i-nave/2]):numpy.min([nave*i+nave/2,test_data.shape[1]])+1],axis=1)
-            # if there is no usable data, use previous value!
+	    # if there is no usable data, use previous value!
             if numpy.max(yprof) < flux_threshold:
                 wire_ctr = frame_fit_y[-1]
             # otherwise fit the region outside of ~[30:50]
@@ -2566,10 +2567,13 @@ def derive_wifes_wire_solution(inimg, out_file,
             frame_fit_y.append(wire_ctr)
         fit_x_arr = numpy.array(frame_fit_x)
         fit_y_arr = numpy.array(frame_fit_y)
+	print "frame_fit_x=", frame_fit_x
+	print "frame_fit_y=", frame_fit_y
         good_inds = numpy.nonzero((fit_x_arr==fit_x_arr)*
                                   (fit_y_arr==fit_y_arr)*
                                   (fit_x_arr>=xmin)*
                                   (fit_x_arr<=xmax))[0]
+	print "good_inds =", good_inds 
         wire_trend = numpy.polyfit(fit_x_arr[good_inds],
                                    fit_y_arr[good_inds],
                                    wire_polydeg)
