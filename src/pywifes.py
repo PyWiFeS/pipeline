@@ -1417,9 +1417,7 @@ def interslice_cleanup(input_fn, output_fn,
         nslits = 12
     else :
         nslits = 25
-    #Rajika's edit. slitlets_n had been defined incorrectly for half frame,
-    #This is fixed now
-    slitlets_n = numpy.arange(26-nslits,26,1)
+    slitlets_n = numpy.arange(1,nslits+1,1)
     #------------------------------------
     # 4) Get rid of the 'science-full region' and leave only the interslice
     # (and smooth it as well)
@@ -1484,12 +1482,9 @@ def interslice_cleanup(input_fn, output_fn,
         elif slit == 25 :
             y4 = numpy.round(slitlet_defs['24'][2]/bin_y)
             y1 = 1
-	elif slit == 12:
-	    y4 = numpy.round(slitlet_defs['11'][2]/bin_y)
-            y1 = 1
         else :
             y4 = numpy.round(slitlet_defs[numpy.str(slit-1)][2]/bin_y)
-            y1 = numpy.round(slitlet_defs[numpy.str(slit+1)][3]/bin_y)
+            y1 = numpy.round(slitlet_defs[numpy.str(slit+1)][3]/bin_y)         
         # Select a subsample of point to do the integration
         x = numpy.arange(xmin+3,xmax-3,dx)
         y = numpy.append(numpy.arange(y1+1,y2-1,dy),
@@ -2532,9 +2527,8 @@ def derive_wifes_wire_solution(inimg, out_file,
     ng = nx/nave - 1
     for q in range(nslits):
         slit_ind = q+1
-	print "slit_ind=", slit_ind
+        #print slit_ind
         test_data = f[slit_ind].data
-	print "test_data=", test_data
         nr, junk = numpy.shape(test_data)
         fit_inds = numpy.nonzero(
             ((numpy.arange(nr) >= fit_pmin_1)*
@@ -2551,7 +2545,7 @@ def derive_wifes_wire_solution(inimg, out_file,
             # get median profile
             yprof = numpy.median(
                 test_data[:,numpy.max([0,nave*i-nave/2]):numpy.min([nave*i+nave/2,test_data.shape[1]])+1],axis=1)
-	    # if there is no usable data, use previous value!
+            # if there is no usable data, use previous value!
             if numpy.max(yprof) < flux_threshold:
                 wire_ctr = frame_fit_y[-1]
             # otherwise fit the region outside of ~[30:50]
@@ -2569,13 +2563,10 @@ def derive_wifes_wire_solution(inimg, out_file,
             frame_fit_y.append(wire_ctr)
         fit_x_arr = numpy.array(frame_fit_x)
         fit_y_arr = numpy.array(frame_fit_y)
-	print "frame_fit_x=", frame_fit_x
-	print "frame_fit_y=", frame_fit_y
         good_inds = numpy.nonzero((fit_x_arr==fit_x_arr)*
                                   (fit_y_arr==fit_y_arr)*
                                   (fit_x_arr>=xmin)*
                                   (fit_x_arr<=xmax))[0]
-	print "good_inds =", good_inds 
         wire_trend = numpy.polyfit(fit_x_arr[good_inds],
                                    fit_y_arr[good_inds],
                                    wire_polydeg)
@@ -2982,12 +2973,9 @@ def generate_wifes_cube_multithread(
     out_lambda = numpy.arange(final_frame_wmin, final_frame_wmax, disp_ave)
     # set up output data
     # load in spatial solutions
-    try:
-        f5 = pyfits.open(wire_fn)
-        wire_trans = f5[0].data
-        f5.close()
-    except:
-        wire_trans = numpy.zeros([ndy, ndx], dtype='d')+numpy.max(yarr)/2
+    f5 = pyfits.open(wire_fn)
+    wire_trans = f5[0].data
+    f5.close()
     #ny=70/bin_y+1
     wire_offset = float(offset_orig)/float(bin_y)
     ny=ny_orig/bin_y
