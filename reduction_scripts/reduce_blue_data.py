@@ -7,6 +7,7 @@ from astropy.io import fits as pyfits
 import pywifes
 import gc
 import datetime
+import numpy as np
 
 #------------------------------------------------------------------------
 start_time = datetime.datetime.now()
@@ -43,26 +44,26 @@ skip_done=False
 #************************************************************************
 proc_steps = [
     #------------------
-    {'step':'overscan_sub'   , 'run':False, 'suffix':'00', 'args':{}},
-    {'step':'bpm_repair'     , 'run':False, 'suffix':'01', 'args':{}},
+    {'step':'overscan_sub'   , 'run':True, 'suffix':'00', 'args':{}},
+    {'step':'bpm_repair'     , 'run':True, 'suffix':'01', 'args':{}},
     #------------------
-    {'step':'superbias'      , 'run':False, 'suffix':None,
+    {'step':'superbias'      , 'run':True, 'suffix':None,
      'args':{'method':'row_med', 
              'plot':True, 
              'verbose':False}},
-    {'step':'bias_sub'       , 'run':False, 'suffix':'02',
+    {'step':'bias_sub'       , 'run':True, 'suffix':'02',
      'args':{'method':'subtract', 
              'plot':True, 
              'verbose':False}},
     #------------------
-    {'step':'superflat'      , 'run':False, 'suffix':None,
+    {'step':'superflat'      , 'run':True, 'suffix':None,
      'args':{'source':'dome'}},
-    {'step':'superflat'      , 'run':False, 'suffix':None,
+    {'step':'superflat'      , 'run':True, 'suffix':None,
      'args':{'source':'twi', 
              'scale':'median_nonzero'}},
-    {'step':'slitlet_profile', 'run':False, 'suffix':None, 'args':{}},
+    {'step':'slitlet_profile', 'run':True, 'suffix':None, 'args':{}},
     #------------------
-    {'step':'flat_cleanup'   , 'run':False, 'suffix':None,
+    {'step':'flat_cleanup'   , 'run':True, 'suffix':None,
      'args':{'type':['dome','twi'], 
              'verbose':True, 
              'plot':True,
@@ -71,58 +72,58 @@ proc_steps = [
              'radius':10.0,
              'nsig_lim':3.0}},
     #------------------
-    {'step':'superflat_mef'  , 'run':False, 'suffix':None,
+    {'step':'superflat_mef'  , 'run':True, 'suffix':None,
      'args':{'source':'dome'}},
-    {'step':'superflat_mef'  , 'run':False, 'suffix':None,
+    {'step':'superflat_mef'  , 'run':True, 'suffix':None,
      'args':{'source':'twi'}},
     #------------------
-    {'step':'slitlet_mef'    , 'run':False, 'suffix':'03',
+    {'step':'slitlet_mef'    , 'run':True, 'suffix':'03',
      'args':{'ns':False}},
     #------------------
-    {'step':'wave_soln'      , 'run':False, 'suffix':None,
+    {'step':'wave_soln'      , 'run':True, 'suffix':None,
      'args':{'verbose':True,
              'method' : 'optical',
              'shift_method' : 'xcorr_all',
              'find_method' : 'mpfit',
              'doalphapfit' : True,
-             'doplot' : True,
+             'doplot' : ['step2'], # True, False, or ['step1','step2']
              'dlam_cut_start':5.0}},
-    {'step':'wire_soln'      , 'run':False, 'suffix':None, 'args':{}},
-    {'step':'flat_response'  , 'run':False, 'suffix':None,
+    {'step':'wire_soln'      , 'run':True, 'suffix':None, 'args':{}},
+    {'step':'flat_response'  , 'run':True, 'suffix':None,
      'args':{'mode':'all'}},
     #------------------
-    {'step':'cosmic_rays'    , 'run':False, 'suffix':'04',
+    {'step':'cosmic_rays'    , 'run':True, 'suffix':'04',
      'args':{'ns':False,
              'multithread':multithread}},
     #------------------
-    {'step':'sky_sub'        , 'run':False, 'suffix':'05',
+    {'step':'sky_sub'        , 'run':True, 'suffix':'05',
      'args':{'ns':False}},
     #------------------
-    {'step':'obs_coadd'      , 'run':False, 'suffix':'06',
+    {'step':'obs_coadd'      , 'run':True, 'suffix':'06',
      'args':{'method':'sum'}},
     #------------------
-    {'step':'flatfield'      , 'run':False, 'suffix':'07', 'args':{}},
+    {'step':'flatfield'      , 'run':True, 'suffix':'07', 'args':{}},
     #------------------
-    {'step':'cube_gen'       , 'run':False, 'suffix':'08',
+    {'step':'cube_gen'       , 'run':True, 'suffix':'08',
      'args':{'multithread':multithread,
              'adr':True,
              #'dw_set':0.77,
              'wmin_set':3500.0, 
              'wmax_set':5700.0}},
     #------------------
-    {'step':'extract_stars'  , 'run':False, 'suffix':None,
+    {'step':'extract_stars'  , 'run':True, 'suffix':None,
      'args':{'ytrim':4, 
              'type':'flux'}},
-    {'step':'derive_calib'   , 'run':False, 'suffix':None,
+    {'step':'derive_calib'   , 'run':True, 'suffix':None,
      'args':{'plot_stars':True,
              'plot_sensf':True,
              'polydeg':25,
              'excise_cut' : 0.005,
-             'method':'poly',
+             'method':'poly',# 'poly' or 'smooth_SG'
              'norm_stars':True}},
-    {'step':'flux_calib'     , 'run':False, 'suffix':'10', 'args':{}},
+    {'step':'flux_calib'     , 'run':True, 'suffix':'10', 'args':{}},
     #------------------
-    {'step':'save_3dcube'    , 'run':False, 'suffix':'11', 'args':{}}
+    {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
     #------------------
     ]
 
@@ -405,11 +406,19 @@ def run_slitlet_profile(metadata, prev_suffix, curr_suffix, **args):
 # Create MEF files
 def run_superflat_mef(metadata, prev_suffix, curr_suffix, source):
     if source == 'dome':
-        in_fn  = super_dflat_fn
+        if os.path.isfile(super_dflat_fn):
+            in_fn  = super_dflat_fn
+        else:
+            in_fn = super_dflat_raw
         out_fn = super_dflat_mef
+
     elif source == 'twi':
-        in_fn  = super_tflat_fn
+        if os.path.isfile(super_tflat_fn):
+            in_fn  = super_tflat_fn
+        else :
+            in_fn = super_tflat_raw
         out_fn = super_tflat_mef
+
     else:
         raise ValueError, 'Flatfield type not recognized'
     # check the slitlet definition file
@@ -452,7 +461,7 @@ def run_slitlet_mef(metadata, prev_suffix, curr_suffix, ns=False):
         gc.collect()
     return
 
-#----------------- Fred's update -------------------
+#------------------------------------------------------
 # Wavelength solution
 def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
     # First, generate the master arc solution, based on generic arcs
@@ -468,15 +477,20 @@ def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
         # Check if the file has a dedicated arc associated with it ...
         # Only for Science and Std stars for now (sky not required at this stage)
         # (less critical for the rest anyway ...)
+        # As per Mike I. pull request: if two arcs are present, find a solution
+        # for both to later interpolate between them.
+        # Restrict it to the first two arcs in the list (in case the feature is
+        # being unknowingly used, avoid too much lost time).
         local_arcs = get_associated_calib(metadata,fn, 'arc')            
         if local_arcs :
-            local_arc_fn = '%s%s.p%s.fits' % (out_dir, local_arcs[0], prev_suffix)
-            local_wsol_out_fn = '%s%s.wsol.fits' % (out_dir, local_arcs[0])
-            if os.path.isfile(local_wsol_out_fn):
-                continue
-            print 'Deriving local wavelength solution for %s' % local_arcs[0]
-            pywifes.derive_wifes_wave_solution(local_arc_fn, local_wsol_out_fn,
-                                               **args)
+            for i in range(np.min([2,np.size(local_arcs)])):
+                local_arc_fn = '%s%s.p%s.fits' % (out_dir, local_arcs[i], prev_suffix)
+                local_wsol_out_fn = '%s%s.wsol.fits' % (out_dir, local_arcs[i])
+                if os.path.isfile(local_wsol_out_fn):
+                    continue
+                print 'Deriving local wavelength solution for %s' % local_arcs[i]
+                pywifes.derive_wifes_wave_solution(local_arc_fn, local_wsol_out_fn,
+                                                    **args)
     return
 
 #------------------------------------------------------
@@ -686,11 +700,85 @@ def run_cube_gen(metadata, prev_suffix, curr_suffix, **args):
         else:
             wire_fn = wire_out_fn
         local_arcs = get_associated_calib(metadata,fn, 'arc')
-        if local_wires :
-            wsol_fn = '%s%s.wsol.fits' % (out_dir, local_arcs[0])
-            print '(Note: using %s as wsol file)' % wsol_fn.split('/')[-1]
+        if local_arcs :
+            # Do I have two arcs ? Do they surround the Science file ?
+            # Implement linear interpolation as suggested by Mike I. 
+            if len(local_arcs) ==2:
+                # First, get the Science time
+                f = pyfits.open(in_fn)
+                sci_header = f[0].header
+                sci_time = sci_header['DATE-OBS']
+                # Now get the arc times
+                arc_times = ['','']
+                for i in range(2):
+                    # Fetch the arc time from the "extra" pkl file
+                    local_wsol_out_fn_extra = '%s%s.wsol.fits_extra.pkl' % (out_dir, local_arcs[i]) 
+                    f = open(local_wsol_out_fn_extra) 
+                    f_pickled = pickle.load(f)
+                    f.close()
+                    arc_times[i] = f_pickled[-1][0]
+                 
+                # Now, make sure the Science is between the arcs:
+                t0 = datetime.datetime( np.int(arc_times[0].split('-')[0]),
+                                        np.int(arc_times[0].split('-')[1]),
+                                        np.int(arc_times[0].split('-')[2].split('T')[0]),
+                                        np.int(arc_times[0].split('T')[1].split(':')[0]),
+                                        np.int(arc_times[0].split(':')[1]),
+                                        np.int(arc_times[0].split(':')[2].split('.')[0]),
+                                        )
+                t1 = datetime.datetime( np.int(sci_time.split('-')[0]),
+                                        np.int(sci_time.split('-')[1]),
+                                        np.int(sci_time.split('-')[2].split('T')[0]),
+                                        np.int(sci_time.split('T')[1].split(':')[0]),
+                                        np.int(sci_time.split(':')[1]),
+                                        np.int(sci_time.split(':')[2].split('.')[0]),
+                                        )
+                t2 = datetime.datetime( np.int(arc_times[01].split('-')[0]),
+                                        np.int(arc_times[1].split('-')[1]),
+                                        np.int(arc_times[1].split('-')[2].split('T')[0]),
+                                        np.int(arc_times[1].split('T')[1].split(':')[0]),
+                                        np.int(arc_times[1].split(':')[1]),
+                                        np.int(arc_times[1].split(':')[2].split('.')[0]),
+                                        )
+                ds1 = (t1 - t0).total_seconds()
+                ds2 = (t2 - t1).total_seconds()
+                if ds1>0 and ds2>0:
+                    # Alright, I need to interpolate betweent the two arcs
+                    w1 = ds1/(ds1+ds2)
+                    w2 = ds2/(ds1+ds2)
+                     
+                    # Open the arc solution files 
+                    fn0 = '%s%s.wsol.fits' % (out_dir, local_arcs[0])
+                    fn1 = '%s%s.wsol.fits' % (out_dir, local_arcs[1])
+                    fits0 = pyfits.open(fn0)
+                    fits1 = pyfits.open(fn1)
+
+
+                    for i in range(1,len(fits0)):
+                         fits0[i].data = w1*fits0[i].data + w2*fits1[i].data
+
+                    wsol_fn = '%s%s.wsol.fits' % (out_dir, fn) 
+                    fits0.writeto(wsol_fn, clobber=True)
+
+                    print '(2 arcs found)'
+                    print '(Note: using %sx%s.wsol.fits + %sx%s.wsol.fits as wsol file)' % (np.round(w1,2),local_arcs[0],np.round(w2,2),local_arcs[1])
+                           
+                else:
+                    # Arcs do not surround the Science frame
+                    # Revert to using the first one instead
+                    wsol_fn = '%s%s.wsol.fits' % (out_dir, local_arcs[0])
+                    print '(2 arcs found, but they do not bracket the Science frame!)'
+                    print '(Note: using %s as wsol file)' % wsol_fn.split('/')[-1]
+                    
+            else:
+                # Either 1 or more than two arcs present ... only use the first one !
+                wsol_fn = '%s%s.wsol.fits' % (out_dir, local_arcs[0])
+                print '(Note: using %s as wsol file)' % wsol_fn.split('/')[-1] 
+
         else:
             wsol_fn = wsol_out_fn
+
+        # All done, let's generate the cube
         pywifes.generate_wifes_cube(
             in_fn, out_fn,
             wire_fn=wire_fn,
