@@ -60,7 +60,7 @@ def lacos_spec_data(data,
         #------------------------------------
         # step 1 - subtract sky lines
         #if verbose: print 'Generating model of sky background for iteration %d' % (i+1)
-        if wave == None:
+        if wave is None:
             sky_model = scipy.ndimage.median_filter(clean_data, size=[7,1])
             m5_model = scipy.ndimage.median_filter(clean_data, size=[5,5])
         else:

@@ -564,7 +564,7 @@ def derive_wifes_calibration(cube_fn_list,
             kind='linear')
         all_final_fvals = this_f(init_full_x)
         final_x = full_x
-        final_y = full_y
+        final_y = this_f(final_x)
     else :
         best_calib = numpy.polyfit(full_x, full_y, polydeg)
         final_fvals = numpy.polyval(best_calib, full_x)
