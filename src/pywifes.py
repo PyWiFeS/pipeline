@@ -2476,7 +2476,7 @@ def derive_wifes_wire_solution(inimg, out_file,
                      'R7000' : [1000,3000],
                      'I7000' : [1,4096],
                      'B3000' : [1,2600],
-                     'R3000' : [800,4096]}
+                     'R3000' : [850,4096]}
     # define region for fitting light profile
     init_fit_pmin_1 = fit_zones[0]
     init_fit_pmax_1 = fit_zones[1]
@@ -2543,8 +2543,10 @@ def derive_wifes_wire_solution(inimg, out_file,
              (numpy.arange(nr) <= fit_pmax_2)))[0]
         x_full = numpy.arange(nr,dtype='d')
         x_fit = x_full[fit_inds]
-        frame_fit_x = []
-        frame_fit_y = []
+        ##initializing at zero on the following line means that the frame_fit_y[-1] works in the first group
+        ##but will be excluded by the xlims later, as long as the xmin is always > 0
+        frame_fit_x = [0.0]
+        frame_fit_y = [0.0]
         for i in range(ng):
             # get median profile
             yprof = numpy.median(
