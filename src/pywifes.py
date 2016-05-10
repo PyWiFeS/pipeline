@@ -1417,7 +1417,7 @@ def interslice_cleanup(input_fn, output_fn,
         nslits = 12
     else :
         nslits = 25
-    slitlets_n = numpy.arange(1,nslits+1,1)
+    slitlets_n = numpy.arange(26-nslits,26,1)
     #------------------------------------
     # 4) Get rid of the 'science-full region' and leave only the interslice
     # (and smooth it as well)
@@ -1482,7 +1482,7 @@ def interslice_cleanup(input_fn, output_fn,
         elif slit == 25 :
             y4 = numpy.round(slitlet_defs['24'][2]/bin_y)
             y1 = 1
-        else :
+        else:
             y4 = numpy.round(slitlet_defs[numpy.str(slit-1)][2]/bin_y)
             y1 = numpy.round(slitlet_defs[numpy.str(slit+1)][3]/bin_y)         
         # Select a subsample of point to do the integration
@@ -2973,9 +2973,13 @@ def generate_wifes_cube_multithread(
     out_lambda = numpy.arange(final_frame_wmin, final_frame_wmax, disp_ave)
     # set up output data
     # load in spatial solutions
-    f5 = pyfits.open(wire_fn)
-    wire_trans = f5[0].data
-    f5.close()
+    # Rajika's edit. Allows for reduction without wires
+    try:
+        f5 = pyfits.open(wire_fn)
+        wire_trans = f5[0].data
+        f5.close()
+    except:
+        wire_trans = numpy.zeros([ndy, ndx], dtype='d')+numpy.max(yarr)/2
     #ny=70/bin_y+1
     wire_offset = float(offset_orig)/float(bin_y)
     ny=ny_orig/bin_y
