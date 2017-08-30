@@ -200,8 +200,8 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
         for i in range(narc):
             curr_ctr_guess = peak_centers[i]
             # choose x,y subregions for this line
-            ifit_lo = curr_ctr_guess-5*width_guess
-            ifit_hi = curr_ctr_guess+5*width_guess
+            ifit_lo = int(curr_ctr_guess-5*width_guess)
+            ifit_hi = int(curr_ctr_guess+5*width_guess)
             xfit = x[ifit_lo:ifit_hi]
             yfit = y[ifit_lo:ifit_hi]
             try:
@@ -241,8 +241,8 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
         fitted_centers = numpy.zeros_like(peak_centers, dtype = numpy.float)
         for i in range(narc):
             curr_ctr_guess = peak_centers[i]
-            ifit_lo = curr_ctr_guess-5*width_guess
-            ifit_hi = curr_ctr_guess+5*width_guess
+            ifit_lo = int(curr_ctr_guess-5*width_guess)
+            ifit_hi = int(curr_ctr_guess+5*width_guess)
             xfit = x[ifit_lo:ifit_hi]
             yfit = y[ifit_lo:ifit_hi]
             try:
@@ -324,14 +324,14 @@ def quick_arcline_fit(arc_data,
     # 30-50% are rubbsih ... so, if we do it once, we could avoid to do it
     # again and again ...
     # Use Xcorrelation to do that ...
-    if find_method == 'mpfit' and prev_centers != None:
+    if find_method == 'mpfit' and not prev_centers is None:
         # Find the shift between this set of lines and the previous ones
         prev_lines = numpy.zeros(N)
         curr_lines = numpy.zeros(N)
         for j in prev_centers:
-            prev_lines[j] = 1.
+            prev_lines[int(j)] = 1.
         for j in potential_line_inds:
-            curr_lines[j] = 1.
+            curr_lines[int(j)] = 1.
             
         corr_out = numpy.correlate(prev_lines,curr_lines, 
                                    mode='full')
@@ -805,8 +805,8 @@ def xcorr_shift_all( (slitlet_data,
         for j in this_init_x_array:
             pseudo_x_obs[int(j)]=1.
         for j in this_ref_arc[:,0]:
-            if int(j)*stretch < len(pseudo_x_bes):
-                pseudo_x_bes[int(j)*stretch]=1.
+            if int(j*stretch) < len(pseudo_x_bes):
+                pseudo_x_bes[int(j*stretch)]=1.
 
         # Cross-correlate pseudo-ref spectrum with real arc lines
         corr_out = numpy.correlate(pseudo_x_obs,pseudo_x_bes, mode='full')
