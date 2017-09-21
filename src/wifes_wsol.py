@@ -803,7 +803,7 @@ def xcorr_shift_all( (slitlet_data,
         #pylab.show()
       
     # Find best shift and stretch based on X correlation results
-    best_shift = shifts[numpy.argmax(corrs)]
+    best_shift = int(shifts[numpy.argmax(corrs)])
     best_stretch = stretches[numpy.argmax(corrs)]
     
     # Just get the best stretch and return, or keep going.
@@ -828,9 +828,9 @@ def xcorr_shift_all( (slitlet_data,
         x_obs[int(j)] = j
     for (line,j) in enumerate(this_ref_arc[:,0]):
         # Stretch it ...
-        if int(j)*best_stretch < len(pseudo_x_bes):
-            pseudo_x_bes[int(j)*best_stretch]=1.
-            pseudo_lam_bes[int(j)*best_stretch] = this_ref_arc[:,1][line]
+        if int(j*best_stretch) < len(pseudo_x_bes):
+            pseudo_x_bes[int(j*best_stretch)]=1.
+            pseudo_lam_bes[int(j*best_stretch)] = this_ref_arc[:,1][line]
         # Shift it ...
         if best_shift <= ncols :
             final_x_bes[0:best_shift] = pseudo_x_bes[-best_shift:]
@@ -858,7 +858,7 @@ def xcorr_shift_all( (slitlet_data,
         # Finally, associate each identified line 
         # with appropriate wavelength.
         if cond1 and cond2 :
-            loc = numpy.where(x_obs == item)[0]
+            loc = int(numpy.where(x_obs == item)[0])
             if len(final_lam_bes[loc-2:loc+3]
                    [final_lam_bes[loc-2:loc+3]>0])==1:
                 this_ref_array[numpy.where(this_init_x_array==item)] = \

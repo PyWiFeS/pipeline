@@ -1210,32 +1210,24 @@ def generate_wifes_bias_fit(bias_img, outimg, data_hdu=0,
             out_data[reg[0]:reg[1]+1,reg[2]:reg[3]+1] = wifes_bias_model(p1,full_x,
                                                                          camera)
         # Plot for test purposes ...
-        if plot :
-            import matplotlib
-            matplotlib.pyplot.figure()
-            matplotlib.pyplot.plot(linx,curr_data.mean(axis=0),'k-', 
-                                   label='raw bias', lw=2)
+        if plot:
+            plt.figure()
+            plt.plot(linx, curr_data.mean(axis=0), 'k-', label='raw bias', lw=2)
             if method == 'row_med':
-                matplotlib.pyplot.plot(linx,out_data.mean(axis=0),'r-',
-                                       label = 'row_med bias')
-                matplotlib.pyplot.plot(linx,curr_data.mean(axis=0) - 
-                                       out_data.mean(axis=0),'g-', label= 'residual')       
+                plt.plot(linx, out_data.mean(axis=0),'r-', label = 'row_med bias')
+                plt.plot(linx, curr_data.mean(axis=0) - out_data.mean(axis=0), 'g-', label='residual')       
             if method == 'fit' :
-                matplotlib.pyplot.plot(linx,curr_data.mean(axis=0) - 
-                                       wifes_bias_model(p1,linx,camera),'g', 
-                                       label='residual')
-                matplotlib.pyplot.plot(linx,wifes_bias_model(p1,linx, camera),'r', 
-                                       label='model fit')
+                plt.plot(linx, curr_data.mean(axis=0) - wifes_bias_model(p1, linx, camera), 'g', label='residual')
+                plt.plot(linx, wifes_bias_model(p1, linx, camera), 'r', label='model fit')
 
-            matplotlib.pyplot.axhline(0,numpy.min(linx),numpy.max(linx),'k-')
-            matplotlib.pyplot.xlabel('x [pixels]')
-            matplotlib.pyplot.ylabel(' bias signal collapsed along y')
-            matplotlib.pyplot.legend(loc='lower left', fancybox=True, shadow=True)
-            matplotlib.pyplot.xlim([numpy.min(linx),numpy.max(linx)])
-            matplotlib.pyplot.ylim([-10,10])
-            matplotlib.pyplot.title('Fitting bias frame %s' % 
-                                    bias_img.split('/')[-1])
-            matplotlib.pyplot.show()
+            plt.axhline(0, numpy.min(linx), numpy.max(linx), color='k')
+            plt.xlabel('x [pixels]')
+            plt.ylabel(' bias signal collapsed along y')
+            plt.legend(loc='lower left', fancybox=True, shadow=True)
+            plt.xlim([numpy.min(linx), numpy.max(linx)])
+            plt.ylim([-10, 10])
+            plt.title('Fitting bias frame %s' % bias_img.split('/')[-1])
+            plt.show()
     
         # ----------------------------------------------------
     # save it!
@@ -1517,14 +1509,14 @@ def interslice_cleanup(input_fn, output_fn,
         myvmax = numpy.max(fitted)
         #------------------
         fig = pylab.figure()
-        pylab.imshow(data, vmin=0,vmax=myvmax,cmap='spectral', origin='lower')
+        pylab.imshow(data, vmin=0,vmax=myvmax,cmap='nipy_spectral', origin='lower')
         pylab.title('Pre-corrected '+input_fn.split('/')[-1])
         if savefigs:
             save_fn = save_prefix+'flat_orig_data.png'
             pylab.savefig(save_fn)
         #------------------
         pylab.figure()
-        pylab.imshow(fitted,vmin=0,vmax=myvmax,cmap='spectral', origin='lower')
+        pylab.imshow(fitted,vmin=0,vmax=myvmax,cmap='nipy_spectral', origin='lower')
         pylab.title('Fitted contamination for '+input_fn.split('/')[-1])
         if savefigs:
             save_fn = save_prefix+'flat_glow_data.png'
@@ -1532,7 +1524,7 @@ def interslice_cleanup(input_fn, output_fn,
         #------------------            
         pylab.figure()
         pylab.imshow(data-fitted+offset*numpy.mean(fitted),vmin=0,
-                     vmax=myvmax,cmap='spectral', origin='lower')
+                     vmax=myvmax,cmap='nipy_spectral', origin='lower')
         pylab.title('Corrected '+output_fn.split('/')[-1])
         if savefigs:
             save_fn = save_prefix+'flat_sub_data.png'
