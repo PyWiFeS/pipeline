@@ -412,6 +412,7 @@ def derive_wifes_calibration(cube_fn_list,
                                                     fill_value=numpy.nan)
     # first extract stdstar spectra and compare to reference
     fratio_results = []
+    print "cube_fn_list =", cube_fn_list
     for i in range(len(cube_fn_list)):
         f = pyfits.open(cube_fn_list[i])
         cube_hdr = f[1].header
@@ -572,7 +573,7 @@ def derive_wifes_calibration(cube_fn_list,
             kind='linear')
         all_final_fvals = this_f(init_full_x)
         final_x = full_x
-        final_y = full_y
+        final_y = this_f(final_x)
     else :
         best_calib = numpy.polyfit(full_x, full_y, polydeg)
         this_f = numpy.poly1d(best_calib)

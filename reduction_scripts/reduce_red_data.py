@@ -739,8 +739,8 @@ def run_cube_gen(metadata, prev_suffix, curr_suffix, **args):
                 ds2 = (t2 - t1).total_seconds()
                 if ds1>0 and ds2>0:
                     # Alright, I need to interpolate betweent the two arcs
-                    w1 = ds1/(ds1+ds2)
-                    w2 = ds2/(ds1+ds2)
+                    w1 = ds2/(ds1+ds2)
+                    w2 = ds1/(ds1+ds2)
                      
                     # Open the arc solution files 
                     fn0 = '%s%s.wsol.fits' % (out_dir, local_arcs[0])

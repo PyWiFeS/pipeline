@@ -1417,7 +1417,7 @@ def interslice_cleanup(input_fn, output_fn,
         nslits = 12
     else :
         nslits = 25
-    slitlets_n = numpy.arange(1,nslits+1,1)
+    slitlets_n = numpy.arange(26-nslits,26,1)
     #------------------------------------
     # 4) Get rid of the 'science-full region' and leave only the interslice
     # (and smooth it as well)
@@ -1482,7 +1482,7 @@ def interslice_cleanup(input_fn, output_fn,
         elif slit == 25 :
             y4 = numpy.round(slitlet_defs['24'][2]/bin_y)
             y1 = 1
-        else :
+        else:
             y4 = numpy.round(slitlet_defs[numpy.str(slit-1)][2]/bin_y)
             y1 = numpy.round(slitlet_defs[numpy.str(slit+1)][3]/bin_y)         
         # Select a subsample of point to do the integration
@@ -2471,7 +2471,7 @@ def derive_wifes_wire_solution(inimg, out_file,
                      'R7000' : [1000,3000],
                      'I7000' : [1,4096],
                      'B3000' : [1,2600],
-                     'R3000' : [800,4096]}
+                     'R3000' : [850,4096]}
     # define region for fitting light profile
     init_fit_pmin_1 = fit_zones[0]
     init_fit_pmax_1 = fit_zones[1]
@@ -2537,8 +2537,10 @@ def derive_wifes_wire_solution(inimg, out_file,
              (numpy.arange(nr) <= fit_pmax_2)))[0]
         x_full = numpy.arange(nr,dtype='d')
         x_fit = x_full[fit_inds]
-        frame_fit_x = []
-        frame_fit_y = []
+        ##initializing at zero on the following line means that the frame_fit_y[-1] works in the first group
+        ##but will be excluded by the xlims later, as long as the xmin is always > 0
+        frame_fit_x = [0.0]
+        frame_fit_y = [0.0]
         for i in range(ng):
             # get median profile
             yprof = numpy.median(
@@ -2971,9 +2973,13 @@ def generate_wifes_cube_multithread(
     out_lambda = numpy.arange(final_frame_wmin, final_frame_wmax, disp_ave)
     # set up output data
     # load in spatial solutions
-    f5 = pyfits.open(wire_fn)
-    wire_trans = f5[0].data
-    f5.close()
+    # Rajika's edit. Allows for reduction without wires
+    try:
+        f5 = pyfits.open(wire_fn)
+        wire_trans = f5[0].data
+        f5.close()
+    except:
+        wire_trans = numpy.zeros([ndy, ndx], dtype='d')+numpy.max(yarr)/2
     #ny=70/bin_y+1
     wire_offset = float(offset_orig)/float(bin_y)
     ny=ny_orig/bin_y
