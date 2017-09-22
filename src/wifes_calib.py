@@ -1,5 +1,4 @@
 import numpy
-from scipy.interpolate import splrep
 import pickle
 from astropy.io import fits as pyfits
 import os
@@ -398,7 +397,8 @@ def derive_wifes_calibration(cube_fn_list,
                              wave_min=None,
                              wave_max=None,
                              extinction_fn=None,
-                             ytrim=5):
+                             ytrim=5,
+                             boxcar = 11):
     if plot_stars or plot_sensf or savefigs:
         import pylab
     # get extinction curve
@@ -440,7 +440,7 @@ def derive_wifes_calibration(cube_fn_list,
                 # and pray it's correct
                 star_name = cube_hdr['OBJECT']
         #------------------------------------
-        #print star_name
+        print "Found star", star_name
         if airmass_list != None:
             secz = airmass_list[i]
         else:
@@ -451,7 +451,7 @@ def derive_wifes_calibration(cube_fn_list,
                 secz = 1.0
         # check if there is a calib spectrum...
         if ref_fname_list != None:
-            ref_fname = ref_name_list[i]
+            ref_fname = ref_fname_list[i]
         elif star_name in ref_fname_lookup.keys():
             ref_fname = ref_fname_lookup[star_name]
         else:
@@ -500,6 +500,9 @@ def derive_wifes_calibration(cube_fn_list,
                 pylab.savefig(save_fn)
     # from all comparisons, derive a calibration solution
     # EVENTUALLY WILL FIT AN EXTINCTION TERM TOO
+    if len(fratio_results) < 1:
+        # Didn't find any stars - there's no point in continuing
+        raise Exception('Could not find calibration data for any stars!')
     if norm_stars:
         i_mid = len(fratio_results[0][0])/2
         fscale_max = min([x[1][i_mid] for x in fratio_results])
@@ -556,24 +559,32 @@ def derive_wifes_calibration(cube_fn_list,
     full_y = temp_full_y[final_good_inds]
     # ------------ Fred's update 3 ----------------
     if  method == 'smooth_SG': # Fails if multiple stars ... need to order the array !
-        this_sort_order = full_x.argsort()
-        full_x = full_x[this_sort_order]
-        full_y = full_y[this_sort_order]
-        final_fvals = savitzky_golay(full_y,101,1,0)
+        X = numpy.copy(full_x)
+        Y = numpy.copy(full_y)
+        eps = 0.001 # We call two points the same in wavelength if they are closer than 0.001 A
+        means = numpy.array([ (x, Y[numpy.abs(X-x) < eps].mean()) for x in numpy.unique(X) ])
+        # Note that our array ends up sorted at the end of this because we use numpy.unique
+        smooth_x = means[:,0]
+        smooth_y = numpy.pad(means[:,1], boxcar, mode='edge')
+        smooth_y = numpy.convolve(smooth_y, numpy.ones((boxcar,))/boxcar, mode='same')[boxcar:-boxcar]
+        final_fvals = savitzky_golay(smooth_y,101,1,0)
         this_f = scipy.interpolate.interp1d(
-            full_x,final_fvals,bounds_error=False, 
+            smooth_x,final_fvals,bounds_error=False, 
             kind='linear')
         all_final_fvals = this_f(init_full_x)
         final_x = full_x
         final_y = this_f(final_x)
     else :
         best_calib = numpy.polyfit(full_x, full_y, polydeg)
-        final_fvals = numpy.polyval(best_calib, full_x)
-        final_x = numpy.arange(
-            numpy.min(full_x),
-            1.000001*numpy.max(full_x),
-            0.0001*(numpy.max(full_x)-numpy.min(full_x)))
-        final_y = numpy.polyval(best_calib, final_x)
+        this_f = numpy.poly1d(best_calib)
+
+    # Calculate the final result
+    final_fvals = this_f(full_x)
+    final_x = numpy.arange(
+        numpy.min(full_x),
+        1.000001*numpy.max(full_x),
+        0.0001*(numpy.max(full_x)-numpy.min(full_x)))
+    final_y = this_f(final_x)
     # plot if requested
     if plot_sensf or savefigs:
         pylab.figure()
@@ -587,11 +598,15 @@ def derive_wifes_calibration(cube_fn_list,
         pylab.plot(temp_full_x,temp_fvals, color=r'#FF6103',
                    lw=2,label='Initial fit')
         if  method == 'smooth_SG':
-            pylab.plot(init_full_x, all_final_fvals, color=r'#00FF00', lw=2, 
-                       label='Final fit') 
+            pylab.plot(means[:,0], means[:,1], color='b', 
+                       label ='Mean sensitivity (valid regions, all stars)')
+            pylab.plot(smooth_x, smooth_y, color=r'#7f007f', 
+                       label ='Smoothed mean sensitivity')
         else :
-            pylab.plot(full_x, final_fvals, color=r'#00FF00', lw=2, 
-                       label='Final fit')
+            pylab.plot(full_x, full_y, color='b', 
+                       label ='Raw sensitivity (valid regions)')
+        pylab.plot(full_x, final_fvals, color=r'#00FF00', lw=2, 
+                   label='Final fit')
         #pylab.hlines(-37.5,numpy.min(full_x),numpy.max(full_x), 'k')
         pylab.xlim([numpy.min(full_x),numpy.max(full_x)])
         curr_ylim = pylab.ylim()
@@ -601,7 +616,7 @@ def derive_wifes_calibration(cube_fn_list,
         pylab.legend(loc='lower right',fancybox=True, shadow=True)
         # lower plot - residuals!
         pylab.axes([0.10, 0.10, 0.85, 0.25])
-        pylab.plot(full_x,full_y - final_fvals,'k.', mec=r'#666666',
+        pylab.plot(full_x, full_y - final_fvals,'k.', mec=r'#666666',
                    markerfacecolor='none', label='Residuals')
         pylab.axhline(0.0, color='k')
         pylab.xlim(curr_xlim)

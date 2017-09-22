@@ -120,6 +120,7 @@ proc_steps = [
              'plot_sensf':True,
              'polydeg':10,
              'method':'smooth_SG', # 'poly' or 'smooth_SG'
+             'boxcar':10, # smoothing for smooth_SG only
              'norm_stars':True}},
     {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}},
     #------------------
@@ -153,7 +154,7 @@ def get_full_obs_list(metadata):
                 metadata['std']):
         for key in obs.keys():
             # Fred's update 2 (another consequence of it ...)
-            if key != 'type' : 
+            if (key != 'type') and (key != 'name'): 
                 for fn in obs[key]:
                     if fn not in full_obs_list:
                         full_obs_list.append(fn)

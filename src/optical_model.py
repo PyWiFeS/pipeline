@@ -330,6 +330,10 @@ def snell(n1, n2, norm, light):
 # slitlets in s, and the y and x values of each data point.
 def fitfunc(grating,p,alphap,s,y,x):
 
+  # Test for empty inputs
+  if (s.size == 0) or (y.size == 0) or (x.size == 0):
+    return np.array([])
+
   # Flip x for the blue gratings
   if grating in ['u7000','b7000','b3000']:
     x = 4096-x
