@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy
 import pickle
 from astropy.io import fits as pyfits
@@ -36,8 +37,8 @@ sso_extinct_interp = scipy.interpolate.interp1d(extinct_data[:,0],
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
 # high-level function to find nearest standard star for a given frame!
-stdstar_list = ref_coords_lookup.keys()
-stdstar_list.sort()
+stdstar_list = list(ref_coords_lookup.keys())
+stdstar_list.sort() 
 nstds = len(stdstar_list)
 stdstar_ra_array  = numpy.zeros(nstds, dtype='d')
 stdstar_dec_array = numpy.zeros(nstds, dtype='d')
@@ -271,7 +272,7 @@ def extract_wifes_stdstar(cube_fn,
         f.close()
     else:
         f.close()
-        raise ValueError, 'Standard Star save format not recognized'
+        raise ValueError('Standard Star save format not recognized')
 
 # here write wrapper function to save the extracted star spectrum
 
@@ -360,7 +361,7 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
         try:
            window_size = numpy.abs(numpy.int(window_size))
            order = numpy.abs(numpy.int(order))
-        except ValueError, msg:
+        except ValueError(msg):
             raise ValueError("window_size and order have to be of type int")
         if window_size % 2 != 1 or window_size < 1:
             raise TypeError("window_size size must be a positive odd number")
@@ -412,7 +413,7 @@ def derive_wifes_calibration(cube_fn_list,
                                                     fill_value=numpy.nan)
     # first extract stdstar spectra and compare to reference
     fratio_results = []
-    print "cube_fn_list =", cube_fn_list
+    print("cube_fn_list =" + repr(cube_fn_list))
     for i in range(len(cube_fn_list)):
         f = pyfits.open(cube_fn_list[i])
         cube_hdr = f[1].header
@@ -440,14 +441,14 @@ def derive_wifes_calibration(cube_fn_list,
                 # and pray it's correct
                 star_name = cube_hdr['OBJECT']
         #------------------------------------
-        print "Found star", star_name
+        print("Found star " + star_name)
         if airmass_list != None:
             secz = airmass_list[i]
         else:
             try:
                 secz = cube_hdr['AIRMASS']
             except:
-                print 'AIRMASS header missing for %s' % cube_fn_list[i].split('/')[-1]
+                print('AIRMASS header missing for {:s}'.format(cube_fn_list[i].split('/')[-1]))
                 secz = 1.0
         # check if there is a calib spectrum...
         if ref_fname_list != None:
@@ -662,7 +663,7 @@ def calibrate_wifes_cube(inimg, outimg,
         secz = f3[1].header['AIRMASS']
     except:
         secz = 1.0
-        print 'AIRMASS keyword not found, assuming airmass=1.0'
+        print('AIRMASS keyword not found, assuming airmass=1.0')
     nlam = numpy.shape(f3[1].data)[1]
     wave_array = wave0+dwave*numpy.arange(nlam,dtype='d')
     # calculate the flux calibration array
@@ -696,7 +697,7 @@ def calibrate_wifes_cube(inimg, outimg,
         inst_fcal_array = calib_interp(wave_array)
         f.close()
     else:
-        raise ValueError, 'Calibration mode not defined'
+        raise ValueError('Calibration mode not defined')
     # calculate extinction curve for observed airmass
     obj_ext = 10.0**(-0.4*((secz-1.0)*extinct_interp(wave_array)))
     fcal_array = inst_fcal_array*obj_ext
@@ -747,7 +748,7 @@ def derive_wifes_telluric(cube_fn_list,
                 f.close()
             except:
                 new_am = 1.0
-                print 'AIRMASS keyword not found, assuming 1.0'
+                print('AIRMASS keyword not found, assuming 1.0')
             airmass_list.append(new_am)
     #---------------------------------------------
     # now extract each star spectrum and derive telluric correction spectra
@@ -912,7 +913,7 @@ def apply_wifes_telluric(inimg,
             airmass = float(f3[1].header['AIRMASS'])
         except:
             airmass = 1.0
-            print 'AIRMASS keyword not found, assuming airmass=1.0'
+            print('AIRMASS keyword not found, assuming airmass=1.0')
     # get the wavelength array
     wave0 = f3[1].header['CRVAL1']
     dwave = f3[1].header['CDELT1']

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import re
 from astropy.io import fits as pyfits
 import numpy
@@ -18,8 +19,8 @@ from wifes_metadata import __version__
 import os
 
 #------------------------------------------------------------------------
-f0 = open(os.path.join(metadata_dir,'basic_wifes_metadata.pkl'), 'r')
-wifes_metadata = pickle.load(f0)
+f0 = open(os.path.join(metadata_dir,'basic_wifes_metadata.pkl'), 'rb')
+wifes_metadata = pickle.load(f0, fix_imports=True, encoding='latin')
 f0.close()
 base_wsols = wifes_metadata['baseline_wsols']
 all_ref_lines = wifes_metadata['ref_linelists']
@@ -144,7 +145,8 @@ def err_gauss_line(p,x,y,fjac=None):
     status = 0
     return [status,y - gauss_line(p,x)]
 
-def mpfit_gauss_line( (nline, guess_center, width_guess, xfit, yfit) ):
+def mpfit_gauss_line( packaged_args ):
+    (nline, guess_center, width_guess, xfit, yfit) = packaged_args
     # choose x,y subregions for this line
     fa = {'x':xfit, 'y':yfit}
     parinfo = [{'value':yfit[xfit==guess_center], 'fixed':0, 
@@ -230,8 +232,8 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
         if multithread :
             cpu = None
         else :
-            cpu = 1
-
+            cpu = 1 
+        multithread=False #!!! MJI
         # list the jobs
         jobs = []
         fitted_centers = numpy.zeros_like(peak_centers, dtype = numpy.float)
@@ -249,19 +251,28 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
             jobs.append( (i,curr_ctr_guess, width_guess, xfit, yfit) )
         if len(jobs)>0:
         # Do the threading (see below and http://stackoverflow.com/a/3843313)
-            mypool = multiprocessing.Pool(cpu)
-            results = mypool.imap_unordered(mpfit_gauss_line,jobs)
-            # Close off the pool now that we're done with it
-            mypool.close()
-            mypool.join()            
-            # Process the results
-            for r in results:
-                try:
-                    this_line = r[0]
-                    this_center = r[1]
-                except:
-                    continue
-                fitted_centers[this_line] = float(this_center)
+            #!!!MJI - this made the code *slower* on python 3 on a Mac.
+            #Just fitting a bunch of Gaussians - surely not the place for multi-processing, 
+            #which would fit better at the higher slit-by-slit level.
+            if multithread: 
+                with multiprocessing.Pool(cpu) as pool:
+                    mypool = multiprocessing.Pool(cpu)
+                    import pdb; pdb.set_trace()
+                    results = mypool.imap_unordered(mpfit_gauss_line,jobs) 
+                    # Close off the pool now that we're done with it
+                    mypool.close()
+                    mypool.join()            
+                    # Process the results
+                    for r in results:
+                        try:
+                            this_line = r[0]
+                            this_center = r[1]
+                        except:
+                            continue
+                        fitted_centers[this_line] = float(this_center)
+            else:
+                for i in range(narc):
+                    fitted_centers[i] = mpfit_gauss_line(jobs[i])[1]
 
     if find_method == 'loggauss':
         return numpy.array(fitted_centers)
@@ -426,8 +437,8 @@ def find_lines_and_guess_refs(slitlet_data,
     full_fitted_lam = []
     full_ref_lam = []
     if verbose:
-        print ' Slitlet', chosen_slitlet
-        print '  ... detecting arc lines with',find_method,'...'
+        print(' Slitlet', chosen_slitlet)
+        print('  ... detecting arc lines with',find_method,'...')
         import datetime
         start = datetime.datetime.now()
 
@@ -447,7 +458,7 @@ def find_lines_and_guess_refs(slitlet_data,
     else :
         mid_fit_centers = None # don't do it for the loggauss method ...
 
-    for i in range(8/bin_y, nrows-8/bin_y):
+    for i in range(8//bin_y, nrows-8//bin_y):
         test_z = slitlet_data[i,:]
         fitted_ctrs = quick_arcline_fit(
             test_z,
@@ -461,7 +472,7 @@ def find_lines_and_guess_refs(slitlet_data,
     init_y_array = numpy.array(full_fitted_y)
     init_x_array = numpy.array(full_fitted_x)
     if verbose:
-        print '  done in',datetime.datetime.now()-start
+        print('  done in',datetime.datetime.now()-start)
     #------------------------------
     # 2b - use xcorr to get shift of the wavelength guess!
     ref_interp = scipy.interpolate.interp1d(
@@ -487,7 +498,7 @@ def find_lines_and_guess_refs(slitlet_data,
         wshift = xcorr_shift_single(mid_flux, wave_guess,
                                   ref_interp)
         if verbose:
-            print 'Slitlet %02d xcorr shift = %.03f' % (chosen_slitlet, wshift)
+            print('Slitlet %02d xcorr shift = %.03f' % (chosen_slitlet, wshift))
         temp_wave_array = wavelength_guess(
             init_x_array*bin_x,
             init_y_array*bin_y + yzp*bin_y,
@@ -513,9 +524,9 @@ def find_lines_and_guess_refs(slitlet_data,
             shift_coeffs[0]*(init_y_array-1))
         if verbose:
             mean_wshift = numpy.mean(temp_wave_array - init_wguess)
-            print 'Slitlet %02d mean xcorr shift = %.03f' % (
+            print('Slitlet %02d mean xcorr shift = %.03f' % (
                 chosen_slitlet,
-                mean_wshift)
+                mean_wshift))
     #---------
     # full xcorr version
     elif shift_method == 'xcorr_all':  
@@ -524,15 +535,15 @@ def find_lines_and_guess_refs(slitlet_data,
         # B3000, R3000, R7000 with NeAr lamp
         # B3000, R3000, B7000, I7000 with CuAr lamp
         if arc_name != 'NeAr' and arc_name != 'CuAr' :
-            print ' Arc lamp not supported for Xcorr identification method !'
-            print " I will crash now... bye !"
-            print ' '
+            print(' Arc lamp not supported for Xcorr identification method !')
+            print(" I will crash now... bye !")
+            print(' ')
         ref_fn = os.path.join(metadata_dir,
                               'arclines.'+grating+'.'+arc_name+'.txt')
         if os.path.exists(ref_fn) :
             ref_arc = numpy.loadtxt(ref_fn,skiprows=1)
         else : 
-            print ' Ref. file for the current arc lamp + grating unavailable.'
+            print(' Ref. file for the current arc lamp + grating unavailable.')
 
         # Create the storage array for the reference wavelength
         ref_array = numpy.zeros_like(init_x_array)
@@ -576,7 +587,7 @@ def find_lines_and_guess_refs(slitlet_data,
         else :
             cpu = 1
         if verbose :
-            print '  ... assign lambdas using up to %d cpu(s) ...' % multiprocessing.cpu_count()
+            print('  ... assign lambdas using up to %d cpu(s) ...' % multiprocessing.cpu_count())
         mypool = multiprocessing.Pool(cpu)
         results = mypool.imap_unordered(xcorr_shift_all,jobs)
         mypool.close()
@@ -606,7 +617,7 @@ def find_lines_and_guess_refs(slitlet_data,
             
     #---------
     else:
-        raise ValueError, 'Xcorr shift method not recognized.'
+        raise ValueError('Xcorr shift method not recognized.')
     #---------
     # 3 - get starting wavelengths!
     init_winds = numpy.nonzero(temp_wave_array > 0.0)[0]
@@ -690,7 +701,7 @@ def xcorr_shift_grid(slitlet_data,
     # decide what y-values to fit by xcorr
     ny, nx = numpy.shape(slitlet_data)
     bin_y = int(86.0/float(ny))
-    y_samp = numpy.array([14, 24, 34, 44, 54, 64, 74])/bin_y
+    y_samp = numpy.array([14, 24, 34, 44, 54, 64, 74])//bin_y
     n_samp = len(y_samp)
     w0 = numpy.median(wave_guess)
     #------------------------------------
@@ -750,7 +761,7 @@ def xcorr_shift_grid(slitlet_data,
     #pylab.plot(fval_y, stretch_fvals, 'g')
     #pylab.show()
     #print shift_poly, stretch_poly
-    fval_y = numpy.arange(10/bin_y, 80/bin_y)
+    fval_y = numpy.arange(10//bin_y, 80//bin_y)
     best_stretch = numpy.median(all_stretches)
     good_inds = numpy.nonzero(all_stretches == best_stretch)[0]
     shift_poly = numpy.polyfit(y_samp[good_inds], all_shifts[good_inds], 1)
@@ -766,13 +777,11 @@ def xcorr_shift_grid(slitlet_data,
 
 # Fred's update (wsol)
 
-def xcorr_shift_all( (slitlet_data,
-                      this_row, ncols,
-                      row_inds, this_init_x_array,
-                      this_ref_arc, 
-                      stretches, # if provided, will only try these ones !
-                      get_stretch, # if yes, get the best stretch+exit
-                      verbose) ):
+def xcorr_shift_all( packaged_args ):
+    (slitlet_data, this_row, ncols, row_inds, this_init_x_array, this_ref_arc, \
+    stretches, # if provided, will only try these ones !
+    get_stretch, # if yes, get the best stretch+exit
+    verbose ) = packaged_args
 
     if stretches == None:
         stretches = numpy.arange(0.98,1.03,0.001)
@@ -1021,7 +1030,7 @@ def slitlet_wsol(slitlet_data,
         wmin = numpy.min(iter_fvals)
         wmax = numpy.max(iter_fvals)
         #print chosen_slitlet, resid_rms, len(iter_good_inds), wmin, wmax
-        print chosen_slitlet, resid_MAD, len(iter_good_inds), wmin, wmax
+        print(chosen_slitlet, resid_MAD, len(iter_good_inds), wmin, wmax)
     #------------------
     # FINAL RESULTS!
     full_x_array = iter_x_array
@@ -1239,7 +1248,7 @@ def excludeLines(lines, exclude, index=3, epsilon=0.05):
       and the exclude lines, then determining whether any are close enough to
       count as a match.  We then exclude those. """
   if ((not exclude is None) and len(exclude) > 0):
-    print 'Excluding', exclude, 'with tolerance of', epsilon
+    print('Excluding', exclude, 'with tolerance of', epsilon)
     exclude = numpy.asarray(exclude)
     nlines = lines.shape[0]
     nexclude = exclude.shape[0]
@@ -1260,7 +1269,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
   alls, ally, allx, allarcs = om.extractArrays(lines, grating, bin_x, bin_y)
 
   lambda0 = plorig[13]
-  print 'lambda0=',lambda0
+  print('lambda0=',lambda0)
 
   # Get sensible values for xdc and ydc
   # by looking at the central slitlet
@@ -1273,10 +1282,10 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
       left = numpy.argmax(tmparcs[largs])
       right = numpy.argmin(tmparcs[rargs])
       plorig[11] = (allx[args][largs][left]+allx[args][rargs][right])/2
-      print 'xdc=',plorig[11]
+      print('xdc=',plorig[11])
 
     plorig[12] = (ally[args].max() + ally[args].min()) / 2.
-    print 'ydc=',plorig[12]
+    print('ydc=',plorig[12])
 
   # Initial residuals
   resid = om.errfunc(grating, plorig, alphap, alls, ally, allx, allarcs)
@@ -1290,7 +1299,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
   var = numpy.sum(resid**2) / len(allx)
   bias = numpy.sum(resid) / len(allx)
   rmse = math.sqrt(var + bias**2)
-  print "Initial RMSE",rmse
+  print("Initial RMSE",rmse)
 
   # Set up parameter info ready for fitting
   parinfo = [{'value':0., 'fixed':1, 'limited':[0,0], 'limits':[0.,0.]} for i in range(om.nparams + len(alphap))]
@@ -1316,7 +1325,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
   # Work with decimated data first, if asked to
   if (decimate):
     if (verbose):
-      print 'Working with decimated data'
+      print('Working with decimated data')
     origLines = lines
     lines = lines[::10]
 
@@ -1328,13 +1337,13 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
       # Not automatic or interactive, so we're done
       finished = True
       if (doalphapfit and not doalphapfit_thistime):
-	# Unless we want an alphapfit
-	doalphapfit_thistime = True
-	paramlist.append(tuple(range(om.nparams,om.nparams+len(alphap)),))
+        # Unless we want an alphapfit
+        doalphapfit_thistime = True
+        paramlist.append(tuple(range(om.nparams,om.nparams+len(alphap)),))
 
     # Report on how many points are in the data set
     if (verbose):
-      print "Working with",len(lines),"data points"
+      print("Working with",len(lines),"data points")
 
     # Check that we actually have a sensible number of lines
     if (len(lines) < 100):
@@ -1349,59 +1358,59 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
 
     for params in paramlist:
       for r in range(1):
-	if (verbose):
-	  print 'Fitting for parameters',params
-	# Fix all parameters
-	for p in parinfo:
-	  p['fixed'] = 1
-	# Unfix only those we want to fit this time around
-	for i in params:
-	  parinfo[i]['fixed'] = 0
-	# Do the fit
-	fitdone = False
-	fitcount = 0
-	# Maximum number of times to repeat the fit
-	MAXFITS = 1
-	while (not fitdone):
-	  fitcount += 1
-	  # Actually do the fit
-	  m = mpfit.mpfit(om.mpfitfunc, functkw=fa, parinfo=parinfo, iterfunct=None, ftol=FTOL)
-	  # Report on it
-	  if (verbose):
-	    print 'status = ', m.status
-	  if (m.status <= 0):
-	     print 'error message = ', m.errmsg
+        if (verbose):
+          print('Fitting for parameters',params)
+        # Fix all parameters
+        for p in parinfo:
+          p['fixed'] = 1
+        # Unfix only those we want to fit this time around
+        for i in params:
+          parinfo[i]['fixed'] = 0
+        # Do the fit
+        fitdone = False
+        fitcount = 0
+        # Maximum number of times to repeat the fit
+        MAXFITS = 1
+        while (not fitdone):
+          fitcount += 1
+          # Actually do the fit
+          m = mpfit.mpfit(om.mpfitfunc, functkw=fa, parinfo=parinfo, iterfunct=None, ftol=FTOL)
+          # Report on it
+          if (verbose):
+            print('status = ', m.status)
+          if (m.status <= 0):
+             print('error message = ', m.errmsg)
 
           if (verbose):
-	    # Work out the RMSE
-	    chisq = m.fnorm
-	    dof=len(allx)-len(m.params)
-	    rmse=numpy.sqrt(chisq/dof)
-	    print "RMSE",rmse
+            # Work out the RMSE
+            chisq = m.fnorm
+            dof=len(allx)-len(m.params)
+            rmse=numpy.sqrt(chisq/dof)
+            print("RMSE",rmse)
 
-	  # Copy back fitted parameters into parinfo structure
-	  for i,v in enumerate(m.params):
-	    parinfo[i]['value'] = v
-	    # Report the ones we just changed
-	    if (parinfo[i]['fixed'] == 0) and verbose:
-	      print i, parinfo[i]['value']
+          # Copy back fitted parameters into parinfo structure
+          for i,v in enumerate(m.params):
+            parinfo[i]['value'] = v
+            # Report the ones we just changed
+            if (parinfo[i]['fixed'] == 0) and verbose:
+              print(i, parinfo[i]['value'])
 
-	  # Repeat the fit if we need more steps
-	  if ((m.status == 5) and (fitcount < MAXFITS)):
-	    print 'mpfit needs more steps; repeating fit'
-	  else:
-	    fitdone = True
+          # Repeat the fit if we need more steps
+          if ((m.status == 5) and (fitcount < MAXFITS)):
+            print('mpfit needs more steps; repeating fit')
+          else:
+            fitdone = True
 
-	if doplot:
-	  pl = numpy.asarray(m.params)[:om.nparams]
-	  resid = om.errfunc(grating, pl, alphap, alls, ally, allx, allarcs)
-	  om.plotResid(title,allx,ally,allarcs,resid)
-	  #om.plotFunc(title,allx,ally,allarcs,om.fitfunc(grating, pl,alphap,alls,ally,allx))
+        if doplot:
+          pl = numpy.asarray(m.params)[:om.nparams]
+          resid = om.errfunc(grating, pl, alphap, alls, ally, allx, allarcs)
+          om.plotResid(title,allx,ally,allarcs,resid)
+          #om.plotFunc(title,allx,ally,allarcs,om.fitfunc(grating, pl,alphap,alls,ally,allx))
 
     # Extract the fitted parameters
     pl = numpy.asarray(m.params)
     if (verbose):
-      print 'Fit complete'
+      print('Fit complete')
       om.printParams(grating, pl[:om.nparams], pl[om.nparams:])
 
     # Generate the final residuals
@@ -1413,21 +1422,21 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
     rmse = math.sqrt(var + bias**2)
 
     if (verbose):
-      print "VAR",var
-      print "BIAS",bias
-      print "RMSE",rmse
+      print("VAR",var)
+      print("BIAS",bias)
+      print("RMSE",rmse)
 
     # If we were working with decimated data, we now go back to using
     # the full data set for the next run.
     if (decimate):
       if (verbose):
-	print 'Working with full data set'
+        print('Working with full data set')
       lines = origLines
       decimate = False
       alls, ally, allx, allarcs = om.extractArrays(lines, grating, bin_x, bin_y)
       resid = om.errfunc(grating, pl[:om.nparams],pl[om.nparams:],alls,ally,allx,allarcs)
       if (doplot):
-	om.plotResid(title,allx,ally,allarcs,resid)
+        om.plotResid(title,allx,ally,allarcs,resid)
 
     # In automatic mode we select some of the lines to be removed
     if automatic > 0:
@@ -1454,7 +1463,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
         save_fn = None
     om.plotLines(title,allx,ally, save_fn=save_fn)
 
-  print "Final RMSE",rmse
+  print("Final RMSE",rmse)
   return (allx, ally, alls, allarcs, pl)
 
 def derive_wifes_optical_wave_solution(inimg,
@@ -1571,7 +1580,7 @@ def derive_wifes_optical_wave_solution(inimg,
   all_s = numpy.concatenate(found_s_lists)
   all_r = numpy.concatenate(found_r_lists)
   if verbose:
-      print 'Line finding complete'
+      print('Line finding complete')
   # NEED TO (FOR NOW) HAVE COMPLIANCE WITH NIELSEN 'LINES' TEMPLATE
   lines = numpy.column_stack((all_s, all_y, all_x, all_r))
   grating = grating.lower()
@@ -1613,17 +1622,17 @@ def derive_wifes_optical_wave_solution(inimg,
   if (not alphapfile is None):
     try:
       alphap = numpy.loadtxt(alphapfile)
-      print 'Using alphap',alphap
+      print('Using alphap',alphap)
     except IOError:
       pass
 
   if alphap is None:
     if (verbose):
-      print 'Using default alphap (all zero)'
+      print('Using default alphap (all zero)')
     alphap = numpy.zeros(25)
 
   if (verbose):
-    print 'Grating',grating
+    print('Grating',grating)
 
   title = inimg.split('/')[-1][:-5] + ' - '+grating
 
@@ -1655,4 +1664,4 @@ def derive_wifes_wave_solution(inimg,
         derive_wifes_optical_wave_solution(
             inimg, out_file, **args)
     else:
-        raise ValueError, 'Wavelength solution method not recognized'
+        raise ValueError('Wavelength solution method not recognized')
