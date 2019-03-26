@@ -14,9 +14,11 @@ import mpfit
 import multiprocessing
 from itertools import cycle
 from wifes_metadata import __version__
-
+import scipy.optimize as op
 # Fred's upadate (wsol)
 import os
+import datetime
+#import utils #MJI Testing 
 
 #------------------------------------------------------------------------
 f0 = open(os.path.join(metadata_dir,'basic_wifes_metadata.pkl'), 'rb')
@@ -145,6 +147,48 @@ def err_gauss_line(p,x,y,fjac=None):
     status = 0
     return [status,y - gauss_line(p,x)]
 
+def gauss_line_resid(p,x,y, gain=None, rnoise=10.0):
+    if gain==None:
+        return (gauss_line(p,x) - y)/rnoise**2
+    else:
+        return np.sqrt(numpy.maximum(y,0) + rnoise**2)
+
+def lsq_gauss_line( args ):
+    """
+    Fit a Gaussian to data y(x)
+    
+    Parameters
+    ----------
+    args: tuple
+        nline, guess_center, width_guess, xfit, yfit
+    
+    Notes
+    -----
+    nline: int
+        index of this line
+    guess_center: float
+        initial guess position
+    """
+    fit = op.least_squares(gauss_line_resid, [numpy.max(args[4]), args[1], args[2]], method='lm', \
+            xtol=1e-04, ftol=1e-4, f_scale=[3.,1.,1.], args=(args[3], args[4]))
+    #Look for unphysical solutions
+    if (fit.x[2]<0.5) or (fit.x[2]>10) or (fit.x[1]<args[3][0]) or (fit.x[1]>args[3][-1]): 
+        return args[0], float('nan'), 0., fit.x[2], 0.
+    else:
+        cov = numpy.linalg.inv(fit.jac.T.dot(fit.jac))
+        return args[0], fit.x[1], 1/cov[1,1], fit.x[2], 1/cov[2,2]
+
+def scipy_gauss_line(nline, guess_center, width_guess, xfit, yfit):
+    """
+    Parameters
+    ----------
+    nline: int
+        index of this line
+    guess_center: float
+        initial guess position
+    """
+    return None
+
 def mpfit_gauss_line( packaged_args ):
     (nline, guess_center, width_guess, xfit, yfit) = packaged_args
     # choose x,y subregions for this line
@@ -186,7 +230,7 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
                               peak_centers,
                               width_guess,
                               find_method = 'mpfit',
-                              multithread = True):
+                              multithread = True): 
     N = len(subbed_arc_data)
     x = numpy.arange(N,dtype='d')
     y = subbed_arc_data
@@ -224,16 +268,16 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
             else:
                 fitted_centers.append(new_xctr)
         # return desired values, for now only care about centers
-    elif find_method =='mpfit':
+    elif find_method =='mpfit' or find_method =='least_squares':
         # Fred's update : fitting a log(gaussian) fails miserably if other 
         # lines are close-by (not even blended !). 
         # Do an mpfit with gaussian function instead (can limit width!)
         # Use multicore to speed things up
+        # Mike I : change in a minimal way to use scipy least squares.
         if multithread :
             cpu = None
         else :
             cpu = 1 
-        multithread=False #!!! MJI
         # list the jobs
         jobs = []
         fitted_centers = numpy.zeros_like(peak_centers, dtype = numpy.float)
@@ -250,33 +294,46 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
                 continue
             jobs.append( (i,curr_ctr_guess, width_guess, xfit, yfit) )
         if len(jobs)>0:
-        # Do the threading (see below and http://stackoverflow.com/a/3843313)
-            #!!!MJI - this made the code *slower* on python 3 on a Mac.
-            #Just fitting a bunch of Gaussians - surely not the place for multi-processing, 
-            #which would fit better at the higher slit-by-slit level.
+            # Do the threading (see below and http://stackoverflow.com/a/3843313)
+            # MJI: with the following test, the code ran faster, but even just the Pool(cpu)
+            # command slowed things down. 
+            #jobs2 = [jobs[:len(jobs)//4], jobs[len(jobs)//4:2*len(jobs)//4],jobs[2*len(jobs)//4:3*len(jobs)//4],jobs[3*len(jobs)//4:]]
+            #results = mypool.imap_unordered(utils.lsq_gauss_line,jobs2)
             if multithread: 
-                with multiprocessing.Pool(cpu) as pool:
-                    mypool = multiprocessing.Pool(cpu)
-                    import pdb; pdb.set_trace()
-                    results = mypool.imap_unordered(mpfit_gauss_line,jobs) 
+                with multiprocessing.Pool(cpu) as mypool:
+                    #start = datetime.datetime.now() #!!! MJI
+                    if find_method =='mpfit':
+                        results = mypool.imap_unordered(mpfit_gauss_line,jobs)
+                    else:
+                        results = mypool.imap_unordered(lsq_gauss_line,jobs)
+                        
                     # Close off the pool now that we're done with it
-                    mypool.close()
-                    mypool.join()            
+                    # !!!MJI Not needed with the "with" command. The iterator below
+                    # waits for completion.
+                    #mypool.close()
+                    #mypool.join()            
                     # Process the results
                     for r in results:
+                        #for r in rr:
                         try:
                             this_line = r[0]
                             this_center = r[1]
                         except:
                             continue
                         fitted_centers[this_line] = float(this_center)
+                    #print('  core done in',datetime.datetime.now()-start)
             else:
+                start = datetime.datetime.now() #!!! MJI
                 for i in range(narc):
-                    fitted_centers[i] = mpfit_gauss_line(jobs[i])[1]
+                    if find_method =='mpfit':
+                        fitted_centers[i] = mpfit_gauss_line(jobs[i])[1]
+                    else:
+                        fitted_centers[i] = lsq_gauss_line(jobs[i])[1]
+                #print('  serial core done in',datetime.datetime.now()-start)
 
     if find_method == 'loggauss':
         return numpy.array(fitted_centers)
-    elif find_method == 'mpfit':
+    elif find_method == 'mpfit' or find_method =='least_squares':
         return fitted_centers
 
 def quick_arcline_fit(arc_data,
@@ -286,7 +343,7 @@ def quick_arcline_fit(arc_data,
                       width_guess=2.0,
                       flux_saturation = 50000.0,
                       prev_centers = None, # Fred's update (wsol)
-                      multithread=True
+                      multithread=False #!!!MJI. See comments above.
                       ):
     N = len(arc_data)
     arc_deriv = arc_data[1:]-arc_data[:-1]
@@ -323,7 +380,7 @@ def quick_arcline_fit(arc_data,
     # 30-50% are rubbsih ... so, if we do it once, we could avoid to do it
     # again and again ...
     # Use Xcorrelation to do that ...
-    if find_method == 'mpfit' and not prev_centers is None:
+    if (find_method == 'mpfit' or find_method =='least_squares')  and not prev_centers is None:
         # Find the shift between this set of lines and the previous ones
         prev_lines = numpy.zeros(N)
         curr_lines = numpy.zeros(N)
@@ -439,7 +496,6 @@ def find_lines_and_guess_refs(slitlet_data,
     if verbose:
         print(' Slitlet', chosen_slitlet)
         print('  ... detecting arc lines with',find_method,'...')
-        import datetime
         start = datetime.datetime.now()
 
     # Fred's update (wsol)
@@ -458,6 +514,7 @@ def find_lines_and_guess_refs(slitlet_data,
     else :
         mid_fit_centers = None # don't do it for the loggauss method ...
 
+    #!!! MJI If we cared, this is the part here that should be parallelised.
     for i in range(8//bin_y, nrows-8//bin_y):
         test_z = slitlet_data[i,:]
         fitted_ctrs = quick_arcline_fit(
@@ -1125,7 +1182,7 @@ def derive_wifes_polynomial_wave_solution(inimg,
         new_hdu = pyfits.ImageHDU(wave_data, arc_hdr, name=hdu_name)
         outfits.append(new_hdu)
     outfits[0].header.update('PYWIFES', __version__, 'PyWiFeS version')
-    outfits.writeto(out_file, clobber=True)
+    outfits.writeto(out_file, overwrite=True)
     a.close()
     return
 
