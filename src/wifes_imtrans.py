@@ -1,3 +1,4 @@
+from __future__ import division, print_function
 import numpy
 import scipy.interpolate
 
@@ -15,8 +16,8 @@ def blkrep(arr, mx, my):
 
 def blkavg(arr, mx, my):
     nby, nbx = numpy.shape(arr)
-    ny = nby/my
-    nx = nbx/my
+    ny = nby//my
+    nx = nbx//my
     # average in y
     y1 = numpy.sum(numpy.reshape(arr.flatten(), [ny, my, nbx]),
                    axis=1)/float(my)

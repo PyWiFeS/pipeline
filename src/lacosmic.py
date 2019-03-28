@@ -142,8 +142,8 @@ def lacos_spec_data(data,
         global_bpm[final_neighbor_bpix] = 1
         new_bpix = numpy.nonzero(new_bpm)
         if verbose:
-            print '%d CR pixels found in iteration %d' % (
-                len(new_bpix[0]), i+1)
+            print('%d CR pixels found in iteration %d' % (
+                len(new_bpix[0]), i+1))
         # if no new CRs found, exit loop
         if len(new_bpix[0]) == 0:
             break
@@ -258,8 +258,8 @@ def lacos_wifes_oneproc(inimg, outimg,
     outfits = pyfits.HDUList(f)
     for i in range(nslits):
         curr_hdu = i+1
-        print 'Starting slitlet %d of image %s' % (curr_hdu,
-                                                   inimg.split('/')[-1])
+        print('Starting slitlet %d of image %s' % (curr_hdu,
+                                                   inimg.split('/')[-1]))
         curr_dq_hdu = 50+curr_hdu
         orig_data = f[curr_hdu].data
         if wsol_fn != None:

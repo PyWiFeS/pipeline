@@ -8,7 +8,7 @@
 #   Code to support the fitting of the optical model
 #
 
-from __future__ import division
+from __future__ import division, print_function
 import numpy as np
 import matplotlib.pyplot as plt
 import math
@@ -184,9 +184,9 @@ def mpfitfunc_alphap(alphap, fjac=None, alls=None, ally=None, allx=None, grating
   # flag.
   n_cpus = multiprocessing.cpu_count()
   p = multiprocessing.Pool(int(math.ceil(n_cpus/2)))
-  print 'p=',p
+  print('p=',p)
   partial_mperrfunc = functools.partial(mperrfunc_alphap, alphap)
-  out = p.map(partial_mperrfunc, zip(gratings,alls,ally,allx,allarc,allp,allerr))
+  out = p.map(partial_mperrfunc, list(zip(gratings,alls,ally,allx,allarc,allp,allerr)))
   p.close()
 
   # Non-negative status value means MPFIT should continue, negative means
@@ -276,25 +276,25 @@ def defaultParams(grating):
 def printParams(grating,p,alphap):
   # Extract parameters (and ignore any extras we might be given)
   (d0, input_alpha, phi, xoc, yoc, r1, r2, r3, fcamera, theta_x, theta_y, xdc, ydc, lambda0, Afront, Aback, rx, ry) = p[:nparams]
-  print 'd0=',d0
-  print 'input_alpha=',input_alpha,'(',math.degrees(input_alpha),' degrees)'
-  print 'phi=',phi,'(',math.degrees(phi),' degrees)'
-  print 'xoc=',xoc
-  print 'yoc=',yoc
-  print 'r1=',r1
-  print 'r2=',r2
-  print 'r3=',r3
-  print 'fcamera=',fcamera
-  print 'theta_x=',theta_x,'(',math.degrees(theta_x),' degrees)'
-  print 'theta_y=',theta_y,'(',math.degrees(theta_y),' degrees)'
-  print 'xdc=',xdc
-  print 'ydc=',ydc
-  print 'lambda0=',lambda0
-  print 'Afront=',Afront,'(',math.degrees(Afront),' degrees)'
-  print 'Aback=',Aback,'(',math.degrees(Aback),' degrees)'
-  print 'rx=',rx
-  print 'ry=',ry
-  print 'alphap=',alphap
+  print('d0=',d0)
+  print('input_alpha=',input_alpha,'(',math.degrees(input_alpha),' degrees)')
+  print('phi=',phi,'(',math.degrees(phi),' degrees)')
+  print('xoc=',xoc)
+  print('yoc=',yoc)
+  print('r1=',r1)
+  print('r2=',r2)
+  print('r3=',r3)
+  print('fcamera=',fcamera)
+  print('theta_x=',theta_x,'(',math.degrees(theta_x),' degrees)')
+  print('theta_y=',theta_y,'(',math.degrees(theta_y),' degrees)')
+  print('xdc=',xdc)
+  print('ydc=',ydc)
+  print('lambda0=',lambda0)
+  print('Afront=',Afront,'(',math.degrees(Afront),' degrees)')
+  print('Aback=',Aback,'(',math.degrees(Aback),' degrees)')
+  print('rx=',rx)
+  print('ry=',ry)
+  print('alphap=',alphap)
 
 def norm_vector(x):
   norm = np.sum(x**2,axis=-1)**(1./2)
@@ -563,7 +563,7 @@ def fitfunc(grating,p,alphap,s,y,x):
       # If the solution has converged to better than 1 Angstrom then this is our
       # last iteration
       if (max_change < 1):
-	finished = True
+        finished = True
 
       # Calculate refractive index for prisms
       l2 = (lambda1/1e4)**2
@@ -625,7 +625,7 @@ def excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, doplot, verbose):
   for s,a,rms in allrms:
     if (rms > sigma*std+mean):
       if (verbose):
-	print 'Excluding',s,a,rms
+        print('Excluding',s,a,rms)
       excludeargs = np.logical_and(alls==s, allarcs==a)
       keepargs = np.logical_and(keepargs, np.logical_not(excludeargs))
 
