@@ -2,7 +2,10 @@
 
 import sys
 import os
-import pyfits
+try:
+	import pyfits
+except:
+	import astropy.io.fits as pyfits
 import wifes_calib
 import numpy
 
@@ -95,7 +98,12 @@ for obs in blue_obs:
             thisra = thisra[0:8]
             object = thisra+' '+thisdec
             if thisra in ra and thisdec in dec: ##if ra and dec verbatim already seen
-                blue_science[object].append(obs)
+                print(object)
+                # TODO: fix this
+                try:
+                    blue_science[object].append(obs)
+                except:
+                    blue_science[object]= [obs]
             else:
                 blue_science[object] = [obs]
             ra.append(thisra)
@@ -109,59 +117,59 @@ dsplit = '#' + 54*'-'
 
 #------------------
 # headers
-print >> f, 'import pickle'
-print >> f, ''
+print('import pickle', file=f)
+print('', file=f)
 
 #------------------
 # calibrations
-print >> f, dsplit
+print(dsplit, file=f)
 
 # 1 - bias
-print >> f, 'bias_obs = ['
+print('bias_obs = [', file=f)
 for obs in blue_bias:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 # 2 - domeflat
-print >> f, 'domeflat_obs = ['
+print('domeflat_obs = [', file=f)
 for obs in blue_domeflat:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 # 3 - twiflat
-print >> f, 'twiflat_obs = ['
+print('twiflat_obs = [', file=f)
 for obs in blue_twiflat:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 # 4 - dark
-print >> f, 'dark_obs = ['
+print('dark_obs = [', file=f)
 for obs in blue_dark:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 # 5 - arc
-print >> f, 'arc_obs = ['
+print('arc_obs = [', file=f)
 for obs in blue_arc:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 # 6 - wire
-print >> f, 'wire_obs = ['
+print('wire_obs = [', file=f)
 for obs in blue_wire:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 #------------------
 # science
-print >> f, dsplit
-print >> f, 'sci_obs = ['
+print(dsplit, file=f)
+print('sci_obs = [', file=f)
 for object in blue_science.keys():
     curbarc = 1000
     curaarc = 1000
@@ -191,50 +199,50 @@ for object in blue_science.keys():
     for i in range(1,len(obs_list)):
         obs = obs_list[i]
         obs_str += ',\n               \'%s\'' % obs
-    print >> f, '    # %s' % object
-    print >> f, '    {\'sci\'  : [%s],' % obs_str
-    print >> f, '     \'arc\'  : ['+sciarc_str+'],'
-    print >> f, '     \'flat\' : [],'
-    print >> f, '     \'sky\'  : [],'
-    print >> f, '     \'wire\' : []},'
+    print('    # %s' % object, file=f)
+    print('    {\'sci\'  : [%s],' % obs_str, file=f)
+    print('     \'arc\'  : ['+sciarc_str+'],', file=f)
+    print('     \'flat\' : [],', file=f)
+    print('     \'sky\'  : [],', file=f)
+    print('     \'wire\' : []},', file=f)
 
 
-print >> f, '    ]'
-print >> f, ''
+print('    ]', file=f)
+print('', file=f)
 
 #------------------
 # stdstars
-print >> f, dsplit
-print >> f, 'std_obs = ['
+print(dsplit, file=f)
+print('std_obs = [', file=f)
 for obs in blue_stdstar:
     f2 = pyfits.open(data_dir+obs+'.fits')
     object = f2[0].header['OBJECT']
     f2.close()
-    print >> f, '    # %s' % object
-    print >> f, '    {\'sci\'  : [\'%s\'],' % obs
-    print >> f, '     \'arc\'  : [],'
-    print >> f, '     \'flat\' : [],'
-    print >> f, '     \'type\' : [\'flux\', \'telluric\']},'
-print >> f, '    ]'
-print >> f, ''
+    print('    # %s' % object, file=f)
+    print('    {\'sci\'  : [\'%s\'],' % obs, file=f)
+    print('     \'arc\'  : [],', file=f)
+    print('     \'flat\' : [],', file=f)
+    print('     \'type\' : [\'flux\', \'telluric\']},', file=f)
+print('    ]', file=f)
+print('', file=f)
 
 #------------------
 # footers
-print >> f, dsplit
+print(dsplit, file=f)
 out_fn = 'wifesB_%s_metadata.pkl' % obs_date
-print >> f, 'night_data = {'
-print >> f, '    \'bias\' : bias_obs,'
-print >> f, '    \'domeflat\' : domeflat_obs,'
-print >> f, '    \'twiflat\' : twiflat_obs,'
-print >> f, '    \'dark\' : dark_obs,'
-print >> f, '    \'wire\' : wire_obs,'
-print >> f, '    \'arc\'  : arc_obs,'
-print >> f, '    \'sci\'  : sci_obs,'
-print >> f, '    \'std\'  : std_obs}'
-print >> f, ''
-print >> f, 'f1 = open(\'%s\', \'w\')' % out_fn
-print >> f, 'pickle.dump(night_data, f1)'
-print >> f, 'f1.close()'
+print('night_data = {', file=f)
+print('    \'bias\' : bias_obs,', file=f)
+print('    \'domeflat\' : domeflat_obs,', file=f)
+print('    \'twiflat\' : twiflat_obs,', file=f)
+print('    \'dark\' : dark_obs,', file=f)
+print('    \'wire\' : wire_obs,', file=f)
+print('    \'arc\'  : arc_obs,', file=f)
+print('    \'sci\'  : sci_obs,', file=f)
+print('    \'std\'  : std_obs}', file=f)
+print('', file=f)
+print('f1 = open(\'%s\', \'w\')' % out_fn, file=f)
+print('pickle.dump(night_data, f1)', file=f)
+print('f1.close()', file=f)
 
 f.close()
 
@@ -296,7 +304,11 @@ for obs in red_obs:
             ##re-label objects
             object = thisra+' '+thisdec
             if thisra in ra and thisdec in dec: ##if ra and dec verbatim already seen
-                red_science[object].append(obs)
+                # TODO: FIX THIS
+                try:
+                    red_science[object].append(obs)
+                except:
+                    red_science[object] = [obs]
             else:
                 red_science[object] = [obs]
             
@@ -311,59 +323,59 @@ dsplit = '#' + 54*'-'
 
 #------------------
 # headers
-print >> f, 'import pickle'
-print >> f, ''
+print('import pickle', file=f)
+print('', file=f)
 
 #------------------
 # calibrations
-print >> f, dsplit
+print(dsplit, file=f)
 
 # 1 - bias
-print >> f, 'bias_obs = ['
+print('bias_obs = [', file=f)
 for obs in red_bias:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 # 2 - domeflat
-print >> f, 'domeflat_obs = ['
+print('domeflat_obs = [', file=f)
 for obs in red_domeflat:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 # 3 - twiflat
-print >> f, 'twiflat_obs = ['
+print('twiflat_obs = [', file=f)
 for obs in red_twiflat:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 # 4 - dark
-print >> f, 'dark_obs = ['
+print('dark_obs = [', file=f)
 for obs in red_dark:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 # 5 - arc
-print >> f, 'arc_obs = ['
+print('arc_obs = [', file=f)
 for obs in red_arc:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 # 6 - wire
-print >> f, 'wire_obs = ['
+print('wire_obs = [', file=f)
 for obs in red_wire:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    print('   \'%s\',' % obs, file=f)
+print('    ]', file=f)
+print('', file=f)
 
 #------------------
 # science
-print >> f, dsplit
-print >> f, 'sci_obs = ['
+print(dsplit, file=f)
+print('sci_obs = [', file=f)
 for object in red_science.keys():
     curbarc = 1000
     curaarc = 1000
@@ -394,49 +406,49 @@ for object in red_science.keys():
     for i in range(1,len(obs_list)):
         obs = obs_list[i]
         obs_str += ',\n               \'%s\'' % obs
-    print >> f, '    # %s' % object
-    print >> f, '    {\'sci\'  : [%s],' % obs_str
-    print >> f, '     \'arc\'  : ['+sciarc_str+'],'
-    print >> f, '     \'flat\' : [],'
-    print >> f, '     \'sky\'  : [],'
-    print >> f, '     \'wire\' : []},'
+    print('    # %s' % object, file=f)
+    print('    {\'sci\'  : [%s],' % obs_str, file=f)
+    print('     \'arc\'  : ['+sciarc_str+'],', file=f)
+    print('     \'flat\' : [],', file=f)
+    print('     \'sky\'  : [],', file=f)
+    print('     \'wire\' : []},', file=f)
 
 
-print >> f, '    ]'
-print >> f, ''
+print('    ]', file=f)
+print('', file=f)
 
 #------------------
 # stdstars
-print >> f, dsplit
-print >> f, 'std_obs = ['
+print(dsplit, file=f)
+print('std_obs = [', file=f)
 for obs in red_stdstar:
     f2 = pyfits.open(data_dir+obs+'.fits')
     object = f2[0].header['OBJECT']
     f2.close()
-    print >> f, '    # %s' % object
-    print >> f, '    {\'sci\'  : [\'%s\'],' % obs
-    print >> f, '     \'arc\'  : [],'
-    print >> f, '     \'flat\' : [],'
-    print >> f, '     \'type\' : [\'flux\', \'telluric\']},'
-print >> f, '    ]'
-print >> f, ''
+    print('    # %s' % object, file=f)
+    print('    {\'sci\'  : [\'%s\'],' % obs, file=f)
+    print('     \'arc\'  : [],', file=f)
+    print('     \'flat\' : [],', file=f)
+    print('     \'type\' : [\'flux\', \'telluric\']},', file=f)
+print('    ]', file=f)
+print('', file=f)
 
 #------------------
 # footers
-print >> f, dsplit
+print(dsplit, file=f)
 out_fn = 'wifesR_%s_metadata.pkl' % obs_date
-print >> f, 'night_data = {'
-print >> f, '    \'bias\' : bias_obs,'
-print >> f, '    \'domeflat\' : domeflat_obs,'
-print >> f, '    \'twiflat\' : twiflat_obs,'
-print >> f, '    \'dark\' : dark_obs,'
-print >> f, '    \'wire\' : wire_obs,'
-print >> f, '    \'arc\'  : arc_obs,'
-print >> f, '    \'sci\'  : sci_obs,'
-print >> f, '    \'std\'  : std_obs}'
-print >> f, ''
-print >> f, 'f1 = open(\'%s\', \'w\')' % out_fn
-print >> f, 'pickle.dump(night_data, f1)'
-print >> f, 'f1.close()'
+print('night_data = {', file=f)
+print('    \'bias\' : bias_obs,', file=f)
+print('    \'domeflat\' : domeflat_obs,', file=f)
+print('    \'twiflat\' : twiflat_obs,', file=f)
+print('    \'dark\' : dark_obs,', file=f)
+print('    \'wire\' : wire_obs,', file=f)
+print('    \'arc\'  : arc_obs,', file=f)
+print('    \'sci\'  : sci_obs,', file=f)
+print('    \'std\'  : std_obs}', file=f)
+print('', file=f)
+print('f1 = open(\'%s\', \'w\')' % out_fn, file=f)
+print('pickle.dump(night_data, f1)', file=f)
+print('f1.close()', file=f)
 
 f.close()
