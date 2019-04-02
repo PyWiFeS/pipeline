@@ -98,7 +98,6 @@ for obs in blue_obs:
             thisra = thisra[0:8]
             object = thisra+' '+thisdec
             if thisra in ra and thisdec in dec: ##if ra and dec verbatim already seen
-                print(object)
                 # TODO: fix this
                 try:
                     blue_science[object].append(obs)
@@ -113,7 +112,7 @@ for obs in blue_obs:
 # write to metadata save script!
 f = open('save_blue_metadata.py', 'w')
 
-dsplit = '#' + 54*'-'
+dsplit = '#' + 54*'-' + '\n'
 
 #------------------
 # headers
@@ -127,42 +126,42 @@ f.write(dsplit)
 # 1 - bias
 f.write('bias_obs = [\n')
 for obs in blue_bias:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
 # 2 - domeflat
 f.write('domeflat_obs = [\n')
 for obs in blue_domeflat:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
 # 3 - twiflat
 f.write('twiflat_obs = [\n')
 for obs in blue_twiflat:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
 # 4 - dark
 f.write('dark_obs = [\n')
 for obs in blue_dark:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
 # 5 - arc
 f.write('arc_obs = [\n')
 for obs in blue_arc:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
 # 6 - wire
 f.write('wire_obs = [\n')
 for obs in blue_wire:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
@@ -199,8 +198,8 @@ for object in blue_science.keys():
     for i in range(1,len(obs_list)):
         obs = obs_list[i]
         obs_str += ',\n               \'%s\'' % obs
-    f.write('    # %s' % object)
-    f.write('    {\'sci\'  : [%s],' % obs_str)
+    f.write('    # %s \n' % object)
+    f.write('    {\'sci\'  : [%s], \n' % obs_str)
     f.write('     \'arc\'  : ['+sciarc_str+'],\n')
     f.write('     \'flat\' : [],\n')
     f.write('     \'sky\'  : [],\n')
@@ -218,8 +217,8 @@ for obs in blue_stdstar:
     f2 = pyfits.open(data_dir+obs+'.fits')
     object = f2[0].header['OBJECT']
     f2.close()
-    f.write('    # %s' % object)
-    f.write('    {\'sci\'  : [\'%s\'],' % obs)
+    f.write('    # %s \n' % object)
+    f.write('    {\'sci\'  : [\'%s\'], \n' % obs)
     f.write('     \'arc\'  : [],\n')
     f.write('     \'flat\' : [],\n')
     f.write('     \'type\' : [\'flux\', \'telluric\']},\n')
@@ -240,7 +239,7 @@ f.write('    \'arc\'  : arc_obs,\n')
 f.write('    \'sci\'  : sci_obs,\n')
 f.write('    \'std\'  : std_obs}\n')
 f.write('\n')
-f.write('f1 = open(\'%s\', \'w\')' % out_fn)
+f.write('f1 = open(\'%s\', \'wb\') \n' % out_fn)
 f.write('pickle.dump(night_data, f1)\n')
 f.write('f1.close()\n')
 
@@ -319,7 +318,7 @@ for obs in red_obs:
 # write to metadata save script!
 f = open('save_red_metadata.py', 'w')
 
-dsplit = '#' + 54*'-'
+dsplit = '#' + 54*'-' + '\n'
 
 #------------------
 # headers
@@ -333,42 +332,42 @@ f.write(dsplit)
 # 1 - bias
 f.write('bias_obs = [\n')
 for obs in red_bias:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
 # 2 - domeflat
 f.write('domeflat_obs = [\n')
 for obs in red_domeflat:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
 # 3 - twiflat
 f.write('twiflat_obs = [\n')
 for obs in red_twiflat:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
 # 4 - dark
 f.write('dark_obs = [\n')
 for obs in red_dark:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
 # 5 - arc
 f.write('arc_obs = [\n')
 for obs in red_arc:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
 # 6 - wire
 f.write('wire_obs = [\n')
 for obs in red_wire:
-    f.write('   \'%s\',' % obs)
+    f.write('   \'%s\', \n' % obs)
 f.write('    ]\n')
 f.write('\n')
 
@@ -406,8 +405,8 @@ for object in red_science.keys():
     for i in range(1,len(obs_list)):
         obs = obs_list[i]
         obs_str += ',\n               \'%s\'' % obs
-    f.write('    # %s' % object)
-    f.write('    {\'sci\'  : [%s],' % obs_str)
+    f.write('    # %s \n' % object)
+    f.write('    {\'sci\'  : [%s], \n' % obs_str)
     f.write('     \'arc\'  : ['+sciarc_str+'],\n')
     f.write('     \'flat\' : [],\n')
     f.write('     \'sky\'  : [],\n')
@@ -447,7 +446,7 @@ f.write('    \'arc\'  : arc_obs,\n')
 f.write('    \'sci\'  : sci_obs,\n')
 f.write('    \'std\'  : std_obs}\n')
 f.write('\n')
-f.write('f1 = open(\'%s\', \'w\')' % out_fn)
+f.write('f1 = open(\'%s\', \'wb\') \n' % out_fn)
 f.write('pickle.dump(night_data, f1)\n')
 f.write('f1.close()\n')
 

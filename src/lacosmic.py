@@ -194,7 +194,7 @@ def lacos_data_savefits(data,
     outfits = pyfits.HDUList([pyfits.PrimaryHDU(data=clean_data)])
     new_hdu = pyfits.ImageHDU(global_bpm)
     outfits.append(new_hdu)
-    outfits.writeto(output_fn, clobber=True)
+    outfits.writeto(output_fn, overwrite=True)
     # exit
     return
 
@@ -283,7 +283,7 @@ def lacos_wifes_oneproc(inimg, outimg,
         outfits[curr_hdu].data = clean_data
         # save the bad pixel mask in the DQ extention
         outfits[curr_dq_hdu].data = global_bpm
-    outfits.writeto(outimg, clobber=True)
+    outfits.writeto(outimg, overwrite=True)
     f.close()
     return
 
@@ -354,6 +354,6 @@ def lacos_wifes_multithread(
         f2.close()
         subprocess.call(['rm', '-f', temp_fn])
     # 3 - save it!
-    outfits.writeto(outimg, clobber=True)
+    outfits.writeto(outimg, overwrite=True)
     f.close()
     return

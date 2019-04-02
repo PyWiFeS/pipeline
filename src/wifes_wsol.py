@@ -22,7 +22,10 @@ import datetime
 
 #------------------------------------------------------------------------
 f0 = open(os.path.join(metadata_dir,'basic_wifes_metadata.pkl'), 'rb')
-wifes_metadata = pickle.load(f0, fix_imports=True, encoding='latin')
+try:
+    wifes_metadata = pickle.load(f0, fix_imports=True, encoding='latin')
+except:
+    wifes_metadata = pickle.load(f0) # Python 2.7 can't handle fix_imports or encoding=latin
 f0.close()
 base_wsols = wifes_metadata['baseline_wsols']
 all_ref_lines = wifes_metadata['ref_linelists']
@@ -1267,7 +1270,7 @@ def save_found_lines(inimg,
                 'xpoly' : xpoly,
                 'ypoly' : ypoly}
             fitted_lines.append(new_dict)
-    f = open(out_file, 'w')
+    f = open(out_file, 'wb')
     pickle.dump(fitted_lines, f)
     f.close()
     return

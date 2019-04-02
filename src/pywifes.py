@@ -23,7 +23,10 @@ from wifes_metadata import __version__
 #------------------------------------------------------------------------
 # NEED TO OPEN / ACCESS WIFES METADATA FILE!!
 f0 = open(os.path.join(metadata_dir,'basic_wifes_metadata.pkl'), 'rb')
-wifes_metadata = pickle.load(f0, fix_imports=True, encoding='latin')
+try:
+    wifes_metadata = pickle.load(f0, fix_imports=True, encoding='latin')
+except:
+    wifes_metadata = pickle.load(f0) # fix_imports doesn't work in python 2.7.
 f0.close()
 blue_slitlet_defs = wifes_metadata['blue_slitlet_defs']
 red_slitlet_defs = wifes_metadata['red_slitlet_defs']
@@ -1373,7 +1376,7 @@ def interslice_cleanup(input_fn, output_fn,
     #------------------------------------
     # 2) Get the slitlets boundaries
     if slitlet_def_file != None:
-        f2 = open(slitlet_def_file, 'r')
+        f2 = open(slitlet_def_file, 'rb')
         init_slitlet_defs = pickle.load(f2)
         f2.close()
     elif camera == 'WiFeSRed':
@@ -1552,7 +1555,10 @@ def wifes_slitlet_mef(inimg, outimg, data_hdu=0,
     # new ones if defined, otherwise use baseline values!
     if slitlet_def_file != None:
         f2 = open(slitlet_def_file, 'rb')
-        slitlet_defs = pickle.load(f2, fix_imports=True, encoding='latin')
+        try:
+            slitlet_defs = pickle.load(f2, fix_imports=True, encoding='latin')
+        except:
+            slitlet_defs = pickle.load(f2) # for python 2.7
         f2.close()
     elif camera == 'WiFeSRed':
         slitlet_defs = red_slitlet_defs
