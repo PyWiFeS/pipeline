@@ -73,7 +73,7 @@ def saveResamplingData(fname, yrange, grating, bin_x, bin_y, pl):
     f.append(xhdu)
   #f.append(yhdu)
   f.update_extend()
-  f.writeto(fname, clobber=True)
+  f.writeto(fname, overwrite=True)
 
 #------------------------------------------------------------------------
 # new function from Mike to evaluate optical model

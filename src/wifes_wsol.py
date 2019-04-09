@@ -1610,7 +1610,7 @@ def derive_wifes_optical_wave_solution(inimg,
           step2plot = True
       else:
           step2plot = False    
-          
+
       # guess the reference wavelengths
       new_x, new_y, new_r = find_lines_and_guess_refs(
           f[i].data,
