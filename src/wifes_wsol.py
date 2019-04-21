@@ -1612,6 +1612,7 @@ def derive_wifes_optical_wave_solution(inimg,
           step2plot = False    
 
       # guess the reference wavelengths
+      print('DIAGNOSTICS', i, f[i].data) # MZ
       new_x, new_y, new_r = find_lines_and_guess_refs(
           f[i].data,
           i,
