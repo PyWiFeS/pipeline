@@ -330,7 +330,7 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
                 for i in range(narc):
                     if find_method =='mpfit':
                         # If sentence added by MZ
-                        print('FITTED CENTERS', len(fitted_centers))
+                        #~ print('FITTED CENTERS', len(fitted_centers))
                         if i<len(jobs):
                             fitted_centers[i] = mpfit_gauss_line(jobs[i])[1]
                         else:
