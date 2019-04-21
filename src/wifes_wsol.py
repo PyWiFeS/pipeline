@@ -329,9 +329,12 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
                 start = datetime.datetime.now() #!!! MJI
                 for i in range(narc):
                     if find_method =='mpfit':
-                        if i>7:
-                            print('FITTED_CENTERS', i, len(jobs), type(jobs)) # MZ
-                        fitted_centers[i] = mpfit_gauss_line(jobs[i])[1]
+                        # If sentence added by MZ
+                        print('FITTED CENTERS', len(fitted_centers))
+                        if i<len(jobs):
+                            fitted_centers[i] = mpfit_gauss_line(jobs[i])[1]
+                        else:
+                            pass
                     else:
                         fitted_centers[i] = lsq_gauss_line(jobs[i])[1]
                 #print('  serial core done in',datetime.datetime.now()-start)
