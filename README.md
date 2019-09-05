@@ -15,4 +15,6 @@ TODO
 
 # TODO
 - Blue
-- Simplify
+- Simplify:
+  - Copy all necessary files into `pipeline`
+  - Make it more simple and robust.
