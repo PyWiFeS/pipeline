@@ -71,23 +71,31 @@ if len(obsdate)<2: # in case path ends with /
     obsdate = path.split('/')[-2] # Hope that works
 print('OBSDATE', obsdate)
 
-root_obsdate = os.path.join(config.root, '%s'%obsdate)
+# OUTPUT FOLDER
+root_obsdate = os.path.join(config.output_root, '%s'%obsdate)
+
+# Create folder with date
 root_bool = os.path.isdir(root_obsdate) and os.path.exists(root_obsdate)
 if not root_bool:
     os.mkdir(root_obsdate)
 print('root_obsdate', root_obsdate)
 
+# Add band (grating)
+out_dir = os.path.join(root_obsdate, 'reduced_%s'%grating)
+
+
+
 #~ out_dir0 = config.reduce_metadata['output_folder']
-print('first', out_dir0)
-out_dir0 = data_dir.replace('2m3data', '2m3reduced')
-print('first', out_dir0)
-print prefix
-if prefix:
+#~ print('first', out_dir0)
+#~ out_dir0 = data_dir.replace('2m3data', '2m3reduced')
+#~ print('first', out_dir0)
+#~ print prefix
+if prefix is not None and len(prefix)>0:
     print ('prefix')
-    out_dir = os.path.join(root_obsdate, '%s_%s'%(out_dir0, prefix))
-else:
-    out_dir = os.path.join(root_obsdate, out_dir0)
-print('out_dir0', out_dir)
+    out_dir = os.path.join(out_dir, '_%s'%prefix)
+#~ else:
+    #~ out_dir = os.path.join(root_obsdate, out_dir0)
+#~ print('out_dir0', out_dir)
 out_dir_bool = os.path.isdir(out_dir) and os.path.exists(out_dir)
 if not out_dir_bool:
     os.mkdir(out_dir)

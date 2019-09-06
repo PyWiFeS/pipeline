@@ -21,7 +21,7 @@ import sys
 #~ print data_dir
 
 # root needed only for output
-root = '/priv/mulga1/marusa/2m3reduced/wifes/'
+output_root = '/priv/mulga1/marusa/2m3reduced/wifes/'
 #~ root = '/Users/marusa/observing/23m/data/reduced/'
 
 # Folder with the raw data including calibration frames
@@ -51,7 +51,8 @@ generate_metadata={'prefix': prefix,
                     'CCDSUM': ccdsum,
                     'objectnames': objectnames,
                     'exclude_objectnames': exclude_objectnames,
-                    'metadata_filename': metadata_filename
+                    'metadata_filename': metadata_filename,
+                    'output_root': output_root,
                     }
 
 # Don't show plots. Just save them into diagnostics folder so reduction doesn't need any interaction if not asked for. Verbose.
@@ -64,9 +65,9 @@ generate_metadata={'prefix': prefix,
 band='r' # TODO: THIS SHOULD come from the command line
 #~ band='b'
 if prefix and len(prefix)>0:
-        out_dir = os.path.join(root, '%s_reduced_%s/'%(prefix, band))
+        out_dir = os.path.join(output_root, '%s_reduced_%s/'%(prefix, band))
 else:
-    out_dir = os.path.join(root, 'reduced_%s/'%band)
+    out_dir = os.path.join(output_root, 'reduced_%s/'%band)
 print('config, ', out_dir, prefix, band)
 #~ if out_dir[-1]!='/':
     #~ out_dir+='/'
