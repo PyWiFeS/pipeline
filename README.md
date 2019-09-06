@@ -19,4 +19,5 @@ TODO
   - Copy all necessary files into `pipeline`
   - Make it more simple and robust.
 - What happens if there are 2 or more stars in the slit?
-- Add `convert_to_ascii` file
+- Add `convert_to_ascii` file and add obsdate_objectid.
+- Create a script for: fits file with all essential info: RA, DEC, exact time (MJD?), airmass, ...
