@@ -12,7 +12,7 @@ A new folder is created:
 How does this script know what metadata file to read?
 ## Convert to ascii
 `convert_fits_to_ascii.py`
-## Wavelength calibration
+## Radial velocity determination and correction
 TODO
 
 # TODO
