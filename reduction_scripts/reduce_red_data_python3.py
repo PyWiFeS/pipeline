@@ -1,5 +1,10 @@
 #! /usr/bin/env python
 
+"""
+Example:
+python reduce_red_data_python3.py config.py /priv/mulga1/marusa/2m3data/20190302
+"""
+
 import sys
 import os
 import pickle
@@ -19,44 +24,71 @@ import imp
 start_time = datetime.datetime.now()
 #------------------------------------------------------------------------
 
-# Example:
-# python reduce_red_data_python3.py config.py /priv/mulga1/marusa/2m3data/20190302
-
-
+# Config
 config_name=sys.argv[1]
 config = imp.load_source(config_name.replace('.py', ''), config_name)
 reload(config)
 metadata=config.reduce_metadata
 
 # This is not so simple as output folder is not the same
-absolute_paths=True
+# What is this?
+#absolute_paths=True
 
 prefix=config.prefix
 
-# Data input folder
-data_dir = sys.argv[2] #config.generate_metadata['data_dir']
+# Input folder with raw data
+data_dir = sys.argv[2]
 
+# Output folder (should already exist and metadata should be there)
+
+###### OUTPUT FOLDER ################
+# Get obsdate
 path = sys.argv[2]
 obsdate = path.split('/')[-1]
-if len(obsdate)<1:
-    obsdate = path.split('/')[-2]
+if len(obsdate)<2: # in case path ends with /
+    obsdate = path.split('/')[-2] # Hope that works
 print('OBSDATE', obsdate)
+
+root_obsdate = os.path.join(config.output_root, '%s'%obsdate)
+
+# Create folder with date
+root_bool = os.path.isdir(root_obsdate) and os.path.exists(root_obsdate)
+if not root_bool:
+    os.mkdir(root_obsdate)
+print('root_obsdate', root_obsdate)
+
+# Add band (grating)
+out_dir = os.path.join(root_obsdate, 'reduced_%s'%grating)
+
 if prefix is not None and len(prefix)>0:
-    out_dir = os.path.join(config.output_root, '%s/reduced_r_%s'%(obsdate, prefix))
-else:
-    out_dir = os.path.join(config.output_root, '%s/reduced_r'%obsdate)
-print config.output_root, obsdate, prefix
+    print ('prefix')
+    out_dir = os.path.join(out_dir, '_%s'%prefix)
 out_dir_bool = os.path.isdir(out_dir) and os.path.exists(out_dir)
-print('Trying to create', out_dir)
 if not out_dir_bool:
     os.mkdir(out_dir)
-    print('DIR %s CREATED.'%out_dir)
 print('out_dir', out_dir)
+######################################
+
+#~ path = sys.argv[2]
+#~ obsdate = path.split('/')[-1]
+#~ if len(obsdate)<1:
+    #~ obsdate = path.split('/')[-2]
+#~ print('OBSDATE', obsdate)
+#~ if prefix is not None and len(prefix)>0:
+    #~ out_dir = os.path.join(config.output_root, '%s/reduced_r_%s'%(obsdate, prefix))
+#~ else:
+    #~ out_dir = os.path.join(config.output_root, '%s/reduced_r'%obsdate)
+#~ print config.output_root, obsdate, prefix
+#~ out_dir_bool = os.path.isdir(out_dir) and os.path.exists(out_dir)
+#~ print('Trying to create', out_dir)
+#~ if not out_dir_bool:
+    #~ os.mkdir(out_dir)
+    #~ print('DIR %s CREATED.'%out_dir)
+#~ print('out_dir', out_dir)
 
 calib_prefix = os.path.join(out_dir,'wifesR')
 
 # Load metadata
-print('PPPPREFIX', prefix, out_dir)
 if prefix is not None and len(prefix)>0:
     metadata_filename=os.path.join(out_dir, '%s_metadata_WiFeSRed.py'%prefix)
 else:

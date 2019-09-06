@@ -12,40 +12,29 @@ Processing steps:
 import os
 import sys
 
-# Generate metadata: prepare list of fits files (sci+cal) to be reduced.
-#~ try:
-    #~ data_dir = os.path.abspath(sys.argv[2])+'/'
-#~ except:
-    #~ data_dir = os.getcwd()+'/'
-
-#~ print data_dir
-
+#------------------------------------------------------------------------
+#------------------------------------------------------------------------
 # root needed only for output
 output_root = '/priv/mulga1/marusa/2m3reduced/wifes/'
-#~ root = '/Users/marusa/observing/23m/data/reduced/'
-
-# Folder with the raw data including calibration frames
-#~ data_dir='raw/'
 
 # Do you want to reduce only specific objects? Names must match those in the fits file headers (OBJNAME).
 objectnames=None
 exclude_objectnames=['PDS 70']
 
-
 # Do you want to reduce only images with specific binning?
 ccdsum=None #'1 1' # '1 2' # binning; False or None
 naxis2=None #2056 # False # 2056 for PDS 70
 
-# Co-add images of the same object
-coadd_images = True
-# If false, then separate them in the metadata file. Take care with arcs.
-
 # Save to folders with this prefix
 prefix=None#'ys'
 
-metadata_filename='%s_metadata'%prefix
+# This thing with metadata_filename is actually not used yet.
+if prefix is not None and len(prefix)>0:
+    metadata_filename='%s_metadata'%prefix
+else:
+    metadata_filename='metadata'
 
-
+#------------------------------------------------------------------------
 
 generate_metadata={'prefix': prefix,
                     'CCDSUM': ccdsum,
@@ -55,26 +44,17 @@ generate_metadata={'prefix': prefix,
                     'output_root': output_root,
                     }
 
+#------------------------------------------------------------------------
+#------------------------------------------------------------------------
+#************************************************************************
+#*****                USER REDUCTION DESIGN IS SET HERE             *****
+#************************************************************************
+
 # Don't show plots. Just save them into diagnostics folder so reduction doesn't need any interaction if not asked for. Verbose.
 
-# Existing superflat, superbias etc. from previous nights (in case no calibration frames were taken this night)
-
-###############################################
-# REDUCE DATA
-
-band='r' # TODO: THIS SHOULD come from the command line
-#~ band='b'
-if prefix and len(prefix)>0:
-        out_dir = os.path.join(output_root, '%s_reduced_%s/'%(prefix, band))
-else:
-    out_dir = os.path.join(output_root, 'reduced_%s/'%band)
-print('config, ', out_dir, prefix, band)
-#~ if out_dir[-1]!='/':
-    #~ out_dir+='/'
-
-reduce_metadata={'metadata_filename': metadata_filename,
-                'output_folder': out_dir
-                    }
+# Co-add images of the same object
+coadd_images = True
+# If false, then separate them in the metadata file. Take care with arcs.
 
 # SET MULTITHREAD ?
 multithread=False
@@ -82,11 +62,6 @@ multithread=False
 # SET SKIP ALREADY DONE FILES ?
 skip_done=True
 
-#------------------------------------------------------------------------
-#------------------------------------------------------------------------
-#************************************************************************
-#*****                USER REDUCTION DESIGN IS SET HERE             *****
-#************************************************************************
 proc_steps = [
     #------------------
     {'step':'overscan_sub'   , 'run':True, 'suffix':'00', 'args':{}},

@@ -1,5 +1,10 @@
 #! /usr/bin/env python
 
+"""
+Example:
+python generate_metadata_script_marusa.py config.py /priv/mulga1/marusa/2m3data/20190114
+"""
+
 import numpy as np
 import sys, getopt
 import os
@@ -8,23 +13,20 @@ from astropy.io import fits as pyfits
 import wifes_calib
 import imp
 
+# Calibration files in case some are missing for this night
 import calibration_filenames_date as cal
-#~ import calibration_filenames_date_less_keywords as cal
 cal=cal.result
 
-# Example:
-# python generate_metadata_script_marusa.py config.py /priv/mulga1/marusa/2m3data/20190114
 
+# List of standard stars
 stdstar_list = wifes_calib.ref_fname_lookup.keys()
 
+# Config file
 config = imp.load_source('config', sys.argv[1])
 metadata=config.generate_metadata
 
 
-
-# THIS IS HARDCODED!!!
-#~ selected_cal_dates={'DARK':20190315, 'FLAT': 20190315, 'BIAS': 20190315}
-#~ selected_cal_dates={'DARK':20190304, 'BIAS': 20190226}
+# In case calibration files are missing, specify dates (format 20190315) for each cal type
 selected_cal_dates={}
 try:
     #~ opts, args = getopt.getopt(sys.argv,"dark:bias:flat:",["dark=", "bias=", "flat="])
@@ -38,13 +40,17 @@ for opt, arg in opts:
         selected_cal_dates['BIAS']=int(arg)
     elif opt in ("-f"):
         selected_cal_dates['FLAT']=int(arg)
-    elif opt in ("-g"): # grating: Blue or Red
+    
+    # grating: Blue or Red
+    elif opt in ("-g"):
         grating = arg
 print 'SELECTED_CAL_DATES', selected_cal_dates
 
 try:
+    l=len(grating) # just so the print doesnt print if grating doesnt exist
     print 'GRATING:', grating
 except:
+    print('%%%%%%%%%%%%%%% SPECIFY GRATING!!!')
     pass
 
 data_dir = sys.argv[2]
@@ -65,13 +71,15 @@ exclude_objectnames=metadata['exclude_objectnames']
 if exclude_objectnames:
     exclude_objectnames = [x.replace(' ', '') for x in exclude_objectnames]
 
+
+###### OUTPUT FOLDER ################
+# Get obsdate
 path = sys.argv[2]
 obsdate = path.split('/')[-1]
 if len(obsdate)<2: # in case path ends with /
     obsdate = path.split('/')[-2] # Hope that works
 print('OBSDATE', obsdate)
 
-# OUTPUT FOLDER
 root_obsdate = os.path.join(config.output_root, '%s'%obsdate)
 
 # Create folder with date
@@ -83,23 +91,14 @@ print('root_obsdate', root_obsdate)
 # Add band (grating)
 out_dir = os.path.join(root_obsdate, 'reduced_%s'%grating)
 
-
-
-#~ out_dir0 = config.reduce_metadata['output_folder']
-#~ print('first', out_dir0)
-#~ out_dir0 = data_dir.replace('2m3data', '2m3reduced')
-#~ print('first', out_dir0)
-#~ print prefix
 if prefix is not None and len(prefix)>0:
     print ('prefix')
     out_dir = os.path.join(out_dir, '_%s'%prefix)
-#~ else:
-    #~ out_dir = os.path.join(root_obsdate, out_dir0)
-#~ print('out_dir0', out_dir)
 out_dir_bool = os.path.isdir(out_dir) and os.path.exists(out_dir)
 if not out_dir_bool:
     os.mkdir(out_dir)
 print('out_dir', out_dir)
+######################################
 
 """
 Often you don't take all calib frames in the same night. Make a folder just with all calib frames from the run. Then select ones with the closest data (preferrably the same date as science frames).
