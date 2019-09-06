@@ -77,8 +77,10 @@ if not root_bool:
     os.mkdir(root_obsdate)
 print('root_obsdate', root_obsdate)
 
-out_dir0 = config.reduce_metadata['output_folder']
+#~ out_dir0 = config.reduce_metadata['output_folder']
+out_dir0 = data_dir.replace('2m3data', '2m3reduced')
 print('first', out_dir0)
+print prefix
 if prefix:
     print ('prefix')
     out_dir = os.path.join(root_obsdate, '%s_%s'%(out_dir0, prefix))
