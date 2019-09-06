@@ -466,7 +466,7 @@ def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=No
     if prefix is not None and len(prefix)>0:
         metadata_filename=os.path.join(out_dir, '%s_mode_%d_metadata_%s.py'%(prefix, nmode, camera))
     else:
-        metadata_filename=os.path.join(out_dir, '%mode_%d_metadata_%s.py'%(nmode, camera))
+        metadata_filename=os.path.join(out_dir, 'mode_%d_metadata_%s.py'%(nmode, camera))
     #~ f = open('%s_%s.py'%(config.metadata_filename, camera), 'w')
     f = open(metadata_filename, 'w')
     
