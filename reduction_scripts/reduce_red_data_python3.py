@@ -53,7 +53,7 @@ print('out_dir', out_dir)
 calib_prefix = os.path.join(out_dir,'wifesR')
 
 # Load metadata
-print('PPPPREFIX', prefix)
+print('PPPPREFIX', prefix, out_dir)
 if prefix is not None and len(prefix)>0:
     metadata_filename=os.path.join(out_dir, '%s_metadata_WiFeSRed.py'%prefix)
 else:
