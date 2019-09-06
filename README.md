@@ -18,3 +18,5 @@ TODO
 - Simplify:
   - Copy all necessary files into `pipeline`
   - Make it more simple and robust.
+- What happens if there are 2 or more stars in the slit?
+- Add `convert_to_ascii` file
