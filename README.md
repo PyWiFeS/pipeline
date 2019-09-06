@@ -11,6 +11,7 @@ A new folder is created:
 `marusa@mash:~/reduce_young_stars/logs>python reduce_red_data_python3.py configRed.py /priv/mulga1/marusa/2m3data/20190314`
 How does this script know what metadata file to read?
 ## Convert to ascii
+`convert_fits_to_ascii.py`
 ## Wavelength calibration
 TODO
 
