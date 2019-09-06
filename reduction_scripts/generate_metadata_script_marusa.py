@@ -78,6 +78,7 @@ if not root_bool:
 print('root_obsdate', root_obsdate)
 
 #~ out_dir0 = config.reduce_metadata['output_folder']
+print('first', out_dir0)
 out_dir0 = data_dir.replace('2m3data', '2m3reduced')
 print('first', out_dir0)
 print prefix
