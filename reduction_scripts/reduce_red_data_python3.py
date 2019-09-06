@@ -58,7 +58,7 @@ if not root_bool:
 print('root_obsdate', root_obsdate)
 
 # Add band (grating)
-out_dir = os.path.join(root_obsdate, 'reduced_%s'%grating)
+out_dir = os.path.join(root_obsdate, 'reduced_%s'%config.band)
 
 if prefix is not None and len(prefix)>0:
     print ('prefix')
