@@ -548,7 +548,7 @@ def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=No
     #------------------
     # stdstars
     #~ f.write(dsplit)
-    f.write('std_obs = [')
+    f.write('std_obs = [\n')
     for obj_name in stdstar.keys():
         obs_list = stdstar[obj_name]
         obs_str = '\'%s\'' % obs_list[0]
