@@ -21,6 +21,9 @@ propids = []
 objnames = []
 dates = []
 detectors = []
+airmass = []
+ras = []
+decs = []
 
 for r, d, f in os.walk(root):
     for filename in f:
@@ -59,6 +62,15 @@ for r, d, f in os.walk(root):
                     detectors.append(v)
                     
                     
+                    v = fits.getheader(filename, 0)['AIRMASS']
+                    airmass.append(v)
+                    
+                    ras.append(RA)
+
+                    v = fits.getheader(filename, 0)['DEC']
+                    decs.append(v)
+                    
+                    
                     tmp=[]
                     for k in keywords:
                         v = fits.getheader(filename, 0)[k]
@@ -74,10 +86,13 @@ for r, d, f in os.walk(root):
 
 tab = Table([filenames], names=['filename'])
 tab['OBJNAME'] = objnames
+tab['RA'] = ras
+tab['DEC'] = decs
 tab['INSTRUME'] = instrumes
 tab['DETECTOR'] = detectors
 tab['DATE-OBS'] = dateobss
 tab['DATE'] = dates
+tab['AIRMASS'] = airmass
 tab['EXPTIME'] = exptime
 tab['PROPID'] = propids
 
