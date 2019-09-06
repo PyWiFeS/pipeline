@@ -61,8 +61,8 @@ generate_metadata={'prefix': prefix,
 ###############################################
 # REDUCE DATA
 
-#~ band='r'
-band='b'
+band='r' # TODO: THIS SHOULD come from the command line
+#~ band='b'
 if prefix and len(prefix)>0:
         out_dir = os.path.join(root, '%s_reduced_%s/'%(prefix, band))
 else:
