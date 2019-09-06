@@ -462,6 +462,7 @@ def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=No
     #------------------------------------------------------
     # write to metadata save script!
     #~ f = open('save_blue_metadata.py', 'w')
+    print prefix, nmode, camera
     if prefix is not None and len(prefix)>0:
         metadata_filename=os.path.join(out_dir, '%s_mode_%d_metadata_%s.py'%(prefix, nmode, camera))
     else:
