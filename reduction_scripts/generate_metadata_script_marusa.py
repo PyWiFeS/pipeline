@@ -30,7 +30,7 @@ metadata=config.generate_metadata
 selected_cal_dates={}
 try:
     #~ opts, args = getopt.getopt(sys.argv,"dark:bias:flat:",["dark=", "bias=", "flat="])
-    opts, args = getopt.getopt(sys.argv[3:], "d:b:f:g:")
+    opts, args = getopt.getopt(sys.argv[3:], "d:b:f:")
 except getopt.GetoptError:
     print 'test.py -i <inputfile> -o <outputfile>'
 for opt, arg in opts:
@@ -41,17 +41,8 @@ for opt, arg in opts:
     elif opt in ("-f"):
         selected_cal_dates['FLAT']=int(arg)
     
-    # grating: Blue or Red
-    elif opt in ("-g"):
-        grating = arg
 print 'SELECTED_CAL_DATES', selected_cal_dates
 
-try:
-    l=len(grating) # just so the print doesnt print if grating doesnt exist
-    print 'GRATING:', grating
-except:
-    print('%%%%%%%%%%%%%%% SPECIFY GRATING!!!')
-    pass
 
 data_dir = sys.argv[2]
 print('#'+54*'-')
@@ -89,7 +80,7 @@ if not root_bool:
 print('root_obsdate', root_obsdate)
 
 # Add band (grating)
-out_dir = os.path.join(root_obsdate, 'reduced_%s'%grating)
+out_dir = os.path.join(root_obsdate, 'reduced_%s'%config.band)
 
 if prefix is not None and len(prefix)>0:
     print ('prefix')
