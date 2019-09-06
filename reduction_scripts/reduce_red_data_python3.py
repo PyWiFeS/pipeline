@@ -41,7 +41,7 @@ obsdate = path.split('/')[-1]
 if len(obsdate)<1:
     obsdate = path.split('/')[-2]
 print('OBSDATE', obsdate)
-if prefix is not None and len(prefix)>0::
+if prefix is not None and len(prefix)>0:
     out_dir = os.path.join(config.output_root, '%s/reduced_r_%s'%(obsdate, prefix))
 else:
     out_dir = os.path.join(config.output_root, '%s/reduced_r'%obsdate)
