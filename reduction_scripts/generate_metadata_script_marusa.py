@@ -360,7 +360,7 @@ def classify_frames_into_imagetypes(frames=None):
         except:
             mjd=None
         run = f[0].header['RUN']
-        imagetype = f[0].header['IMAGETYP'].upper()
+        imagetype = f[0].header['IMAGETYP'].upper().casefold()
         exptime = f[0].header['EXPTIME']
 
         f.close()
@@ -381,7 +381,7 @@ def classify_frames_into_imagetypes(frames=None):
             if ccdsumf != ccdsum:
                 continue
         
-        if imagetype=='OBJECT':
+        if imagetype.casefold()=='OBJECT'.casefold():
             if objectnames: # keep only selected objects
                 if obj_name not in objectnames:
                     continue
@@ -407,29 +407,29 @@ def classify_frames_into_imagetypes(frames=None):
             
         #---------------------------
         # 1 - bias frames
-        if imagetype == 'ZERO':
+        if imagetype.casefold() == 'ZERO'.casefold():
             bias.append(obs)
         # 2 - quartz flats
-        if imagetype == 'FLAT':
+        if imagetype.casefold() == 'FLAT'.casefold():
             domeflat.append(obs)
         # 3 - twilight flats
-        if imagetype == 'SKYFLAT':
+        if imagetype.casefold() == 'SKYFLAT'.casefold():
             twiflat.append(obs)
         # 4 - dark frames
-        if imagetype == 'DARK':
+        if imagetype.casefold() == 'DARK'.casefold():
             dark.append(obs)
         # 5 - arc frames
-        if imagetype == 'ARC':
+        if imagetype.casefold() == 'ARC'.casefold():
             arc.append(obs)
             
             # For arc-science matching
             arcs.append([run, mjd, imagetype, obs])
             
         # 6 - wire frames
-        if imagetype == 'WIRE':
+        if imagetype.casefold() == 'WIRE'.casefold():
             wire.append(obs)
         # all else are science targets
-        if imagetype == 'OBJECT':
+        if imagetype.casefold() == 'OBJECT'.casefold():
             if obj_name in stdstar_list:
                 # group standard obs together!
                 if obj_name in stdstar.keys():
