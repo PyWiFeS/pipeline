@@ -53,8 +53,11 @@ print('out_dir', out_dir)
 calib_prefix = os.path.join(out_dir,'wifesR')
 
 # Load metadata
-metadata_filename=os.path.join(out_dir, '%s_metadata_WiFeSRed.py'%prefix)
-print(metadata_filename, config.metadata_filename)
+if prefix is not None and len(prefix)>0:
+    metadata_filename=os.path.join(out_dir, '%s_metadata_WiFeSRed.py'%prefix)
+else:
+    metadata_filename=os.path.join(out_dir, 'metadata_WiFeSRed.py')
+print('metadata_filename', metadata_filename, config.metadata_filename)
 obs_metadata = imp.load_source('obs_metadata', metadata_filename).night_data
 #~ mode = imp.load_source('obs_metadata', metadata_filename).mode
 
