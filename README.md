@@ -6,6 +6,7 @@ The Python data reduction pipeline for WiFeS
 `python generate_metadata_script_marusa.py config.py /priv/mulga1/marusa/2m3data/wifes/20190314`
 A new folder is created:
 `/priv/mulga1/marusa/2m3reduced/wifes/20190114/reduced_r_ys` and `ys_metadata_WiFeSRed.py` is stored there. Review this file to check if everything is OK.
+## Rename metadata file
 ## Reduce each night
 `marusa@mash:~/reduce_young_stars/logs>python reduce_red_data_python3.py config.py /priv/mulga1/marusa/2m3data/20190314`
 How does this script know what metadata file to read?
