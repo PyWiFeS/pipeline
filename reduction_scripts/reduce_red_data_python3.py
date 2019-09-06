@@ -41,7 +41,10 @@ obsdate = path.split('/')[-1]
 if len(obsdate)<1:
     obsdate = path.split('/')[-2]
 print('OBSDATE', obsdate)
-out_dir = os.path.join(config.output_root, '%s/reduced_r_%s'%(obsdate, prefix))
+if prefix is not None and len(prefix)>0::
+    out_dir = os.path.join(config.output_root, '%s/reduced_r_%s'%(obsdate, prefix))
+else:
+    out_dir = os.path.join(config.output_root, '%s/reduced_r'%obsdate)
 print config.output_root, obsdate, prefix
 out_dir_bool = os.path.isdir(out_dir) and os.path.exists(out_dir)
 print('Trying to create', out_dir)
