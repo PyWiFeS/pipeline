@@ -67,7 +67,7 @@ if prefix and len(prefix)>0:
         out_dir = os.path.join(root, '%s_reduced_%s/'%(prefix, band))
 else:
     out_dir = os.path.join(root, 'reduced_%s/'%band)
-print('config, 'out_dir, prefix, band)
+print('config, ', out_dir, prefix, band)
 #~ if out_dir[-1]!='/':
     #~ out_dir+='/'
 
