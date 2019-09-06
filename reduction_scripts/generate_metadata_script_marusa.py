@@ -539,14 +539,14 @@ def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=No
     #------------------
     # stdstars
     #~ f.write(dsplit)
-    f.write('std_obs = [\n')
+    f.write('std_obs = [')
     for obj_name in stdstar.keys():
         obs_list = stdstar[obj_name]
         obs_str = '\'%s\'' % obs_list[0]
         for i in range(1,len(obs_list)):
             obs = obs_list[i]
             obs_str += ',\n               \'%s\'' % obs
-        f.write('    # %s' % obj_name)
+        f.write('    # %s\n' % obj_name)
         f.write('    {\'sci\'  : [%s],\n' % obs_str)
         f.write('     \'name\' : [\'%s\'],\n' % obj_name)
         f.write('     \'type\' : [\'flux\', \'telluric\']},\n')
