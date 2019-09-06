@@ -28,7 +28,7 @@ start_time = datetime.datetime.now()
 config_name=sys.argv[1]
 config = imp.load_source(config_name.replace('.py', ''), config_name)
 reload(config)
-metadata=config.reduce_metadata
+#~ metadata=config.reduce_metadata
 
 # This is not so simple as output folder is not the same
 # What is this?
