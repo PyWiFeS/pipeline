@@ -757,7 +757,13 @@ if __name__ == '__main__':
     #~ write_metadata(camera=camera, science=science, bias=bias, domeflat=domeflat, twiflat=twiflat, dark=dark, arc=arc, arcs_per_star=arcs_per_star, wire=wire, std_obs=stdstar)
     
         # Red camera
-        camera='WiFeSRed'
+        #~ camera='WiFeSRed'
+        
+        if config.band == 'r':
+            camera='WiFeSRed'
+        elif config.band == 'b':
+            camera='WiFeSBlue'
+            
         science, bias, domeflat, twiflat, dark, arc, wire, stdstar, arcs_per_star = classify_frames_into_imagetypes(frames=red_obs)
         if len(science)>0:
             print
