@@ -761,10 +761,12 @@ if __name__ == '__main__':
         
         if config.band == 'r':
             camera='WiFeSRed'
+            science, bias, domeflat, twiflat, dark, arc, wire, stdstar, arcs_per_star = classify_frames_into_imagetypes(frames=red_obs)
         elif config.band == 'b':
             camera='WiFeSBlue'
+            science, bias, domeflat, twiflat, dark, arc, wire, stdstar, arcs_per_star = classify_frames_into_imagetypes(frames=blue_obs)
             
-        science, bias, domeflat, twiflat, dark, arc, wire, stdstar, arcs_per_star = classify_frames_into_imagetypes(frames=red_obs)
+        
         if len(science)>0:
             print
             print
