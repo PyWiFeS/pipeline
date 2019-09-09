@@ -32,7 +32,7 @@ try:
     #~ opts, args = getopt.getopt(sys.argv,"dark:bias:flat:",["dark=", "bias=", "flat="])
     opts, args = getopt.getopt(sys.argv[3:], "d:b:f:")
 except getopt.GetoptError:
-    print 'test.py -i <inputfile> -o <outputfile>'
+    print 'test.py -i <inputfile> -o <outputfile>' # TODO
 for opt, arg in opts:
     if opt in ("-d"):
         selected_cal_dates['DARK']=int(arg)

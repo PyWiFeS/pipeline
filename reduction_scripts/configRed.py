@@ -19,7 +19,7 @@ output_root = '/priv/mulga1/marusa/2m3reduced/wifes/'
 
 # Do you want to reduce only specific objects? Names must match those in the fits file headers (OBJNAME).
 objectnames=None
-exclude_objectnames=['PDS 70']
+exclude_objectnames=['PDS 70', 'TW Hya']
 
 # Do you want to reduce only images with specific binning?
 ccdsum=None #'1 1' # '1 2' # binning; False or None
