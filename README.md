@@ -18,6 +18,8 @@ How does this script know what metadata file to read?
 `convert_fits_to_ascii.py`
 ## Radial velocity determination and correction
 TODO
+## List of all files with objnames, airmass, instrument etc.
+`pipeline/marusa/files.fits`, generated with `pipeline/marusa/list_of_all_stars_observed_from_fitsfiles.py` - it would be great if we could add 'Program' column to mark objects, tellurics, specphot etc. but would require more work.
 
 # TODO
 - Blue
@@ -25,4 +27,3 @@ TODO
   - Copy all necessary files into `pipeline`
   - Make it more simple and robust.
 - What happens if there are 2 or more stars in the slit?
-- Create a script for: fits file with all essential info: RA, DEC, exact time (MJD?), airmass, ...
