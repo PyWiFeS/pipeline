@@ -37,12 +37,13 @@ for path, subdirs, files in os.walk(data_dir):
             #~ fln = name.replace('.fits', '.dat')
             
             filename = '%s_%s.dat'%(obsdate, objectid)
+            filename = filename.replace(' ', '_')
             
             
             #~ #fln = fln.replace('.p08.', '.p08.%s.'%objectid)
             #~ #fln = fln.replace(' ', '_')
             #~ fln=os.path.join(out_dir, fln)
             fln=os.path.join(out_dir, filename)
-            print fln
+            print filename
             print
             np.savetxt(fln, np.transpose([wave, spectrum]))
