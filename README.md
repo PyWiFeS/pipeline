@@ -3,6 +3,8 @@ The Python data reduction pipeline for WiFeS
 
 # Modified pipeline to reduce young stars
 Scripts are in `pipeline/reduction_scripts/`
+What's changed in this version:
+- 
 ## Prepare metadata
 `python generate_metadata_script_marusa.py configRed.py /priv/mulga1/marusa/2m3data/wifes/20190314`
 A new folder is created:
