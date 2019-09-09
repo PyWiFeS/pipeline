@@ -10,10 +10,19 @@ import os
 # PyWiFeS
 import process_stellar as ps # WHEN running this without ssh -Y, I get RuntimeError: Invalid DISPLAY variable
 
+root = '/priv/mulga1/marusa/2m3reduced/wifes/'
+
 obsdate = sys.argv[1]
 
+data_dir = os.path.join(root, obsdate)
+
+#~ for path, subdirs, files in os.walk(data_dir):
+    #~ for name in files:
+        #~ print os.path.join(path, name)
+
+
 #~ data_dir = os.path.join('/priv/mulga1/marusa/2m3reduced/wifes/', '%s/reduced_r'%sys.argv[1]) # 20190304
-data_dir = os.path.join('/priv/mulga1/marusa/2m3reduced/wifes/', '%s'%sys.argv[1]) # 20190304
+
 print data_dir
 out_dir = os.path.join(data_dir, 'ascii')
 if not os.path.isdir(out_dir) and not os.path.exists(out_dir):
