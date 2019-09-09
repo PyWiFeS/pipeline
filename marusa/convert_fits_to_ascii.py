@@ -29,7 +29,7 @@ for path, subdirs, files in os.walk(data_dir):
             run=header['RUN']
             f.close()
             
-            print run, objectid, fl
+            #~ print run, objectid, fl
 
             flux, wave = ps.read_and_find_star_p08(fl)
             spectrum, sig = ps.weighted_extract_spectrum(flux)
@@ -45,6 +45,6 @@ for path, subdirs, files in os.walk(data_dir):
             #~ #fln = fln.replace(' ', '_')
             #~ fln=os.path.join(out_dir, fln)
             fln=os.path.join(out_dir, filename)
-            print filename
+            print fln
             print
             np.savetxt(fln, np.transpose([wave, spectrum]))
