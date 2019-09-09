@@ -32,7 +32,11 @@ for path, subdirs, files in os.walk(data_dir):
             flux, wave = ps.read_and_find_star_p08(fl)
             spectrum, sig = ps.weighted_extract_spectrum(flux)
 
-            filename = '%s_%s.dat'%(obsdate, objectid)
+            if 'T2m3wr' in name:
+                filename = '%s_%s_r.dat'%(obsdate, objectid)
+            elif 'T2m3wb' in name:
+                filename = '%s_%s_b.dat'%(obsdate, objectid)
+            
             filename = filename.replace(' ', '_')
             
             fln=os.path.join(out_dir, filename)
