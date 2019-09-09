@@ -12,7 +12,7 @@ import process_stellar as ps # WHEN running this without ssh -Y, I get RuntimeEr
 
 obsdate = sys.argv[1]
 
-data_dir = os.path.join('/priv/mulga1/marusa/2m3reduced/wifes/', '%s/reduced_r_ys'%sys.argv[1]) # 20190304
+data_dir = os.path.join('/priv/mulga1/marusa/2m3reduced/wifes/', '%s/reduced_r'%sys.argv[1]) # 20190304
 print data_dir
 out_dir = os.path.join(data_dir, 'ascii')
 if not os.path.isdir(out_dir) and not os.path.exists(out_dir):
