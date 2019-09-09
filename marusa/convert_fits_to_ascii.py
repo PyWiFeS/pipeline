@@ -36,7 +36,7 @@ for path, subdirs, files in os.walk(data_dir):
 
             #~ fln = name.replace('.fits', '.dat')
             
-            print 'obsdate', obsdate
+            print 'outdir', out_dir
             filename = '%s_%s.dat'%(obsdate, objectid)
             filename = filename.replace(' ', '_')
             
