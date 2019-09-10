@@ -38,4 +38,4 @@ def get_metadata(obsdate, band='r'):
 metadata_red = get_metadata(obsdate, band='r')
 metadata_blue = get_metadata(obsdate, band='b')
 
-print metadata_red
+print metadata_red.night_data
