@@ -31,7 +31,7 @@ print red_folder
 files = []
 for r, d, f in os.walk(red_folder):
     for file in f:
-        if 'metadata' in file:
+        if 'metadata' in file and '.pyc' not in file:
             files.append(os.path.join(r, file))
 
 print files
