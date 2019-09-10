@@ -20,6 +20,7 @@ try:
     filename_red = os .path.join(filename_red, prefix)
     
     red_folder = 'reduced_r_%s'%prefix
+    print red_folder
 except:
     red_folder = 'reduced_r'
     
