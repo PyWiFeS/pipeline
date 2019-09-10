@@ -16,6 +16,7 @@ obsdate = sys.argv[1]
 
 try:
     prefix = sys.argv[2]
+    print prefix
     filename_red = os .path.join(filename_red, prefix)
     
     red_folder = 'reduced_r_%s'%prefix
