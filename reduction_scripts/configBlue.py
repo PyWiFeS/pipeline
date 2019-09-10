@@ -14,7 +14,7 @@ import sys
 
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
-# root needed only for output
+input_root = '/priv/mulga1/marusa/2m3data/wifes/'
 output_root = '/priv/mulga1/marusa/2m3reduced/wifes/'
 
 # Do you want to reduce only specific objects? Names must match those in the fits file headers (OBJNAME).

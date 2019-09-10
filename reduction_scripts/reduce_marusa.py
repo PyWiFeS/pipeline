@@ -36,17 +36,20 @@ reload(config)
 
 prefix=config.prefix
 
+obsdate = sys.argv[2]
+
 # Input folder with raw data
-data_dir = sys.argv[2]
+data_dir = os.path.join(config.input_root, obsdate) #sys.argv[2]
+
 
 # Output folder (should already exist and metadata should be there)
 
 ###### OUTPUT FOLDER ################
 # Get obsdate
-path = sys.argv[2]
-obsdate = path.split('/')[-1]
-if len(obsdate)<2: # in case path ends with /
-    obsdate = path.split('/')[-2] # Hope that works
+#~ path = sys.argv[2]
+#~ obsdate = path.split('/')[-1]
+#~ if len(obsdate)<2: # in case path ends with /
+    #~ obsdate = path.split('/')[-2] # Hope that works
 print('OBSDATE', obsdate)
 
 root_obsdate = os.path.join(config.output_root, '%s'%obsdate)
