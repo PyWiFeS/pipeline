@@ -8,14 +8,14 @@ import os
 
 root = '/priv/mulga1/marusa/2m3reduced/wifes/'
 
-obsdate = sys.argv[2]
+obsdate = sys.argv[1]
 
 
 
 
 
 try:
-    prefix = sys.argv[3]
+    prefix = sys.argv[2]
     filename_red = os .path.join(filename_red, prefix)
     
     red_folder = 'reduced_r_%s'%prefix
