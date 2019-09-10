@@ -28,14 +28,16 @@ def get_metadata(obsdate, band='r'):
             if 'metadata' in file and '.pyc' not in file and 'mode' not in file:
                 files.append(os.path.join(r, file))
 
-    print files
+    #~ print files
     # Read red metadata dict
     for filename in files:
+        print filename
         config = imp.load_source(filename.replace('.py', ''), filename)
-        
+    print
+    
     return config
 
 metadata_red = get_metadata(obsdate, band='r')
-metadata_blue = get_metadata(obsdate, band='b')
+#~ metadata_blue = get_metadata(obsdate, band='b')
 
 print metadata_red.night_data
