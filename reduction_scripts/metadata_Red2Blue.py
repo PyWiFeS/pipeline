@@ -5,34 +5,37 @@ The thing is that blue and red fits files might have slightly different timestam
 
 import sys
 import os
+import imp
 
 root = '/priv/mulga1/marusa/2m3reduced/wifes/'
 
 obsdate = sys.argv[1]
 
+def get_metadata(obsdate, band='r'):
+    try:
+        prefix = sys.argv[2]
+        folder = 'reduced_%s_%s'%(band, prefix)
+    except:
+        folder = 'reduced_%s'%band
+        
 
+    folder = os.path.join(root, obsdate, folder)
+    print folder
 
+    files = []
+    for r, d, f in os.walk(folder):
+        for file in f:
+            if 'metadata' in file and '.pyc' not in file and 'mode' not in file:
+                files.append(os.path.join(r, file))
 
+    print files
+    # Read red metadata dict
+    for filename in files:
+        config = imp.load_source(filename.replace('.py', ''), filename)
+        
+    return config
 
-try:
-    prefix = sys.argv[2]
-    print prefix
-    #~ filename_red = os .path.join(filename_red, prefix)
-    
-    red_folder = 'reduced_r_%s'%prefix
-    print red_folder
-except:
-    red_folder = 'reduced_r'
-    
+metadata_red = get_metadata(obsdate, band='r')
+metadata_blue = get_metadata(obsdate, band='b')
 
-red_folder = os.path.join(root, obsdate, red_folder)
-print red_folder
-
-files = []
-for r, d, f in os.walk(red_folder):
-    for file in f:
-        if 'metadata' in file and '.pyc' not in file:
-            files.append(os.path.join(r, file))
-
-print files
-# Read red metadata dict
+print metadata_red
