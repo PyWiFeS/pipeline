@@ -5,7 +5,9 @@ The Python data reduction pipeline for WiFeS
 Scripts are in `pipeline/reduction_scripts/`
 
 # What's changed in this version:
-- 
+- This version is adjusted for reductions of many nights. In principle you only need to provide a path to the folder for each night, the rest of params in the files stay constant.
+- generate metadata: a separate script that finds adjacent arcs for each science exposure. Output is not a pickle but python file that is imported into reduction script.
+- config file: everything you need to set. You don't have to set anything in generate metadata or reduction script anymore.
 ## Prepare metadata
 `python generate_metadata_script_marusa.py configRed.py /priv/mulga1/marusa/2m3data/wifes/20190314`
 A new folder is created:
