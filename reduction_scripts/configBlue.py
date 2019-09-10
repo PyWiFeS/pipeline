@@ -26,7 +26,9 @@ ccdsum=None #'1 1' # '1 2' # binning; False or None
 naxis2=None #2056 # False # 2056 for PDS 70
 
 # Save to folders with this prefix
-prefix=None#'ys'
+prefix='ys' # None
+if prefix is not None:
+    print 'PREFIX', prefix
 
 # This thing with metadata_filename is actually not used yet.
 if prefix is not None and len(prefix)>0:
