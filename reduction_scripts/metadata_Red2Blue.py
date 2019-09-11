@@ -52,15 +52,21 @@ blue = metadata_blue.night_data
 for k, r in red.iteritems():
     b=blue[k]
     
-    r=sorted(r)
-    b=sorted(b)
+    run_r = set([x.split('-')[-1] for x in r])
+    run_b = set([x.split('-')[-1] for x in b])
+    
+    diff = run_b.difference(run_r)
     
     print k
-    print b
-    print r
-    print
-    print
-
-
-print 
-print metadata_blue.night_data
+    print diff
+    
+    
+    
+    #~ r=sorted(r)
+    #~ b=sorted(b)
+    
+    #~ print k
+    #~ print b
+    #~ print r
+    #~ print
+    #~ print
