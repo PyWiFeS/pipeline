@@ -61,6 +61,7 @@ for k, r in red.iteritems():
         if len(diff)>0:
             print k
             print diff
+            print
     else:
         rd=[]
         for x in r:
@@ -74,15 +75,10 @@ for k, r in red.iteritems():
                 for x in rr:
                     bl.append(x.split('-')[-1])
             
-        print k
-        print rd
-        print bl
-    
-    #~ r=sorted(r)
-    #~ b=sorted(b)
-    
-    #~ print k
-    #~ print b
-    #~ print r
-    #~ print
-    #~ print
+        rd=set(rd)
+        bl=set(bl)
+        diff = bl.difference(rd)
+        if len(diff)>0:
+            print k
+            print diff
+            print
