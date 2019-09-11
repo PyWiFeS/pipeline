@@ -52,6 +52,9 @@ blue = metadata_blue.night_data
 for k, r in red.iteritems():
     b=blue[k]
     
+    r=sorted(r)
+    b=sorted(b)
+    
     print k
     print b
     print r
