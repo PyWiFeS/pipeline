@@ -65,7 +65,7 @@ out_dir = os.path.join(root_obsdate, 'reduced_%s'%config.band)
 
 if prefix is not None and len(prefix)>0:
     print ('prefix')
-    out_dir = os.path.join(out_dir, '_%s'%prefix)
+    out_dir=+ '_%s'%prefix
 out_dir_bool = os.path.isdir(out_dir) and os.path.exists(out_dir)
 if not out_dir_bool:
     os.mkdir(out_dir)

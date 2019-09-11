@@ -4,6 +4,8 @@ The thing is that blue and red fits files might have slightly different timestam
 
 Usage: obsdate and prefix!!!
 
+This code only checks if Blue has more run numbers than red and prints the difference. Then you have to edit the header yourself. It is mostly just deletion.
+
 """
 
 import sys
