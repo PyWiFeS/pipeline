@@ -46,5 +46,18 @@ def get_metadata(obsdate, band='r'):
 metadata_red = get_metadata(obsdate, band='r')
 metadata_blue = get_metadata(obsdate, band='b')
 
-print metadata_red.night_data
+red = metadata_red.night_data
+blue = metadata_blue.night_data
+
+for k, r in red.iteritems():
+    b=blue[k]
+    
+    print k
+    print b
+    print r
+    print
+    print
+
+
+print 
 print metadata_blue.night_data
