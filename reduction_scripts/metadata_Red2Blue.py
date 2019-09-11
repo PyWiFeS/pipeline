@@ -52,15 +52,28 @@ blue = metadata_blue.night_data
 for k, r in red.iteritems():
     b=blue[k]
     
-    run_r = set([x.split('-')[-1] for x in r])
-    run_b = set([x.split('-')[-1] for x in b])
     
-    diff = run_b.difference(run_r)
-    
-    print k
-    print diff
-    
-    
+    if k!='sci':
+        run_r = set([x.split('-')[-1] for x in r])
+        run_b = set([x.split('-')[-1] for x in b])
+        
+        diff = run_b.difference(run_r)
+        if len(diff)>0:
+            print k
+            print diff
+    else:
+        rd=[]
+        for kk, rr in r.iteritems():
+            for x in rr:
+                rd.append(x.split('-')[-1])
+        bl=[]
+        for kk, bb in b.iteritems():
+            for x in bb:
+                bl.append(x.split('-')[-1])
+            
+        print k
+        print rd
+        print bl
     
     #~ r=sorted(r)
     #~ b=sorted(b)
