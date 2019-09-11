@@ -24,6 +24,9 @@ TODO
 `pipeline/marusa/files.fits`, generated with `pipeline/marusa/list_of_all_stars_observed_from_fitsfiles.py` - it would be great if we could add 'Program' column to mark objects, tellurics, specphot etc. but would require more work.
 
 # TODO
+- `files.fits`: Marusa: Add a column `Program` (young stars), Adam (tellurics, spphot, standard, TESS), the rest is 'Other/...'
+- `files.fits`: Marusa: A column `Useful`: crossmatch against a separate text file with bad data
+- Adam: generate metadata: Automatically crossmatch against the list of tellurics. And add Bohlin 2013 HST flux standards to pywifes list of standards.
 - Blue
 - Simplify:
   - Copy all necessary files into `pipeline`
