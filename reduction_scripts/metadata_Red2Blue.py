@@ -26,7 +26,6 @@ def get_metadata(obsdate, band='r'):
         
 
     folder = os.path.join(root, obsdate, folder)
-    print folder
 
     files = []
     for r, d, f in os.walk(folder):
@@ -39,7 +38,6 @@ def get_metadata(obsdate, band='r'):
     for filename in files:
         print filename
         config = imp.load_source(filename.replace('.py', ''), filename)
-    print
     
     return config
 
