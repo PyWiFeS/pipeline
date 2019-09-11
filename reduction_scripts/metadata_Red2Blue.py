@@ -62,6 +62,7 @@ for k, r in red.iteritems():
             print k
             print diff
     else:
+        print r
         rd=[]
         for kk, rr in r.iteritems():
             for x in rr:
