@@ -64,15 +64,15 @@ for k, r in red.iteritems():
     else:
         rd=[]
         for x in r:
-            print x
             for kk, rr in x.iteritems():
                 for x in rr:
                     rd.append(x.split('-')[-1])
-        print rd
+
         bl=[]
-        for kk, bb in b.iteritems():
-            for x in bb:
-                bl.append(x.split('-')[-1])
+        for x in b:
+            for kk, rr in x.iteritems():
+                for x in rr:
+                    bl.append(x.split('-')[-1])
             
         print k
         print rd
