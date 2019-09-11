@@ -64,6 +64,7 @@ for k, r in red.iteritems():
     else:
         rd=[]
         for x in r:
+            print x
             for kk, rr in x.itervalues():
                 for x in rr:
                     rd.append(x.split('-')[-1])
