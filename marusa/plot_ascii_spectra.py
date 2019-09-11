@@ -7,8 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from itertools import cycle
 
-
-root = sys.argv[1]
+try:
+    root = sys.argv[1]
+except:
+    root = '/Users/marusa/observing/23m/data/ascii/'
 
 filenamesB = []
 for f in os.listdir(root):

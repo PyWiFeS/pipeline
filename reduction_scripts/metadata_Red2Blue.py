@@ -1,11 +1,17 @@
 """
 Create Blue metadata from Red.
 The thing is that blue and red fits files might have slightly different timestamps, so it is not enough just to change b and r in filenames.
+
+Usage: obsdate and prefix!!!
+
 """
 
 import sys
 import os
 import imp
+
+
+
 
 root = '/priv/mulga1/marusa/2m3reduced/wifes/'
 
@@ -38,6 +44,7 @@ def get_metadata(obsdate, band='r'):
     return config
 
 metadata_red = get_metadata(obsdate, band='r')
-#~ metadata_blue = get_metadata(obsdate, band='b')
+metadata_blue = get_metadata(obsdate, band='b')
 
 print metadata_red.night_data
+print metadata_blue.night_data

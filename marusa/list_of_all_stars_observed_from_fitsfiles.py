@@ -2,11 +2,13 @@
 Search all subfolders of a folder and make a list of all object ids from headers.
 """
 
+import numpy as np
 from astropy.io import fits
 import os
 from astropy.table import Table
 
 root = '/priv/mulga1/marusa/2m3data/'
+young_stars_input_catalog_filename = 'young_stars_input_catalog.dat'
 
 keywords = ['FILENAME', 'EXPTIME', 'INSTRUME', 'DATE-OBS', 'PROPID', 'OBJNAME']
 
@@ -95,6 +97,17 @@ tab['DATE'] = dates
 tab['AIRMASS'] = airmass
 tab['EXPTIME'] = exptime
 tab['PROPID'] = propids
+
+
+
+### PROGRAM ##########
+ys = np.loadtxt(young_stars_input_catalog_filename, comments='#', dtype=str)
+gaia_id = [int(x) for x in ys[:,0]]
+tmass_id = ys[:,1]
+mask = np.logical_or(np.in1d(tab['OBJNAME'], gaia_id), np.in1d(tab['OBJNAME'], tmass_id))
+
+
+
 
 print tab
 tab.write('files.fits', format='fits', overwrite=True)
