@@ -62,11 +62,12 @@ for k, r in red.iteritems():
             print k
             print diff
     else:
-        print r
         rd=[]
-        for kk, rr in r.iteritems():
-            for x in rr:
-                rd.append(x.split('-')[-1])
+        for x in r:
+            for kk, rr in x.itervalues():
+                for x in rr:
+                    rd.append(x.split('-')[-1])
+        print rd
         bl=[]
         for kk, bb in b.iteritems():
             for x in bb:
