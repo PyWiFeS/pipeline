@@ -1,7 +1,7 @@
 # pipeline
 The Python data reduction pipeline for WiFeS
 
-# For Marusa's scripts to work, don't forget to add these lines (or modifies) in the `.bashrc` file:
+### For Marusa's scripts to work, don't forget to add these lines (or modifies) in the `.bashrc` file:
 `export PYTHONPATH="/priv/mulga1/marusa/reduction_wifes/pipeline/src/:$PYTHONPATH"
 export PYWIFES_DIR=/priv/mulga1/marusa/reduction_wifes/pipeline/reference_data/
 export PYTHONPATH="/priv/mulga1/marusa/reduction_wifes/pipeline/tools-master/:$PYTHONPATH"
