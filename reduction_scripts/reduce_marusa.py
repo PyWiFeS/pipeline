@@ -57,6 +57,7 @@ root_obsdate = os.path.join(config.output_root, '%s'%obsdate)
 # Create folder with date
 root_bool = os.path.isdir(root_obsdate) and os.path.exists(root_obsdate)
 print 'ROOT_BOOL', root_obsdate, os.path.isdir(root_obsdate), os.path.exists(root_obsdate)
+print 'TEST', os.path.isdir('/data/mash/marusa/reduction_wifes/pipeline/reduction_scripts/'), os.path.exists('/data/mash/marusa/reduction_wifes/pipeline/reduction_scripts/')
 if not root_bool:
     os.mkdir(root_obsdate)
 print('root_obsdate', root_obsdate)
