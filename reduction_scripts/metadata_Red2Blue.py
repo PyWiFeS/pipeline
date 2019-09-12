@@ -15,11 +15,12 @@ import imp
 
 
 
-root = '/priv/mulga1/marusa/2m3reduced/wifes/'
+rootR = '/priv/mulga1/marusa/2m3reduced/wifes/'
+rootB = '/data/mash/marusa/2m3reduced/wifes/'
 
 obsdate = sys.argv[1]
 
-def get_metadata(obsdate, band='r'):
+def get_metadata(obsdate, band='r', root=None):
     try:
         prefix = sys.argv[2]
         folder = 'reduced_%s_%s'%(band, prefix)
@@ -43,8 +44,8 @@ def get_metadata(obsdate, band='r'):
     
     return config
 
-metadata_red = get_metadata(obsdate, band='r')
-metadata_blue = get_metadata(obsdate, band='b')
+metadata_red = get_metadata(obsdate, band='r', root=rootR)
+metadata_blue = get_metadata(obsdate, band='b', root=rootB)
 
 red = metadata_red.night_data
 blue = metadata_blue.night_data
