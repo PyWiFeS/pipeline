@@ -13,18 +13,15 @@ import process_stellar as ps # WHEN running this without ssh -Y, I get RuntimeEr
 #~ root = '/priv/mulga1/marusa/2m3reduced/wifes/'
 root = '/data/mash/marusa/2m3reduced/wifes/'
 
-obsdate = sys.argv[1]
-
-data_dir = os.path.join(root, obsdate)
-
-#~ for path, subdirs, files in os.walk(data_dir):
-    #~ for name in files:
-        #~ print os.path.join(path, name)
+try:
+    obsdate = sys.argv[1]
+    data_dir = os.path.join(root, obsdate)
+except:
+    data_dir = root
 
 
-#~ data_dir = os.path.join('/priv/mulga1/marusa/2m3reduced/wifes/', '%s/reduced_r'%sys.argv[1]) # 20190304
+print 'Converting to ascii:', data_dir
 
-print data_dir
 out_dir = os.path.join(data_dir, 'ascii')
 if not os.path.isdir(out_dir) and not os.path.exists(out_dir):
     os.mkdir(out_dir)
