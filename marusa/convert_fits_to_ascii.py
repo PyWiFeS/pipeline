@@ -10,7 +10,8 @@ import os
 # PyWiFeS
 import process_stellar as ps # WHEN running this without ssh -Y, I get RuntimeError: Invalid DISPLAY variable
 
-root = '/priv/mulga1/marusa/2m3reduced/wifes/'
+#~ root = '/priv/mulga1/marusa/2m3reduced/wifes/'
+root = '/data/mash/marusa/2m3reduced/wifes/'
 
 obsdate = sys.argv[1]
 
