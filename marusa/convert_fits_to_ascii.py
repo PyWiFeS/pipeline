@@ -43,9 +43,9 @@ for path, subdirs, files in os.walk(data_dir):
             spectrum, sig = ps.weighted_extract_spectrum(flux)
 
             if 'T2m3wr' in name:
-                filename = '%s_%s_r.dat'%(obsdate, objectid)
+                filename = '%s_%s_08r.dat'%(obsdate, objectid)
             elif 'T2m3wb' in name:
-                filename = '%s_%s_b.dat'%(obsdate, objectid)
+                filename = '%s_%s_08b.dat'%(obsdate, objectid)
             
             filename = filename.replace(' ', '_')
             
