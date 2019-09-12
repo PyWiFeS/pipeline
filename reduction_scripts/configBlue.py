@@ -138,7 +138,7 @@ proc_steps = [
              'wmin_set': 3500.0, 
              'wmax_set': 5700.0}},     
     #------------------
-    #~ {'step':'extract_stars'  , 'run':True, 'suffix':None,
+    #~ {'step':'extract_stars'  , 'run':True, 'suffix':None, # Gets out the standard star and finds the instrumental profile
      #~ 'args':{'ytrim':4, 
              #~ 'type':'flux'}},
     #~ {'step':'derive_calib'   , 'run':True, 'suffix':None,
@@ -149,9 +149,9 @@ proc_steps = [
              #~ 'method':'poly', # 'poly' or 'smooth_SG'
              #~ 'boxcar':10, # smoothing for smooth_SG only
              #~ 'norm_stars':True}},
-    #~ {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}},
+    #~ {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}}, # Apply flux calibration
     #------------------
-    #~ {'step':'extract_stars'  , 'run':True, 'suffix':None,
+    #~ {'step':'extract_stars'  , 'run':True, 'suffix':None, # Can't find step 9 file because there is an 's' at the beginning of the filename
      #~ 'args':{'ytrim':4, 
              #~ 'type':'telluric'}},
     #~ {'step':'derive_telluric', 'run':True, 'suffix':None,
