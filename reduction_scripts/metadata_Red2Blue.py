@@ -36,7 +36,7 @@ def get_metadata(obsdate, band='r', root=None):
             if 'metadata' in file and '.pyc' not in file and 'mode' not in file:
                 files.append(os.path.join(r, file))
 
-    print files
+    #~ print files
     # Read red metadata dict
     for filename in files:
         print filename
@@ -60,9 +60,19 @@ for k, r in red.iteritems():
         
         diff = run_b.difference(run_r)
         if len(diff)>0:
-            print k
+            print k, 'delete from Blue'
             print diff
             print
+        
+        diff = run_r.difference(run_b)
+        if len(diff)>0:
+            print k, 'ADD to Blue'
+            print diff
+            print
+        
+        
+        
+        
     else:
         rd=[]
         for x in r:
@@ -78,8 +88,15 @@ for k, r in red.iteritems():
             
         rd=set(rd)
         bl=set(bl)
+        
         diff = bl.difference(rd)
         if len(diff)>0:
-            print k
+            print k, 'delete from Blue'
+            print diff
+            print
+            
+        diff = rd.difference(bl)
+        if len(diff)>0:
+            print k, 'ADD to Blue'
             print diff
             print
