@@ -20,6 +20,8 @@ cal=cal.result
 
 # List of standard stars
 stdstar_list = wifes_calib.ref_fname_lookup.keys()
+stdstar_is_flux_cal = wifes_calib.ref_flux_lookup
+stdstar_is_telluric = wifes_calib.ref_telluric_lookup
 
 # Config file
 config = imp.load_source('config', sys.argv[1])
@@ -567,10 +569,26 @@ def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=No
         for i in range(1,len(obs_list)):
             obs = obs_list[i]
             obs_str += ',\n               \'%s\'' % obs
+         # Also write arcs for tellurics 
+        obs_list_arc = arcs_per_star[obj_name]
+        obs_arc_str = '\'%s\'' % obs_list_arc[0]
+        for i in range(1,len(obs_list_arc)):
+            obs = obs_list_arc[i]
+            obs_arc_str += ',\n               \'%s\'' % obs
+
         f.write('    # %s\n' % obj_name)
         f.write('    {\'sci\'  : [%s],\n' % obs_str)
         f.write('     \'name\' : [\'%s\'],\n' % obj_name)
-        f.write('     \'type\' : [\'flux\', \'telluric\']},\n')
+        # Star is both telluric and flux standard
+        if stdstar_is_flux_cal[obj_name] and stdstar_is_telluric[obj_name]:
+            f.write('     \'type\' : [\'flux\', \'telluric\'],\n')
+        # Star is flux standard but not telluric
+        elif stdstar_is_flux_cal[obj_name] and not stdstar_is_telluric[obj_name]:
+            f.write('     \'type\' : [\'flux\'],\n')
+        # Star is telluric but not flux standard
+        elif not stdstar_is_flux_cal[obj_name] and stdstar_is_telluric[obj_name]:
+            f.write('     \'type\' : [\'telluric\'],\n')
+        f.write('     \'arc\'  : [%s]},\n' % obs_arc_str)
     f.write('    ]\n')
     f.write('\n')
 
