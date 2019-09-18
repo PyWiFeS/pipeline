@@ -640,7 +640,7 @@ def run_sky_sub_ns(metadata, prev_suffix, curr_suffix):
     std_obs_list  = get_std_obs_list(metadata)
     ns_proc_list = sci_obs_list+std_obs_list
     for fn in ns_proc_list:
-        in_fn  = os.path.join(out_dir, 's%s.p%s.fits' % (fn, prev_suffix))
+        in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
         out_fn = os.path.join(out_dir, '%s.p%s.fits' % (fn, curr_suffix))
         sky_fn = os.path.join(out_dir, '%s.s%s.fits' % (fn, prev_suffix))
         print('Subtracting N+S sky frame for %s' % in_fn.split('/')[-1])
@@ -892,7 +892,7 @@ def run_flux_calib(metadata, prev_suffix, curr_suffix,
     std_obs_list = get_primary_std_obs_list(metadata)
     for fn in sci_obs_list+std_obs_list:
         in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
-        out_fn = os.path.join(out_dir, 's%s.p%s.fits' % (fn, curr_suffix))
+        out_fn = os.path.join(out_dir, '%s.p%s.fits' % (fn, curr_suffix))
         print('Flux-calibrating cube %s' % in_fn.split('/')[-1])
         pywifes.calibrate_wifes_cube(
             in_fn, out_fn, calib_fn, mode)
