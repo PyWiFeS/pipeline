@@ -16,8 +16,10 @@ import sys
 #------------------------------------------------------------------------
 #input_root = '/priv/mulga1/marusa/2m3data/wifes/'
 input_root = '/data/mash/marusa/2m3data/wifes/'
+#input_root = "/priv/mulga2/arains/ys/wifes/raw/"
 #output_root = '/priv/mulga1/marusa/2m3reduced/wifes/'
 output_root = '/data/mash/marusa/2m3reduced/wifes/'
+#output_root = "/priv/mulga2/arains/ys/wifes/reduced/"
 
 # Do you want to reduce only specific objects? Names must match those in the fits file headers (OBJNAME).
 objectnames=None
@@ -140,26 +142,26 @@ proc_steps = [
              'wmin_set': 3500.0, 
              'wmax_set': 5700.0}},     
     #------------------
-    #~ {'step':'extract_stars'  , 'run':True, 'suffix':None, # Gets out the standard star and finds the instrumental profile
-     #~ 'args':{'ytrim':4, 
-             #~ 'type':'flux'}},
-    #~ {'step':'derive_calib'   , 'run':True, 'suffix':None,
-     #~ 'args':{'plot_stars':True,
-             #~ 'plot_sensf':True,
-             #~ 'polydeg':25,
-             #~ 'excise_cut' : 0.005,
-             #~ 'method':'poly', # 'poly' or 'smooth_SG'
-             #~ 'boxcar':10, # smoothing for smooth_SG only
-             #~ 'norm_stars':True}},
-    #~ {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}}, # Apply flux calibration
+    {'step':'extract_stars'  , 'run':True, 'suffix':None, # Gets out the standard star and finds the instrumental profile
+     'args':{'ytrim':4, 
+             'type':'flux'}},
+    {'step':'derive_calib'   , 'run':True, 'suffix':None,
+     'args':{'plot_stars':True,
+             'plot_sensf':True,
+             'polydeg':25,
+             'excise_cut' : 0.005,
+             'method':'poly', # 'poly' or 'smooth_SG'
+             'boxcar':10, # smoothing for smooth_SG only
+             'norm_stars':True}},
+    {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}}, # Apply flux calibration
     #------------------
-    #~ {'step':'extract_stars'  , 'run':True, 'suffix':None, # Can't find step 9 file because there is an 's' at the beginning of the filename
-     #~ 'args':{'ytrim':4, 
-             #~ 'type':'telluric'}},
-    #~ {'step':'derive_telluric', 'run':True, 'suffix':None,
-     #~ 'args':{'plot':True}},
-    #~ {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
+    {'step':'extract_stars'  , 'run':True, 'suffix':None, # Can't find step 9 file because there is an 's' at the beginning of the filename
+     'args':{'ytrim':4, 
+             'type':'telluric'}},
+    {'step':'derive_telluric', 'run':True, 'suffix':None,
+     'args':{'plot':True}},
+    {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
     #------------------
-    #~ {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
+    {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
     #~ #------------------
     ]

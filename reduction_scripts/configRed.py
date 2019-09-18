@@ -15,6 +15,7 @@ import sys
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
 # root needed only for output
+#output_root = "/priv/mulga2/arains/ys/wifes/reduced/"
 output_root = '/priv/mulga1/marusa/2m3reduced/wifes/'
 
 # Do you want to reduce only specific objects? Names must match those in the fits file headers (OBJNAME).
@@ -136,25 +137,25 @@ proc_steps = [
              'wmin_set': (5400.0 if band=='r' else 3500.0), 
              'wmax_set': (7000.0 if band=='r' else 5700.0)}},     
     #------------------
-    #~ {'step':'extract_stars'  , 'run':True, 'suffix':None,
-     #~ 'args':{'ytrim':4, 
-             #~ 'type':'flux'}},
-    #~ {'step':'derive_calib'   , 'run':True, 'suffix':None,
-     #~ 'args':{'plot_stars':True,
-             #~ 'plot_sensf':True,
-             #~ 'polydeg':10,
-             #~ 'method':'smooth_SG', # 'poly' or 'smooth_SG'
-             #~ 'boxcar':10, # smoothing for smooth_SG only
-             #~ 'norm_stars':True}},
-    #~ {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}},
+    {'step':'extract_stars'  , 'run':True, 'suffix':None,
+     'args':{'ytrim':4, 
+             'type':'flux'}},
+    {'step':'derive_calib'   , 'run':True, 'suffix':None,
+     'args':{'plot_stars':True,
+             'plot_sensf':True,
+             'polydeg':10,
+             'method':'smooth_SG', # 'poly' or 'smooth_SG'
+             'boxcar':10, # smoothing for smooth_SG only
+             'norm_stars':True}},
+    {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}},
     #------------------
-    #~ {'step':'extract_stars'  , 'run':True, 'suffix':None,
-     #~ 'args':{'ytrim':4, 
-             #~ 'type':'telluric'}},
-    #~ {'step':'derive_telluric', 'run':True, 'suffix':None,
-     #~ 'args':{'plot':True}},
-    #~ {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
+    {'step':'extract_stars'  , 'run':True, 'suffix':None,
+     'args':{'ytrim':4, 
+             'type':'telluric'}},
+    {'step':'derive_telluric', 'run':True, 'suffix':None,
+     'args':{'plot':True}},
+    {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
     #------------------
-    #~ {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
+    {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
     #~ #------------------
     ]
