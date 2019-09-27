@@ -18,13 +18,19 @@ f1.close()
 
 ref_fname_lookup = {}
 ref_coords_lookup = {}
+ref_flux_lookup = {}
+ref_telluric_lookup = {}
 for line in stdstar_lines:
     lns = line.split()
     fn = lns[0]
     name = lns[1]
     radec = '%s %s' % (lns[2], lns[3])
+    is_flux_standard = bool(int(lns[5]))        # Skip a line for the comments
+    is_telluric_standard = bool(int(lns[6]))
     ref_fname_lookup[name] = fn
     ref_coords_lookup[name] = radec
+    ref_flux_lookup[name] = is_flux_standard
+    ref_telluric_lookup[name] = is_telluric_standard
 
 # extinction interpolation object
 extinct_fn = os.path.join(metadata_dir,'sso_extinction.dat')

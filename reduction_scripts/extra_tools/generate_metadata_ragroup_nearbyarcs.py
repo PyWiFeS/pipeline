@@ -2,10 +2,7 @@
 
 import sys
 import os
-try:
-	import pyfits
-except:
-	import astropy.io.fits as pyfits
+import astropy.io.fits as pyfits
 import wifes_calib
 import numpy
 
@@ -44,7 +41,6 @@ for fn in all_files:
             continue
         else:
             red_obs.append(obs)
-
 
 #---------------------------------------------
 #  ***  BLUE CHANNEL  ***

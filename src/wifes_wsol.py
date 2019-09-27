@@ -329,7 +329,12 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
                 start = datetime.datetime.now() #!!! MJI
                 for i in range(narc):
                     if find_method =='mpfit':
-                        fitted_centers[i] = mpfit_gauss_line(jobs[i])[1]
+                        # If sentence added by MZ
+                        #~ print('FITTED CENTERS', len(fitted_centers))
+                        if i<len(jobs):
+                            fitted_centers[i] = mpfit_gauss_line(jobs[i])[1]
+                        else:
+                            pass
                     else:
                         fitted_centers[i] = lsq_gauss_line(jobs[i])[1]
                 #print('  serial core done in',datetime.datetime.now()-start)
@@ -508,6 +513,7 @@ def find_lines_and_guess_refs(slitlet_data,
     # Do this, and you reduce the total time by 50% for this step !
     if find_method == 'mpfit':
         mid_slit = numpy.int(nrows/2./bin_y)
+        #~ print('SLITLET_DATA', mid_slit, slitlet_data[mid_slit,:]) # MZ
         mid_fit_centers = quick_arcline_fit(slitlet_data[mid_slit,:],
                                             find_method = find_method,
                                             flux_threshold = flux_threshold,
