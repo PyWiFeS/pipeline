@@ -239,9 +239,7 @@ def darks():
             
             date = fn.split('/')
             date=date[-2]
-            
-            
-            print 'date TODO', date
+
         except:
             continue
         
