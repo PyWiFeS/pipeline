@@ -237,7 +237,10 @@ def darks():
             header = f[0].header
             f.close()
             
-            date = fn
+            date = fn.split('/')
+            date=date[-2]
+            
+            
             print 'date TODO', date
         except:
             continue
