@@ -222,7 +222,7 @@ def prepare_pickle():
     f.close()
         
 
-def darks():
+def darks_and_zeros():
     """
     The only thing that matters for darks are CCDSUM and WINDOW. (? I'm guessing here.)
     """        
@@ -244,7 +244,7 @@ def darks():
             continue
         
         # Take only darks
-        if header['IMAGETYP'].upper()!='DARK':
+        if header['IMAGETYP'].upper() not in ['DARK', 'ZERO'] :
             continue
 
         # Get header info
@@ -252,27 +252,30 @@ def darks():
             k=[header[x] for x in keywords]
             k[0]=k[0].upper()
         except:
-            print fn, header['IMAGETYP'].upper()
+            #~ print fn, header['IMAGETYP'].upper()
             continue
         
         k=tuple(k) # Lists or sets cannot be dictionary keys
         
         print date, k
         
-        #~ try:
-            #~ d=result[k[1:]]
-            
-            #~ try:
-                #~ d[k[0]].append(fn)
-            #~ except:
-                #~ d[k[0]]=[fn]
-            
-            #~ result[k[1:]]=d
+        
+        try:
+            t = k[0] # type
+            d = result[t]
 
-        #~ except:
-            #~ result[k[1:]]={k[0]: [fn]}
+            try:
+                d[date].append(fn)
+            except:
+                d[date]=[fn]
+            
+            result[t]=d
+
+        except:
+            result[t]={date: [fn]}
     
     
+    print result
     
         
 def prepare_result():   
@@ -376,4 +379,4 @@ def prepare_result():
 
 
 #~ prepare_result()
-darks()
+darks_and_zeros()
