@@ -315,6 +315,8 @@ def prepare_result():
         except:
             result[k[1:]]={k[0]: [fn]}
 
+    print 'result'
+    print result
     darks_and_zeros_dict = darks_and_zeros()
     result = result.update(darks_and_zeros_dict)
     
