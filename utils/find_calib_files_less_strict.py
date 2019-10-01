@@ -275,7 +275,7 @@ def darks_and_zeros():
             result[t]={date: [fn]}
     
     
-    print result
+    return result
     
         
 def prepare_result():   
