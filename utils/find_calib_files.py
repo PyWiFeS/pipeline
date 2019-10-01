@@ -11,7 +11,7 @@ from collections import OrderedDict
 Often you don't take all calib frames in the same night. Make a folder just with all calib frames from the run. Then select ones with the closest data (preferrably the same date as science frames).
 """
 
-root = '/priv/mulga1/marusa/2m3data/wifes/'
+root = '/data/mash/marusa/2m3data/wifes/'
 
 # Prepare list of files
 all_files=[]
