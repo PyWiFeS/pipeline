@@ -318,6 +318,7 @@ def prepare_result():
     darks_and_zeros_dict = darks_and_zeros()
     result = result.update(darks_and_zeros_dict)
     
+    print 'result'
     print result
 
     result = OrderedDict(sorted(result.viewitems(), key=lambda x: len(x[1]), reverse=True))
