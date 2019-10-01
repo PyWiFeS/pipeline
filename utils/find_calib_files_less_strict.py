@@ -256,21 +256,34 @@ def darks_and_zeros():
             continue
         
         k=tuple(k) # Lists or sets cannot be dictionary keys
-               
-        
-        try:
-            t = k[0] # type
-            d = result[t]
 
-            try:
-                d[date].append(fn)
-            except:
-                d[date]=[fn]
+        try:
+            d=result[k[1:]]
             
-            result[t]=d
+            try:
+                d[k[0]].append(fn)
+            except:
+                d[k[0]]=[fn]
+            
+            result[k[1:]]=d
 
         except:
-            result[t]={date: [fn]}
+            result[k[1:]]={k[0]: [fn]}
+               
+        
+        #~ try:
+            #~ t = k[0] # type
+            #~ d = result[t]
+
+            #~ try:
+                #~ d[date].append(fn)
+            #~ except:
+                #~ d[date]=[fn]
+            
+            #~ result[t]=d
+
+        #~ except:
+            #~ result[t]={date: [fn]}
     
     
     return result
