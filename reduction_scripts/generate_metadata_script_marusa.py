@@ -629,7 +629,7 @@ def propose_missing_calib_files(mode=None, calstat=None):
     keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
     
     print keyword_indices
-    mode2 = [mode[x] for x in keyword_indices]
+    mode2 = tuple([mode[x] for x in keyword_indices])
     print 'mode2', mode2
     
     # Calibrations
