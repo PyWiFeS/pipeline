@@ -639,6 +639,8 @@ def propose_missing_calib_files(mode=None, calstat=None):
         c=None
     
     print mode
+    print mode2
+    print type(mode), type(mode2)
     print 'calstat'
     print calstat
     
