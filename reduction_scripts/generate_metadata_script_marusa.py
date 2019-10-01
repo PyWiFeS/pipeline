@@ -649,6 +649,11 @@ def propose_missing_calib_files(mode=None, calstat=None):
                 missing=True
                 TODO=True
         else: # Missing. Find them. What if c==None?
+            if imagetype.upper() not in ['DARK', 'ZERO']:
+                c=cal[mode]
+            else:
+                c=cal[mode2]
+                
             try:
                 dates=c[imagetype] # dates available for this particular imagetype
                 print 'Missing %s calibration file. Available:'%imagetype
