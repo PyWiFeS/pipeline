@@ -140,7 +140,8 @@ def find_all_modes():
 
     modes=dict()
     
-    keywords=['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
+    keywords = ['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
+
     #keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
     
     for fn in all_files:
@@ -621,12 +622,20 @@ def propose_missing_calib_files(mode=None, calstat=None):
     calstat: stats on calibrations: calstat[imagetype]=False/len(images)
     """
     print
+
+    keywords = ['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
+    
+    keywords_dark_zero = ['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'CCDSUM']
+    keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
     
     # Calibrations
     try:
         c=cal[mode]    
     except:
         c=None
+    
+    print 'calstat'
+    print calstat
     
     # What calib files are missing?
     for imagetype, status in calstat.iteritems():

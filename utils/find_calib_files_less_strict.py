@@ -269,21 +269,6 @@ def darks_and_zeros():
 
         except:
             result[k[1:]]={k[0]: [fn]}
-               
-        
-        #~ try:
-            #~ t = k[0] # type
-            #~ d = result[t]
-
-            #~ try:
-                #~ d[date].append(fn)
-            #~ except:
-                #~ d[date]=[fn]
-            
-            #~ result[t]=d
-
-        #~ except:
-            #~ result[t]={date: [fn]}
     
     
     return result
