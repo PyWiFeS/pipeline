@@ -25,6 +25,8 @@ for path, subdirs, files in os.walk(root):
                     filename=os.path.join(path, f)
                     all_files.append(filename)
 
+# Not all keywords are needed for every type of exposure (dark, bias, flat)
+
 #~ keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
 keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
 # ('DARK', 4202, 1028, 'REG_1x1_4202x2056+0+2056', 'B3000', 'R7000', 'RT480', '[1:4202,1:4112]', '[1:4202,2057:4112]', '1 2', '[1:4202,1:1028]', '[1:4202,1:1028]', '[1:4202,2057:4112]')
@@ -219,7 +221,58 @@ def prepare_pickle():
         
     f.close()
         
+
+def darks():
+    """
+    The only thing that matters for darks are CCDSUM and WINDOW. (? I'm guessing here.)
+    """        
+
+    keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'CCDSUM']
+
+    result=dict()
+
+    for fn in all_files:
+        try:
+            f = pyfits.open(fn)
+            header = f[0].header
+            f.close()
+            
+            date = fn
+            print 'date TODO', date
+        except:
+            continue
         
+        # Take only darks
+        if header['IMAGETYP'].upper()!='DARK':
+            continue
+
+        # Get header info
+        try:
+            k=[header[x] for x in keywords]
+            k[0]=k[0].upper()
+        except:
+            print fn, header['IMAGETYP'].upper()
+            continue
+        
+        k=tuple(k) # Lists or sets cannot be dictionary keys
+        
+        print date, k
+        
+        #~ try:
+            #~ d=result[k[1:]]
+            
+            #~ try:
+                #~ d[k[0]].append(fn)
+            #~ except:
+                #~ d[k[0]]=[fn]
+            
+            #~ result[k[1:]]=d
+
+        #~ except:
+            #~ result[k[1:]]={k[0]: [fn]}
+    
+    
+    
         
 def prepare_result():   
     result=dict()
@@ -321,4 +374,5 @@ def prepare_result():
         
 
 
-prepare_result()
+#~ prepare_result()
+darks()
