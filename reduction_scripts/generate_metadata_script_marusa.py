@@ -629,21 +629,15 @@ def propose_missing_calib_files(mode=None, calstat=None):
     keywords_dark_zero = ['NAXIS1', 'NAXIS2', 'WINDOW', 'CCDSUM']
     keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
     
-    print keyword_indices
     mode2 = tuple([mode[x] for x in keyword_indices])
     print 'mode2', mode2
     
     # Calibrations
-    try:
-        c=cal[mode]    
-    except:
-        c=None
-    
-    print mode
-    print mode2
-    print type(mode), type(mode2)
-    print 'calstat'
-    print calstat
+    #~ try:
+        #~ c=cal[mode]    
+    #~ except:
+        #~ c=None
+
     
     # What calib files are missing?
     for imagetype, status in calstat.iteritems():
