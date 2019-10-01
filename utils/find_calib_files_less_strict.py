@@ -318,7 +318,11 @@ def prepare_result():
     print 'result'
     print result
     darks_and_zeros_dict = darks_and_zeros()
-    result = result.update(darks_and_zeros_dict)
+    
+    for k, v in darks_and_zeros_dict.iteritems():
+        result[k]=v
+    
+    #~ result = result.update(darks_and_zeros_dict)
     
     print 'result'
     print result
