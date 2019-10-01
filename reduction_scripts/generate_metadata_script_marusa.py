@@ -628,6 +628,9 @@ def propose_missing_calib_files(mode=None, calstat=None):
     keywords_dark_zero = ['NAXIS1', 'NAXIS2', 'WINDOW', 'CCDSUM']
     keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
     
+    mode2 = mode[keyword_indices]
+    print 'mode2', mode2
+    
     # Calibrations
     try:
         c=cal[mode]    
