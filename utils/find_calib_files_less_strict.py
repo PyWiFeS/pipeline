@@ -290,7 +290,8 @@ def prepare_result():
             continue
         
         # Objects and arcs: continue
-        if header['IMAGETYP'].upper()=='OBJECT' or header['IMAGETYP'].upper()=='ARC': # Assuming that all the rest is what we seek for here.
+        #~ if header['IMAGETYP'].upper()=='OBJECT' or header['IMAGETYP'].upper()=='ARC': # Assuming that all the rest is what we seek for here.
+        if header['IMAGETYP'].upper()=='OBJECT' or header['IMAGETYP'].upper()=='ARC' or header['IMAGETYP'].upper()=='DARK' or header['IMAGETYP'].upper()=='ZERO': # Assuming that all the rest is what we seek for here.
             continue
 
         # Get header info
@@ -316,10 +317,12 @@ def prepare_result():
         except:
             result[k[1:]]={k[0]: [fn]}
 
+    darks_and_zeros_dict = darks_and_zeros()
+    result = result.update(darks_and_zeros_dict)
 
     result = OrderedDict(sorted(result.viewitems(), key=lambda x: len(x[1]), reverse=True))
 
-    f=open('calibration_filenames_date.py', 'wb')
+    f=open('calibration_filenames_date_less_strict.py', 'wb')
     #~ f=open('calibration_filenames_date_less_keywords.py', 'wb')
     dsplit = '#' + 54*'-' + '\n'
     
@@ -378,5 +381,5 @@ def prepare_result():
         
 
 
-#~ prepare_result()
-darks_and_zeros()
+prepare_result()
+#~ darks_and_zeros()
