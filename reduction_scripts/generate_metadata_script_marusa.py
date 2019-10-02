@@ -647,7 +647,7 @@ def propose_missing_calib_files(mode=None, calstat=None):
                 TODO=True
         else: # Missing. Find them. What if c==None?
             print 'missing', imagetype
-            if imagetype.upper() not in ['DARK', 'ZERO']:
+            if imagetype.upper() not in ['DARK', 'ZERO', 'BIAS']:
                 c=cal[mode]
             else:
                 c=cal[mode2]
@@ -701,7 +701,7 @@ def include_missing_calib_files(mode=None, calstat=None, camera=None):
     
     # What calib files are missing?
     for imagetype, status in calstat.iteritems():
-        if imagetype.upper() not in ['DARK', 'ZERO']:
+        if imagetype.upper() not in ['DARK', 'ZERO', 'BIAS']:
             c=cal[mode]
         else:
             c=cal[mode2]
