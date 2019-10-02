@@ -747,10 +747,10 @@ def include_missing_calib_files(mode=None, calstat=None, camera=None):
                             print x
                         print
                     except:
-                        print('*** NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
+                        print('*** (include case1) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
 
                 else:
-                    print('*** NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)    
+                    print('*** (include case2) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)    
 
     return result
     
