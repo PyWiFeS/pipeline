@@ -958,6 +958,14 @@ for step in proc_steps:
             step_run=False
             print('WARNING: No telluric standards found. Not doing telluric correction.')
     
+    # Skip this step if there are no standards available
+    if step_run and step == 'flux_calib':
+        std_obs_list = get_primary_std_obs_list(metadata)
+        if len(std_obs_list)<1:
+            step_run=False
+            print('WARNING: No flux standards found. Not doing flux correction.')
+    
+    
     if step_run:
         func(obs_metadata,
              prev_suffix = prev_suffix,
