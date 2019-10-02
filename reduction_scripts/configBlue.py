@@ -30,7 +30,7 @@ ccdsum=None #'1 1' # '1 2' # binning; False or None
 naxis2=None #2056 # False # 2056 for PDS 70
 
 # Save to folders with this prefix
-prefix='ys' # None
+prefix=None #'ys' # None
 if prefix is not None:
     print 'PREFIX', prefix
 
