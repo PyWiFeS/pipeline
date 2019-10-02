@@ -682,6 +682,7 @@ def include_missing_calib_files(mode=None, calstat=None, camera=None):
     """
     result={}
 
+    keywords = ['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
     keywords_dark_zero = ['NAXIS1', 'NAXIS2', 'WINDOW', 'CCDSUM']
     keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
     
