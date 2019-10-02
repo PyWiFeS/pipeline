@@ -13,7 +13,7 @@ from astropy.io import fits as pyfits
 import wifes_calib
 import imp
 
-# Calibration files in case some are missing for this night
+# Calibration files in case some are missing for this night: this is a file containing a dictionary with filenames
 #~ import calibration_filenames_date as cal
 import calibration_filenames_date_less_strict as cal
 cal=cal.result

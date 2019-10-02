@@ -902,6 +902,11 @@ def run_flux_calib(metadata, prev_suffix, curr_suffix,
 # Telluric - derive
 def run_derive_telluric(metadata, prev_suffix, curr_suffix, **args):
     std_obs_list = get_primary_std_obs_list(metadata, 'telluric')
+    
+    if len(std_obs_list)<1:
+        print('')
+        return
+    
     std_cube_list = [os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
                      for fn in std_obs_list]
     extract_list = [os.path.join(out_dir, '%s.x%s.dat' % (fn, prev_suffix))
@@ -950,15 +955,21 @@ for step in proc_steps:
     step_args   = step['args']
     func_name = 'run_'+step_name
     func = globals()[func_name]
+    
+    # Skip this step if there are no tellurics available
+    if step_run and step == 'derive_telluric':
+        std_obs_list = get_primary_std_obs_list(metadata, 'telluric')
+        if len(std_obs_list)<1:
+            step_run=False
+            print('WARNING: No telluric standards found. Not doing telluric correction.')
+    
     if step_run:
-        #~ try:
-            #~ print('$$$ WHAT TO REDUCE ', step_name, get_primary_sci_obs_list(obs_metadata))
-        #~ except:
-            #~ print('$$$ WHAT TO REDUCE ', step_name)
         func(obs_metadata,
              prev_suffix = prev_suffix,
              curr_suffix = step_suffix,
              **step_args)
+    
+    # Update suffix
     if step_suffix != None:
         prev_suffix = step_suffix
 
