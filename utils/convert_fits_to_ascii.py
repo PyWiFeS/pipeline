@@ -12,6 +12,7 @@ import process_stellar as ps # WHEN running this without ssh -Y, I get RuntimeEr
 
 #~ root = '/priv/mulga1/marusa/2m3reduced/wifes/'
 root = '/data/mash/marusa/2m3reduced/wifes/'
+#root = "/priv/mulga2/arains/ys/wifes/reduced/"
 
 try:
     obsdate = sys.argv[1]
@@ -19,6 +20,7 @@ try:
 except:
     data_dir = root
 
+steps = ["08", "09", "10"]
 
 print 'Converting to ascii:', data_dir
 
@@ -29,7 +31,9 @@ if not os.path.isdir(out_dir) and not os.path.exists(out_dir):
 for path, subdirs, files in os.walk(data_dir):
     for name in files:
         fl=os.path.join(path, name)
-        if fl.endswith('.p08.fits'):
+        step = fl.split(".")[-2][1:]
+        # Only run on specified data reduction outputs
+        if step in steps and fl.endswith('%s.fits' % step):
             print fl
             f=fits.open(fl)
             header = f[0].header
@@ -41,9 +45,9 @@ for path, subdirs, files in os.walk(data_dir):
             spectrum, sig = ps.weighted_extract_spectrum(flux)
 
             if 'T2m3wr' in name:
-                filename = '%s_%s_08r.dat'%(obsdate, objectid)
+                filename = '%s_%s_%s_r.dat'%(obsdate, objectid, step)
             elif 'T2m3wb' in name:
-                filename = '%s_%s_08b.dat'%(obsdate, objectid)
+                filename = '%s_%s_%s_b.dat'%(obsdate, objectid, step)
             
             filename = filename.replace(' ', '_')
             
