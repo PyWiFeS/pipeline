@@ -681,17 +681,29 @@ def include_missing_calib_files(mode=None, calstat=None, camera=None):
     calstat: stats on calibrations: calstat[imagetype]=False/len(images)
     """
     result={}
+
+    keywords_dark_zero = ['NAXIS1', 'NAXIS2', 'WINDOW', 'CCDSUM']
+    keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
+    
+    mode2 = tuple([mode[x] for x in keyword_indices])
+    print 'mode2', mode2
+
     
     # Calibrations
-    try:
-        c=cal[mode]    
-    except:
-        c=None
-        print('ERROR: no calibration files found for this mode:', mode)
-        return False
+    #~ try:
+        #~ c=cal[mode]    
+    #~ except:
+        #~ c=None
+        #~ print('ERROR: no calibration files found for this mode:', mode)
+        #~ return False
     
     # What calib files are missing?
     for imagetype, status in calstat.iteritems():
+        if imagetype.upper() not in ['DARK', 'ZERO']:
+            c=cal[mode]
+        else:
+            c=cal[mode2]
+                
         if imagetype not in selected_cal_dates:
             continue
         else:
