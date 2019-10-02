@@ -1365,6 +1365,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
   var = numpy.sum(resid**2) / len(allx)
   bias = numpy.sum(resid) / len(allx)
   rmse = math.sqrt(var + bias**2)
+  print('MZ: diagnostics', var, bias, rmse)
   print("Initial RMSE",rmse)
 
   # Set up parameter info ready for fitting
@@ -1680,6 +1681,7 @@ def derive_wifes_optical_wave_solution(inimg,
 
   # Exclude the lines from the data set
   lines = excludeLines(lines, exclude, index=3, epsilon=epsilon)
+  print('MZ: LINES', lines)
 
   # Set parameters
   alphap = None
