@@ -14,7 +14,8 @@ import wifes_calib
 import imp
 
 # Calibration files in case some are missing for this night
-import calibration_filenames_date as cal
+#~ import calibration_filenames_date as cal
+import calibration_filenames_date_less_strict as cal
 cal=cal.result
 
 
@@ -140,7 +141,8 @@ def find_all_modes():
 
     modes=dict()
     
-    keywords=['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
+    keywords = ['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
+
     #keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
     
     for fn in all_files:
@@ -621,12 +623,21 @@ def propose_missing_calib_files(mode=None, calstat=None):
     calstat: stats on calibrations: calstat[imagetype]=False/len(images)
     """
     print
+
+    keywords = ['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
+    
+    keywords_dark_zero = ['NAXIS1', 'NAXIS2', 'WINDOW', 'CCDSUM']
+    keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
+    
+    mode2 = tuple([mode[x] for x in keyword_indices])
+    print 'mode2', mode2
     
     # Calibrations
-    try:
-        c=cal[mode]    
-    except:
-        c=None
+    #~ try:
+        #~ c=cal[mode]    
+    #~ except:
+        #~ c=None
+
     
     # What calib files are missing?
     for imagetype, status in calstat.iteritems():
@@ -635,6 +646,11 @@ def propose_missing_calib_files(mode=None, calstat=None):
                 missing=True
                 TODO=True
         else: # Missing. Find them. What if c==None?
+            if imagetype.upper() not in ['DARK', 'ZERO']:
+                c=cal[mode]
+            else:
+                c=cal[mode2]
+                
             try:
                 dates=c[imagetype] # dates available for this particular imagetype
                 print 'Missing %s calibration file. Available:'%imagetype

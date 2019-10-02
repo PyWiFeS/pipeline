@@ -11,7 +11,7 @@ from collections import OrderedDict
 Often you don't take all calib frames in the same night. Make a folder just with all calib frames from the run. Then select ones with the closest data (preferrably the same date as science frames).
 """
 
-root = '/priv/mulga1/marusa/2m3data/wifes/'
+root = '/data/mash/marusa/2m3data/wifes/'
 
 # Prepare list of files
 all_files=[]
@@ -25,6 +25,9 @@ for path, subdirs, files in os.walk(root):
                     filename=os.path.join(path, f)
                     all_files.append(filename)
 
+# Not all keywords are needed for every type of exposure (dark, bias, flat)
+
+#~ keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
 keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
 # ('DARK', 4202, 1028, 'REG_1x1_4202x2056+0+2056', 'B3000', 'R7000', 'RT480', '[1:4202,1:4112]', '[1:4202,2057:4112]', '1 2', '[1:4202,1:1028]', '[1:4202,1:1028]', '[1:4202,2057:4112]')
 
@@ -218,7 +221,58 @@ def prepare_pickle():
         
     f.close()
         
+
+def darks_and_zeros():
+    """
+    The only thing that matters for darks are CCDSUM and WINDOW. (? I'm guessing here.)
+    """        
+
+    keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'CCDSUM']
+
+    result=dict()
+
+    for fn in all_files:
+        try:
+            f = pyfits.open(fn)
+            header = f[0].header
+            f.close()
+            
+            date = fn.split('/')
+            date=date[-2]
+
+        except:
+            continue
         
+        # Take only darks
+        if header['IMAGETYP'].upper() not in ['DARK', 'ZERO'] :
+            continue
+
+        # Get header info
+        try:
+            k=[header[x] for x in keywords]
+            k[0]=k[0].upper()
+        except:
+            #~ print fn, header['IMAGETYP'].upper()
+            continue
+        
+        k=tuple(k) # Lists or sets cannot be dictionary keys
+
+        try:
+            d=result[k[1:]]
+            
+            try:
+                d[k[0]].append(fn)
+            except:
+                d[k[0]]=[fn]
+            
+            result[k[1:]]=d
+
+        except:
+            result[k[1:]]={k[0]: [fn]}
+    
+    
+    return result
+    
         
 def prepare_result():   
     result=dict()
@@ -232,7 +286,8 @@ def prepare_result():
             continue
         
         # Objects and arcs: continue
-        if header['IMAGETYP'].upper()=='OBJECT' or header['IMAGETYP'].upper()=='ARC': # Assuming that all the rest is what we seek for here.
+        #~ if header['IMAGETYP'].upper()=='OBJECT' or header['IMAGETYP'].upper()=='ARC': # Assuming that all the rest is what we seek for here.
+        if header['IMAGETYP'].upper()=='OBJECT' or header['IMAGETYP'].upper()=='ARC' or header['IMAGETYP'].upper()=='DARK' or header['IMAGETYP'].upper()=='ZERO': # Assuming that all the rest is what we seek for here.
             continue
 
         # Get header info
@@ -258,10 +313,21 @@ def prepare_result():
         except:
             result[k[1:]]={k[0]: [fn]}
 
+    print 'result'
+    print result
+    darks_and_zeros_dict = darks_and_zeros()
+    
+    for k, v in darks_and_zeros_dict.iteritems():
+        result[k]=v
+    
+    #~ result = result.update(darks_and_zeros_dict)
+    
+    print 'result'
+    print result
 
     result = OrderedDict(sorted(result.viewitems(), key=lambda x: len(x[1]), reverse=True))
 
-    f=open('calibration_filenames_date.py', 'wb')
+    f=open('calibration_filenames_date_less_strict.py', 'wb')
     #~ f=open('calibration_filenames_date_less_keywords.py', 'wb')
     dsplit = '#' + 54*'-' + '\n'
     
@@ -321,3 +387,4 @@ def prepare_result():
 
 
 prepare_result()
+#~ darks_and_zeros()

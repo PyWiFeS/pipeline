@@ -14,6 +14,7 @@ import sys
 
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
+input_root = '/data/mash/marusa/2m3data/wifes/'
 # root needed only for output
 #output_root = "/priv/mulga2/arains/ys/wifes/reduced/"
 output_root = '/priv/mulga1/marusa/2m3reduced/wifes/'
