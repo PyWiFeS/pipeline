@@ -902,11 +902,6 @@ def run_flux_calib(metadata, prev_suffix, curr_suffix,
 # Telluric - derive
 def run_derive_telluric(metadata, prev_suffix, curr_suffix, **args):
     std_obs_list = get_primary_std_obs_list(metadata, 'telluric')
-    
-    if len(std_obs_list)<1:
-        print('')
-        return
-    
     std_cube_list = [os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
                      for fn in std_obs_list]
     extract_list = [os.path.join(out_dir, '%s.x%s.dat' % (fn, prev_suffix))
