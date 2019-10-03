@@ -24,7 +24,7 @@ for path, subdirs, files in os.walk(root):
             run=header['RUN']
             imagetype=header['IMAGETYP']
             f.close()
-            image_data = fits.getdata(image_file, ext=0)
+            image_data = fits.getdata(fl, ext=0)
 
 
             # Make an output folder
