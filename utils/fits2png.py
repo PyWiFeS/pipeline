@@ -25,9 +25,11 @@ for path, subdirs, files in os.walk(root):
             imagetype=header['IMAGETYP']
             f.close()
             image_data = fits.getdata(fl, ext=0)
-            
-            print image_data
 
+            # Set colorscale
+            minimum = np.percentile(image_data, 20)
+            maximum = np.percentile(image_data, 90)
+            
 
             # Make an output folder
             out_dir = os.path.join(root, 'png')
@@ -40,7 +42,7 @@ for path, subdirs, files in os.walk(root):
 
             # Plot and save figure
             plt.figure()
-            plt.imshow(image_data, cmap='gray')
+            plt.imshow(image_data, cmap='gray', vmin=minimum, vmax=maximum)
             #~ plt.colorbar()
             fl_out = os.path.join(out_dir, name.replace('.fits', '.png'))
             print 'fl_out', fl_out
