@@ -39,3 +39,4 @@ TODO
   - Copy all necessary files into `pipeline`
   - Make it more simple and robust.
 - What happens if there are 2 or more stars in the slit?
+- Diagnostics: It does happen that imagetype is wrong. E.g. Arcs are sometimes not arcs and then image reduction keeps crashing. Make a script to make a simple convert of all fits files in the folder into jpgs sorted into different folders based on their type. This would allow a quick look to check if all images are what they say they are.
