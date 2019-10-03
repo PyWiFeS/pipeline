@@ -37,6 +37,7 @@ for path, subdirs, files in os.walk(root):
             #~ fig = plt.figure()
             #~ fig.imshow(image_data, cmap='gray')
             #~ plt.colorbar()
+            print name
             fl_out = os.path.join(out_dir, name.split('.')[:-1]+'.png')
             print 'fl_out', fl_out
             #~ plt.savefig(fl_out)
