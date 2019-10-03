@@ -5,6 +5,7 @@ Diagnostics: Convert all fits files in the folder into png/jpg and save them int
 from astropy.io import fits
 import matplotlib.pyplot as plt
 import sys
+import os
 
 # Folder with fits files
 root = sys.argv[1]
