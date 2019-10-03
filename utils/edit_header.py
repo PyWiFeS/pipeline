@@ -19,4 +19,7 @@ value = sys.argv[3].replace(' ', '')
 print "'%s' '%s'"%(keyword, value)
 
 fits.delval(filename, keyword)
-fits.setval(filename, keyword, value=value)
+if keyword=='IMAGETYP':
+    fits.setval(filename, keyword, value=value, after='OBJECT')
+else:    
+    fits.setval(filename, keyword, value=value)
