@@ -32,6 +32,8 @@ for path, subdirs, files in os.walk(root):
             minimum = np.percentile(image_data, 30)
             maximum = np.percentile(image_data, 95)
             
+            print minimum, maximum
+            
 
             # Make an output folder
             out_dir = os.path.join(root, 'png')
