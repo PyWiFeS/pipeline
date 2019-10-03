@@ -43,7 +43,8 @@ for path, subdirs, files in os.walk(root):
 
             # Plot and save figure
             plt.figure()
-            plt.imshow(image_data, cmap='gray', vmin=minimum, vmax=maximum)
+            #~ plt.imshow(image_data, cmap='gray', vmin=minimum, vmax=maximum)
+            plt.imshow(image_data, cmap='gray', norm=LogNorm(vmin=minumum, vmax=maximum))
             #~ plt.colorbar()
             fl_out = os.path.join(out_dir, name.replace('.fits', '.png'))
             print 'fl_out', fl_out
