@@ -20,8 +20,8 @@ for path, subdirs, files in os.walk(root):
             # Read data
             f=fits.open(fl)
             header = f[0].header
-            objectid=header['OBJNAME']
-            run=header['RUN']
+            #~ objectid=header['OBJNAME']
+            #~ run=header['RUN']
             imagetype=header['IMAGETYP']
             f.close()
             image_data = fits.getdata(fl, ext=0)
