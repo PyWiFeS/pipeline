@@ -2,6 +2,7 @@
 Diagnostics: Convert all fits files in the folder into png/jpg and save them into separate folders based on their imagetype. This is to have a quick look if all imagetypes are correct.
 """
 
+import numpy as np
 from astropy.io import fits
 import matplotlib.pyplot as plt
 import sys
