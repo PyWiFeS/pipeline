@@ -18,4 +18,5 @@ keyword = sys.argv[2]
 value = sys.argv[3].replace(' ', '')
 print "'%s' '%s'"%(keyword, value)
 
+fits.delval(filename, keyword)
 fits.setval(filename, keyword, value=value)
