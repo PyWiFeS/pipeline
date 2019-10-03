@@ -28,8 +28,8 @@ for path, subdirs, files in os.walk(root):
             image_data = fits.getdata(fl, ext=0)
 
             # Set colorscale
-            minimum = np.percentile(image_data, 20)
-            maximum = np.percentile(image_data, 90)
+            minimum = np.percentile(image_data, 30)
+            maximum = np.percentile(image_data, 95)
             
 
             # Make an output folder
