@@ -9,7 +9,7 @@ import os
 
 # Folder with fits files
 root = sys.argv[1]
-print root
+print('root', root)
 
 for path, subdirs, files in os.walk(root):
     for name in files:
@@ -38,7 +38,7 @@ for path, subdirs, files in os.walk(root):
 
             # Plot and save figure
             plt.figure()
-            imshow(image_data, cmap='gray')
+            plt.imshow(image_data, cmap='gray')
             #~ plt.colorbar()
             fl_out = os.path.join(out_dir, name.replace('.fits', '.png'))
             print 'fl_out', fl_out
