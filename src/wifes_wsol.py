@@ -1313,6 +1313,7 @@ def excludeLines(lines, exclude, index=3, epsilon=0.05):
       We do this by constructing a matrix of differences between the input lines
       and the exclude lines, then determining whether any are close enough to
       count as a match.  We then exclude those. """
+  print('MZ: EXCLUDE LINES', lines, exclude)
   if ((not exclude is None) and len(exclude) > 0):
     print('Excluding', exclude, 'with tolerance of', epsilon)
     exclude = numpy.asarray(exclude)
