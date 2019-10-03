@@ -9,8 +9,9 @@ import os
 
 # Folder with fits files
 root = sys.argv[1]
+print root
 
-for path, subdirs, files in os.walk(data_dir):
+for path, subdirs, files in os.walk(root):
     for name in files:
         fl=os.path.join(path, name)
         if fl.endswith('.fits') or fl.endswith('.fit') or fl.endswith('.FITS') or fl.endswith('.FIT'):
