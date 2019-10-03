@@ -25,6 +25,8 @@ for path, subdirs, files in os.walk(root):
             imagetype=header['IMAGETYP']
             f.close()
             image_data = fits.getdata(fl, ext=0)
+            
+            print image_data
 
 
             # Make an output folder
@@ -43,3 +45,8 @@ for path, subdirs, files in os.walk(root):
             fl_out = os.path.join(out_dir, name.replace('.fits', '.png'))
             print 'fl_out', fl_out
             plt.savefig(fl_out)
+
+
+            break
+        break
+    break
