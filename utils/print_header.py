@@ -13,6 +13,8 @@ try:
 except:
     keyword=None
 
+print 'keyword', keyword
+
 if keyword is None:
     print fits.getheader(filename, 0)
 else:
