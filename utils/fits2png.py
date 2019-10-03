@@ -30,13 +30,13 @@ for path, subdirs, files in os.walk(root):
             # Make an output folder
             out_dir = os.path.join(root, 'png', imagetype.lower())
             print 'out_dir', out_dir
-            #~ if not os.path.isdir(out_dir) and not os.path.exists(out_dir):
-                #~ os.mkdir(out_dir)
+            if not os.path.isdir(out_dir) and not os.path.exists(out_dir):
+                os.mkdir(out_dir)
 
             # Plot and save figure
-            #~ fig = plt.figure()
-            #~ fig.imshow(image_data, cmap='gray')
+            fig = plt.figure()
+            fig.imshow(image_data, cmap='gray')
             #~ plt.colorbar()
             fl_out = os.path.join(out_dir, name.replace('.fits', '.png'))
             print 'fl_out', fl_out
-            #~ plt.savefig(fl_out)
+            plt.savefig(fl_out)
