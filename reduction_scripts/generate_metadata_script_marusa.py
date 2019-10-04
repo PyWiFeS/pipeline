@@ -130,6 +130,10 @@ print('#'+54*'-')
 all_files = os.listdir(data_dir)
 all_files = [os.path.join(data_dir, x) for x in all_files]
 
+print('ALLFILES>>>>>>>>>>')
+for x in sorted(all_files):
+    print(x)
+
 def find_all_modes():
     """
     Find all different modes taken during this night.
@@ -251,7 +255,18 @@ def find_filenames_for_a_mode(all_files):
         
     return blue_obs, red_obs, obs_date
 
-
+def check_if_any_files_are_missing(frames):
+    """
+    Sometimes some frames are missing, either because they were not saved or because run number wasn't set properly after TAROS restart. Print out missing files between the first and last exposure. It is up to the user then to find out the reason why files are missing.
+    """
+    
+    frames = sorted(frames)
+    # TODO: separate this into blue and red frames!
+    run_first = int(frames[0].split('.')[-2].split('-')[-1])
+    run_last = int(frames[-1].split('.')[-2].split('-')[-1])
+    
+    TODO=True
+    
 
 # Marusa: Match science images and arcs. One arc before and one after the science exposure + all arcs in between.
 # Disadvantage: if you e.g. observe 1 objects with arcs, then do other things and observe it later again, everything is combined together.
