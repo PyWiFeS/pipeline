@@ -378,6 +378,7 @@ def classify_frames_into_imagetypes(frames=None):
             mjd=None
         run = f[0].header['RUN']
         imagetype = f[0].header['IMAGETYP'].upper()
+        print fn, imagetype
         exptime = f[0].header['EXPTIME']
 
         f.close()
