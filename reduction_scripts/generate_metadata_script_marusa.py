@@ -47,9 +47,6 @@ for opt, arg in opts:
 print 'SELECTED_CAL_DATES', selected_cal_dates
 
 
-
-
-
 ccdsum = metadata['CCDSUM'] #'1 1' # '1 2' # binning
 prefix=metadata['prefix']
 
@@ -113,6 +110,17 @@ out_dir_bool = os.path.isdir(out_dir) and os.path.exists(out_dir)
 if not out_dir_bool:
     os.mkdir(out_dir)
 print('out_dir', out_dir)
+
+
+
+try:
+    exclude_filename = os.path.join(out_dir, 'exclude_these_fitsfiles.dat')
+    exclude_runs = [int(x) for x in np.loadtxt(exclude_filename)]
+except:
+    exclude_runs=[]
+
+
+
 ######################################
 
 """
@@ -133,6 +141,18 @@ all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits')
 print('ALLFILES>>>>>>>>>>')
 for x in sorted(all_files):
     print(x)
+
+# EXCLUDE USELESS EXPOSURES.
+all_files2=[]
+if len(exclude_runs)>0:
+    for x in all_files:
+        run = int(x.split('.')[-2].split('-')[-1])
+        if run not in exclude_runs:
+            all_files2.append(x)
+        else:
+            print('Excluding run ', run, x)
+all_files=all_files2
+
 
 def find_all_modes():
     """
