@@ -38,6 +38,7 @@ def get_metadata(obsdate, band='r'):
     for filename in files:
         print filename
         config = imp.load_source(filename.replace('.py', ''), filename)
+        print config
     
     return config
 
