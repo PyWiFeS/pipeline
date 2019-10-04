@@ -33,7 +33,7 @@ def get_metadata(obsdate, band='r'):
             if 'metadata' in file and '.pyc' not in file and 'mode' not in file:
                 files.append(os.path.join(r, file))
 
-    #~ print files
+    print files
     # Read red metadata dict
     for filename in files:
         print filename
