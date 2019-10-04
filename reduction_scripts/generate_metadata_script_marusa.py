@@ -364,7 +364,7 @@ def classify_frames_into_imagetypes(frames=None):
 
     test=[]
 
-    for obs in frames:
+    for obs in sorted(frames):
         fn = os.path.join(data_dir, obs+'.fits')
         f = pyfits.open(fn)
         
