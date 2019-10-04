@@ -128,7 +128,7 @@ print('#'+54*'-')
 
 # get list of all fits files in directory
 all_files = os.listdir(data_dir)
-all_files = [os.path.join(data_dir, x) for x in all_files]
+all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits')]
 
 print('ALLFILES>>>>>>>>>>')
 for x in sorted(all_files):
