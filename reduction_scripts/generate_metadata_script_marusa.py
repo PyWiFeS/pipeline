@@ -261,6 +261,8 @@ def match_object_and_arc(objects=None, arcs=None):
     """
     result={}
     
+    print('ARCS:::', arcs)
+    
     arc_mjd=np.array([x[1] for x in arcs])
 
     for k, v in objects.items():

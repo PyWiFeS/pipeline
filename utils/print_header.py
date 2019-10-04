@@ -13,10 +13,7 @@ try:
 except:
     keyword=None
 
-print 'keyword', keyword
-
 if keyword is None:
     print fits.getheader(filename, 0)
 else:
-    print 'keyword'
     print "'%s'"%fits.getheader(filename, 0)[keyword]
