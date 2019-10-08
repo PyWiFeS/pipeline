@@ -843,6 +843,9 @@ if __name__ == '__main__':
     
     modes = find_all_modes()
     
+    if len(modes)<1:
+        print('WARNING: 0 modes!')
+    
     print('modes', modes)
     
     m=0
