@@ -152,7 +152,7 @@ if len(exclude_runs)>0:
         else:
             print('Excluding run ', run, x)
 all_files=all_files2
-
+print('Ready to start')
 
 def find_all_modes():
     """
