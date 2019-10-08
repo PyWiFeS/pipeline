@@ -843,6 +843,8 @@ if __name__ == '__main__':
     
     modes = find_all_modes()
     
+    print('modes', modes)
+    
     m=0
     for mode, v in modes.iteritems():
         blue_obs, red_obs, obs_date = find_filenames_for_a_mode(v)
