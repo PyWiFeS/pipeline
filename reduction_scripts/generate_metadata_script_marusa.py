@@ -196,9 +196,10 @@ def find_all_modes():
         #~ print k
         #~ print v
         #~ print
-        
-    #~ for k, v in modes.iteritems():
-        #~ print k
+    
+    print('MODES...')
+    for k, v in modes.iteritems():
+        print k
         
     return modes
 
