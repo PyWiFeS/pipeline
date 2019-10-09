@@ -53,9 +53,6 @@ for k, r in red.iteritems():
     
     
     if k!='sci' and k!='std':
-        print 'kkkkk', k
-        print 'RRR', r
-        print 'BBB', b
         run_r = set([x.split('-')[-1] for x in r])
         run_b = set([x.split('-')[-1] for x in b])
         
