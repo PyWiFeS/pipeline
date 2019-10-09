@@ -113,6 +113,8 @@ print('out_dir', out_dir)
 
 
 
+# RUN numbers to exclude
+# Note that filename says fitsfiles but they really are run numbers.
 try:
     exclude_filename = os.path.join(out_dir, 'exclude_these_fitsfiles.dat')
     exclude_runs = [int(x) for x in np.loadtxt(exclude_filename)]
@@ -136,7 +138,7 @@ print('#'+54*'-')
 
 # get list of all fits files in directory
 all_files = os.listdir(data_dir)
-all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits')]
+all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits') and 'T2m3ag' not in x]
 
 print('ALLFILES>>>>>>>>>>', len(all_files))
 #~ for x in sorted(all_files):
@@ -298,7 +300,8 @@ def match_object_and_arc(objects=None, arcs=None):
     """
     result={}
     
-    print('ARCS:::', arcs)
+    if len(arcs)<1:
+        print('ARCS:::', arcs)
     
     arc_mjd=np.array([x[1] for x in arcs])
 
