@@ -139,8 +139,8 @@ all_files = os.listdir(data_dir)
 all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits')]
 
 print('ALLFILES>>>>>>>>>>', len(all_files))
-for x in sorted(all_files):
-    print(x)
+#~ for x in sorted(all_files):
+    #~ print(x)
 
 # EXCLUDE USELESS EXPOSURES.
 all_files2=[]
@@ -848,7 +848,7 @@ if __name__ == '__main__':
     if len(modes)<1:
         print('WARNING: 0 modes!')
     
-    print('modes', modes)
+    #~ print('modes', modes)
     
     m=0
     for mode, v in modes.iteritems():
