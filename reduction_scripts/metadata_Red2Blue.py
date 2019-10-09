@@ -52,7 +52,7 @@ for k, r in red.iteritems():
     b=blue[k]
     
     
-    if k!='sci' or k!='std':
+    if k!='sci' and k!='std':
         print 'kkkkk', k
         print 'RRR', r, type(r[0])
         print 'BBB', b
