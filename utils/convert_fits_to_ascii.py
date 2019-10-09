@@ -19,6 +19,7 @@ try:
     data_dir = os.path.join(root, obsdate)
 except:
     data_dir = root
+    obsdate=None
 
 steps = ["08", "09", "10"]
 
@@ -43,6 +44,9 @@ for path, subdirs, files in os.walk(data_dir):
 
             flux, wave = ps.read_and_find_star_p08(fl)
             spectrum, sig = ps.weighted_extract_spectrum(flux)
+            
+            if obsdate is None:
+                obsdate=fl.split('.')[0].split('-')[-1]
 
             if 'T2m3wr' in name:
                 filename = '%s_%s_%s_r.dat'%(obsdate, objectid, step)
