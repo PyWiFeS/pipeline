@@ -53,9 +53,8 @@ for k, r in red.iteritems():
     
     
     if k!='sci':
-        print r
+        print 'RRR', r
         run_r = set([x.split('-')[-1] for x in r])
-        print b
         run_b = set([x.split('-')[-1] for x in b])
         
         diff = run_b.difference(run_r)
