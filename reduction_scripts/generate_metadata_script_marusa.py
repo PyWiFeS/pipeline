@@ -138,7 +138,7 @@ print('#'+54*'-')
 all_files = os.listdir(data_dir)
 all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits')]
 
-print('ALLFILES>>>>>>>>>>')
+print('ALLFILES>>>>>>>>>>', len(all_files))
 for x in sorted(all_files):
     print(x)
 
@@ -151,7 +151,7 @@ if len(exclude_runs)>0:
             all_files2.append(x)
         else:
             print('Excluding run ', run, x)
-all_files=all_files2
+    all_files=all_files2
 print('Ready to start', len(all_files))
 
 def find_all_modes():
@@ -182,7 +182,6 @@ def find_all_modes():
     
         try:
             k=[header[x] for x in keywords]
-            print k
         except:
             print 'Cannot get full header for', fn, header['IMAGETYP']
             continue
@@ -190,7 +189,6 @@ def find_all_modes():
         k=tuple(k) # Lists or sets cannot be dictionary keys
         try:
             modes[k].append(fn)
-            print k, fn
         except:
             modes[k]=[fn]
     
@@ -199,9 +197,9 @@ def find_all_modes():
         #~ print v
         #~ print
     
-    print('MODES...')
-    for k, v in modes.iteritems():
-        print k
+    #~ print('MODES...')
+    #~ for k, v in modes.iteritems():
+        #~ print k
         
     return modes
 
