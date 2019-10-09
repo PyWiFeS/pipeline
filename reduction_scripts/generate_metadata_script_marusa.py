@@ -165,9 +165,9 @@ def find_all_modes():
 
     modes=dict()
     
-    #~ keywords = ['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
+    keywords = ['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
 
-    keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
+    #~ keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
     
     for fn in all_files:
         try:
@@ -182,6 +182,7 @@ def find_all_modes():
     
         try:
             k=[header[x] for x in keywords]
+            print k
         except:
             print 'Cannot get full header for', fn, header['IMAGETYP']
             continue
@@ -189,6 +190,7 @@ def find_all_modes():
         k=tuple(k) # Lists or sets cannot be dictionary keys
         try:
             modes[k].append(fn)
+            print k, fn
         except:
             modes[k]=[fn]
     
