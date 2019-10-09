@@ -160,7 +160,7 @@ def find_all_modes():
     By modes I mean different combinations of gratings, binning etc.
     Find images that go together.
     
-    NOTE that some images were taken with echelle. --> Actually not. ECHELLE DATA ARE MISSING!?!
+    NOTE that some images were taken with echelle.
     """
 
     modes=dict()
@@ -175,6 +175,7 @@ def find_all_modes():
             header = f[0].header
             f.close()
         except:
+            print('Cant open file', fn)
             continue
         
         
