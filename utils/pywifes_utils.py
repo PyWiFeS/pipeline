@@ -215,7 +215,7 @@ def flat_stats():
 
                 # Extract one line
                 line = image_data[2145:2245,:]
-                print(line.shape)
+                print(line.shape, image_data.shape)
                 line = np.max(line, axis=0)
                 m = np.max(line)
                 line = line/m
