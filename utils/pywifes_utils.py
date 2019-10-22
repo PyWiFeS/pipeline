@@ -213,7 +213,7 @@ def flat_stats():
                 f.close()
                 image_data = fits.getdata(fl, ext=0)
                 window = header['WINDOW']
-                print window
+                print(window)
 
                 # Extract one line
                 # This depends on whether it is full/stellar frame and the binning!!
