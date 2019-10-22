@@ -10,6 +10,9 @@ from astropy.io import fits
 import sys
 import os
 import process_stellar as ps
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+
 
 def extract_stellar_spectra_ascii(root, night, steps = ["08", "09", "10"]):
     """Generate ascii spectra for each of the data reduction steps in steps.
@@ -179,3 +182,42 @@ def update_object_header(root, night, print_only=False):
                               ff[0].header["OBJNAME"]))
                     if not print_only:
                         ff[0].header["OBJNAME"] = ff[0].header["OBJECT"]
+                        
+def flat_stats():
+    """
+    MZ: Write the doc!!
+    
+    Goal: Identify bad flats.
+    
+    Plot masterflats and trace one line. Divide by its maximum and overplot all of them.
+    What about stellar/ybin2?
+    """
+    
+    # Folder with fits files
+    root = sys.argv[1]
+    print('root', root)
+    
+    fig=plt.figure()
+    ax=fig.add_subplot(111)
+
+    for path, subdirs, files in os.walk(root):
+        for name in files:
+            fl=os.path.join(path, name)
+            if fl=='wifesB_super_domeflat.fits':
+                print fl
+                
+                # Read data
+                f=fits.open(fl)
+                header = f[0].header
+                f.close()
+                image_data = fits.getdata(fl, ext=0)
+
+                # Extract one line
+                line = image_data[2145:2245,:]
+                line = np.max(line, axis=0)
+                m = np.max(line)
+                line = line/m
+                
+                x=range(len(line))
+                ax.plot(x, line)
+    plt.show()
