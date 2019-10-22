@@ -110,7 +110,7 @@ def make_extracted_stellar_cube(root, night, steps = ["08", "09", "10"]):
         # Get the header information from the first
         header = fits.getheader(fits_files[0])
 
-        obj_id = header['OBJNAME']
+        obj_id = header['OBJNAME'].replace(" ","")
 
         # Construct a new fits file
         hdus = []
@@ -143,3 +143,39 @@ def make_extracted_stellar_cube(root, night, steps = ["08", "09", "10"]):
         print("Writing cube to %s \n" % output_filename)
         hdu_list = fits.HDUList(hdus)
         hdu_list.writeto(output_filepath, overwrite=True)
+
+
+def update_object_header(root, night, print_only=False):
+    """Quick function to sort out instances where OBJNAME header keyword is
+    correct, but OBJECT keyword header is wrong (but has priority).
+
+    Currently this looks for "exp" (i.e. exposure time) in OBJECT, due to a 
+    TAROS copy-paste error
+
+    Parameters
+    ----------
+    root: string
+        Root directory where all the night folders are stored.
+
+    night: string
+        Name of the folder for a night's data, e.g. 20190828
+
+    print_only: boolean
+        Whether to actually change the headers, or just pring what they are
+    """
+    # Get a list of the files
+    fits_files = glob.glob(os.path.join(root, night, "*.fits"))
+    fits_files.sort()
+
+    # For all files, open and check the state of the headers
+    for fits_file in fits_files:
+        with fits.open(fits_file, "update") as ff:
+            if ("OBJNAME" in ff[0].header 
+                and ff[0].header["IMAGETYP"]=="object"):
+                if ("exp" in ff[0].header["OBJNAME"] 
+                    and ff[0].header["OBJECT"] != ""):
+                    print("%s: \t OBJECT: %s\t OBJNAME: %s" 
+                           % (fits_file, ff[0].header["OBJECT"], 
+                              ff[0].header["OBJNAME"]))
+                    if not print_only:
+                        ff[0].header["OBJNAME"] = ff[0].header["OBJECT"]
