@@ -194,7 +194,8 @@ def flat_stats():
     """
     
     # Folder with fits files
-    root = sys.argv[1]
+    #~ root = sys.argv[1]
+    root='/data/mash/marusa/2m3data/wifes/'
     print('root', root)
     
     fig=plt.figure()
@@ -204,7 +205,7 @@ def flat_stats():
         for name in files:
             fl=os.path.join(path, name)
             if fl=='wifesB_super_domeflat.fits':
-                print fl
+                print(fl)
                 
                 # Read data
                 f=fits.open(fl)
