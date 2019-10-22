@@ -223,10 +223,12 @@ def flat_stats():
                     print('stellar 1')
                 elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
                     print('stellar 2')
+                    line = image_data[2990:3050,:]
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1
                     print('full 1')
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2
                     print('full 2')
+                    line = image_data[2145:2245,:]
 
                 
                 #~ if window=='REG_1x1_4202x2056+0+2056': # 1 1, 1 2
@@ -236,7 +238,7 @@ def flat_stats():
                 
                 #~ elif...
                 
-                line = image_data[2145:2245,:]
+                
                 print(line.shape, image_data.shape)
                 line = np.max(line, axis=0)
                 m = np.max(line)
