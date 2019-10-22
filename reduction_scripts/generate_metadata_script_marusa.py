@@ -47,9 +47,6 @@ for opt, arg in opts:
 print 'SELECTED_CAL_DATES', selected_cal_dates
 
 
-
-
-
 ccdsum = metadata['CCDSUM'] #'1 1' # '1 2' # binning
 prefix=metadata['prefix']
 
@@ -113,6 +110,19 @@ out_dir_bool = os.path.isdir(out_dir) and os.path.exists(out_dir)
 if not out_dir_bool:
     os.mkdir(out_dir)
 print('out_dir', out_dir)
+
+
+
+# RUN numbers to exclude
+# Note that filename says fitsfiles but they really are run numbers.
+try:
+    exclude_filename = os.path.join(out_dir, 'exclude_these_fitsfiles.dat')
+    exclude_runs = [int(x) for x in np.loadtxt(exclude_filename)]
+except:
+    exclude_runs=[]
+
+
+
 ######################################
 
 """
@@ -128,7 +138,23 @@ print('#'+54*'-')
 
 # get list of all fits files in directory
 all_files = os.listdir(data_dir)
-all_files = [os.path.join(data_dir, x) for x in all_files]
+all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits') and 'T2m3ag' not in x]
+
+print('ALLFILES>>>>>>>>>>', len(all_files))
+#~ for x in sorted(all_files):
+    #~ print(x)
+
+# EXCLUDE USELESS EXPOSURES.
+all_files2=[]
+if len(exclude_runs)>0:
+    for x in all_files:
+        run = int(x.split('.')[-2].split('-')[-1])
+        if run not in exclude_runs:
+            all_files2.append(x)
+        else:
+            print('Excluding run ', run, x)
+    all_files=all_files2
+print('Ready to start', len(all_files))
 
 def find_all_modes():
     """
@@ -136,14 +162,14 @@ def find_all_modes():
     By modes I mean different combinations of gratings, binning etc.
     Find images that go together.
     
-    NOTE that some images were taken with echelle. --> Actually not. ECHELLE DATA ARE MISSING!?!
+    NOTE that some images were taken with echelle.
     """
 
     modes=dict()
     
     keywords = ['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
 
-    #keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
+    #~ keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
     
     for fn in all_files:
         try:
@@ -151,6 +177,7 @@ def find_all_modes():
             header = f[0].header
             f.close()
         except:
+            print('Cant open file', fn)
             continue
         
         
@@ -171,7 +198,8 @@ def find_all_modes():
         #~ print k
         #~ print v
         #~ print
-        
+    
+    #~ print('MODES...')
     #~ for k, v in modes.iteritems():
         #~ print k
         
@@ -251,7 +279,18 @@ def find_filenames_for_a_mode(all_files):
         
     return blue_obs, red_obs, obs_date
 
-
+def check_if_any_files_are_missing(frames):
+    """
+    Sometimes some frames are missing, either because they were not saved or because run number wasn't set properly after TAROS restart. Print out missing files between the first and last exposure. It is up to the user then to find out the reason why files are missing.
+    """
+    
+    frames = sorted(frames)
+    # TODO: separate this into blue and red frames!
+    run_first = int(frames[0].split('.')[-2].split('-')[-1])
+    run_last = int(frames[-1].split('.')[-2].split('-')[-1])
+    
+    TODO=True
+    
 
 # Marusa: Match science images and arcs. One arc before and one after the science exposure + all arcs in between.
 # Disadvantage: if you e.g. observe 1 objects with arcs, then do other things and observe it later again, everything is combined together.
@@ -260,6 +299,9 @@ def match_object_and_arc(objects=None, arcs=None):
     Find one arc before and one arc after science exposures + all arxs in between. Based on MJD comparison.
     """
     result={}
+    
+    if len(arcs)<1:
+        print('ARCS:::', arcs)
     
     arc_mjd=np.array([x[1] for x in arcs])
 
@@ -362,7 +404,7 @@ def classify_frames_into_imagetypes(frames=None):
 
     test=[]
 
-    for obs in frames:
+    for obs in sorted(frames):
         fn = os.path.join(data_dir, obs+'.fits')
         f = pyfits.open(fn)
         
@@ -376,6 +418,7 @@ def classify_frames_into_imagetypes(frames=None):
             mjd=None
         run = f[0].header['RUN']
         imagetype = f[0].header['IMAGETYP'].upper()
+        print fn, imagetype
         exptime = f[0].header['EXPTIME']
 
         f.close()
@@ -804,6 +847,11 @@ def find_missing_calib_files(mode=None, selected_cal_dates=None):
 if __name__ == '__main__':
     
     modes = find_all_modes()
+    
+    if len(modes)<1:
+        print('WARNING: 0 modes!')
+    
+    #~ print('modes', modes)
     
     m=0
     for mode, v in modes.iteritems():

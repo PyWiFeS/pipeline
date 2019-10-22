@@ -5,6 +5,7 @@ Diagnostics: Convert all fits files in the folder into png/jpg and save them int
 import numpy as np
 from astropy.io import fits
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import sys
 import os
 
@@ -28,8 +29,10 @@ for path, subdirs, files in os.walk(root):
             image_data = fits.getdata(fl, ext=0)
 
             # Set colorscale
-            minimum = np.percentile(image_data, 20)
-            maximum = np.percentile(image_data, 90)
+            minimum = np.percentile(image_data, 30)
+            maximum = np.percentile(image_data, 95)
+            
+            print minimum, maximum
             
 
             # Make an output folder
@@ -43,13 +46,14 @@ for path, subdirs, files in os.walk(root):
 
             # Plot and save figure
             plt.figure()
-            plt.imshow(image_data, cmap='gray', vmin=minimum, vmax=maximum)
+            #~ plt.imshow(image_data, cmap='gray', vmin=minimum, vmax=maximum)
+            plt.imshow(image_data, cmap='gray', norm=LogNorm(vmin=minimum, vmax=maximum))
             #~ plt.colorbar()
             fl_out = os.path.join(out_dir, name.replace('.fits', '.png'))
             print 'fl_out', fl_out
             plt.savefig(fl_out)
 
 
-            break
-        break
-    break
+            #~ break
+        #~ break
+    #~ break
