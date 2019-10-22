@@ -221,6 +221,8 @@ def flat_stats():
                 
                 if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1
                     print('stellar 1')
+                elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
+                    print('stellar 2')
 
                 
                 #~ if window=='REG_1x1_4202x2056+0+2056': # 1 1, 1 2
