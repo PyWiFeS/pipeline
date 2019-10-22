@@ -212,13 +212,21 @@ def flat_stats():
                 header = f[0].header
                 f.close()
                 image_data = fits.getdata(fl, ext=0)
-                window = header['WINDOW']
-                print(window)
+                ccdsec = header['CCDSEC']
+                ccdsum = header['CCDSUM']
+                print(ccdsec, ccdsum)
 
                 # Extract one line
                 # This depends on whether it is full/stellar frame and the binning!!
                 
-                #~ if ...# full frame
+                if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1
+                    print('stellar 1')
+
+                
+                #~ if window=='REG_1x1_4202x2056+0+2056': # 1 1, 1 2
+                    
+                    
+                #~ 'REG_1x1_4202x4112+0+0' # 1 1; 1 2
                 
                 #~ elif...
                 
