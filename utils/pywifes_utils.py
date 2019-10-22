@@ -224,7 +224,7 @@ def flat_stats():
                     print('stellar 1')
                 elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
                     print('stellar 2')
-                    line = image_data[2990:3050,:]
+                    line = image_data[2990-2057:3050-2057,:]
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1
                     print('full 1')
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2
