@@ -212,8 +212,16 @@ def flat_stats():
                 header = f[0].header
                 f.close()
                 image_data = fits.getdata(fl, ext=0)
+                window = header['WINDOW']
+                print window
 
                 # Extract one line
+                # This depends on whether it is full/stellar frame and the binning!!
+                
+                #~ if ...# full frame
+                
+                #~ elif...
+                
                 line = image_data[2145:2245,:]
                 print(line.shape, image_data.shape)
                 line = np.max(line, axis=0)
