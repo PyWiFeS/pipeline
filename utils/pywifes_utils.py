@@ -215,6 +215,7 @@ def flat_stats():
                 ccdsec = header['CCDSEC']
                 ccdsum = header['CCDSUM']
                 print(ccdsec, ccdsum)
+                print(image_data.shape)
 
                 # Extract one line
                 # This depends on whether it is full/stellar frame and the binning!!
