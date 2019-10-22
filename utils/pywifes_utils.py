@@ -204,9 +204,8 @@ def flat_stats():
     for path, subdirs, files in os.walk(root):
         for name in files:
             fl=os.path.join(path, name)
-            print(fl)
             if 'wifesB_super_domeflat.fits' in fl:
-                print('****************'+fl)
+                print(fl)
                 
                 # Read data
                 f=fits.open(fl)
@@ -216,6 +215,7 @@ def flat_stats():
 
                 # Extract one line
                 line = image_data[2145:2245,:]
+                print(line.shape)
                 line = np.max(line, axis=0)
                 m = np.max(line)
                 line = line/m
