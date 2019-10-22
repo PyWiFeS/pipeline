@@ -195,7 +195,7 @@ def flat_stats():
     
     # Folder with fits files
     #~ root = sys.argv[1]
-    root='/data/mash/marusa/2m3data/wifes/'
+    root='/data/mash/marusa/2m3reduced/wifes/'
     print('root', root)
     
     fig=plt.figure()
