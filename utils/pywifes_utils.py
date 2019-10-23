@@ -233,7 +233,7 @@ def flat_stats():
                     c='b'
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2
                     print('full 2')
-                    line = image_data[2145/2:2245/2,:]
+                    line = image_data[int(2145/2):int(2245/2),:]
                     c='g'
 
                 
