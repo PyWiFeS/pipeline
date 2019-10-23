@@ -200,6 +200,8 @@ def flat_stats():
     
     fig=plt.figure()
     ax=fig.add_subplot(111)
+    
+    counts=np.zeros(4)
 
     for path, subdirs, files in os.walk(root):
         for name in files:
@@ -224,19 +226,23 @@ def flat_stats():
                     print('stellar 1')
                     line = image_data[2990-2057:3050-2057,:]
                     c='g'
+                    counts[0]=counts[0]+1
                 elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
                     print('stellar 2')
                     line = image_data[2990-2057:3050-2057,:]
                     #~ line = image_data[2990/2:3050/2,:]
                     c='k'
+                    counts[1]=counts[1]+1
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1
                     print('full 1')
                     line = image_data[2505:2570,:]
                     c='r'
+                    counts[2]=counts[2]+1
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2
                     print('full 2')
                     line = image_data[int(2145/2):int(2245/2),:]
                     c='b'
+                    counts[3]=counts[3]+1
 
                 
                 print(line.shape, image_data.shape)
@@ -248,4 +254,5 @@ def flat_stats():
                 ax.plot(x, line, c=c)
                 
                 print('\n')
-    plt.show()
+print counts
+plt.show()
