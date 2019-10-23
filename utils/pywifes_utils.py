@@ -248,4 +248,6 @@ def flat_stats():
                 
                 x=range(len(line))
                 ax.plot(x, line)
+                
+                print('\n')
     plt.show()
