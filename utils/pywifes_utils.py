@@ -207,7 +207,7 @@ def flat_stats():
         for name in files:
             fl=os.path.join(path, name)
             if 'wifesB_super_domeflat.fits' in fl:
-                print(fl)
+                #~ print(fl)
                 
                 # Read data
                 f=fits.open(fl)
@@ -222,7 +222,7 @@ def flat_stats():
                 # Extract one line
                 # This depends on whether it is full/stellar frame and the binning!!
                 
-                if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1
+                if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1; OK mostly
                     print('stellar 1')
                     line = image_data[2990-2057:3050-2057,:]
                     c='g'
@@ -233,12 +233,12 @@ def flat_stats():
                     #~ line = image_data[2990/2:3050/2,:]
                     c='k'
                     counts[1]=counts[1]+1
-                elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1
+                elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1; OK
                     print('full 1')
                     line = image_data[2505:2570,:]
                     c='r'
                     counts[2]=counts[2]+1
-                elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2
+                elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2; OK
                     print('full 2')
                     line = image_data[int(2145/2):int(2245/2),:]
                     c='b'
@@ -249,6 +249,10 @@ def flat_stats():
                 line = np.max(line, axis=0)
                 m = np.max(line)
                 line = line/m
+                
+                if line[2000]<0.4:
+                    print('***********')
+                
                 
                 x=range(len(line))
                 ax.plot(x, line, c=c, alpha=0.2)
