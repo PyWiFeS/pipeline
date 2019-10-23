@@ -247,7 +247,7 @@ def flat_stats():
 
                 
                 #~ print(line.shape, image_data.shape)
-                line = np.max(line, axis=0)
+                line = np.median(line, axis=0)
                 m = np.max(line)
                 medians.append(m)
                 print(m)
