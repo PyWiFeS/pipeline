@@ -203,6 +203,7 @@ def flat_stats():
     
     counts=np.zeros(4)
     medians=[]
+    labels=[]
 
     for path, subdirs, files in os.walk(root):
         for name in files:
@@ -262,7 +263,11 @@ def flat_stats():
                 
                 
                 x=range(len(line))
-                ax.plot(x, line, c=c, alpha=0.2, label=label)
+                if label not in labels:
+                    ax.plot(x, line, c=c, alpha=0.2, label=label)
+                    labels.append(label)
+                else:
+                    ax.plot(x, line, c=c, alpha=0.2)
                 
                 print('')
     print(counts)
