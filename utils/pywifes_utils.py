@@ -233,17 +233,9 @@ def flat_stats():
                     c='b'
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2
                     print('full 2')
-                    line = image_data[2145:2245,:]
+                    line = image_data[2145/2:2245/2,:]
                     c='g'
 
-                
-                #~ if window=='REG_1x1_4202x2056+0+2056': # 1 1, 1 2
-                    
-                    
-                #~ 'REG_1x1_4202x4112+0+0' # 1 1; 1 2
-                
-                #~ elif...
-                
                 
                 print(line.shape, image_data.shape)
                 line = np.max(line, axis=0)
