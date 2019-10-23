@@ -217,8 +217,8 @@ def flat_stats():
                 image_data = fits.getdata(fl, ext=0)
                 ccdsec = header['CCDSEC']
                 ccdsum = header['CCDSUM']
-                print(ccdsec, ccdsum)
-                print(image_data.shape)
+                #~ print(ccdsec, ccdsum)
+                #~ print(image_data.shape)
 
                 # Extract one line
                 # This depends on whether it is full/stellar frame and the binning!!
@@ -246,7 +246,7 @@ def flat_stats():
                     counts[3]=counts[3]+1
 
                 
-                print(line.shape, image_data.shape)
+                #~ print(line.shape, image_data.shape)
                 line = np.max(line, axis=0)
                 m = np.max(line)
                 medians.append(m)
@@ -260,7 +260,7 @@ def flat_stats():
                 x=range(len(line))
                 ax.plot(x, line, c=c, alpha=0.2)
                 
-                print('\n')
+                print('')
     print(counts)
     
     fig=plt.figure()
