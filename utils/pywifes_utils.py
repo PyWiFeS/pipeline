@@ -251,7 +251,7 @@ def flat_stats():
                 line = line/m
                 
                 x=range(len(line))
-                ax.plot(x, line, c=c)
+                ax.plot(x, line, c=c, alpha=0.2)
                 
                 print('\n')
     print(counts)
