@@ -202,6 +202,7 @@ def flat_stats():
     ax=fig.add_subplot(111)
     
     counts=np.zeros(4)
+    medians=[]
 
     for path, subdirs, files in os.walk(root):
         for name in files:
@@ -248,6 +249,7 @@ def flat_stats():
                 print(line.shape, image_data.shape)
                 line = np.max(line, axis=0)
                 m = np.max(line)
+                medians.append(m)
                 line = line/m
                 
                 if line[2000]<0.4:
@@ -259,4 +261,9 @@ def flat_stats():
                 
                 print('\n')
     print(counts)
+    
+    fig=plt.figure()
+    ax=fig.add_subplot(111)
+    ax.hist(medians)
+    
     plt.show()
