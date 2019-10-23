@@ -250,6 +250,7 @@ def flat_stats():
                 line = np.max(line, axis=0)
                 m = np.max(line)
                 medians.append(m)
+                print(m)
                 line = line/m
                 
                 if line[2000]<0.4:
