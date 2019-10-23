@@ -254,5 +254,5 @@ def flat_stats():
                 ax.plot(x, line, c=c)
                 
                 print('\n')
-print(counts)
-plt.show()
+    print(counts)
+    plt.show()
