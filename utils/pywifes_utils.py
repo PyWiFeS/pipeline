@@ -227,22 +227,26 @@ def flat_stats():
                     print('stellar 1')
                     line = image_data[2990-2057:3050-2057,:]
                     c='g'
+                    label='stellar 1'
                     counts[0]=counts[0]+1
                 elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
                     print('stellar 2')
                     line = image_data[2990-2057:3050-2057,:]
                     #~ line = image_data[2990/2:3050/2,:]
                     c='k'
+                    label='stellar 2'
                     counts[1]=counts[1]+1
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1; OK
                     print('full 1')
                     line = image_data[2505:2570,:]
                     c='r'
+                    label='full 1'
                     counts[2]=counts[2]+1
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2; OK
                     print('full 2')
                     line = image_data[int(2145/2):int(2245/2),:]
                     c='b'
+                    label='full 2'
                     counts[3]=counts[3]+1
 
                 
@@ -258,11 +262,14 @@ def flat_stats():
                 
                 
                 x=range(len(line))
-                ax.plot(x, line, c=c, alpha=0.2)
+                ax.plot(x, line, c=c, alpha=0.2, label=label)
                 
                 print('')
     print(counts)
     
+    ax.legend()
+    
+    # histogram
     fig=plt.figure()
     ax=fig.add_subplot(111)
     ax.hist(medians)
