@@ -222,20 +222,21 @@ def flat_stats():
                 
                 if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1
                     print('stellar 1')
-                    c='k'
+                    line = image_data[2990:3050,:]
+                    c='g'
                 elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
                     print('stellar 2')
                     line = image_data[2990-2057:3050-2057,:]
                     #~ line = image_data[2990/2:3050/2,:]
-                    c='r'
+                    c='k'
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1
                     print('full 1')
                     line = image_data[2505:2570,:]
-                    c='b'
+                    c='r'
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2
                     print('full 2')
                     line = image_data[int(2145/2):int(2245/2),:]
-                    c='g'
+                    c='b'
 
                 
                 print(line.shape, image_data.shape)
