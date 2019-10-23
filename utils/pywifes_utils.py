@@ -208,7 +208,7 @@ def flat_stats():
     for path, subdirs, files in os.walk(root):
         for name in files:
             fl=os.path.join(path, name)
-            if 'wifesB_super_domeflat.fits' in fl:
+            if 'wifesR_super_domeflat.fits' in fl:
                 print(fl)
                 
                 # Read data
