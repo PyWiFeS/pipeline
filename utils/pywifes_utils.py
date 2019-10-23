@@ -207,7 +207,7 @@ def flat_stats():
         for name in files:
             fl=os.path.join(path, name)
             if 'wifesB_super_domeflat.fits' in fl:
-                #~ print(fl)
+                print(fl)
                 
                 # Read data
                 f=fits.open(fl)
