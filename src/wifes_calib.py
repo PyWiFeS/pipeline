@@ -585,6 +585,12 @@ def derive_wifes_calibration(cube_fn_list,
         best_calib = numpy.polyfit(full_x, full_y, polydeg)
         this_f = numpy.poly1d(best_calib)
 
+    #~ if print_result: # TODO
+    print('best_calib')
+    print(stdstar_name_list)
+    print(best_calib)
+    print('')
+
     # Calculate the final result
     final_fvals = this_f(full_x)
     final_x = numpy.arange(

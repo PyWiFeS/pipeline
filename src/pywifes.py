@@ -1252,6 +1252,9 @@ def derive_slitlet_profiles(flatfield_fn,
                             plot=False,
                             bin_x=None,
                             bin_y=None):
+    """
+    Description: 
+    """
     f = pyfits.open(flatfield_fn)
     flat_data = f[data_hdu].data
     orig_hdr = f[data_hdu].header

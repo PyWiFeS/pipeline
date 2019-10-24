@@ -416,7 +416,7 @@ def run_bias_sub(metadata, prev_suffix, curr_suffix,
 #------------------------------------------------------
 # Generate super-flat
 def run_superflat(metadata, prev_suffix, curr_suffix,
-                  source, scale=None, method='median'):
+                  source, scale=None, method='nanmedian'): # MZ changed to nanmedian
     if source == 'dome':
         flat_list = [
             os.path.join(out_dir, '%s.p%s.fits' % (x, prev_suffix))

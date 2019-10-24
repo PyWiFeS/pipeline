@@ -11,6 +11,7 @@ import sys
 import os
 import process_stellar as ps
 import matplotlib.pyplot as plt
+from matplotlib import cm
 from matplotlib.colors import LogNorm
 
 
@@ -191,6 +192,9 @@ def flat_stats():
     
     Plot masterflats and trace one line. Divide by its maximum and overplot all of them.
     What about stellar/ybin2?
+    
+    How do they change over time? How fast?
+    
     """
     
     # Folder with fits files
@@ -208,7 +212,7 @@ def flat_stats():
     for path, subdirs, files in os.walk(root):
         for name in files:
             fl=os.path.join(path, name)
-            if 'wifesR_super_domeflat.fits' in fl:
+            if 'wifesB_super_domeflat.fits' in fl:
                 print(fl)
                 
                 # Read data
@@ -218,6 +222,22 @@ def flat_stats():
                 image_data = fits.getdata(fl, ext=0)
                 ccdsec = header['CCDSEC']
                 ccdsum = header['CCDSUM']
+                beamsplt = header['BEAMSPLT']
+                gratingb = header['GRATINGB']
+                exptime = int(header['EXPTIME'])
+                lamp = header['M1ARCLMP']
+                print('EXPTIME', exptime)
+                if exptime!=5:
+                    continue
+                
+                #~ if beamsplt!='RT480' or gratingb!='B3000':
+                if beamsplt!='RT480':
+                    continue
+                
+                
+                if lamp!='QI-1':
+                    continue
+                
                 #~ print(ccdsec, ccdsum)
                 #~ print(image_data.shape)
 
@@ -226,40 +246,49 @@ def flat_stats():
                 
                 if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1; OK mostly
                     print('stellar 1')
-                    line = image_data[2990-2057:3050-2057,:]
+                    #~ line = image_data[2990-2057:3050-2057,:]
+                    line = image_data[446:520,:]
                     c='g'
                     label='stellar 1'
                     counts[0]=counts[0]+1
                 elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
                     print('stellar 2')
-                    line = image_data[2990-2057:3050-2057,:]
+                    #~ line = image_data[2990-2057:3050-2057,:]
+                    line = image_data[225:258,:]
                     #~ line = image_data[2990/2:3050/2,:]
                     c='k'
                     label='stellar 2'
                     counts[1]=counts[1]+1
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1; OK
                     print('full 1')
-                    line = image_data[2505:2570,:]
+                    line = image_data[2500:2575,:]
                     c='r'
                     label='full 1'
                     counts[2]=counts[2]+1
+                    continue
                 elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2; OK
                     print('full 2')
-                    line = image_data[int(2145/2):int(2245/2),:]
+                    #~ line = image_data[int(2145/2):int(2245/2),:]
+                    line = image_data[1251:1287,:]
                     c='b'
                     label='full 2'
                     counts[3]=counts[3]+1
 
-                
                 #~ print(line.shape, image_data.shape)
                 line = np.median(line, axis=0)
-                m = np.median(line)
+                m = np.max(line[4:])
                 medians.append(m)
                 print(m)
                 line = line/m
                 
+                # Experiment
+                #~ line = line/float(exptime)
+                
                 if line[2000]<0.4:
                     print('***********')
+                
+                if line[1000]>0.8:
+                    continue
                 
                 
                 x=range(len(line))
@@ -275,8 +304,281 @@ def flat_stats():
     ax.legend()
     
     # histogram
+    #~ fig=plt.figure()
+    #~ ax=fig.add_subplot(111)
+    #~ ax.hist(medians)
+    
+    plt.show()
+
+
+def what_goes_into_masterflat():
+    """
+    Look into raw flats. How masterflat is created?
+    Look into Harry's data: do they have the same problems?
+    """
+    # Folder with fits files
+    #~ root = sys.argv[1]
+    root='/data/mash/marusa/2m3data/wifes/20191015test/'
+    print('root', root)
+    
     fig=plt.figure()
     ax=fig.add_subplot(111)
-    ax.hist(medians)
     
+    counts=np.zeros(4)
+    medians=[]
+    labels=[]
+
+    runs = ['%04d.fits'%x for x in [7, 8, 9, 10, 11]]
+    print(runs)
+
+    for path, subdirs, files in os.walk(root):
+        for name in files:
+            fl=os.path.join(path, name)
+            for r in runs:
+                if not fl.endswith(r):
+                    continue
+                else:
+                    print(fl)
+                
+                # Read data
+                f=fits.open(fl)
+                header = f[0].header
+                f.close()
+                image_data = fits.getdata(fl, ext=0)
+                ccdsec = header['CCDSEC']
+                ccdsum = header['CCDSUM']
+                beamsplt = header['BEAMSPLT']
+                gratingb = header['GRATINGB']
+                exptime = int(header['EXPTIME'])
+                lamp = header['M1ARCLMP']
+                print('EXPTIME', exptime)
+                #~ if exptime!=5:
+                    #~ continue
+                
+                #~ if beamsplt!='RT480' or gratingb!='B3000':
+                if beamsplt!='RT480':
+                    continue
+                
+                
+                if lamp!='QI-1':
+                    continue
+                
+                #~ print(ccdsec, ccdsum)
+                #~ print(image_data.shape)
+
+                # Extract one line
+                # This depends on whether it is full/stellar frame and the binning!!
+                
+                if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1; OK mostly
+                    print('stellar 1')
+                    #~ line = image_data[2990-2057:3050-2057,:]
+                    line = image_data[446:520,:]
+                    c='g'
+                    label='stellar 1'
+                    counts[0]=counts[0]+1
+                elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
+                    print('stellar 2')
+                    #~ line = image_data[2990-2057:3050-2057,:]
+                    line = image_data[225:258,:]
+                    #~ line = image_data[2990/2:3050/2,:]
+                    c='k'
+                    label='stellar 2'
+                    counts[1]=counts[1]+1
+                elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1; OK
+                    print('full 1')
+                    line = image_data[2500:2575,:]
+                    c='r'
+                    label='full 1'
+                    counts[2]=counts[2]+1
+                    continue
+                elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2; OK
+                    print('full 2')
+                    #~ line = image_data[int(2145/2):int(2245/2),:]
+                    line = image_data[1251:1287,:]
+                    c='b'
+                    label='full 2'
+                    counts[3]=counts[3]+1
+
+                #~ print(line.shape, image_data.shape)
+                line = np.median(line, axis=0)
+                m = np.max(line[4:])
+                medians.append(m)
+                print(m)
+                line = line/m
+                
+                # Experiment
+                #~ line = line/float(exptime)
+                
+                if line[2000]<0.4:
+                    print('***********')
+                
+                if line[1000]>0.8:
+                    continue
+                
+                
+                x=range(len(line))
+                if label not in labels:
+                    ax.plot(x, line, c=c, alpha=0.2, label=label)
+                    labels.append(label)
+                else:
+                    ax.plot(x, line, c=c, alpha=0.2)
+                
+                print('')
+    print(counts)
+    
+    ax.legend()
+    
+    # histogram
+    #~ fig=plt.figure()
+    #~ ax=fig.add_subplot(111)
+    #~ ax.hist(medians)
+    
+    plt.show()
+
+def how_do_flats_change_over_time():
+    """
+    Check how stable flats are over time. Plot p02 files.  
+    """
+    
+    # Folder with fits files
+    #~ root = sys.argv[1]
+    root='/data/mash/marusa/2m3reduced/wifes/'
+    #~ root='/data/mash/marusa/2m3data/wifes/'
+    print('root', root)
+    
+    # Find filenames
+    try:
+        filenames = np.loadtxt('filenames_flats_p02_red.dat', dtype=str)
+    except:
+        print('READING ALL FITS FILES')
+        filenames=[]
+        for path, subdirs, files in os.walk(root):
+            for name in files:
+                fl=os.path.join(path, name)
+                
+                #~ if 'ag' in fl or '/reduced_b/T2m3wb' not in fl or '.fits' not in fl or '.pkl' in fl or 'p02' not in fl:
+                if 'ag' in fl or '/reduced_r/T2m3wr' not in fl or '.fits' not in fl or '.pkl' in fl or 'p02' not in fl:
+                    continue
+                
+                print(fl)
+                
+                #~ if 'wifesB_super_domeflat.fits' in fl:
+                    #~ print(fl)
+                    
+                # Read data
+                f=fits.open(fl)
+                header = f[0].header
+                f.close()
+                
+                try:
+                    imagetyp = header['IMAGETYP']
+                except:
+                    continue
+                
+                if imagetyp != 'flat':
+                    continue
+                #~ print(imagetyp)
+                
+                ccdsec = header['CCDSEC']
+                ccdsum = header['CCDSUM']
+                beamsplt = header['BEAMSPLT']
+                gratingb = header['GRATINGB']
+                exptime = int(header['EXPTIME'])
+                lamp = header['M1ARCLMP']
+                print('EXPTIME', exptime)
+                #~ if exptime!=5:
+                    #~ continue
+                
+                #~ if beamsplt!='RT480' or gratingb!='B3000':
+                if beamsplt!='RT480':
+                    continue                
+                
+                if lamp!='QI-1':
+                    continue
+
+                filenames.append(fl)
+        
+        
+        # Sort filenames to get time sequence
+        filenames=sorted(filenames)
+        for x in filenames:
+            print(x)
+        
+        np.savetxt('filenames_flats.dat', filenames, fmt='%s')
+    
+    # Exclude bad filenames
+    bad = ['/data/mash/marusa/2m3reduced/wifes/20191013/reduced_b/T2m3wb-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_b/T2m3wb-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191014/reduced_r/T2m3wr-20191014.190602-0112.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191014/reduced_r/T2m3wr-20191014.190742-0113.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071750-0126.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071825-0127.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071900-0128.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071934-0129.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201714-0696.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201714-0696.p02.fits'] # mirror was not in, or overexposed
+    filenames = [x for x in filenames if x not in bad]
+    
+
+    # Colors
+    start = 0.0
+    stop = 1.0
+    number_of_lines = len(filenames)
+    cm_subsection = np.linspace(start, stop, number_of_lines) 
+    colors = [cm.jet(x) for x in cm_subsection]
+    
+    alpha=1.0
+
+    # both
+    fig=plt.figure()
+    ax=fig.add_subplot(111)
+    
+    counts=np.zeros(4)
+    medians=[]
+    labels=[]
+
+    for i, fl in enumerate(filenames):
+        # Read data
+        f=fits.open(fl)
+        header = f[0].header
+        f.close()
+        image_data = fits.getdata(fl, ext=0)
+        ccdsec = header['CCDSEC']
+        ccdsum = header['CCDSUM']
+        
+        # Extract one line
+        # This depends on whether it is full/stellar frame and the binning!!
+        if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1; OK mostly
+            line = image_data[446:520,:]
+            c='g'
+            label='stellar 1'
+            counts[0]=counts[0]+1
+        elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
+            line = image_data[225:258,:]
+            c='k'
+            label='stellar 2'
+            counts[1]=counts[1]+1
+        elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1; OK
+            line = image_data[2500:2575,:]
+            c='r'
+            label='full 1'
+            counts[2]=counts[2]+1
+            #~ continue
+        elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2; OK
+            line = image_data[1251:1287,:]
+            c='b'
+            label='full 2'
+            counts[3]=counts[3]+1
+        
+        # Combine all rows of slitlet into one
+        line = np.nanmedian(line, axis=0)
+        
+        # Normalize
+        m = np.max(line)
+        medians.append(m)
+        line = line/m
+
+        if line[0]<0.23:
+            print(fl, m, label)
+
+        date=fl.split('/')[-3]
+        
+        #~ print(fl, label, len(line))
+        
+        x=range(len(line)) # xbin is always 1!
+        ax.plot(x, line, c='k', alpha=0.1)
+
+    print(counts)
+
     plt.show()
