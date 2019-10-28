@@ -13,6 +13,7 @@ import process_stellar as ps
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import LogNorm
+import pickle
 
 
 def extract_stellar_spectra_ascii(root, night, steps = ["08", "09", "10"]):
@@ -580,5 +581,27 @@ def how_do_flats_change_over_time():
         ax.plot(x, line, c='k', alpha=0.1)
 
     print(counts)
+
+    plt.show()
+
+def compare_sens_func_best_fit_and_ratio():
+    """
+    
+    """
+
+    best_fit = [7.58898732e-33, -2.89682376e-28, 4.13047385e-24, -2.17367092e-20, -5.97792537e-17, 1.05761370e-12, -3.65871852e-10, -4.60135001e-05, 2.84268254e-01, -7.26833856e+02, 7.13182151e+05]
+
+    func=np.poly1d(best_fit)
+
+    with open('/data/mash/marusa/2m3reduced/wifes/20199999/reduced_r/wifesR_calib.pkl', 'rb') as h:
+        calib = pickle.load(h)
+    
+    plt.plot(calib['wave'], calib['cal'], c='k')
+    plt.plot(calib['wave'], func(calib['wave']), c='r')
+    
+    # New best fit
+    best_fit = np.polyfit(calib['wave'], calib['cal'], 40)
+    func=np.poly1d(best_fit)
+    plt.plot(calib['wave'], func(calib['wave']), c='blue')
 
     plt.show()

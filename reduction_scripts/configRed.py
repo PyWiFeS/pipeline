@@ -23,6 +23,10 @@ output_root = '/data/mash/marusa/2m3reduced/wifes/'
 objectnames=None
 exclude_objectnames=['PDS 70', 'TW Hya']
 
+# Run numbers to be excluded
+excluderun = np.loadtxt('/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldnt_use.dat', comments='#', dtype=int)
+
+
 # Do you want to reduce only images with specific binning?
 ccdsum=None #'1 1' # '1 2' # binning; False or None
 naxis2=None #2056 # False # 2056 for PDS 70

@@ -28,6 +28,8 @@ stdstar_is_telluric = wifes_calib.ref_telluric_lookup
 config = imp.load_source('config', sys.argv[1])
 metadata=config.generate_metadata
 
+# List of dates and run numbers that you want to exclude
+# config.excluderun
 
 # In case calibration files are missing, specify dates (format 20190315) for each cal type
 selected_cal_dates={}
@@ -121,8 +123,6 @@ try:
 except:
     exclude_runs=[]
 
-
-
 ######################################
 
 """
@@ -154,6 +154,18 @@ if len(exclude_runs)>0:
         else:
             print('Excluding run ', run, x)
     all_files=all_files2
+
+
+for x in all_files:
+    print('excluderun', x)
+    #~ date=
+    #~ run=
+
+
+#~ excluderun
+
+
+
 print('Ready to start', len(all_files))
 
 def find_all_modes():

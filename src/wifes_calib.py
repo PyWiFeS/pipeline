@@ -578,6 +578,11 @@ def derive_wifes_calibration(cube_fn_list,
         this_f = scipy.interpolate.interp1d(
             smooth_x,final_fvals,bounds_error=False, 
             kind='linear')
+        print('this_f', this_f)
+        #~ f111 = open('this_f.pkl', 'w')
+        #~ pickle.dump(this_f, f111)
+        #~ f111.close()
+    
         all_final_fvals = this_f(init_full_x)
         final_x = full_x
         final_y = this_f(final_x)
@@ -585,8 +590,11 @@ def derive_wifes_calibration(cube_fn_list,
         best_calib = numpy.polyfit(full_x, full_y, polydeg)
         this_f = numpy.poly1d(best_calib)
 
+    best_calib = numpy.polyfit(full_x, full_y, polydeg)
+    this_f2 = numpy.poly1d(best_calib)
     #~ if print_result: # TODO
     print('best_calib')
+    print(method)
     print(stdstar_name_list)
     print(best_calib)
     print('')
