@@ -12,10 +12,13 @@ from astropy.table import Table
 Often you don't take all calib frames in the same night. Make a folder just with all calib frames from the run. Then select ones with the closest data (preferrably the same date as science frames).
 """
 
+# Input
 root = '/data/mash/marusa/2m3data/wifes/'
 
+# Output
+output_root = '/data/mash/marusa/2m3reduced/wifes/'
 output_filename = 'calibration_all_filenames.py'
-
+output_filename = ps.path.join(output_root, output_filename)
 # Prepare list of files
 all_files=[]
 for path, subdirs, files in os.walk(root):
@@ -28,6 +31,7 @@ for path, subdirs, files in os.walk(root):
                 all_files.append(filename)
 
 keywords=['IMAGETYP', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSUM', 'CCDSEC']
+keywords_dark_zero = ['IMAGETYP', 'CCDSEC', 'CCDSUM']
 
 
 def darks_and_zeros():
@@ -35,7 +39,7 @@ def darks_and_zeros():
     The only thing that matters for darks are CCDSUM and WINDOW. (? I'm guessing here.)
     """        
 
-    keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'CCDSUM']
+    keywords=keywords_dark_zero
 
     result=dict()
 
@@ -133,7 +137,12 @@ def prepare_result():
     print 'result'
     print result
 
-    result = OrderedDict(sorted(result.viewitems(), key=lambda x: len(x[1]), reverse=True))
+    # Sort by the numb... TODO it doesnt work yet
+    kys = result.keys()
+    lngths = [np.sum([np.sum([len(vv) for vv in imgtdict.itervalues()]) for imgtdict in result[k]]) for k in kys]
+    sort = np.argsort(lngths)
+    kys = kys[sort]
+    #~ result = OrderedDict(sorted(result.viewitems(), key=lambda x: len(x[1]), reverse=True))
 
     # WRITE
     f=open(output_filename, 'wb')
@@ -142,7 +151,9 @@ def prepare_result():
     f.write('result = {\n')
 
     # Split by date
-    for k, v in result.iteritems(): # for each mode
+    #~ for k, v in result.iteritems(): # for each mode
+    for k in kys: # for each mode
+        v=result[k]
         line='\n     '+str(k)+': {\n'
         f.write(line) # mode
                 
