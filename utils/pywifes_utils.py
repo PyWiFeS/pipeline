@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import LogNorm
 import pickle
+from collections import Counter
+from astropy.table import Table
 
 
 def extract_stellar_spectra_ascii(root, night, steps = ["08", "09", "10"]):
@@ -184,6 +186,160 @@ def update_object_header(root, night, print_only=False):
                               ff[0].header["OBJNAME"]))
                     if not print_only:
                         ff[0].header["OBJNAME"] = ff[0].header["OBJECT"]
+
+def list_of_all_observed_files():
+    root = '/data/mash/marusa/2m3data/wifes/'
+    young_stars_input_catalog_filename = 'young_stars_input_catalog.dat'
+
+    keywords = ['FILENAME', 'EXPTIME', 'INSTRUME', 'DATE-OBS', 'PROPID', 'OBJNAME']
+
+    imagetypes=[]
+
+    filenames = []
+    exptimes = []
+    instrumes = []
+    dateobss = []
+    propids = []
+    objnames = []
+    dates = []
+    detectors = []
+    airmass = []
+    ras = []
+    decs = []
+
+    # wifes
+    gratingb=[]
+    gratingr=[]
+    beamsplt=[]
+    ccdsum=[]
+    ccdsec=[]
+    
+    runs=[]
+
+    for r, d, f in os.walk(root):
+        for filename in f:
+            if filename.endswith('.fits') and 'T2m3ag' not in filename:
+                filename=os.path.join(r, filename)
+                try:
+                    imagetyp = fits.getheader(filename, 0)['IMAGETYP']
+                    #~ exptime = fits.getheader(filename, 0)['EXPTIME']
+
+                    RA = fits.getheader(filename, 0)['RA']
+                    #~ if imagetyp=='object' and exptime>0:
+                        
+                    v1 = fits.getheader(filename, 0)['FILENAME']
+                    date = int(v1.split('-')[1].split('.')[0])
+                    v2 = fits.getheader(filename, 0)['INSTRUME']
+                    v3 = fits.getheader(filename, 0)['DATE-OBS']
+                    v4 = fits.getheader(filename, 0)['PROPID']
+                    v5 = fits.getheader(filename, 0)['OBJNAME']
+                    v6 = fits.getheader(filename, 0)['EXPTIME']
+                    v7 = fits.getheader(filename, 0)['DETECTOR']
+                    v8 = fits.getheader(filename, 0)['AIRMASS']
+                    v9 = fits.getheader(filename, 0)['DEC']
+                    
+                    v11 = fits.getheader(filename, 0)['GRATINGB']
+                    v22 = fits.getheader(filename, 0)['GRATINGR']
+                    v33 = fits.getheader(filename, 0)['BEAMSPLT']
+                    v44 = fits.getheader(filename, 0)['CCDSUM']
+                    v55 = fits.getheader(filename, 0)['CCDSEC']
+                    
+                    run = int(v1.split('-')[-1].replace('.fits', ''))
+
+                    imagetypes.append(imagetyp)
+                    ras.append(RA)
+                    dates.append(date)
+                    filenames.append(v1)
+                    instrumes.append(v2)
+                    dateobss.append(v3)
+                    propids.append(int(v4))
+                    objnames.append(v5)
+                    exptimes.append(v6)
+                    detectors.append(v7)
+                    airmass.append(v8)
+                    decs.append(v9)
+                    runs.append(run)
+                    
+
+                    gratingb.append(v11)
+                    gratingr.append(v22)
+                    beamsplt.append(v33)
+                    ccdsum.append(v44)
+                    ccdsec.append(v55)
+
+
+                except:
+                    continue
+
+
+    tab = Table([filenames], names=['filename'])
+    tab['OBJNAME'] = objnames
+    tab['RA'] = ras
+    tab['DEC'] = decs
+    tab['DATE'] = dates
+    tab['RUN'] = runs
+    tab['IMAGETYP'] = imagetypes    
+    tab['INSTRUME'] = instrumes
+    tab['DETECTOR'] = detectors
+    tab['DATE-OBS'] = dateobss
+    tab['AIRMASS'] = airmass
+    tab['EXPTIME'] = exptimes
+    tab['PROPID'] = propids
+
+    # WiFeS
+    tab['GRATINGB'] = gratingb
+    tab['GRATINGR'] = gratingr
+    tab['BEAMSPLT'] = beamsplt
+    tab['CCDSUM'] = ccdsum
+    tab['CCDSEC'] = ccdsec
+    
+    print(tab)
+    filename = os.path.join(root, 'files.fits')
+    tab.write(filename, format='fits', overwrite=True)
+    print(filename, 'written.')
+
+
+    ### PROGRAM ##########
+    ys = np.loadtxt(young_stars_input_catalog_filename, comments='#', dtype=str)
+    gaia_id = [int(x) for x in ys[:,0]]
+    tmass_id = ys[:,1]
+    mask = np.logical_or(np.in1d(tab['OBJNAME'], gaia_id), np.in1d(tab['OBJNAME'], tmass_id))
+
+
+
+
+
+
+
+    #~ print(t)
+    #~ print(len(t))
+
+    objnames = [x[1] for x in t]
+    print(set(objnames))
+    print(len(set(objnames)))
+
+def list_of_all_observed_young_star_files():
+    root = '/data/mash/marusa/2m3data/wifes/'
+    young_stars_input_catalog_filename = 'young_stars_input_catalog.dat'
+
+    filename = os.path.join(root, 'files.fits')
+    tab=Table.read(filename)
+
+
+    ### PROGRAM ##########
+    ys = np.loadtxt(young_stars_input_catalog_filename, comments='#', dtype=str)
+    gaia_id = [int(x) for x in ys[:,0]]
+    tmass_id = ys[:,1]
+    mask = np.logical_or(np.in1d(tab['OBJNAME'], gaia_id), np.in1d(tab['OBJNAME'], tmass_id))
+
+    t=tab[mask]
+
+    print(t)
+
+
+    #~ tab.write(filename, format='fits', overwrite=True)
+    #~ print(filename, 'written.')
+
                         
 def flat_stats():
     """
@@ -311,130 +467,126 @@ def flat_stats():
     
     plt.show()
 
-
-def what_goes_into_masterflat():
+def bias_stats():
     """
-    Look into raw flats. How masterflat is created?
-    Look into Harry's data: do they have the same problems?
+    MZ: Write the doc!!
+    
+    Goal: Identify bad biases.
     """
+    
     # Folder with fits files
     #~ root = sys.argv[1]
-    root='/data/mash/marusa/2m3data/wifes/20191015test/'
+    root='/data/mash/marusa/2m3data/wifes/'
     print('root', root)
     
-    fig=plt.figure()
-    ax=fig.add_subplot(111)
+    resultb=[]
+    resultr=[]
     
-    counts=np.zeros(4)
-    medians=[]
-    labels=[]
-
-    runs = ['%04d.fits'%x for x in [7, 8, 9, 10, 11]]
-    print(runs)
-
     for path, subdirs, files in os.walk(root):
         for name in files:
+            # Read header
             fl=os.path.join(path, name)
-            for r in runs:
-                if not fl.endswith(r):
-                    continue
-                else:
-                    print(fl)
-                
-                # Read data
+            try:
                 f=fits.open(fl)
                 header = f[0].header
                 f.close()
-                image_data = fits.getdata(fl, ext=0)
-                ccdsec = header['CCDSEC']
-                ccdsum = header['CCDSUM']
-                beamsplt = header['BEAMSPLT']
-                gratingb = header['GRATINGB']
-                exptime = int(header['EXPTIME'])
-                lamp = header['M1ARCLMP']
-                print('EXPTIME', exptime)
-                #~ if exptime!=5:
-                    #~ continue
-                
-                #~ if beamsplt!='RT480' or gratingb!='B3000':
-                if beamsplt!='RT480':
-                    continue
-                
-                
-                if lamp!='QI-1':
-                    continue
-                
-                #~ print(ccdsec, ccdsum)
-                #~ print(image_data.shape)
+                imagetyp = header['IMAGETYP']
+            except:
+                continue
+            #~ print(header)
+            #~ gratinb = header['GRATINB']
+            #~ gratinr = header['GRATINR']
+            
+            if imagetyp.lower()!='flat':
+                continue
 
-                # Extract one line
-                # This depends on whether it is full/stellar frame and the binning!!
-                
-                if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1; OK mostly
-                    print('stellar 1')
-                    #~ line = image_data[2990-2057:3050-2057,:]
-                    line = image_data[446:520,:]
-                    c='g'
-                    label='stellar 1'
-                    counts[0]=counts[0]+1
-                elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
-                    print('stellar 2')
-                    #~ line = image_data[2990-2057:3050-2057,:]
-                    line = image_data[225:258,:]
-                    #~ line = image_data[2990/2:3050/2,:]
-                    c='k'
-                    label='stellar 2'
-                    counts[1]=counts[1]+1
-                elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1; OK
-                    print('full 1')
-                    line = image_data[2500:2575,:]
-                    c='r'
-                    label='full 1'
-                    counts[2]=counts[2]+1
-                    continue
-                elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2; OK
-                    print('full 2')
-                    #~ line = image_data[int(2145/2):int(2245/2),:]
-                    line = image_data[1251:1287,:]
-                    c='b'
-                    label='full 2'
-                    counts[3]=counts[3]+1
-
-                #~ print(line.shape, image_data.shape)
-                line = np.median(line, axis=0)
-                m = np.max(line[4:])
-                medians.append(m)
-                print(m)
-                line = line/m
-                
-                # Experiment
-                #~ line = line/float(exptime)
-                
-                if line[2000]<0.4:
-                    print('***********')
-                
-                if line[1000]>0.8:
-                    continue
-                
-                
-                x=range(len(line))
-                if label not in labels:
-                    ax.plot(x, line, c=c, alpha=0.2, label=label)
-                    labels.append(label)
-                else:
-                    ax.plot(x, line, c=c, alpha=0.2)
-                
-                print('')
-    print(counts)
-    
-    ax.legend()
-    
-    # histogram
-    #~ fig=plt.figure()
-    #~ ax=fig.add_subplot(111)
-    #~ ax.hist(medians)
-    
+            image_data = fits.getdata(fl, ext=0)
+            #~ ccdsec = header['CCDSEC']
+            #~ ccdsum = header['CCDSUM']
+            
+            med = np.median(image_data)
+            print(fl, med)
+            
+            if 'T2m3wb' in fl:
+                resultb.append(med)
+            elif 'T2m3wr' in fl:
+                resultr.append(med)
+            
+    fig=plt.figure()
+    ax=fig.add_subplot(211)
+    ax.hist(resultb, bins=50)
+    ax=fig.add_subplot(212)
+    ax.hist(resultr, bins=50)
     plt.show()
+
+def settings_stats():
+    """
+    How many images were taken with a give set of settings
+    """
+    keywords=['GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSUM', 'CCDSEC']
+
+    root='/data/mash/marusa/2m3data/wifes/'
+    
+    result=dict()
+    
+    # Find filenames
+    print('READING ALL FITS FILES')
+    filenames=[]
+    for path, subdirs, files in os.walk(root):
+        for name in files:
+            fl=os.path.join(path, name)
+
+            if 'ag' in fl or '.fits' not in fl:
+                continue
+            
+            # Read data
+            f=fits.open(fl)
+            header = f[0].header
+            f.close()
+            
+            try:
+                imagetyp = header['IMAGETYP']
+            except:
+                continue
+            
+            try:
+                tmp=[]
+                for k in keywords:
+                    v = header[k]
+                    if v=='[1:4202,2057:4112]':
+                        v='stel'
+                    elif v=='[1:4202,1:4112]':
+                        v='full'
+                    elif v=='1 1':
+                        v=1
+                    elif v=='1 2':
+                        v=2
+                    tmp.append(v)
+                
+                tmp=tuple(tmp)
+                
+                try:
+                    result[tmp].append(imagetyp)
+                except:
+                    result[tmp]=[imagetyp]
+            except:
+                continue
+
+
+    r=[]
+    for k, v in result.iteritems():
+        # Count imagetypes
+        values = Counter(v).keys()
+        numbers = Counter(v).values()
+        
+        r.append(['%04d'%len(v), k, ['(%d, %s)'%(x, y) for x, y in zip(numbers, values)]])
+        
+        #~ print(k, len(v), ['(%d, %s)'%(x, y) for x, y in zip(numbers, values)])
+    
+    r=sorted(r, key=lambda x: x[0])
+
+    for x in r:
+        print(x)
 
 def how_do_flats_change_over_time():
     """

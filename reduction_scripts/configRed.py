@@ -11,6 +11,7 @@ Processing steps:
 
 import os
 import sys
+import numpy as np
 
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
@@ -23,8 +24,8 @@ output_root = '/data/mash/marusa/2m3reduced/wifes/'
 objectnames=None
 exclude_objectnames=['PDS 70', 'TW Hya']
 
-# Run numbers to be excluded
-excluderun = np.loadtxt('/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldnt_use.dat', comments='#', dtype=int)
+# Run numbers of bad files that you don't want to include in the reduction
+excluderun_filename = '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'
 
 
 # Do you want to reduce only images with specific binning?
@@ -39,6 +40,9 @@ if prefix is not None and len(prefix)>0:
     metadata_filename='%s_metadata'%prefix
 else:
     metadata_filename='metadata'
+
+# Minimal number of each of the calibration frames. Default is 3.
+calmin = 3
 
 #------------------------------------------------------------------------
 
