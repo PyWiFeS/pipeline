@@ -28,6 +28,8 @@ stdstar_is_telluric = wifes_calib.ref_telluric_lookup
 config = imp.load_source('config', sys.argv[1])
 metadata=config.generate_metadata
 
+# List of dates and run numbers that you want to exclude
+# config.excluderun
 
 # In case calibration files are missing, specify dates (format 20190315) for each cal type
 selected_cal_dates={}
@@ -47,21 +49,22 @@ for opt, arg in opts:
 print 'SELECTED_CAL_DATES', selected_cal_dates
 
 
-ccdsum = metadata['CCDSUM'] #'1 1' # '1 2' # binning
+#~ ccdsum = metadata['CCDSUM'] #'1 1' # '1 2' # binning
 prefix=metadata['prefix']
 
 # If you wish to reduce only selected objects
-objectnames=metadata['objectnames']
-if objectnames:
-    objectnames = [x.replace(' ', '') for x in objectnames]
+#~ objectnames=metadata['objectnames']
+#~ if objectnames:
+    #~ objectnames = [x.replace(' ', '') for x in objectnames]
     
-# If you wish to exclude selected objects
-exclude_objectnames=metadata['exclude_objectnames']
-if exclude_objectnames:
-    exclude_objectnames = [x.replace(' ', '') for x in exclude_objectnames]
+#~ # If you wish to exclude selected objects
+#~ exclude_objectnames=metadata['exclude_objectnames']
+#~ if exclude_objectnames:
+    #~ exclude_objectnames = [x.replace(' ', '') for x in exclude_objectnames]
 
 
-
+keywords = ['GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSEC', 'CCDSUM']
+keywords_dark_zero = ['CCDSEC', 'CCDSUM']
 
 obsdate = sys.argv[2]
 print('OBSDATE', obsdate)
@@ -121,8 +124,6 @@ try:
 except:
     exclude_runs=[]
 
-
-
 ######################################
 
 """
@@ -137,8 +138,9 @@ print('objectnames:', objectnames)
 print('#'+54*'-')
 
 # get list of all fits files in directory
+# Take only WiFeS frames
 all_files = os.listdir(data_dir)
-all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits') and 'T2m3ag' not in x]
+all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits') and 'T2m3ag' not in x and 'T2m3Ec']
 
 print('ALLFILES>>>>>>>>>>', len(all_files))
 #~ for x in sorted(all_files):
@@ -154,34 +156,48 @@ if len(exclude_runs)>0:
         else:
             print('Excluding run ', run, x)
     all_files=all_files2
+
+
+excluderun = np.loadtxt(config.excluderun_filename, comments='#', dtype=int)
+for x in all_files:
+    date = x.split('/')[-2]
+    run = int(x.split('/')[-1].split('-')[-1].replace('.fits', ''))
+    print('excluderun', x, date, run)
+    #~ if [date, run] in excluderun:
+    for xx in excluderun:
+        d=xx[0]
+        r=xx[1]
+        print('/%d/'%d, '%04d.fits'%r)
+        if '/%d/'%d in x and '%04d.fits'%r in x:
+            print('***', x, date, run)
+print(excluderun)
+#~ excluderun
+
+
+
 print('Ready to start', len(all_files))
 
-def find_all_modes():
+def classify_files_into_modes():
     """
-    Find all different modes taken during this night.
-    By modes I mean different combinations of gratings, binning etc.
-    Find images that go together.
+    Find all different modes (settings) taken during this night.
+    Classify filenames into different modes
     
-    NOTE that some images were taken with echelle.
+    Return:
+    Dictionary: modes[mode] = [list of filenames]
+    
     """
 
     modes=dict()
     
-    keywords = ['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
-
-    #~ keywords=['IMAGETYP', 'NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
+    #~ keywords = ['GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSEC', 'CCDSUM']
     
     for fn in all_files:
         try:
-            f = pyfits.open(fn)
-            header = f[0].header
-            f.close()
+            header = pyfits.getheader(fn, 0)
         except:
             print('Cant open file', fn)
             continue
-        
-        
-    
+
         try:
             k=[header[x] for x in keywords]
         except:
@@ -193,39 +209,32 @@ def find_all_modes():
             modes[k].append(fn)
         except:
             modes[k]=[fn]
-    
-    #~ for k, v in modes.iteritems():
-        #~ print k
-        #~ print v
-        #~ print
-    
-    #~ print('MODES...')
-    #~ for k, v in modes.iteritems():
-        #~ print k
+
+    if len(modes)<1:
+        print('WARNING: 0 modes!')
         
     return modes
 
-def find_filenames():
+def classify_filenames(all_files):
     blue_obs = []
     red_obs = []
     obs_date = None
     for fn in all_files:
         obs = fn.replace('.fits', '').split('/')[-1]
-        if obs_date == None:
-            try:
-                #~ f = pyfits.open(data_dir+fn)
-                f = pyfits.open(fn)
-                obs_date = f[0].header['DATE-OBS'].split('T')[0].replace('-', '')
-                f.close()              
-            except:
-                continue
-            #obs_date = obs[7:15]
+        
         try:
-            f = pyfits.open(fn)
-            camera = f[0].header['CAMERA']
-            f.close()
+            header = pyfits.getheader(fn, 0)
         except:
             continue
+        
+        # Obsdate
+        if obs_date == None and header['IMAGETYP'].lower()=='object':
+            obs_date = header['DATE-OBS'].split('T')[0].replace('-', '')             
+
+        # Camera
+        camera = header['CAMERA']
+        
+        # Classify into blue/red
         if camera == 'WiFeSBlue':
             if obs in blue_obs:
                 continue
@@ -237,157 +246,8 @@ def find_filenames():
             else:
                 red_obs.append(obs)
         
-        #~ if obsdate=='20190322':
-            #~ print red_obs
-        
     return blue_obs, red_obs, obs_date
 
-def find_filenames_for_a_mode(all_files):
-    blue_obs = []
-    red_obs = []
-    obs_date = None
-    for fn in all_files:
-        obs = fn.replace('.fits', '').split('/')[-1]
-        if obs_date == None:
-            try:
-                #~ f = pyfits.open(data_dir+fn)
-                f = pyfits.open(fn)
-                obs_date = f[0].header['DATE-OBS'].split('T')[0].replace('-', '')
-                f.close()              
-            except:
-                continue
-            #obs_date = obs[7:15]
-        try:
-            f = pyfits.open(fn)
-            camera = f[0].header['CAMERA']
-            f.close()
-        except:
-            continue
-        if camera == 'WiFeSBlue':
-            if obs in blue_obs:
-                continue
-            else:
-                blue_obs.append(obs)
-        if camera == 'WiFeSRed':
-            if obs in red_obs:
-                continue
-            else:
-                red_obs.append(obs)
-        
-        #~ if obsdate=='20190322': # ?? what is this?
-            #~ print red_obs
-        
-    return blue_obs, red_obs, obs_date
-
-def check_if_any_files_are_missing(frames):
-    """
-    Sometimes some frames are missing, either because they were not saved or because run number wasn't set properly after TAROS restart. Print out missing files between the first and last exposure. It is up to the user then to find out the reason why files are missing.
-    """
-    
-    frames = sorted(frames)
-    # TODO: separate this into blue and red frames!
-    run_first = int(frames[0].split('.')[-2].split('-')[-1])
-    run_last = int(frames[-1].split('.')[-2].split('-')[-1])
-    
-    TODO=True
-    
-
-# Marusa: Match science images and arcs. One arc before and one after the science exposure + all arcs in between.
-# Disadvantage: if you e.g. observe 1 objects with arcs, then do other things and observe it later again, everything is combined together.
-def match_object_and_arc(objects=None, arcs=None):
-    """
-    Find one arc before and one arc after science exposures + all arxs in between. Based on MJD comparison.
-    """
-    result={}
-    
-    if len(arcs)<1:
-        print('ARCS:::', arcs)
-    
-    arc_mjd=np.array([x[1] for x in arcs])
-
-    for k, v in objects.items():
-        v=sorted(v)
-
-        mjd_first_science = v[0][1]
-        mjd_last_science = v[-1][1]
-        exptime_last=v[-1][2]/3600.0/24.0 # convert exptime to days
-        mjd_last_science+=exptime_last
-
-        a=[]
-
-        # Find arc taken just before the first science exposure
-        diff_first=mjd_first_science-arc_mjd # Take first positive
-        mask_first = diff_first>0
-        if len(diff_first[mask_first])>0:
-            value_first=sorted(diff_first[mask_first])[0]
-            index_first=np.where(diff_first==value_first)[0][0]
-            a=[arcs[index_first][-1]]
-        else:
-            pass # First image of the night. First arc was taken later.
-
-        # Find arc taken just after the last science exposure.
-        diff_last=arc_mjd-mjd_last_science # Take closest to 0 from the negative side
-        mask_last = diff_last>0
-        if len(diff_last[mask_last])>0:
-            value_last=sorted(diff_last[mask_last])[0]
-            index_last=np.where(diff_last==value_last)[0][0]
-            a.append(arcs[index_last][-1])
-        else:
-            pass # No arc at the end of the night. This shouldn't happen.
-        
-        # Check if there were any other arcs between first and last science exposure.
-        mask = (arc_mjd>mjd_first_science) & (arc_mjd<mjd_last_science)
-        for m, ar in zip(mask, arcs):
-            if m:
-                a.append(ar[-1])
-
-        result[k]=a
-    return result
-    
-def test_if_all_essential_calib_files_are_available(camera=None, science=None, arcs=None, dark=None, bias=None, flat_dome=None, flat_twi=None, std_obs=None, wire=None):
-    result={}
-    
-    if len(science)<1:
-        print('**** WARNING (%s): No science frames found.'%camera)
-        
-    if len(arcs)<1:
-        print('**** WARNING (%s): No arc frames found.'%camera)
-        
-    if len(bias)<1:
-        print('**** WARNING (%s): No bias frames found.'%camera)
-        bias_key=False
-        result['BIAS']=False
-    else:
-        bias_key=True
-        result['BIAS']=bias
-        
-    if len(dark)<1:
-        print('**** WARNING (%s): No dark frames found.'%camera)
-        dark_key=False
-        result['DARK']=False
-    else:
-        dark_key=True
-        result['DARK']=dark
-        
-    if len(flat_dome)<1:
-        print('**** WARNING (%s): No dome flat frames found.'%camera)
-        flat_dome_key=False
-        result['FLAT']=False
-    else:
-        flat_dome_key=True
-        result['FLAT']=flat_dome
-        
-    if len(flat_twi)<1:
-        print('WARNING (%s): No twilight flat frames found.'%camera)
-        
-    if len(wire)<1:
-        print('WARNING (%s): No wire frames found.'%camera)
-        
-    if len(std_obs)<1:
-        print('WARNING (%s): No std_obs frames found.'%camera)
-    
-    return result
-    
 def classify_frames_into_imagetypes(frames=None):
     # classify each obs
     bias = []
@@ -399,53 +259,34 @@ def classify_frames_into_imagetypes(frames=None):
     stdstar = {}
     science = {}
 
-    objects={}
+    objects={} # Needed to match science and arc
     arcs=[]
-
-    test=[]
 
     for obs in sorted(frames):
         fn = os.path.join(data_dir, obs+'.fits')
-        f = pyfits.open(fn)
+        header = pyfits.getheader(fn, 0)
         
         try:
-            obj_name = f[0].header['OBJNAME'].replace(' ', '')
+            obj_name = header['OBJNAME'].replace(' ', '')
         except:
             obj_name=None # zero (bias) exposure
         try:
-            mjd = f[0].header['MJD-OBS']
+            mjd = header['MJD-OBS']
         except:
             mjd=None
-        run = f[0].header['RUN']
-        imagetype = f[0].header['IMAGETYP'].upper()
-        print fn, imagetype
-        exptime = f[0].header['EXPTIME']
+        run = header['RUN']
+        imagetype = header['IMAGETYP'].upper()
+        exptime = header['EXPTIME']
 
-        f.close()
 
-        naxis2=f[0].header['NAXIS2']
-        ccdsumf=f[0].header['CCDSUM'] # binning: '1 1' or '1 2'
         
-        #~ print run, obs, ccdsumf, naxis2, imagetype
-        
-        # Not sure if this works
-        #~ print(naxis2, obj_name, imagetype, fn)
-        if config.naxis2:
-            if naxis2!=config.naxis2:
-                #~ print('naxis2 not ok', naxis2, config.naxis2)
-                continue
-        
-        if ccdsum:
-            if ccdsumf != ccdsum:
-                continue
-        
-        if imagetype=='OBJECT':
-            if objectnames: # keep only selected objects
-                if obj_name not in objectnames:
-                    continue
-            if exclude_objectnames: # exclude selected objects
-                if obj_name in exclude_objectnames:
-                    continue
+        #~ if imagetype=='OBJECT':
+            #~ if objectnames: # keep only selected objects
+                #~ if obj_name not in objectnames:
+                    #~ continue
+            #~ if exclude_objectnames: # exclude selected objects
+                #~ if obj_name in exclude_objectnames:
+                    #~ continue
         
         
         #~ print ccdsumf, naxis2
@@ -510,8 +351,160 @@ def classify_frames_into_imagetypes(frames=None):
     arcs_per_star = match_object_and_arc(objects=objects, arcs=arcs)    
     
     return science, bias, domeflat, twiflat, dark, arc, wire, stdstar, arcs_per_star #, objects
-      
-def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=None, arc=None, arcs_per_star=None, wire=None, camera=None, std_obs=None, nmode=0, kmode=None):
+
+# Marusa: Match science images and arcs. One arc before and one after the science exposure + all arcs in between.
+# Disadvantage: if you e.g. observe 1 objects with arcs, then do other things and observe it later again, everything is combined together.
+def match_object_and_arc(objects=None, arcs=None):
+    """
+    Find one arc before and one arc after science exposures + all arxs in between. Based on MJD comparison.
+    """
+    result={}
+    
+    if len(arcs)<1:
+        print('ARCS:::', arcs)
+    
+    arc_mjd=np.array([x[1] for x in arcs])
+
+    for k, v in objects.items():
+        v=sorted(v)
+
+        mjd_first_science = v[0][1]
+        mjd_last_science = v[-1][1]
+        exptime_last=v[-1][2]/3600.0/24.0 # convert exptime to days
+        mjd_last_science+=exptime_last
+
+        a=[]
+
+        # Find arc taken just before the first science exposure
+        diff_first=mjd_first_science-arc_mjd # Take first positive
+        mask_first = diff_first>0
+        if len(diff_first[mask_first])>0:
+            value_first=sorted(diff_first[mask_first])[0]
+            index_first=np.where(diff_first==value_first)[0][0]
+            a=[arcs[index_first][-1]]
+        else:
+            pass # First image of the night. First arc was taken later.
+
+        # Find arc taken just after the last science exposure.
+        diff_last=arc_mjd-mjd_last_science # Take closest to 0 from the negative side
+        mask_last = diff_last>0
+        if len(diff_last[mask_last])>0:
+            value_last=sorted(diff_last[mask_last])[0]
+            index_last=np.where(diff_last==value_last)[0][0]
+            a.append(arcs[index_last][-1])
+        else:
+            pass # No arc at the end of the night. This shouldn't happen.
+        
+        # Check if there were any other arcs between first and last science exposure.
+        mask = (arc_mjd>mjd_first_science) & (arc_mjd<mjd_last_science)
+        for m, ar in zip(mask, arcs):
+            if m:
+                a.append(ar[-1])
+
+        result[k]=a
+    return result
+    
+def test_if_all_essential_calib_files_are_available(camera=None, science=None, arcs=None, dark=None, bias=None, flat_dome=None, flat_twi=None, std_obs=None, wire=None):
+    result={}
+    
+    if len(science)<1:
+        print('**** WARNING (%s): No science frames found.'%camera)
+        
+    if len(arcs)<1:
+        print('**** WARNING (%s): No arc frames found.'%camera)
+        
+    if len(bias)<config.calmin:
+        print('**** WARNING (%s): No bias frames found.'%camera)
+        bias_key=False
+        result['BIAS']=False
+    else:
+        bias_key=True
+        result['BIAS']=bias
+        
+    if len(dark)<config.calmin:
+        print('**** WARNING (%s): No dark frames found.'%camera)
+        dark_key=False
+        result['DARK']=False
+    else:
+        dark_key=True
+        result['DARK']=dark
+        
+    if len(flat_dome)<config.calmin:
+        print('**** WARNING (%s): No dome flat frames found.'%camera)
+        flat_dome_key=False
+        result['FLAT']=False
+    else:
+        flat_dome_key=True
+        result['FLAT']=flat_dome
+        
+    if len(flat_twi)<1:
+        print('WARNING (%s): No twilight flat frames found.'%camera)
+        
+    if len(wire)<1:
+        print('WARNING (%s): No wire frames found.'%camera)
+        
+    if len(std_obs)<1:
+        print('WARNING (%s): No std_obs frames found.'%camera)
+    
+    return result
+   
+def propose_missing_calib_files(mode=None, calstat=None):
+    """
+    Find corresponding calibration files in other nights.
+    
+    calstat: stats on calibrations: calstat[imagetype]=False/len(images)
+    """
+
+    keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
+    
+    mode2 = tuple([mode[x] for x in keyword_indices])
+    print('mode2', mode2)
+
+    
+    # What calib files are missing?
+    for imagetype, status in calstat.iteritems():
+        if status: # Set lower limit on number of calib files needed.
+            if len(status)<config.calmin:
+                missing=True
+        else:
+            missing=True
+            
+        if missing: # Missing. Find them. What if c==None?
+            print('Missing', imagetype)
+            if imagetype.upper() not in ['DARK', 'ZERO', 'BIAS']:
+                c=cal[mode]
+            else:
+                c=cal[mode2]
+                
+            try:
+                dates=c[imagetype] # dates available for this particular imagetype
+                print('Missing %s calibration file. Available:'%imagetype)
+                for k, v in dates.iteritems():
+                    print(k, len(v)) # len is both blue and red!
+                    #~ filenames=v[date]
+
+                print()
+            except:
+                if imagetype=='BIAS': # zero instead of bias
+                    try:
+                        dates=c['ZERO'] # dates available for this particular imagetype
+                        print('Missing %s calibration file. Available:'%imagetype)
+                        for k, v in dates.iteritems():
+                            print(k, len(v)) # len is both blue and red!
+                            #~ filenames=v[date]
+
+                        print()
+                    except:
+                        print('*** (case1) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
+
+                else:
+                    print('*** (case2) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
+
+   
+
+ 
+     
+def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=None, arc=None, arcs_per_star=None, wire=None, camera=None, std_obs=None, nmode=0, kmode=None, number_of_modes=0):
     if len(science)>0:
         pass
     else:
@@ -519,12 +512,18 @@ def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=No
         return False
     #------------------------------------------------------
     # write to metadata save script!
-    #~ f = open('save_blue_metadata.py', 'w')
+
+    # filename
     if prefix is not None and len(prefix)>0:
-        metadata_filename=os.path.join(out_dir, '%s_mode_%d_metadata_%s.py'%(prefix, nmode, camera))
+        metadata_filename=os.path.join(out_dir, '%s_mode_%d_metadata_%s.py'%(prefix, nmode, camera)) # TODO
     else:
-        metadata_filename=os.path.join(out_dir, 'mode_%d_metadata_%s.py'%(nmode, camera))
-    #~ f = open('%s_%s.py'%(config.metadata_filename, camera), 'w')
+        if number_of_modes==1:
+            metadata_filename=os.path.join(out_dir, 'metadata_%s.py'%camera)
+        elif number_of_modes>1 and nmode==0:
+            metadata_filename=os.path.join(out_dir, 'metadata_%s.py'%camera)
+        elif number_of_modes>1 and nmode>0:
+            metadata_filename=os.path.join(out_dir, 'mode_%d_metadata_%s.py'%(nmode, camera))
+
     f = open(metadata_filename, 'w')
     
     dsplit = '#' + 54*'-' + '\n'
@@ -660,65 +659,6 @@ def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=No
     print 'METADATA written in', metadata_filename
     return True
 
-   
-def propose_missing_calib_files(mode=None, calstat=None):
-    """
-    calstat: stats on calibrations: calstat[imagetype]=False/len(images)
-    """
-    print
-
-    keywords = ['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
-    
-    keywords_dark_zero = ['NAXIS1', 'NAXIS2', 'WINDOW', 'CCDSUM']
-    keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
-    
-    mode2 = tuple([mode[x] for x in keyword_indices])
-    print 'mode2', mode2
-    
-    # Calibrations
-    #~ try:
-        #~ c=cal[mode]    
-    #~ except:
-        #~ c=None
-
-    
-    # What calib files are missing?
-    for imagetype, status in calstat.iteritems():
-        if status: # Set lower limit on number of calib files needed.
-            if len(status)<3:
-                missing=True
-                TODO=True
-        else: # Missing. Find them. What if c==None?
-            print 'missing', imagetype
-            if imagetype.upper() not in ['DARK', 'ZERO', 'BIAS']:
-                c=cal[mode]
-            else:
-                c=cal[mode2]
-                
-            try:
-                dates=c[imagetype] # dates available for this particular imagetype
-                print 'Missing %s calibration file. Available:'%imagetype
-                for k, v in dates.iteritems():
-                    print k, len(v) # len is both blue and red!
-                    #~ filenames=v[date]
-
-                print
-            except:
-                if imagetype=='BIAS': # zero instead of bias
-                    try:
-                        dates=c['ZERO'] # dates available for this particular imagetype
-                        print 'Missing %s calibration file. Available:'%imagetype
-                        for k, v in dates.iteritems():
-                            print k, len(v) # len is both blue and red!
-                            #~ filenames=v[date]
-
-                        print
-                    except:
-                        print('*** (case1) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
-
-                else:
-                    print('*** (case2) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
-
 
 def include_missing_calib_files(mode=None, calstat=None, camera=None):
     """
@@ -726,22 +666,12 @@ def include_missing_calib_files(mode=None, calstat=None, camera=None):
     """
     result={}
 
-    keywords = ['NAXIS1', 'NAXIS2', 'WINDOW', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSIZE', 'CCDSEC', 'CCDSUM', 'TRIMSEC', 'DATASEC', 'DETSEC']
-    keywords_dark_zero = ['NAXIS1', 'NAXIS2', 'WINDOW', 'CCDSUM']
     keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
     
     mode2 = tuple([mode[x] for x in keyword_indices])
-    print 'mode2', mode2
+    print('mode2', mode2)
 
-    
-    # Calibrations
-    #~ try:
-        #~ c=cal[mode]    
-    #~ except:
-        #~ c=None
-        #~ print('ERROR: no calibration files found for this mode:', mode)
-        #~ return False
-    
+
     # What calib files are missing?
     for imagetype, status in calstat.iteritems():
         if imagetype.upper() not in ['DARK', 'ZERO', 'BIAS']:
@@ -779,11 +709,11 @@ def include_missing_calib_files(mode=None, calstat=None, camera=None):
                 # Delete path. It is added later in the reduction code
                 filenames = [x.split('/')[-1].replace('.fits', '') for x in filenames]
                 
-                print 'Adding %d %s images:'%(len(filenames), imagetype)
+                print('Adding %d %s images:'%(len(filenames), imagetype))
                 result[imagetype]=filenames
                 for x in filenames:
-                    print x
-                print
+                    print(x)
+                print()
             except:
                 if imagetype=='BIAS': # zero instead of bias
                     try:
@@ -798,11 +728,11 @@ def include_missing_calib_files(mode=None, calstat=None, camera=None):
 
                         filenames = [x.split('/')[-1].replace('.fits', '') for x in filenames]
 
-                        print 'Adding %d %s images:'%(len(filenames), imagetype)
+                        print('Adding %d %s images:'%(len(filenames), imagetype))
                         result[imagetype]=filenames
                         for x in filenames:
-                            print x
-                        print
+                            print(x)
+                        print()
                     except:
                         print('*** (include case1) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
 
@@ -811,79 +741,30 @@ def include_missing_calib_files(mode=None, calstat=None, camera=None):
 
     return result
     
-    
-def find_missing_calib_files(mode=None, selected_cal_dates=None):
-    """
-    """
-    
-    # What calib files are missing?
-    
-    #~ selected_cal_dates={'DARK':20190304, 'ZERO':20190302, 'FLAT': 20190304}
-    #selected_cal_dates={'DARK':20190304}
-
-    # Calibrations
-    try:
-        c=cal[mode]    
-    except:
-        c=None
-
-    result={}
-
-    if c:
-        for imagetype, date in selected_cal_dates.iteritems(): # For imagetype, dict of dates d
-            tmp=c[imagetype]
-            filenames=tmp[date] # filenames for date
-            result[imagetype]=filenames
-            
-            #~ for x in filenames:
-                #~ print 'copy', x, os.path.join(root, x.split('/')[-1])#, x, root
-                #~ copyfile(x, os.path.join(root, x.split('/')[-1]))
-    else:
-        print('No calibration frames found.')
-
-    return result
-    
-
 if __name__ == '__main__':
+    # Data might be taken with different settings (modes)
+    # 'modes' is a dictionary with modes as keys and filenames as values
+    # Classify filenames into different modes
+    modes = classify_files_into_modes()
     
-    modes = find_all_modes()
-    
-    if len(modes)<1:
-        print('WARNING: 0 modes!')
-    
-    #~ print('modes', modes)
-    
+    # Prepare metadata file for each mode    
+    M=len(modes)
     m=0
-    for mode, v in modes.iteritems():
-        blue_obs, red_obs, obs_date = find_filenames_for_a_mode(v)
+    for mode, filenames in modes.iteritems():
+        # Classify filenames into blue/red
+        blue_obs, red_obs, obs_date = classify_filenames(filenames)
     
-    #~ blue_obs, red_obs, obs_date = find_filenames()
-    
-    # Blue camera
-    #~ camera='WiFeSBlue'
-    #~ science, bias, domeflat, twiflat, dark, arc, wire, stdstar, arcs_per_star = classify_frames_into_imagetypes(frames=blue_obs)
-    #~ if len(science)>0:
-        #~ print('%s: %d objects found:'%(camera, len(science)))
-        #~ for k in science.keys():
-            #~ print(k)
-        #~ print('#'+54*'-')
-    #~ bias_key, dark_key, flat_dome_key = test_if_all_essential_calib_files_are_available(camera=camera, science=science, arcs=arc, dark=dark, bias=bias, flat_dome=domeflat, flat_twi=twiflat, std_obs=stdstar, wire=wire)
-    
-    #~ if np.any(bias_key, dark_key, flat_dome_key):
-        
-    #~ write_metadata(camera=camera, science=science, bias=bias, domeflat=domeflat, twiflat=twiflat, dark=dark, arc=arc, arcs_per_star=arcs_per_star, wire=wire, std_obs=stdstar)
-    
-        # Red camera
-        #~ camera='WiFeSRed'
-        
+        # Classify filenames into imagetypes
         if config.band == 'r':
             camera='WiFeSRed'
             science, bias, domeflat, twiflat, dark, arc, wire, stdstar, arcs_per_star = classify_frames_into_imagetypes(frames=red_obs)
         elif config.band == 'b':
             camera='WiFeSBlue'
             science, bias, domeflat, twiflat, dark, arc, wire, stdstar, arcs_per_star = classify_frames_into_imagetypes(frames=blue_obs)
-            
         
+                    
+        
+        # DATA CHECKS
         if len(science)>0:
             print
             print
@@ -903,11 +784,8 @@ if __name__ == '__main__':
         
         # Availability of calibration files
         calstat = test_if_all_essential_calib_files_are_available(camera=camera, science=science, arcs=arc, dark=dark, bias=bias, flat_dome=domeflat, flat_twi=twiflat, std_obs=stdstar, wire=wire)
-        
-        #~ print('CALSTAT')
-        #~ for k, v in calstat.iteritems():
-            #~ print k, v
-            
+
+        # If calibration files are missing, find them in other nights          
         propose_missing_calib_files(mode=mode, calstat=calstat)
         
         # Update array with missing data
@@ -932,17 +810,9 @@ if __name__ == '__main__':
         dark=sorted(dark)
         arc=sorted(arc)
         
+
+        # WRITE METADATA        
+        success = write_metadata(camera=camera, science=science, bias=bias, domeflat=domeflat, twiflat=twiflat, dark=dark, arc=arc, arcs_per_star=arcs_per_star, wire=wire, std_obs=stdstar, nmode=m, kmode=mode, number_of_modes=M)
         
-        success = write_metadata(camera=camera, science=science, bias=bias, domeflat=domeflat, twiflat=twiflat, dark=dark, arc=arc, arcs_per_star=arcs_per_star, wire=wire, std_obs=stdstar, nmode=m, kmode=mode)
-        
-        #~ if success:
-            #~ test_if_all_essential_calib_files_are_available(camera=camera, science=science, arcs=arc, dark=dark, bias=bias, flat_dome=domeflat, flat_twi=twiflat, std_obs=stdstar, wire=wire)
-            
-            
-        #~ success = write_metadata(camera=camera, science=science, bias=bias, domeflat=domeflat, twiflat=twiflat, dark=dark, arc=arc, arcs_per_star=arcs_per_star, wire=wire, std_obs=stdstar, nmode=m, kmode=k)
-        
-        #~ if success:
-            #~ test_if_all_essential_calib_files_are_available(camera=camera, science=science, arcs=arc, dark=dark, bias=bias, flat_dome=domeflat, flat_twi=twiflat, std_obs=stdstar, wire=wire)
-        
-        
+
         m+=1 # mode numbers

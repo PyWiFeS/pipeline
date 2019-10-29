@@ -46,6 +46,12 @@ postext=6712
 #~ clr = cycle(['k', 'b'])
 #~ c=clr.next()
 
+
+fig2=plt.figure()
+ax2=fig2.add_subplot(111)
+
+snr=[]
+stdr=[]
 # Read and normalise spectra
 for i, filename in enumerate(filenamesR):
     if '20190228' in f:
@@ -58,6 +64,25 @@ for i, filename in enumerate(filenamesR):
     mask = (d[:,0]>cont_min) & (d[:,0]<cont_max)
     d=d[mask]
     
+    # S/N estimation
+    try:
+        #~ print d[:,1]
+        sn = int(np.sqrt(np.nanmedian(d[:,1])))
+        snr.append(sn)
+        std=np.nanstd(d[:,1])
+        stdr.append(std)
+        if sn<10:
+            print '*****', i, sn, std
+        else:
+            print i, sn, std
+    except:
+        print filename
+    
+    if sn<10 or std>10000:
+        continue
+        
+        
+    
     # exclude lithium
     mask_cont = np.logical_or(d[:,0]<li_min, d[:,0]>li_max)
 
@@ -69,6 +94,8 @@ for i, filename in enumerate(filenamesR):
 
     
     ax.plot(w, f+offset*i, c='k', linewidth=0.4, alpha=1)
+    
+    ax2.plot(w, f, c='k', linewidth=0.4, alpha=0.2)
     
     #~ ax.annotate('%.2f'%ew, xy=(postext, 1+offset*j), xytext=(postext, 1+offset*j))
     
@@ -95,22 +122,31 @@ ax.axvline(x=6563+2.7, color='k', linewidth=0.3)
 
 plt.tight_layout()
 
+#~ plt.gca().set_ylim(bottom=-5)
+ax.set_ylim(-5, i+10)
+
 li_min=6705
 li_max=6711
 
 cont_min = 6690
 cont_max = 6720
 
-
+# Histogram of S/Nred
+fig=plt.figure()
+ax=fig.add_subplot(111)
+ax.hist(snr, bins=50)
+ax.hist(snr, bins=np.linspace(0, 100, 50), histtype='step')
 
 ##############################
 ###### BLUE ##################
 ##############################
 fig=plt.figure()
 ax=fig.add_subplot(111)
-offset=1
+offset=0#1
 postext=6712
 
+cont_min=4250
+cont_max=4750
 
 # Read and normalise spectra
 for i, filename in enumerate(filenamesB):
@@ -121,20 +157,20 @@ for i, filename in enumerate(filenamesB):
     d0=d
 
     #~ # Quick quasi normalization
-    #~ mask = (d[:,0]>cont_min) & (d[:,0]<cont_max)
-    #~ d=d[mask]
+    mask = (d[:,0]>cont_min) & (d[:,0]<cont_max)
+    d=d[mask]
     
     # exclude lithium
     #~ mask_cont = np.logical_or(d[:,0]<li_min, d[:,0]>li_max)
 
     #~ median = np.nanmedian(d[mask_cont,1])
-    #~ d[:,1] = d[:,1]/median
+    d[:,1] = d[:,1]/median
 
     w = d0[:,0]
-    f = d0[:,1]#/median
+    f = d0[:,1]/median
 
     
-    ax.plot(w, f+offset*i, c='k', linewidth=0.4, alpha=1)
+    ax.plot(w, f+offset*i, c='k', linewidth=0.4, alpha=0.2)
     
     #~ ax.annotate('%.2f'%ew, xy=(postext, 1+offset*j), xytext=(postext, 1+offset*j))
     
