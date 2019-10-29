@@ -99,7 +99,7 @@ proc_steps = [
              'buffer':4,
              'offsets':[0.4,0.4],
              'radius':10.0,
-             'nsig_lim':3.0}},
+             'nsig_lim':5.0}},
     #------------------
     {'step':'superflat_mef'  , 'run':True, 'suffix':None,
      'args':{'source':'dome'}},

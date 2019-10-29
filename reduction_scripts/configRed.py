@@ -15,6 +15,7 @@ import sys
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
 input_root = '/data/mash/marusa/2m3data/wifes/'
+#input_root = "/priv/mulga2/arains/ys/wifes/raw/"
 # root needed only for output
 #output_root = "/priv/mulga2/arains/ys/wifes/reduced/"
 output_root = '/data/mash/marusa/2m3reduced/wifes/'
@@ -95,7 +96,7 @@ proc_steps = [
              'buffer':4,
              'offsets':[0.4,0.4],
              'radius':10.0,
-             'nsig_lim':3.0}},
+             'nsig_lim':5.0}},
     #------------------
     {'step':'superflat_mef'  , 'run':True, 'suffix':None,
      'args':{'source':'dome'}},
