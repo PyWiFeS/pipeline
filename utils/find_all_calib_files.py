@@ -18,7 +18,7 @@ root = '/data/mash/marusa/2m3data/wifes/'
 # Output
 output_root = '/data/mash/marusa/2m3reduced/wifes/'
 output_filename = 'calibration_all_filenames.py'
-output_filename = ps.path.join(output_root, output_filename)
+output_filename = os.path.join(output_root, output_filename)
 # Prepare list of files
 all_files=[]
 for path, subdirs, files in os.walk(root):
