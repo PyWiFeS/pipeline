@@ -16,6 +16,7 @@ from matplotlib.colors import LogNorm
 import pickle
 from collections import Counter
 from astropy.table import Table
+import wifes_calib
 
 
 def extract_stellar_spectra_ascii(root, night, steps = ["08", "09", "10"]):
@@ -151,6 +152,45 @@ def make_extracted_stellar_cube(root, night, steps = ["08", "09", "10"]):
         hdu_list = fits.HDUList(hdus)
         hdu_list.writeto(output_filepath, overwrite=True)
 
+def exclude_bad_frames(all_files, excluderun_filename):
+    """
+    Take a list of files (any kind: science, arc, cal...)
+    that are bad. Exclude these files from the list.
+    The list should include the dates and run numbers, e.g.
+    20190824 345
+    20190218 1
+    etc.
+    
+    Returns:
+    'all_files' where bad frames had been filtered out.
+    """
+
+    # File with dates and run numbers
+    excluderun = np.loadtxt(excluderun_filename, comments='#', dtype=int)
+    
+    # Filter bad files
+    all_files2=[]
+    for x in all_files:
+        # Data for frames of this night
+        date = x.split('/')[-2]
+        run = int(x.split('/')[-1].split('-')[-1].replace('.fits', ''))
+        
+        # Go through the list of bad files
+        for xx in excluderun:
+            d=xx[0]
+            r=xx[1]
+            #~ print('/%d/'%d, '%04d.fits'%r)
+            if '/%d/'%d in x and '%04d.fits'%r in x:
+                print('*** exclude me! ', x, date, run)
+            else:
+                if x not in all_files2:
+                    all_files2.append(x)
+    
+    n = len(all_files)-len(all_files2)
+    print('%d bad files excluded.'%n)
+    all_files = all_files2
+
+    return all_files
 
 def update_object_header(root, night, print_only=False):
     """Quick function to sort out instances where OBJNAME header keyword is
@@ -334,138 +374,13 @@ def list_of_all_observed_young_star_files():
 
     t=tab[mask]
 
-    print(t)
+
 
 
     #~ tab.write(filename, format='fits', overwrite=True)
     #~ print(filename, 'written.')
 
-                        
-def flat_stats():
-    """
-    MZ: Write the doc!!
-    
-    Goal: Identify bad flats.
-    
-    Plot masterflats and trace one line. Divide by its maximum and overplot all of them.
-    What about stellar/ybin2?
-    
-    How do they change over time? How fast?
-    
-    """
-    
-    # Folder with fits files
-    #~ root = sys.argv[1]
-    root='/data/mash/marusa/2m3reduced/wifes/'
-    print('root', root)
-    
-    fig=plt.figure()
-    ax=fig.add_subplot(111)
-    
-    counts=np.zeros(4)
-    medians=[]
-    labels=[]
-
-    for path, subdirs, files in os.walk(root):
-        for name in files:
-            fl=os.path.join(path, name)
-            if 'wifesB_super_domeflat.fits' in fl:
-                print(fl)
-                
-                # Read data
-                f=fits.open(fl)
-                header = f[0].header
-                f.close()
-                image_data = fits.getdata(fl, ext=0)
-                ccdsec = header['CCDSEC']
-                ccdsum = header['CCDSUM']
-                beamsplt = header['BEAMSPLT']
-                gratingb = header['GRATINGB']
-                exptime = int(header['EXPTIME'])
-                lamp = header['M1ARCLMP']
-                print('EXPTIME', exptime)
-                if exptime!=5:
-                    continue
-                
-                #~ if beamsplt!='RT480' or gratingb!='B3000':
-                if beamsplt!='RT480':
-                    continue
-                
-                
-                if lamp!='QI-1':
-                    continue
-                
-                #~ print(ccdsec, ccdsum)
-                #~ print(image_data.shape)
-
-                # Extract one line
-                # This depends on whether it is full/stellar frame and the binning!!
-                
-                if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1; OK mostly
-                    print('stellar 1')
-                    #~ line = image_data[2990-2057:3050-2057,:]
-                    line = image_data[446:520,:]
-                    c='g'
-                    label='stellar 1'
-                    counts[0]=counts[0]+1
-                elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
-                    print('stellar 2')
-                    #~ line = image_data[2990-2057:3050-2057,:]
-                    line = image_data[225:258,:]
-                    #~ line = image_data[2990/2:3050/2,:]
-                    c='k'
-                    label='stellar 2'
-                    counts[1]=counts[1]+1
-                elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1; OK
-                    print('full 1')
-                    line = image_data[2500:2575,:]
-                    c='r'
-                    label='full 1'
-                    counts[2]=counts[2]+1
-                    continue
-                elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2; OK
-                    print('full 2')
-                    #~ line = image_data[int(2145/2):int(2245/2),:]
-                    line = image_data[1251:1287,:]
-                    c='b'
-                    label='full 2'
-                    counts[3]=counts[3]+1
-
-                #~ print(line.shape, image_data.shape)
-                line = np.median(line, axis=0)
-                m = np.max(line[4:])
-                medians.append(m)
-                print(m)
-                line = line/m
-                
-                # Experiment
-                #~ line = line/float(exptime)
-                
-                if line[2000]<0.4:
-                    print('***********')
-                
-                if line[1000]>0.8:
-                    continue
-                
-                
-                x=range(len(line))
-                if label not in labels:
-                    ax.plot(x, line, c=c, alpha=0.2, label=label)
-                    labels.append(label)
-                else:
-                    ax.plot(x, line, c=c, alpha=0.2)
-                
-                print('')
-    print(counts)
-    
-    ax.legend()
-    
-    # histogram
-    #~ fig=plt.figure()
-    #~ ax=fig.add_subplot(111)
-    #~ ax.hist(medians)
-    
-    plt.show()
+    print(t)
 
 def bias_stats():
     """
@@ -479,44 +394,332 @@ def bias_stats():
     root='/data/mash/marusa/2m3data/wifes/'
     print('root', root)
     
+    # FILENAMES
+    try:
+        filenames = np.loadtxt('biases_raw.dat', dtype=str)
+        print('Read')
+    except:
+        filenames=[]
+    
+        for path, subdirs, files in os.walk(root):
+            for name in files:
+                # Read header
+                fl=os.path.join(path, name)
+                try:
+                    header = fits.getheader(fl, 0)
+                    imagetyp = header['IMAGETYP']
+                except:
+                    continue
+                if imagetyp.lower()!='bias' and imagetyp.lower()!='zero':
+                    continue
+
+                filenames.append(fl)
+        print(filenames)
+        np.savetxt('biases_raw.dat', filenames, fmt='%s')
+
+    filenames = sorted(filenames)
+    # Compute
     resultb=[]
     resultr=[]
-    
-    for path, subdirs, files in os.walk(root):
-        for name in files:
-            # Read header
-            fl=os.path.join(path, name)
-            try:
-                f=fits.open(fl)
-                header = f[0].header
-                f.close()
-                imagetyp = header['IMAGETYP']
-            except:
-                continue
-            #~ print(header)
-            #~ gratinb = header['GRATINB']
-            #~ gratinr = header['GRATINR']
-            
-            if imagetyp.lower()!='flat':
-                continue
+    for fl in filenames:
+        if 'ag' in fl:
+            continue
+        
+        # We don't have WiFeS data in 2018
+        if '2m3data/wifes/2018' in fl:
+            continue
+        
+        header = fits.getheader(fl, 0)
+        ccdsec = header['CCDSEC']
+        ccdsum = header['CCDSUM']
+        
+        gratingb = header['GRATINGB']
+        gratingr = header['GRATINGR']
+        beamsplt = header['BEAMSPLT']
 
-            image_data = fits.getdata(fl, ext=0)
-            #~ ccdsec = header['CCDSEC']
-            #~ ccdsum = header['CCDSUM']
+        image_data = fits.getdata(fl, ext=0)
+        
+        # Take one line
+        line = image_data#[50,:]
+        
+        med = int(np.median(image_data))
+        #~ med = int(np.median(line[10:-10]))
+        
+        if 'T2m3wb' in fl:
+            #~ resultb.append(med)
+            resultb.append(line)
             
-            med = np.median(image_data)
-            print(fl, med)
+            if med>3300:
+                #~ print(fl, ccdsec, ccdsum, med, gratingb, gratingr, beamsplt)
+                print(fl)
             
-            if 'T2m3wb' in fl:
-                resultb.append(med)
-            elif 'T2m3wr' in fl:
-                resultr.append(med)
+        elif 'T2m3wr' in fl:
+            #~ resultr.append(med)
+            resultr.append(line)
             
+            if med>4900:
+                #~ print(fl, ccdsec, ccdsum, med, gratingb, gratingr, beamsplt)
+                print(fl)
+    
+    resultb=np.array(resultb)
+    resultr=np.array(resultr)
+    print(resultb)
+    x=range(resultb.shape[1])
     fig=plt.figure()
     ax=fig.add_subplot(211)
-    ax.hist(resultb, bins=50)
+    for y in resultb:
+        ax.plot(x, y, c='k', alpha=0.5)
     ax=fig.add_subplot(212)
-    ax.hist(resultr, bins=50)
+    for y in resultr:
+        ax.plot(x, y, c='k', alpha=0.5)
+    
+    
+    plt.show()
+
+def dark_stats():
+    """
+    MZ: Write the doc!!
+    
+    Goal: Identify bad biases.
+    """
+    
+    # Folder with fits files
+    #~ root = sys.argv[1]
+    root='/data/mash/marusa/2m3data/wifes/'
+    print('root', root)
+    
+    # FILENAMES
+    try:
+        filenames = np.loadtxt('darks_raw.dat', dtype=str)
+        print('Read')
+    except:
+        filenames=[]
+    
+        for path, subdirs, files in os.walk(root):
+            for name in files:
+                # Read header
+                fl=os.path.join(path, name)
+                try:
+                    header = fits.getheader(fl, 0)
+                    imagetyp = header['IMAGETYP']
+                except:
+                    continue
+                
+                if imagetyp.lower()!='dark':
+                    continue
+
+                filenames.append(fl)
+        print(filenames)
+        np.savetxt('darks_raw.dat', filenames, fmt='%s')
+                    
+
+
+    # Compute
+    resultb=[]
+    resultr=[]
+    for fl in filenames:
+        header = fits.getheader(fl, 0)
+
+        image_data = fits.getdata(fl, ext=0)
+        exptime = header['EXPTIME']
+        image_data = image_data / exptime
+        
+        # Take one line
+        line = image_data[50,:]
+        
+        #~ med = np.median(image_data)
+        med = np.median(line)
+        print(fl, med)
+        
+        if 'T2m3wb' in fl:
+            #~ resultb.append(med)
+            resultb.append(line)
+        elif 'T2m3wr' in fl:
+            #~ resultr.append(med)
+            resultr.append(line)
+
+    
+    resultb=np.array(resultb)
+    resultr=np.array(resultr)
+    print(resultb)
+    x=range(resultb.shape[1])
+    fig=plt.figure()
+    ax=fig.add_subplot(211)
+    for y in resultb:
+        ax.plot(x, y, c='k', alpha=0.5)
+    ax=fig.add_subplot(212)
+    for y in resultr:
+        ax.plot(x, y, c='k', alpha=0.5)
+    
+    
+    plt.show()
+
+def flats_stats(camera='Blue'):
+    """
+    Check how stable flats are over time. Plot p02 files.  
+    """
+    
+    # Folder with fits files
+    #~ root = sys.argv[1]
+    #~ root='/data/mash/marusa/2m3reduced/wifes/'
+    root='/data/mash/marusa/wifes_old/'
+    #~ root='/data/mash/marusa/2m3data/wifes/'
+    print('root', root)
+    
+    # Find filenames
+    try:
+        filenames = np.loadtxt('filenames_flats_p02_red??.dat', dtype=str)
+        #~ doesnt_work=True
+    except:
+        print('READING ALL FITS FILES')
+        filenames=[]
+        for path, subdirs, files in os.walk(root):
+            for name in files:
+                fl=os.path.join(path, name)
+                
+                if camera=='Blue':
+                    if 'ag' in fl or '/reduced_b/T2m3wb' not in fl or '.fits' not in fl or '.pkl' in fl or 'p02' not in fl:
+                        continue
+                elif camera=='Red':
+                    if 'ag' in fl or '/reduced_r/T2m3wr' not in fl or '.fits' not in fl or '.pkl' in fl or 'p02' not in fl:
+                        continue
+                
+                #~ print(fl)
+                
+                #~ if 'wifesB_super_domeflat.fits' in fl:
+                    #~ print(fl)
+                    
+                # Read data
+                header = fits.getheader(fl, 0)
+                
+                try:
+                    imagetyp = header['IMAGETYP']
+                except:
+                    continue
+                
+                if imagetyp != 'flat':
+                    continue
+                #~ print(imagetyp)
+                
+                ccdsec = header['CCDSEC']
+                ccdsum = header['CCDSUM']
+                beamsplt = header['BEAMSPLT']
+                gratingb = header['GRATINGB']
+                exptime = int(header['EXPTIME'])
+                lamp = header['M1ARCLMP']
+                #~ print('EXPTIME', exptime)
+                #~ if exptime!=5:
+                    #~ continue
+                
+                #~ if beamsplt!='RT480' or gratingb!='B3000':
+                if beamsplt!='RT480':
+                    continue                
+                
+                if lamp!='QI-1':
+                    continue
+
+                filenames.append(fl)
+        
+        
+        # Sort filenames to get time sequence
+        filenames=sorted(filenames)
+        #~ for x in filenames:
+            #~ print(x)
+        
+        np.savetxt('filenames_flats.dat', filenames, fmt='%s')
+    
+    # Exclude bad filenames
+    bad = ['/data/mash/marusa/2m3reduced/wifes/20191013/reduced_b/T2m3wb-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_b/T2m3wb-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191014/reduced_r/T2m3wr-20191014.190602-0112.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191014/reduced_r/T2m3wr-20191014.190742-0113.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071750-0126.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071825-0127.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071900-0128.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071934-0129.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201714-0696.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201714-0696.p02.fits'] # mirror was not in, or overexposed
+    #~ filenames = [x for x in filenames if x not in bad]
+    
+
+    # Colors
+    start = 0.0
+    stop = 1.0
+    number_of_lines = len(filenames)
+    cm_subsection = np.linspace(start, stop, number_of_lines) 
+    colors = [cm.jet(x) for x in cm_subsection]
+    
+    alpha=1.0
+
+    # both
+    fig=plt.figure()
+    ax=fig.add_subplot(111)
+    
+    counts=np.zeros(4)
+    medians=[]
+    labels=[]
+
+    data=[]
+
+    for i, fl in enumerate(filenames):
+        # Read data
+        #~ print(fl)
+        header = fits.getheader(fl, 0)
+        image_data = fits.getdata(fl, ext=0)
+        ccdsec = header['CCDSEC']
+        ccdsum = header['CCDSUM']
+        
+        # Extract one line
+        # This depends on whether it is full/stellar frame and the binning!!
+        if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1; OK mostly
+            line = image_data[446:520,:]
+            c='g'
+            label='stellar 1'
+            counts[0]=counts[0]+1
+        elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
+            line = image_data[225:258,:]
+            c='k'
+            label='stellar 2'
+            counts[1]=counts[1]+1
+        elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1; OK
+            line = image_data[2500:2575,:]
+            c='r'
+            label='full 1'
+            counts[2]=counts[2]+1
+            #~ continue
+        elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2; OK
+            line = image_data[1251:1287,:]
+            c='b'
+            label='full 2'
+            counts[3]=counts[3]+1
+        
+        # Combine all rows of slitlet into one
+        line = np.nanmedian(line, axis=0)
+        
+        # Normalize
+        #~ m = np.max(line)
+        m=np.percentile(line, 90)
+        medians.append(m)
+        line = line/m
+
+        # FILTERS: RED
+        if np.median(line[3000:3500])<0.5 or line[2000]>0.9:
+        #~ if line[0]<0.23:
+            print(fl, m, label)
+            continue
+        if line[0]<0.235:
+            print(fl, m, label, '******')
+            #~ continue
+
+        date=fl.split('/')[-3]
+        
+        #~ print(fl, label, len(line))
+        
+        x=range(len(line)) # xbin is always 1!
+        ax.plot(x, line, c='k', alpha=0.1)
+        
+        data.append(line)
+
+    print(counts)
+
+    # An average flat    
+    data=np.array(data)
+    overall_median = np.median(data, axis=0)
+    np.savetxt('average_flat.dat', overall_median)
+    
+    ax.plot(x, overall_median, c='r')
+
     plt.show()
 
 def settings_stats():
@@ -588,154 +791,6 @@ def settings_stats():
     for x in r:
         print(x)
 
-def how_do_flats_change_over_time():
-    """
-    Check how stable flats are over time. Plot p02 files.  
-    """
-    
-    # Folder with fits files
-    #~ root = sys.argv[1]
-    root='/data/mash/marusa/2m3reduced/wifes/'
-    #~ root='/data/mash/marusa/2m3data/wifes/'
-    print('root', root)
-    
-    # Find filenames
-    try:
-        filenames = np.loadtxt('filenames_flats_p02_red.dat', dtype=str)
-    except:
-        print('READING ALL FITS FILES')
-        filenames=[]
-        for path, subdirs, files in os.walk(root):
-            for name in files:
-                fl=os.path.join(path, name)
-                
-                #~ if 'ag' in fl or '/reduced_b/T2m3wb' not in fl or '.fits' not in fl or '.pkl' in fl or 'p02' not in fl:
-                if 'ag' in fl or '/reduced_r/T2m3wr' not in fl or '.fits' not in fl or '.pkl' in fl or 'p02' not in fl:
-                    continue
-                
-                print(fl)
-                
-                #~ if 'wifesB_super_domeflat.fits' in fl:
-                    #~ print(fl)
-                    
-                # Read data
-                f=fits.open(fl)
-                header = f[0].header
-                f.close()
-                
-                try:
-                    imagetyp = header['IMAGETYP']
-                except:
-                    continue
-                
-                if imagetyp != 'flat':
-                    continue
-                #~ print(imagetyp)
-                
-                ccdsec = header['CCDSEC']
-                ccdsum = header['CCDSUM']
-                beamsplt = header['BEAMSPLT']
-                gratingb = header['GRATINGB']
-                exptime = int(header['EXPTIME'])
-                lamp = header['M1ARCLMP']
-                print('EXPTIME', exptime)
-                #~ if exptime!=5:
-                    #~ continue
-                
-                #~ if beamsplt!='RT480' or gratingb!='B3000':
-                if beamsplt!='RT480':
-                    continue                
-                
-                if lamp!='QI-1':
-                    continue
-
-                filenames.append(fl)
-        
-        
-        # Sort filenames to get time sequence
-        filenames=sorted(filenames)
-        for x in filenames:
-            print(x)
-        
-        np.savetxt('filenames_flats.dat', filenames, fmt='%s')
-    
-    # Exclude bad filenames
-    bad = ['/data/mash/marusa/2m3reduced/wifes/20191013/reduced_b/T2m3wb-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_b/T2m3wb-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191014/reduced_r/T2m3wr-20191014.190602-0112.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191014/reduced_r/T2m3wr-20191014.190742-0113.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071750-0126.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071825-0127.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071900-0128.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071934-0129.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201714-0696.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201714-0696.p02.fits'] # mirror was not in, or overexposed
-    filenames = [x for x in filenames if x not in bad]
-    
-
-    # Colors
-    start = 0.0
-    stop = 1.0
-    number_of_lines = len(filenames)
-    cm_subsection = np.linspace(start, stop, number_of_lines) 
-    colors = [cm.jet(x) for x in cm_subsection]
-    
-    alpha=1.0
-
-    # both
-    fig=plt.figure()
-    ax=fig.add_subplot(111)
-    
-    counts=np.zeros(4)
-    medians=[]
-    labels=[]
-
-    for i, fl in enumerate(filenames):
-        # Read data
-        f=fits.open(fl)
-        header = f[0].header
-        f.close()
-        image_data = fits.getdata(fl, ext=0)
-        ccdsec = header['CCDSEC']
-        ccdsum = header['CCDSUM']
-        
-        # Extract one line
-        # This depends on whether it is full/stellar frame and the binning!!
-        if ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 1': # stellar and ybin 1; OK mostly
-            line = image_data[446:520,:]
-            c='g'
-            label='stellar 1'
-            counts[0]=counts[0]+1
-        elif ccdsec == '[1:4202,2057:4112]' and ccdsum == '1 2': # stellar and ybin 2
-            line = image_data[225:258,:]
-            c='k'
-            label='stellar 2'
-            counts[1]=counts[1]+1
-        elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 1': # full frame and ybin 1; OK
-            line = image_data[2500:2575,:]
-            c='r'
-            label='full 1'
-            counts[2]=counts[2]+1
-            #~ continue
-        elif ccdsec == '[1:4202,1:4112]' and ccdsum == '1 2': # full frame and ybin 2; OK
-            line = image_data[1251:1287,:]
-            c='b'
-            label='full 2'
-            counts[3]=counts[3]+1
-        
-        # Combine all rows of slitlet into one
-        line = np.nanmedian(line, axis=0)
-        
-        # Normalize
-        m = np.max(line)
-        medians.append(m)
-        line = line/m
-
-        if line[0]<0.23:
-            print(fl, m, label)
-
-        date=fl.split('/')[-3]
-        
-        #~ print(fl, label, len(line))
-        
-        x=range(len(line)) # xbin is always 1!
-        ax.plot(x, line, c='k', alpha=0.1)
-
-    print(counts)
-
-    plt.show()
-
 def compare_sens_func_best_fit_and_ratio():
     """
     
@@ -770,7 +825,7 @@ def fits2png():
         for name in files:
             fl=os.path.join(path, name)
             if fl.endswith('.fits') or fl.endswith('.fit') or fl.endswith('.FITS') or fl.endswith('.FIT'):
-                print fl
+                print(fl)
                 
                 # Read data
                 f=fits.open(fl)
@@ -785,7 +840,7 @@ def fits2png():
                 minimum = np.percentile(image_data, 30)
                 maximum = np.percentile(image_data, 95)
                 
-                print minimum, maximum
+                print(minimum, maximum)
                 
 
                 # Make an output folder
@@ -793,7 +848,7 @@ def fits2png():
                 if not os.path.isdir(out_dir) and not os.path.exists(out_dir):
                     os.mkdir(out_dir)
                 out_dir = os.path.join(root, 'png', imagetype.lower())
-                print 'out_dir', out_dir
+                print('out_dir', out_dir)
                 if not os.path.isdir(out_dir) and not os.path.exists(out_dir):
                     os.mkdir(out_dir)
 
@@ -803,7 +858,7 @@ def fits2png():
                 plt.imshow(image_data, cmap='gray', norm=LogNorm(vmin=minimum, vmax=maximum))
                 #~ plt.colorbar()
                 fl_out = os.path.join(out_dir, name.replace('.fits', '.png'))
-                print 'fl_out', fl_out
+                print('fl_out', fl_out)
                 plt.savefig(fl_out)
 
 def delete_ag_images():
@@ -823,5 +878,95 @@ def delete_ag_images():
         for file in f:
             if 'T2m3ag' in file:
                 filename = os.path.join(r, file)
-                print filename
+                print(filename)
                 os.remove(filename)
+
+def find_all_standard_star_frames(root='/data/mash/marusa/2m3data/wifes/', exclude_bad_files=True, exclude_bad_filename='/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'):
+    """
+    Find all flux and telluric standards in the folder and its subfolders.
+    """
+
+    # List of standard stars
+    stdstar_list = wifes_calib.ref_fname_lookup.keys()
+    stdstar_is_flux_cal = wifes_calib.ref_flux_lookup
+    stdstar_is_telluric = wifes_calib.ref_telluric_lookup
+
+    keywords=['GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSUM', 'CCDSEC']
+
+    print('READING ALL FITS FILES')
+    all_files=[]
+    for path, subdirs, files in os.walk(root):
+        for name in files:
+            if name.endswith('.fits') and 'T2m' in name:
+                fl=os.path.join(path, name)
+                all_files.append(fl)
+    
+    if exclude_bad_files:
+        all_files = exclude_bad_frames(all_files, exclude_bad_filename)
+    
+    
+    filenames_flux=dict()
+    filenames_tell=dict()
+    for fl in all_files:
+        try:
+            header = fits.getheader(fl, 0)
+            imagetyp = header['IMAGETYP']
+        except:
+            continue
+        
+        #~ if imagetyp.lower() != 'science' and imagetyp.lower() != 'object':
+            #~ continue
+
+        try: 
+            objname = header['OBJNAME'].replace(' ', '')
+        except:
+            continue
+        
+        # Flux standards
+        try:
+            flux = stdstar_is_flux_cal[objname]
+
+            if flux:
+                mode = tuple([header[key] for key in keywords])
+
+                try:
+                    filenames_flux[mode].append(fl)
+                except:
+                    filenames_flux[mode]=[fl]
+        except:
+            continue
+        
+        # Telluric standards
+        try:
+            tell = stdstar_is_telluric[objname]
+            
+            if tell:
+                mode = tuple([header[key] for key in keywords])
+                
+                try:
+                    filenames_tell[mode].append(fl)
+                except:
+                    filenames_tell[mode]=[fl]
+        except:
+            continue
+ 
+
+    print('Flux')
+    for k, v in filenames_flux.iteritems():
+        print(k, len(v))
+
+    print()
+    print()
+    print()
+    print('Tell')
+    for k, v in filenames_tell.iteritems():
+        print(k, len(v))
+
+    print()  
+    for k, v in filenames_flux.iteritems():
+        #~ if k==('B3000', 'R7000', 'RT480', '1 1', '[1:4202,1:4112]'):
+        if k==('B3000', 'R7000', 'RT480', '1 1', '[1:4202,2057:4112]'):
+            print(k)
+            for x in v:
+                print(x)
+  

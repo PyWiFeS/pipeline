@@ -25,6 +25,9 @@ output_root = '/data/mash/marusa/2m3reduced/wifes/'
 objectnames=None
 exclude_objectnames=['PDS 70', 'TW Hya']
 
+# Run numbers of bad files that you don't want to include in the reduction
+excluderun_filename = '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'
+
 # Do you want to reduce only images with specific binning?
 ccdsum=None #'1 1' # '1 2' # binning; False or None
 naxis2=None #2056 # False # 2056 for PDS 70
@@ -40,6 +43,9 @@ if prefix is not None and len(prefix)>0:
 else:
     metadata_filename='metadata'
 
+
+# Minimal number of each of the calibration frames. Default is 3.
+calmin = 3
 #------------------------------------------------------------------------
 
 generate_metadata={'prefix': prefix,

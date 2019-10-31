@@ -7,6 +7,7 @@ import glob
 from astropy.io import fits as pyfits
 from collections import OrderedDict
 from astropy.table import Table
+import pywifes_utils as pu
 
 """
 Often you don't take all calib frames in the same night. Make a folder just with all calib frames from the run. Then select ones with the closest data (preferrably the same date as science frames).
@@ -21,14 +22,29 @@ output_filename = 'calibration_all_filenames.py'
 output_filename = os.path.join(output_root, output_filename)
 # Prepare list of files
 all_files=[]
+
+i=0
 for path, subdirs, files in os.walk(root):
     if path!=root:
         for f in files:
-            if 'T2M3ag' in f or 'T2M3Ec' in f or not f.endswith('.fits'):
+            if 'T2m3ag' in f or 'T2M3Ec' in f or not f.endswith('.fits'):
                 continue
             else:
                 filename=os.path.join(path, f)
                 all_files.append(filename)
+                i=1
+                
+                #~ if i>100:
+                    #~ break
+            #~ if i>100:
+                #~ break
+        #~ if i>100:
+            #~ break
+
+print('Excluding bad frames...')
+all_files = pu.exclude_bad_frames(all_files)
+
+print('Ready to start with %d frames.'%len(all_files))
 
 keywords=['IMAGETYP', 'GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSUM', 'CCDSEC']
 keywords_dark_zero = ['IMAGETYP', 'CCDSEC', 'CCDSUM']
@@ -107,7 +123,7 @@ def prepare_result():
             k=[header[x] for x in keywords]
             k[0]=k[0].upper()
         except:
-            print fn, header['IMAGETYP'].upper()
+            print('Couldnt read header', fn, header['IMAGETYP'].upper())
             continue
         
         k=tuple(k) # Lists or sets cannot be dictionary keys
@@ -125,8 +141,8 @@ def prepare_result():
         except:
             result[k[1:]]={k[0]: [fn]}
 
-    print 'result'
-    print result
+    #~ print('result')
+    #~ print(result)
     darks_and_zeros_dict = darks_and_zeros()
     
     for k, v in darks_and_zeros_dict.iteritems():
@@ -134,14 +150,29 @@ def prepare_result():
     
     #~ result = result.update(darks_and_zeros_dict)
     
-    print 'result'
-    print result
+    #~ print('result')
+    #~ print(result)
 
     # Sort by the numb... TODO it doesnt work yet
     kys = result.keys()
-    lngths = [np.sum([np.sum([len(vv) for vv in imgtdict.itervalues()]) for imgtdict in result[k]]) for k in kys]
-    sort = np.argsort(lngths)
-    kys = kys[sort]
+    print kys
+    #~ print(result[kys[0]])
+    #~ print(result[kys[0]].itervalues())
+    #~ print('printing')
+    #~ for k in kys:
+        #~ for imgtdict in result[k].itervalues():
+            #~ print(imgtdict, len(imgtdict))
+            #~ print()
+    
+    
+    
+    lngths = [np.sum([np.sum([len(vv) for vv in imgtlist]) for imgtlist in result[k]]) for k in kys]
+    #~ print('lengths', lngths)
+    sortidx = np.argsort(lngths)
+    sortidx=sortidx[::-1] # reverse the order
+    #~ print sortidx
+    kys2 = [kys[x] for x in sortidx]
+    kys=kys2
     #~ result = OrderedDict(sorted(result.viewitems(), key=lambda x: len(x[1]), reverse=True))
 
     # WRITE
@@ -201,7 +232,7 @@ def prepare_result():
         
     f.close()
         
-        
+    print(output_filename, 'written.')
         
 
 
