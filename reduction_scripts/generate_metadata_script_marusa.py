@@ -726,9 +726,9 @@ if __name__ == '__main__':
     keys = [k for k in modes.iterkeys()]
     if len(modes)>1:
         lens = [len(v) for v in modes.itervalues()]
-        indices = np.argsort(lens)
-        print(indices, lens)
-        keys = keys[indices]
+        indices = list(np.argsort(lens))
+        keys = [keys[index] for index in indices]
+        keys=keys[::-1] # reverse order
     
     # Prepare metadata file for each mode    
     M=len(modes)

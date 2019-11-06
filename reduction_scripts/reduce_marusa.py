@@ -904,6 +904,8 @@ for step in proc_steps:
     func_name = 'run_'+step_name
     func = globals()[func_name]
     
+    
+    # TODO: check for tellurics and flux standards separately (in the list)
     # Skip this step if there are no tellurics available
     if step_run and step_name == 'derive_telluric':
         std_obs_list = get_primary_std_obs_list(obs_metadata, 'telluric')
