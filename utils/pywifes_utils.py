@@ -75,7 +75,7 @@ def extract_stellar_spectra_ascii(root, night, steps = ["08", "09", "10"]):
                 np.savetxt(fln, np.transpose([wave, spectrum]))
 
 
-def make_extracted_stellar_cube(root, night, steps = ["08", "09", "10"]):
+def extract_stellar_spectra_fits(root, night, steps = ["08", "09", "10"]):
     """Make a fits data cube of the reduced and extracted stellar spectra, with
     a different HDU for each data reduction step. Store this new cube in a 
     folder called 'extracted_1D_cubes' in the night folder. By default:
@@ -95,7 +95,7 @@ def make_extracted_stellar_cube(root, night, steps = ["08", "09", "10"]):
     """
     # Sort out directory structures
     data_dir = os.path.join(root, night)
-    out_dir = os.path.join(data_dir, 'extracted_cubes_1d')
+    out_dir = os.path.join(data_dir, 'extracted_fits_1d')
 
     if not os.path.isdir(out_dir) and not os.path.exists(out_dir):
         os.mkdir(out_dir)
