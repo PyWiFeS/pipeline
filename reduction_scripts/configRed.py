@@ -16,6 +16,7 @@ import numpy as np
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
 input_root = '/data/mash/marusa/2m3data/wifes/'
+#input_root = "/priv/mulga2/arains/ys/wifes/raw/"
 # root needed only for output
 #output_root = "/priv/mulga2/arains/ys/wifes/reduced/"
 output_root = '/data/mash/marusa/2m3reduced/wifes/'
@@ -103,7 +104,7 @@ proc_steps = [
              'buffer':4,
              'offsets':[0.4,0.4],
              'radius':10.0,
-             'nsig_lim':3.0}},
+             'nsig_lim':5.0}},
     #------------------
     {'step':'superflat_mef'  , 'run':True, 'suffix':None,
      'args':{'source':'dome'}},
@@ -150,8 +151,8 @@ proc_steps = [
      'args':{'ytrim':4, 
              'type':'flux'}},
     {'step':'derive_calib'   , 'run':True, 'suffix':None,
-     'args':{'plot_stars':True,
-             'plot_sensf':True,
+     'args':{'plot_stars':False,
+             'plot_sensf':False,
              'polydeg':10,
              'method':'smooth_SG', # 'poly' or 'smooth_SG'
              'boxcar':10, # smoothing for smooth_SG only
@@ -162,7 +163,7 @@ proc_steps = [
      'args':{'ytrim':4, 
              'type':'telluric'}},
     {'step':'derive_telluric', 'run':True, 'suffix':None,
-     'args':{'plot':True}},
+     'args':{'plot':False}},
     {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
     #------------------
     {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}

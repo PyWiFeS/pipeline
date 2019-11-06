@@ -31,6 +31,13 @@ sys.path.insert(1, '/data/mash/marusa/2m3data/wifes/')
 import calibration_all_filenames as cal
 cal=cal.result
 
+# Some nights have unusually high bias levels. Print a warning if reducing such a night.
+# Also, be careful if including calibrations from such a night!
+badcalib = np.loadtxt('/data/mash/marusa/2m3data/wifes/list_of_high_biases_pay_attention.dat', comments='#', dtype=int)
+badcalib_obsdates = set(badcalib[:,0])
+if int(obsdate) in badcalib_obsdates:
+    print('WARNING WARNING WARNING: Biases in this night have unusually high values!')
+
 # List of standard stars
 stdstar_list = wifes_calib.ref_fname_lookup.keys()
 stdstar_is_flux_cal = wifes_calib.ref_flux_lookup
@@ -75,7 +82,7 @@ print('#'+54*'-')
 # Get list of all fits files in directory
 # Take only WiFeS frames
 all_files = os.listdir(data_dir)
-all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits') and 'T2m3ag' not in x and 'T2m3Ec']
+all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits') and 'T2m3ag' not in x and 'T2m3Ec'.lower() not in x.lower()]
 
 print('ALLFILES ', len(all_files))
 
@@ -230,7 +237,7 @@ def classify_frames_into_imagetypes(frames=None):
             
         #---------------------------
         # 1 - bias frames
-        if imagetype == 'ZERO':
+        if imagetype.upper() == 'ZERO' or imagetype.upper() == 'BIAS':
             bias.append(obs)
         # 2 - quartz flats
         if imagetype == 'FLAT':
@@ -280,22 +287,38 @@ def classify_frames_into_imagetypes(frames=None):
 # Disadvantage: if you e.g. observe 1 objects with arcs, then do other things and observe it later again, everything is combined together.
 def match_object_and_arc(objects=None, arcs=None):
     """
-    Find one arc before and one arc after science exposures + all arxs in between. Based on MJD comparison.
+    Find one arc before and one arc after science exposures + all arcs in between. Based on MJD comparison.
+    
+    objects: science exposures, format: object[objname] = [[run, MJD, exptime, imagetyp, filename]]]
+    
+    arcs: a list of arcs [run, MJD, imagetyp, filename]
+    
+    Note: This is not done with run numbers because they don't necessarily increase during the night - e.g. they reset to 0 at TAROS restart.
     """
+
     result={}
     
     if len(arcs)<1:
         print('ARCS:::', arcs)
     
-    arc_mjd=np.array([x[1] for x in arcs])
+    #~ arc_mjd=np.array([x[1] for x in arcs])
 
     for k, v in objects.items():
+        # Sort all exposured for this object this night
         v=sorted(v)
 
-        mjd_first_science = v[0][1]
-        mjd_last_science = v[-1][1]
+        mjd_first_science = v[0][1] # first science exposure of this object this night
+        mjd_last_science = v[-1][1] # last science exposure of this object this night
         exptime_last=v[-1][2]/3600.0/24.0 # convert exptime to days
+        
+        # Last arc must be taken after the last science exposure was finished
         mjd_last_science+=exptime_last
+
+
+        # make sure the science and arc exposures were taken on the same night
+        date_object = v[0][-1].split('.')[0].split('-')[1]
+        arcs_tmp = [x for x in arcs if x[-1].split('.')[0].split('-')[1]==date_object] # Take only arcs on this night
+        arc_mjd=np.array([x[1] for x in arcs_tmp])
 
         a=[]
 
@@ -305,7 +328,7 @@ def match_object_and_arc(objects=None, arcs=None):
         if len(diff_first[mask_first])>0:
             value_first=sorted(diff_first[mask_first])[0]
             index_first=np.where(diff_first==value_first)[0][0]
-            a=[arcs[index_first][-1]]
+            a=[arcs_tmp[index_first][-1]]
         else:
             pass # First image of the night. First arc was taken later.
 
@@ -315,17 +338,21 @@ def match_object_and_arc(objects=None, arcs=None):
         if len(diff_last[mask_last])>0:
             value_last=sorted(diff_last[mask_last])[0]
             index_last=np.where(diff_last==value_last)[0][0]
-            a.append(arcs[index_last][-1])
+            a.append(arcs_tmp[index_last][-1])
         else:
             pass # No arc at the end of the night. This shouldn't happen.
         
         # Check if there were any other arcs between first and last science exposure.
         mask = (arc_mjd>mjd_first_science) & (arc_mjd<mjd_last_science)
-        for m, ar in zip(mask, arcs):
+        for m, ar in zip(mask, arcs_tmp):
             if m:
                 a.append(ar[-1])
 
-        result[k]=a
+        if len(a)>0:
+            result[k]=a
+        else:
+            print('WARNING: NO ARC FOUND FOR %s %s.'%(k, v[0][-1]))
+    
     return result
     
 def test_if_all_essential_files_are_available(camera=None, science=None, arcs=None, dark=None, bias=None, flat_dome=None, flat_twi=None, std_obs=None, wire=None):
@@ -346,7 +373,7 @@ def test_if_all_essential_files_are_available(camera=None, science=None, arcs=No
         result['BIAS']=bias
         
     if len(dark)<config.calmin:
-        print('**** WARNING (%s): No dark frames found.'%camera)
+        print('WARNING (%s): No dark frames found.'%camera)
         dark_key=False
         result['DARK']=False
     else:
@@ -413,6 +440,7 @@ def propose_missing_calib_files(mode=None, calstat=None):
         if missing: # Missing. Find them. What if c==None?
             print('Missing', imagetype)
             if imagetype.upper() not in ['DARK', 'ZERO', 'BIAS']:
+            #~ if imagetype.upper() not in ['ZERO', 'BIAS']:
                 c=cal[mode]
             else:
                 c=cal[mode_dark_zero]
@@ -421,7 +449,10 @@ def propose_missing_calib_files(mode=None, calstat=None):
                 dates=c[imagetype] # dates available for this particular imagetype
                 print('Missing %s calibration file. Available:'%imagetype)
                 for k, v in dates.iteritems():
-                    print(k, len(v)) # len is both blue and red!
+                    if k in badcalib_obsdates:
+                        print(k, len(v), '(This night might have biases with unusually high values!)') # len is both blue and red!
+                    else:
+                        print(k, len(v)) # len is both blue and red!
                     #~ filenames=v[date]
 
                 print()
@@ -431,7 +462,10 @@ def propose_missing_calib_files(mode=None, calstat=None):
                         dates=c['ZERO'] # dates available for this particular imagetype
                         print('Missing %s calibration file. Available:'%imagetype)
                         for k, v in dates.iteritems():
-                            print(k, len(v)) # len is both blue and red!
+                            if k in badcalib_obsdates:
+                                print(k, len(v), '(This night might have biases with unusually high values!)') # len is both blue and red!
+                            else:
+                                print(k, len(v)) # len is both blue and red!
                             #~ filenames=v[date]
 
                         print()

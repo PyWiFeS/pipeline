@@ -169,26 +169,31 @@ def exclude_bad_frames(all_files, excluderun_filename):
     excluderun = np.loadtxt(excluderun_filename, comments='#', dtype=int)
     
     # Filter bad files
-    all_files2=[]
-    for x in all_files:
+    exclude=[]
+    for x in sorted(all_files):
         # Data for frames of this night
-        date = x.split('/')[-2]
+        #~ date = (x.split('/')[-2])
+        date = int(x.split('/')[-1].split('.')[0].split('-')[1])
         run = int(x.split('/')[-1].split('-')[-1].replace('.fits', ''))
-        
+
         # Go through the list of bad files
         for xx in excluderun:
-            d=xx[0]
-            r=xx[1]
-            #~ print('/%d/'%d, '%04d.fits'%r)
-            if '/%d/'%d in x and '%04d.fits'%r in x:
-                print('*** exclude me! ', x, date, run)
-            else:
-                if x not in all_files2:
-                    all_files2.append(x)
+            d=str(xx[0])
+            if len(d)==6:
+                # year should include 20..
+                year='20'+d
+            year=int(year)
+            r=int(xx[1])
+            
+            if year==date and run==r:
+                print('EXCLUDE', x)
+                exclude.append(x)
+
+                
     
-    n = len(all_files)-len(all_files2)
+    n = len(exclude)
     print('%d bad files excluded.'%n)
-    all_files = all_files2
+    all_files = [x for x in all_files if x not in exclude]
 
     return all_files
 
@@ -440,38 +445,57 @@ def bias_stats():
         image_data = fits.getdata(fl, ext=0)
         
         # Take one line
-        line = image_data#[50,:]
+        line = image_data[50,:]
         
-        med = int(np.median(image_data))
-        #~ med = int(np.median(line[10:-10]))
+        #~ med = int(np.median(image_data))
+        med = int(np.median(line[10:-10]))
         
         if 'T2m3wb' in fl:
             #~ resultb.append(med)
-            resultb.append(line)
+            
             
             if med>3300:
                 #~ print(fl, ccdsec, ccdsum, med, gratingb, gratingr, beamsplt)
                 print(fl)
+                pass
+            elif np.median(line[1500:2000])>1980 or np.median(line[500:1000])>1980 or np.max(line[200:1200])>2000 or np.max(line[2380:2400])>1985:
+                #~ print('*****BAD', fl)
+                pass
+            else:
+                resultb.append(line)
             
         elif 'T2m3wr' in fl:
             #~ resultr.append(med)
-            resultr.append(line)
+            
             
             if med>4900:
                 #~ print(fl, ccdsec, ccdsum, med, gratingb, gratingr, beamsplt)
                 print(fl)
+                pass
+            elif np.median(line[1500:2000])>3650 or np.median(line[1100:1200])>3650 or np.median(line[1950:2000])>3650 or np.max(line[1100:1150])>3656:
+                #~ print('*****BAD', fl)
+                pass
+            else:
+                resultr.append(line)
+    
     
     resultb=np.array(resultb)
     resultr=np.array(resultr)
-    print(resultb)
-    x=range(resultb.shape[1])
-    fig=plt.figure()
-    ax=fig.add_subplot(211)
-    for y in resultb:
-        ax.plot(x, y, c='k', alpha=0.5)
-    ax=fig.add_subplot(212)
-    for y in resultr:
-        ax.plot(x, y, c='k', alpha=0.5)
+    #~ print(resultb)
+    #~ x=range(resultb.shape[1])
+    #~ fig=plt.figure()
+    #~ ax=fig.add_subplot(211)
+    #~ for y in resultb:
+        #~ ax.plot(x[5:-5], y[5:-5], c='k', alpha=0.5)
+    #~ ax=fig.add_subplot(212)
+    #~ for y in resultr:
+        #~ ax.plot(x[5:-5], y[5:-5], c='k', alpha=0.5)
+    
+    #~ fig=plt.figure()
+    #~ ax=plt.subplot(211)
+    #~ ax.hist(resultb.tolist(), bins=50)
+    #~ ax=plt.subplot(211)
+    #~ ax.hist(resultr.tolist(), bins=50)
     
     
     plt.show()
@@ -628,10 +652,7 @@ def flats_stats(camera='Blue'):
         
         np.savetxt('filenames_flats.dat', filenames, fmt='%s')
     
-    # Exclude bad filenames
-    bad = ['/data/mash/marusa/2m3reduced/wifes/20191013/reduced_b/T2m3wb-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_b/T2m3wb-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201127-0690.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201202-0691.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191014/reduced_r/T2m3wr-20191014.190602-0112.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191014/reduced_r/T2m3wr-20191014.190742-0113.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071750-0126.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071825-0127.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071900-0128.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190731/reduced_r/T2m3wr-20190731.071934-0129.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20190805/reduced_r/T2m3wr-20190805.201714-0696.p02.fits', '/data/mash/marusa/2m3reduced/wifes/20191013/reduced_r/T2m3wr-20190805.201714-0696.p02.fits'] # mirror was not in, or overexposed
-    #~ filenames = [x for x in filenames if x not in bad]
-    
+   
 
     # Colors
     start = 0.0
@@ -694,13 +715,20 @@ def flats_stats(camera='Blue'):
         line = line/m
 
         # FILTERS: RED
-        if np.median(line[3000:3500])<0.5 or line[2000]>0.9:
-        #~ if line[0]<0.23:
-            print(fl, m, label)
-            continue
-        if line[0]<0.235:
-            print(fl, m, label, '******')
-            #~ continue
+        if camera=='Red':
+            if np.median(line[3000:3500])<0.5 or line[2000]>0.9:
+            #~ if line[0]<0.23:
+                print(fl, m, label)
+                continue
+            if line[0]<0.235:
+                print(fl, m, label, '******')
+                #~ continue
+
+        if camera=='Blue':
+            if np.max(line[3500:4000])>0.5:
+            #~ if line[0]<0.23:
+                print(fl, m, label)
+                continue
 
         date=fl.split('/')[-3]
         
@@ -715,8 +743,10 @@ def flats_stats(camera='Blue'):
 
     # An average flat    
     data=np.array(data)
-    overall_median = np.median(data, axis=0)
-    np.savetxt('average_flat.dat', overall_median)
+    print(data)
+    overall_median = np.nanmedian(data, axis=0)
+    print(overall_median)
+    np.savetxt('average_flat_%s.dat'%camera, overall_median)
     
     ax.plot(x, overall_median, c='r')
 
@@ -813,12 +843,12 @@ def compare_sens_func_best_fit_and_ratio():
 
     plt.show()
 
-def fits2png():
+def fits2png(root=None):
     """
     Diagnostics: Convert all fits files in the folder into png/jpg and save them into separate folders based on their imagetype. This is to have a quick look if all imagetypes are correct.
     """
     # Folder with fits files
-    root = sys.argv[1]
+    #~ root = sys.argv[1]
     print('root', root)
 
     for path, subdirs, files in os.walk(root):
@@ -861,7 +891,7 @@ def fits2png():
                 print('fl_out', fl_out)
                 plt.savefig(fl_out)
 
-def delete_ag_images():
+def delete_ag_images(path=None):
     """
     Some fits files are from the Imager (?) from daytime testing??
 
@@ -872,7 +902,7 @@ def delete_ag_images():
     import sys
 
 
-    path = sys.argv[1]
+    #~ path = sys.argv[1]
 
     for r, d, f in os.walk(path):
         for file in f:

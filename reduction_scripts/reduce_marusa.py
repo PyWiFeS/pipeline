@@ -28,7 +28,7 @@ start_time = datetime.datetime.now()
 config_name=sys.argv[1]
 config = imp.load_source(config_name.replace('.py', ''), config_name)
 reload(config)
-#~ metadata=config.reduce_metadata
+#~ metadata=config.reduce_metadata # Need this for the flux calibration
 
 # This is not so simple as output folder is not the same
 # What is this?
@@ -121,53 +121,6 @@ multithread=config.multithread
 skip_done=config.skip_done
 
 proc_steps = config.proc_steps
-
-
-def find_the_mode(): # delete this
-
-
-    #~ selected_cal_dates={'DARK':20190304, 'ZERO':20190302, 'FLAT': 20190304}
-    selected_cal_dates={'DARK':20190304}
-
-    # Calibrations
-    try:
-        c=cal[mode]    
-    except:
-        c=None
-
-    for kk, vv in selected_cal_dates.iteritems(): # For imagetype kk, dict of dates vv
-        t=c[kk]
-        d=t[vv]
-        print kk
-        for x in d:
-            print 'copy', x, os.path.join(root, x.split('/')[-1])#, x, root
-            copyfile(x, os.path.join(root, x.split('/')[-1]))
-        print
-    print
-    print
-    print
-
-
-
-
-    if c:
-        print '#----------------------------------------------------'
-        print 'Available calibrations:'
-        for kk, vv in c.iteritems():
-            print kk
-            for kkk, vvv in vv.iteritems():
-                print kkk, len(vvv)
-            print
-
-    print
-    print
-    print '#########################################################'
-    #~ print
-    #~ print
-
-
-
-
 
 
 #------------------------------------------------------------------------
@@ -953,14 +906,14 @@ for step in proc_steps:
     
     # Skip this step if there are no tellurics available
     if step_run and step_name == 'derive_telluric':
-        std_obs_list = get_primary_std_obs_list(metadata, 'telluric')
+        std_obs_list = get_primary_std_obs_list(obs_metadata, 'telluric')
         if len(std_obs_list)<1:
             step_run=False
             print('WARNING: No telluric standards found. Not doing telluric correction.')
     
     # Skip this step if there are no standards available
     if step_run and step_name == 'flux_calib':
-        std_obs_list = get_primary_std_obs_list(metadata)
+        std_obs_list = get_primary_std_obs_list(obs_metadata)
         if len(std_obs_list)<1:
             step_run=False
             print('WARNING: No flux standards found. Not doing flux correction.')

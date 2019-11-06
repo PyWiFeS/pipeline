@@ -14,10 +14,8 @@ import sys
 
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
-#input_root = '/priv/mulga1/marusa/2m3data/wifes/'
 input_root = '/data/mash/marusa/2m3data/wifes/'
 #input_root = "/priv/mulga2/arains/ys/wifes/raw/"
-#output_root = '/priv/mulga1/marusa/2m3reduced/wifes/'
 output_root = '/data/mash/marusa/2m3reduced/wifes/'
 #output_root = "/priv/mulga2/arains/ys/wifes/reduced/"
 
@@ -62,7 +60,7 @@ generate_metadata={'prefix': prefix,
 #*****                USER REDUCTION DESIGN IS SET HERE             *****
 #************************************************************************
 
-band = 'b' # RedBand
+band = 'b' # BlueBand
 
 # Don't show plots. Just save them into diagnostics folder so reduction doesn't need any interaction if not asked for. Verbose.
 
@@ -105,7 +103,7 @@ proc_steps = [
              'buffer':4,
              'offsets':[0.4,0.4],
              'radius':10.0,
-             'nsig_lim':3.0}},
+             'nsig_lim':5.0}},
     #------------------
     {'step':'superflat_mef'  , 'run':True, 'suffix':None,
      'args':{'source':'dome'}},
@@ -152,8 +150,8 @@ proc_steps = [
      'args':{'ytrim':4, 
              'type':'flux'}},
     {'step':'derive_calib'   , 'run':True, 'suffix':None,
-     'args':{'plot_stars':True,
-             'plot_sensf':True,
+     'args':{'plot_stars':False,
+             'plot_sensf':False,
              'polydeg':25,
              'excise_cut' : 0.005,
              'method':'poly', # 'poly' or 'smooth_SG'
@@ -165,7 +163,7 @@ proc_steps = [
      'args':{'ytrim':4, 
              'type':'telluric'}},
     {'step':'derive_telluric', 'run':True, 'suffix':None,
-     'args':{'plot':True}},
+     'args':{'plot':False}},
     {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
     #------------------
     {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}

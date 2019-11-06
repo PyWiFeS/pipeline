@@ -42,7 +42,7 @@ for path, subdirs, files in os.walk(root):
             #~ break
 
 print('Excluding bad frames...')
-all_files = pu.exclude_bad_frames(all_files)
+all_files = pu.exclude_bad_frames(all_files, '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat') # TODO: HARDCODED
 
 print('Ready to start with %d frames.'%len(all_files))
 

@@ -1360,12 +1360,27 @@ def interslice_cleanup(input_fn, output_fn,
                        offset = 0.4,
                        buffer = 0,
                        radius=10,
-                       nsig_lim=3.0,
+                       nsig_lim=5.0,
                        verbose=False,
                        plot=False,
                        savefigs=False,
                        save_prefix='cleanup_',
                        method='2D'):
+    """Uses the dark interslice regions of the detector to interpolate the
+    scattered light over the entire detector. 
+    
+    Note that setting nsig_lim to 3 (as it historically has been) can cause 
+    problems by sigma clipping the scattered light, not just cosmic rays. For 
+    a halframe detector with y binning 2, there are 1024 x 4096 pixels.
+    With sigma values as follows, this is how many pixels lie above:
+     - 3.0 sigma (99.73%): ~11,323 px
+     - 4.0 sigma (99.994%): ~265 px
+     - 4.5 sigma (99.9993%): ~28 px
+     - 5.0 sigma (99.99994%): ~2 px
+
+     (This however assumes a Gaussian distribution, which isn't at all the case
+     but still useful as a guide/metric.)
+    """
     #------------------------------------
     # 1) Open the flat field
     f = pyfits.open(input_fn)
@@ -1376,6 +1391,7 @@ def interslice_cleanup(input_fn, output_fn,
     halfframe = is_halfframe(input_fn)
     # check which channel (blue / red) it is!!
     camera = header['CAMERA']
+    
     #------------------------------------
     # 2) Get the slitlets boundaries
     if slitlet_def_file != None:
@@ -1386,16 +1402,7 @@ def interslice_cleanup(input_fn, output_fn,
         init_slitlet_defs = red_slitlet_defs
     else:
         init_slitlet_defs = blue_slitlet_defs
-    # NEW MJC CODE: ADD IN BUFFER
-    slitlet_defs = {}
-    for i in range(1,26):
-        slit_num = str(i)
-        init_slitdefs = init_slitlet_defs[slit_num]
-        slitlet_defs[slit_num] = [
-            init_slitdefs[0],
-            init_slitdefs[1],
-            max(init_slitdefs[2]-buffer,1),
-            min(init_slitdefs[3]+buffer,4096)]
+
     # check for binning, if no specified read from header
     try:
         bin_temp = header['CCDSUM'].split()
@@ -1408,15 +1415,36 @@ def interslice_cleanup(input_fn, output_fn,
         bin_x = default_bin_x
     if bin_y == None:
         bin_y = default_bin_y
+
+    # If half frame we use slits 1-12, and if fullframe we use slits 1-25,
+    # with slitlet 13 split in half. When in halfframe we need to consider an
+    # offset, as we're using the second half of the data array
+    if halfframe:
+        nslits = 13
+        frame_offset = 2048
+
+    else:
+        nslits = 25
+        frame_offset = 0
+
+    slitlets_n = numpy.arange(1, nslits + 1, 1)
+
+    # NEW MJC CODE: ADD IN BUFFER
+    slitlet_defs = {}
+    for i in range(1,26):
+        slit_num = str(i)
+        init_slitdefs = init_slitlet_defs[slit_num]
+        slitlet_defs[slit_num] = [
+            init_slitdefs[0],
+            init_slitdefs[1],
+            max(init_slitdefs[2]-buffer-frame_offset,1),
+            min(init_slitdefs[3]+buffer-frame_offset,4096)]
+    
     #------------------------------------
     # 3) Create temporary storage structure
     inter_smooth = numpy.zeros_like(data)
     fitted = numpy.zeros_like(data)
-    if halfframe :
-        nslits = 12
-    else :
-        nslits = 25
-    slitlets_n = numpy.arange(26-nslits,26,1)
+
     #------------------------------------
     # 4) Get rid of the 'science-full region' and leave only the interslice
     # (and smooth it as well)
@@ -1428,6 +1456,7 @@ def interslice_cleanup(input_fn, output_fn,
         xmax = numpy.round(xmax//bin_x)
         ymin = numpy.round(ymin//bin_y)
         ymax = numpy.round(ymax//bin_y)
+
         # Clear the appropriate region in temporary structure
         inter_smooth[ymin:ymax,xmin:xmax] = numpy.nan
         # Now, smooth the remaining interslice region
@@ -1437,6 +1466,7 @@ def interslice_cleanup(input_fn, output_fn,
         else :
             symin = ymax
             symax = numpy.round(slitlet_defs[numpy.str(slit-1)][2]//bin_y)
+
         # Need to get rid of cosmic rays
         # here's a quick and dirty way of doing it ...
         # better idea anyone ?
@@ -1446,6 +1476,7 @@ def interslice_cleanup(input_fn, output_fn,
         tmp[data[symin:symax,xmin:xmax]< (median+nsig_lim*std)] = \
             data[symin:symax,xmin:xmax][data[symin:symax,xmin:xmax]< 
                                         (median+nsig_lim*std)]
+
         if method=='2D':
             inter_smooth[symin:symax,xmin:xmax] = \
                 ndimage.gaussian_filter(tmp,
@@ -1461,7 +1492,8 @@ def interslice_cleanup(input_fn, output_fn,
                     ndimage.gaussian_filter(data[symin:symax,xmin:xmax],
                                             sigma=[radius,radius])
             elif method=='1D':
-                inter_smooth[symin:symax,xmin:xmax] += numpy.median(tmp)                    
+                inter_smooth[symin:symax,xmin:xmax] += numpy.median(tmp)
+
     #------------------------------------
     # 5) Great, now we can interpolate this and reconstruct the contamination
     # Do each slitlet individually to avoid overloading the memory
@@ -1475,31 +1507,53 @@ def interslice_cleanup(input_fn, output_fn,
         xmax = numpy.round(xmax//bin_x)
         y2 = numpy.round(y2//bin_y)
         y3 = numpy.round(y3//bin_y)
+
         if slit == 1:
             y4 = numpy.shape(data)[0]
             y1 = numpy.round(slitlet_defs['2'][3]//bin_y)
-        elif slit == 25 :
+        elif slit == 25:
             y4 = numpy.round(slitlet_defs['24'][2]//bin_y)
             y1 = 1
+        # Special case we have to extrapolate for the half slitlet rather than
+        # interpolate as there is not dark interslit region on the other side.
+        elif slit == 13 and halfframe:
+            y4 = numpy.round(slitlet_defs[numpy.str(slit-1)][2]//bin_y)
+            y1 = y2 
         else:
             y4 = numpy.round(slitlet_defs[numpy.str(slit-1)][2]//bin_y)
-            y1 = numpy.round(slitlet_defs[numpy.str(slit+1)][3]//bin_y)         
+            y1 = numpy.round(slitlet_defs[numpy.str(slit+1)][3]//bin_y)   
+
         # Select a subsample of point to do the integration
         x = numpy.arange(xmin+3,xmax-3,dx)
-        y = numpy.append(numpy.arange(y1+1,y2-1,dy),
-                         numpy.arange(y3+1,y4-1,dy))
+
+        if slit == 13 and halfframe:
+            y = numpy.arange(y3+1,y4-1,dy)
+        else:
+            y = numpy.append(numpy.arange(y1+1,y2-1,dy),
+                            numpy.arange(y3+1,y4-1,dy))
         grid = numpy.zeros((len(y),len(x)))
+
         for i in range(len(x)):
             for j in range(len(y)):
                 grid[j,i] = inter_smooth[y[j],x[i]]
+
         #------------------------------------
         # 6) Actually perform the interpolation
-        func = interp.RectBivariateSpline(y,x,grid, kx=1,ky=1)
+
         # Note : because of the large gap to fill, kx and ky have little effect
         # reconstruct missing slice
         xall = numpy.arange(xmin,xmax,1)
         yall = numpy.arange(y1,y4,1)
-        fitted[y1:y4,xmin:xmax] = func(yall,xall)
+
+        if slit == 13 and halfframe:
+            func = interp.interp2d(y, x, grid.T, bounds_error=False,
+                                   fill_value=None)
+            fitted[y1:y4,xmin:xmax] = func(yall,xall).T
+
+        else:
+            func = interp.RectBivariateSpline(y,x,grid, kx=1,ky=1)
+            fitted[y1:y4,xmin:xmax] = func(yall,xall)
+            
     #------------------------------------
     # 7) All done ! Let's save it all ...
     f = pyfits.open(input_fn)

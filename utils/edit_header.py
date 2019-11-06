@@ -12,6 +12,9 @@ from astropy.io import fits
 
 import sys
 
+if len(sys.argv)!=4:
+    print('Usage: filename keyword value')
+
 filename = sys.argv[1]
 
 keyword = sys.argv[2]

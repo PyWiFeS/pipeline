@@ -407,7 +407,11 @@ def derive_wifes_calibration(cube_fn_list,
                              ytrim=5,
                              boxcar = 11):
     if plot_stars or plot_sensf or savefigs:
+        #~ import matplotlib
+        #~ matplotlib.use('agg')
+        #~ matplotlib.use('Agg')
         import pylab
+        #~ import matplotlib.pyplot as pylab #TODO: THIS IS A DIRTY HACK!
     # get extinction curve
     if extinction_fn == None:
         extinct_interp = sso_extinct_interp
