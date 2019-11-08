@@ -1,72 +1,59 @@
-"""
-Parameters for data reduction of the WiFeS data.
-
-Processing steps:
-(1) Edit this file.
-(2) Generate metadata.
-(3) Run reduction.
-(4) Process stellar.
-(5) Cleanup.
-"""
-
 import os
 import sys
 
-#------------------------------------------------------------------------
-#------------------------------------------------------------------------
-input_root = '/data/mash/marusa/2m3data/wifes/'
-#input_root = "/priv/mulga2/arains/ys/wifes/raw/"
-output_root = '/data/mash/marusa/2m3reduced/wifes/'
-#output_root = "/priv/mulga2/arains/ys/wifes/reduced/"
+#************************************************************************
+#************************************************************************
+#*****                         DATA                                 *****
+#************************************************************************
+#************************************************************************
 
-# Do you want to reduce only specific objects? Names must match those in the fits file headers (OBJNAME).
-objectnames=None
-exclude_objectnames=['PDS 70', 'TW Hya']
+# Input root: folder where nightly folders are stored
+input_root = '/data/mash/marusa/2m3data/wifes/'
+
+# Output root: where to save nightly data
+output_root = '/data/mash/marusa/2m3reduced/wifes/'
+
+# Save to folders with this prefix
+prefix=None
+
+# Minimal number of each of the calibration frames. Default is 3.
+calmin = 3
 
 # Run numbers of bad files that you don't want to include in the reduction
 excluderun_filename = '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'
 
-# Do you want to reduce only images with specific binning?
-ccdsum=None #'1 1' # '1 2' # binning; False or None
-naxis2=None #2056 # False # 2056 for PDS 70
-
-# Save to folders with this prefix
-prefix=None #'ys' # None
-if prefix is not None:
-    print 'PREFIX', prefix
-
-# This thing with metadata_filename is actually not used yet.
-if prefix is not None and len(prefix)>0:
-    metadata_filename='%s_metadata'%prefix
-else:
-    metadata_filename='metadata'
 
 
-# Minimal number of each of the calibration frames. Default is 3.
-calmin = 3
+#~ # This thing with metadata_filename is actually not used yet.
+#~ if prefix is not None and len(prefix)>0:
+    #~ metadata_filename='%s_metadata'%prefix
+#~ else:
+    #~ metadata_filename='metadata'
+
+
 #------------------------------------------------------------------------
 
-generate_metadata={'prefix': prefix,
-                    'CCDSUM': ccdsum,
-                    'objectnames': objectnames,
-                    'exclude_objectnames': exclude_objectnames,
-                    'metadata_filename': metadata_filename,
-                    'output_root': output_root,
-                    }
+#~ generate_metadata={'prefix': prefix,
+                    #~ 'CCDSUM': ccdsum,
+                    #~ 'objectnames': objectnames,
+                    #~ 'exclude_objectnames': exclude_objectnames,
+                    #~ 'metadata_filename': metadata_filename,
+                    #~ 'output_root': output_root,
+                    #~ }
 
-#------------------------------------------------------------------------
-#------------------------------------------------------------------------
+
+
+#************************************************************************
 #************************************************************************
 #*****                USER REDUCTION DESIGN IS SET HERE             *****
+#************************************************************************
 #************************************************************************
 
 band = 'b' # BlueBand
 
-# Don't show plots. Just save them into diagnostics folder so reduction doesn't need any interaction if not asked for. Verbose.
-
 # Co-add images of the same object
 coadd_images = True
-# If false, then separate them in the metadata file. Take care with arcs.
+# If false, then separate them in the metadata file. Take care with arcs. NOTE: Is this implemented? Test.
 
 # SET MULTITHREAD ?
 multithread=False
