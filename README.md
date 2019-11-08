@@ -9,6 +9,7 @@ export PYTHONPATH="/priv/mulga1/marusa/reduction_wifes/pipeline/reduction_script
 export PYTHONPATH="/priv/mulga1/marusa/reduction_wifes/pipeline/reduction_scripts/extra_tools/:$PYTHONPATH"`
 
 ### How to run PyWiFeS reduction (stellar)
+- Update list of calibration files if using: `utils/find_all_calib_files.py`.
 - Edit `reduction_scripts/configBlue.py` and `reduction_scripts/configRed.py`.
 - Generate a metadata file in `reduction_scripts`: `python generate_metadata_script_marusa.py configRed.py 20190321`
 - Check metadata file.
