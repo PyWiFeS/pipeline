@@ -44,8 +44,8 @@ stdstar_is_flux_cal = wifes_calib.ref_flux_lookup
 stdstar_is_telluric = wifes_calib.ref_telluric_lookup
 
 # Config file (should be in the output folder)
-#~ config = imp.load_source('config', sys.argv[1])
-metadata = imp.load_source('config', sys.argv[1])
+config = imp.load_source('config', sys.argv[1])
+#~ metadata = imp.load_source('config', sys.argv[1])
 #~ metadata=config.generate_metadata
 
 # Input folder with raw data
