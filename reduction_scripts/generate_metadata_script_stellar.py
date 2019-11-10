@@ -26,30 +26,31 @@ print('################### %s ###########################'%obsdate)
 print('########################################################')
 print('########################################################')
 
+
+# Config file (should be in the output folder)
+config = imp.load_source('config', sys.argv[1])
+
 # Calibration files in case some are missing for this night: this is a file containing a dictionary with filenames
-sys.path.insert(1, '/data/mash/marusa/2m3data/wifes/')
+sys.path.insert(1, '/data/mash/marusa/2m3data/wifes/') # TODO: THIS SHOULDN'T BE LIKE THIS!!
 import calibration_all_filenames as cal
 cal=cal.result
 
 # Some nights have unusually high bias levels. Print a warning if reducing such a night.
 # Also, be careful if including calibrations from such a night!
-badcalib = np.loadtxt('/data/mash/marusa/2m3data/wifes/list_of_high_biases_pay_attention.dat', comments='#', dtype=int)
-badcalib_obsdates = set(badcalib[:,0])
-if int(obsdate) in badcalib_obsdates:
-    print('WARNING WARNING WARNING: Biases in this night have unusually high values!')
+if config.badcalib_filename is not None:
+    badcalib = np.loadtxt(config.badcalib_filename, comments='#', dtype=int)
+    badcalib_obsdates = set(badcalib[:,0])
+    if int(obsdate) in badcalib_obsdates:
+        print('WARNING WARNING WARNING: Biases in this night have unusually high values!')
 
 # List of standard stars
 stdstar_list = wifes_calib.ref_fname_lookup.keys()
 stdstar_is_flux_cal = wifes_calib.ref_flux_lookup
 stdstar_is_telluric = wifes_calib.ref_telluric_lookup
 
-# Config file (should be in the output folder)
-config = imp.load_source('config', sys.argv[1])
-#~ metadata = imp.load_source('config', sys.argv[1])
-#~ metadata=config.generate_metadata
 
 # Input folder with raw data
-data_dir = os.path.join(config.input_root, obsdate) #sys.argv[2]
+data_dir = os.path.join(config.input_root, obsdate)
 
 print('#'+54*'-')
 print('data_dir', data_dir)
@@ -66,7 +67,7 @@ print('root_obsdate', root_obsdate)
 # Add band (grating) to the output folder name
 out_dir = os.path.join(root_obsdate, 'reduced_%s'%config.band)
 
-prefix=metadata.prefix
+prefix=config.prefix
 
 if prefix is not None and len(prefix)>0:
     print('prefix', prefix)
@@ -476,8 +477,87 @@ def propose_missing_calib_files(mode=None, calstat=None):
                 else:
                     print('*** (case2) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
 
+def include_missing_calib_files(mode=None, calstat=None, camera=None):
+    """
+    calstat: stats on calibrations: calstat[imagetype]=False/len(images)
+    Include just the correct name. The path to the files is reconstructed in the reduction code from the date in the filename.
+    """
+    result={}
 
-     
+    keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
+    
+    mode_dark_zero = tuple([mode[x] for x in keyword_indices])
+
+
+    # What calib files are missing?
+    for imagetype, status in calstat.iteritems():
+        if imagetype.upper() not in ['DARK', 'ZERO', 'BIAS']:
+            c=cal[mode]
+        else:
+            c=cal[mode_dark_zero]
+                
+        if imagetype not in selected_cal_dates:
+            continue
+        else:
+            if imagetype not in ['BIAS', 'ZERO']:
+                date_wanted = selected_cal_dates[imagetype] # check BIAS-ZERO
+            else:
+                try:
+                    date_wanted = selected_cal_dates['ZERO'] # check BIAS-ZERO
+                except:
+                    date_wanted = selected_cal_dates['BIAS'] # check BIAS-ZERO
+            
+        if status: # Calibration files available, so don't do anything. BUT: Set lower limit on number of calib files needed.
+            if len(status)<3:
+                missing=True
+                TODO=True
+        
+        else: # Missing. Find them. What if c==None?
+            try:
+                dates=c[imagetype] # dates available for this particular imagetype
+                filenames = dates[date_wanted]
+                
+                # Take only a selected band (blue or red)
+                if camera=='WiFeSRed':
+                    filenames = [x for x in filenames if 'T2m3wr' in x]
+                elif camera=='WiFeSBlue':
+                    filenames = [x for x in filenames if 'T2m3wb' in x]
+                
+                # Delete path. It is added later in the reduction code
+                filenames = [x.split('/')[-1].replace('.fits', '') for x in filenames]
+                
+                print('Adding %d %s images:'%(len(filenames), imagetype))
+                result[imagetype]=filenames
+                for x in filenames:
+                    print(x)
+                print()
+            except:
+                if imagetype=='BIAS': # zero instead of bias
+                    try:
+                        dates=c['ZERO'] # dates available for this particular imagetype
+                        filenames = dates[date_wanted]
+
+                        # Take only a selected band (blue or red)
+                        if camera=='WiFeSRed':
+                            filenames = [x for x in filenames if 'T2m3wr' in x]
+                        elif camera=='WiFeSBlue':
+                            filenames = [x for x in filenames if 'T2m3wb' in x]
+
+                        filenames = [x.split('/')[-1].replace('.fits', '') for x in filenames]
+
+                        print('Adding %d %s images:'%(len(filenames), imagetype))
+                        result[imagetype]=filenames
+                        for x in filenames:
+                            print(x)
+                        print()
+                    except:
+                        print('*** (include case1) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
+
+                else:
+                    print('*** (include case2) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)    
+
+    return result
+ 
 def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=None, arc=None, arcs_per_star=None, wire=None, camera=None, std_obs=None, nmode=0, kmode=None, number_of_modes=0):
     if len(science)>0:
         pass
@@ -635,88 +715,7 @@ def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=No
     print('########################################################')
     return True
 
-
-def include_missing_calib_files(mode=None, calstat=None, camera=None):
-    """
-    calstat: stats on calibrations: calstat[imagetype]=False/len(images)
-    Include just the correct name. The path to the files is reconstructed in the reduction code from the date in the filename.
-    """
-    result={}
-
-    keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
-    
-    mode_dark_zero = tuple([mode[x] for x in keyword_indices])
-
-
-    # What calib files are missing?
-    for imagetype, status in calstat.iteritems():
-        if imagetype.upper() not in ['DARK', 'ZERO', 'BIAS']:
-            c=cal[mode]
-        else:
-            c=cal[mode_dark_zero]
-                
-        if imagetype not in selected_cal_dates:
-            continue
-        else:
-            if imagetype not in ['BIAS', 'ZERO']:
-                date_wanted = selected_cal_dates[imagetype] # check BIAS-ZERO
-            else:
-                try:
-                    date_wanted = selected_cal_dates['ZERO'] # check BIAS-ZERO
-                except:
-                    date_wanted = selected_cal_dates['BIAS'] # check BIAS-ZERO
-            
-        if status: # Calibration files available, so don't do anything. BUT: Set lower limit on number of calib files needed.
-            if len(status)<3:
-                missing=True
-                TODO=True
-        
-        else: # Missing. Find them. What if c==None?
-            try:
-                dates=c[imagetype] # dates available for this particular imagetype
-                filenames = dates[date_wanted]
-                
-                # Take only a selected band (blue or red)
-                if camera=='WiFeSRed':
-                    filenames = [x for x in filenames if 'T2m3wr' in x]
-                elif camera=='WiFeSBlue':
-                    filenames = [x for x in filenames if 'T2m3wb' in x]
-                
-                # Delete path. It is added later in the reduction code
-                filenames = [x.split('/')[-1].replace('.fits', '') for x in filenames]
-                
-                print('Adding %d %s images:'%(len(filenames), imagetype))
-                result[imagetype]=filenames
-                for x in filenames:
-                    print(x)
-                print()
-            except:
-                if imagetype=='BIAS': # zero instead of bias
-                    try:
-                        dates=c['ZERO'] # dates available for this particular imagetype
-                        filenames = dates[date_wanted]
-
-                        # Take only a selected band (blue or red)
-                        if camera=='WiFeSRed':
-                            filenames = [x for x in filenames if 'T2m3wr' in x]
-                        elif camera=='WiFeSBlue':
-                            filenames = [x for x in filenames if 'T2m3wb' in x]
-
-                        filenames = [x.split('/')[-1].replace('.fits', '') for x in filenames]
-
-                        print('Adding %d %s images:'%(len(filenames), imagetype))
-                        result[imagetype]=filenames
-                        for x in filenames:
-                            print(x)
-                        print()
-                    except:
-                        print('*** (include case1) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
-
-                else:
-                    print('*** (include case2) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)    
-
-    return result
-    
+   
 if __name__ == '__main__':
     # Data might be taken with different settings (modes)
     # 'modes' is a dictionary with modes as keys and filenames as values

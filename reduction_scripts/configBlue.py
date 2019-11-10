@@ -22,25 +22,8 @@ calmin = 3
 # Run numbers of bad files that you don't want to include in the reduction
 excluderun_filename = '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'
 
-
-
-#~ # This thing with metadata_filename is actually not used yet.
-#~ if prefix is not None and len(prefix)>0:
-    #~ metadata_filename='%s_metadata'%prefix
-#~ else:
-    #~ metadata_filename='metadata'
-
-
-#------------------------------------------------------------------------
-
-#~ generate_metadata={'prefix': prefix,
-                    #~ 'CCDSUM': ccdsum,
-                    #~ 'objectnames': objectnames,
-                    #~ 'exclude_objectnames': exclude_objectnames,
-                    #~ 'metadata_filename': metadata_filename,
-                    #~ 'output_root': output_root,
-                    #~ }
-
+# List of bad calibration files
+badcalib_filename = '/data/mash/marusa/2m3data/wifes/list_of_high_biases_pay_attention.dat' # None
 
 
 #************************************************************************

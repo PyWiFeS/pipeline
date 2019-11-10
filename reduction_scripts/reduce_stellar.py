@@ -19,11 +19,6 @@ start_time = datetime.datetime.now()
 config_name=sys.argv[1]
 config = imp.load_source(config_name.replace('.py', ''), config_name)
 reload(config)
-#~ metadata=config.reduce_metadata # Need this for the flux calibration
-
-# This is not so simple as output folder is not the same
-# What is this?
-#absolute_paths=True
 
 prefix=config.prefix
 
@@ -31,7 +26,6 @@ obsdate = sys.argv[2]
 
 # Input folder with raw data
 data_dir = os.path.join(config.input_root, obsdate) #sys.argv[2]
-
 
 # Output folder (should already exist and metadata should be there)
 
@@ -42,8 +36,6 @@ root_obsdate = os.path.join(config.output_root, '%s'%obsdate)
 
 # Create folder with date
 root_bool = os.path.isdir(root_obsdate) and os.path.exists(root_obsdate)
-print 'ROOT_BOOL', root_obsdate, os.path.isdir(root_obsdate), os.path.exists(root_obsdate)
-print 'TEST', os.path.isdir('/data/mash/marusa/reduction_wifes/pipeline/reduction_scripts/'), os.path.exists('/data/mash/marusa/reduction_wifes/pipeline/reduction_scripts/')
 if not root_bool:
     os.mkdir(root_obsdate)
 print('root_obsdate', root_obsdate)
@@ -76,7 +68,7 @@ else:
         metadata_filename=os.path.join(out_dir, 'metadata_WiFeSRed.py')
     elif config.band == 'b':
         metadata_filename=os.path.join(out_dir, 'metadata_WiFeSBlue.py')
-print('metadata_filename', metadata_filename, config.metadata_filename)
+#~ print('metadata_filename', metadata_filename, config.metadata_filename)
 obs_metadata = imp.load_source('obs_metadata', metadata_filename).night_data
 #~ mode = imp.load_source('obs_metadata', metadata_filename).mode
 
