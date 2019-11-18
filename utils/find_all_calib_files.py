@@ -41,8 +41,11 @@ for path, subdirs, files in os.walk(root):
         #~ if i>100:
             #~ break
 
-print('Excluding bad frames...')
-all_files = pu.exclude_bad_frames(all_files, '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat') # TODO: HARDCODED
+try:
+    print('Excluding bad frames...')
+    all_files = pu.exclude_bad_frames(all_files, '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat') # TODO: HARDCODED
+except:
+    'No BAD files filename provided.'
 
 print('Ready to start with %d frames.'%len(all_files))
 
@@ -72,6 +75,11 @@ def darks_and_zeros():
             continue
         
         # Take only darks
+        try:
+            imagetyp=header['IMAGETYP'].upper()
+        except:
+            print('%s no imagetyp'%fn)
+            continue
         if header['IMAGETYP'].upper() not in ['DARK', 'ZERO'] :
             continue
 
