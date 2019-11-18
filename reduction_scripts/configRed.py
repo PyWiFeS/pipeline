@@ -19,6 +19,10 @@ prefix=None
 # Minimal number of each of the calibration frames. Default is 3.
 calmin = 3
 
+# Object list: reduce only these objects
+object_list_filename = '/data/mash/marusa/2m3data/wifes/reduce_these_objects.dat'
+object_list = ['RZ Mic']
+
 # Run numbers of bad files that you don't want to include in the reduction
 excluderun_filename = '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'
 

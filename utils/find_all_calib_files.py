@@ -13,7 +13,7 @@ import pywifes_utils as pu
 Often you don't take all calib frames in the same night. Make a folder just with all calib frames from the run. Then select ones with the closest data (preferrably the same date as science frames).
 """
 
-# Input
+# Input: wifes folder with all the nights (but no specific night)
 root = '/data/mash/marusa/2m3data/wifes/'
 
 # Output
@@ -27,7 +27,7 @@ i=0
 for path, subdirs, files in os.walk(root):
     if path!=root:
         for f in files:
-            if 'T2m3ag' in f or 'T2M3Ec' in f or not f.endswith('.fits'):
+            if 'T2m3ag' in f or 'T2M3Ec' in f or not f.endswith('.fits') or 'wsol' in f or 'wire_soln' in f or 'wave_soln' in f:
                 continue
             else:
                 filename=os.path.join(path, f)
@@ -119,6 +119,12 @@ def prepare_result():
             header = f[0].header
             f.close()
         except:
+            continue
+        
+        try:
+            imagetyp=header['IMAGETYP'].upper()
+        except:
+            print('%s no imagetyp'%fn)
             continue
         
         # Objects and arcs: continue

@@ -44,6 +44,7 @@ multithread=False
 # SET SKIP ALREADY DONE FILES ?
 skip_done=True
 
+# These steps are used by reduce_stellar.
 proc_steps = [
     #------------------
     {'step':'overscan_sub'   , 'run':True, 'suffix':'00', 'args':{}},
