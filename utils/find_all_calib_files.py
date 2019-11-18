@@ -27,6 +27,7 @@ i=0
 for path, subdirs, files in os.walk(root):
     if path!=root:
         for f in files:
+            print path, f
             if 'T2m3ag' in f or 'T2M3Ec' in f or not f.endswith('.fits') or 'wsol' in f or 'wire_soln' in f or 'wave_soln' in f:
                 continue
             else:

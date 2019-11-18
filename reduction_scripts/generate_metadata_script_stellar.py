@@ -37,11 +37,14 @@ cal=cal.result
 
 # Some nights have unusually high bias levels. Print a warning if reducing such a night.
 # Also, be careful if including calibrations from such a night!
-if config.badcalib_filename is not None:
-    badcalib = np.loadtxt(config.badcalib_filename, comments='#', dtype=int)
-    badcalib_obsdates = set(badcalib[:,0])
-    if int(obsdate) in badcalib_obsdates:
-        print('WARNING WARNING WARNING: Biases in this night have unusually high values!')
+try:
+    if config.badcalib_filename is not None:
+        badcalib = np.loadtxt(config.badcalib_filename, comments='#', dtype=int)
+        badcalib_obsdates = set(badcalib[:,0])
+        if int(obsdate) in badcalib_obsdates:
+            print('WARNING WARNING WARNING: Biases in this night have unusually high values!')
+except:
+    pass
 
 # List of standard stars
 stdstar_list = wifes_calib.ref_fname_lookup.keys()
@@ -86,22 +89,54 @@ print('#'+54*'-')
 all_files = os.listdir(data_dir)
 all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits') and 'T2m3ag' not in x and 'T2m3Ec'.lower() not in x.lower()]
 
-try:
-    object_list = np.loadtxt(config['object_list_filename'])
-    print('Object list read from', config['object_list_filename'])
-    object_list = [x.replace(' ', '') for x in object_list]
-    all_files = take_only_specify_objects(object_list, all_files)
-    print('Taken only selected objectnames.')
-except:
-    object_list=None
-try:
-    object_list = config['object_list']
-    object_list = [x.replace(' ', '') for x in object_list]
-    all_files = take_only_specify_objects(object_list, all_files)
-    print('Taken only selected objectnames.')
-except:
-    object_list=None
 
+def take_only_specific_objects(object_list, all_files):
+    """
+    If you have a folder with many different objects but want to reduce only a few specific
+    stars, then specify them in the object_list
+    
+    Return:
+    all_files without science frames that are not needed here
+    
+    """
+    
+    all_files2=[]
+    for fn in all_files:
+        try:
+            header = pyfits.getheader(fn, 0)
+        except:
+            print('Cant open file', fn)
+            continue
+        try:
+            objectname=header['OBJNAME']
+            if objectname.replace(' ', '') not in object_list:
+                continue
+            else:
+                all_files2.append(fn)
+        except: # calibration files
+            all_files2.append(fn)
+    
+    print('all_files, all_files2', len(all_files), len(all_files2))
+    return all_files2
+
+
+
+try:
+    object_list = np.loadtxt(config.object_list_filename)
+    print('Object list read from', config.object_list_filename)
+    object_list = [x.replace(' ', '') for x in object_list]
+    all_files = take_only_specific_objects(object_list, all_files)
+    print('Taken only selected objectnames.')
+except:
+    try:
+        object_list = config.object_list
+        object_list = [x.replace(' ', '') for x in object_list]
+        all_files = take_only_specific_objects(object_list, all_files)
+        print('Taken only selected objectnames.')
+    except:
+        object_list=None
+
+print('object_list', object_list)
 print('ALLFILES ', len(all_files))
 
 print('Excluding bad frames...')
@@ -128,33 +163,7 @@ print 'SELECTED_CAL_DATES', selected_cal_dates
 ###################################################
 
 
-def take_only_specify_objects(object_list, all_files):
-    """
-    If you have a folder with many different objects but want to reduce only a few specific
-    stars, then specify them in the object_list
-    
-    Return:
-    all_files without science frames that are not needed here
-    
-    """
-    all_files2=[]
-    for fn in all_files:
-        try:
-            header = pyfits.getheader(fn, 0)
-        except:
-            print('Cant open file', fn)
-            continue
 
-        try:
-            objectname=header['OBJNAME']
-            if objectname.replace(' ', '') not in object_list:
-                continue
-            else:
-                all_files2.append(fn)
-        except: # calibration files
-            all_files2.append(fn)
-        
-    return all_files2
 
 
 def classify_files_into_modes():
