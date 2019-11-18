@@ -10,7 +10,7 @@ export PYTHONPATH="/priv/mulga1/marusa/reduction_wifes/pipeline/reduction_script
 
 ### How to run PyWiFeS reduction (stellar)
 - Update list of calibration files if using: `utils/find_all_calib_files.py`.
-- Edit `reduction_scripts/configBlue.py` and `reduction_scripts/configRed.py`.
+- Edit `reduction_scripts/configBlue.py` and `reduction_scripts/configRed.py`. It is best to rename these files so they are unique and don't get overwritten when you do `git pull`.
 - Generate a metadata file in `reduction_scripts`: `python generate_metadata_script_marusa.py configRed.py 20190321`
 - Check metadata file.
 - Run `python reduce_marusa.py configBlue.py 20190321` in `reduction_scripts`.
