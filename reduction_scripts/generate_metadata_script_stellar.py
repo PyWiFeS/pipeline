@@ -824,23 +824,26 @@ if __name__ == '__main__':
         # Availability of calibration files
         calstat = test_if_all_essential_files_are_available(camera=camera, science=science, arcs=arc, dark=dark, bias=bias, flat_dome=domeflat, flat_twi=twiflat, std_obs=stdstar, wire=wire)
 
-        # If calibration files are missing, find them in other nights          
-        propose_missing_calib_files(mode=mode, calstat=calstat)
-        
-        # Update array with missing data. Only include correct filenames (data is not copied here!)
-        missing_cal = include_missing_calib_files(mode=mode, calstat=calstat, camera=camera)
-        for imagetype, filenames in missing_cal.iteritems():
-            if imagetype=='BIAS':
-                bias=filenames
-                print('new biases'), bias
-            elif imagetype=='DARK':
-                dark=filenames
-                print('new darks'), dark
-            elif imagetype=='FLAT':
-                domeflat=filenames
-                print('new flats'), domeflat
-            else:
-                print("Update missing data: We've got a problem here.", imagetype)
+        try:
+            # If calibration files are missing, find them in other nights          
+            propose_missing_calib_files(mode=mode, calstat=calstat)
+            
+            # Update array with missing data. Only include correct filenames (data is not copied here!)
+            missing_cal = include_missing_calib_files(mode=mode, calstat=calstat, camera=camera)
+            for imagetype, filenames in missing_cal.iteritems():
+                if imagetype=='BIAS':
+                    bias=filenames
+                    print('new biases'), bias
+                elif imagetype=='DARK':
+                    dark=filenames
+                    print('new darks'), dark
+                elif imagetype=='FLAT':
+                    domeflat=filenames
+                    print('new flats'), domeflat
+                else:
+                    print("Update missing data: We've got a problem here.", imagetype)
+        except:
+            print('There is no additional calibration data available for this mode.')
         
         
         # SORT filenames
