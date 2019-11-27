@@ -50,3 +50,12 @@ TODO
   - Make it more simple and robust.
 - What happens if there are 2 or more stars in the slit?
 - Diagnostics: It does happen that imagetype is wrong. E.g. Arcs are sometimes not arcs and then image reduction keeps crashing. Make a script to make a simple convert of all fits files in the folder into jpgs sorted into different folders based on their type. This would allow a quick look to check if all images are what they say they are.
+# TODO2
+- find_all_calib_files: things are hardcoded there
+- make sure all paths are in an untracked file, so when you git pull it doesn't overwrite your settings
+- put back the option to specify object name for the objects you want to reduce
+- enable individual reduction, meaning that if there are many frames of the same object that night and you don't want to co-add them but reduce separately. Manage arcs in metadata: they should go together with only one science frame.
+- Don't hardcode things. Put everything in config files!!!
+- object_list: doesn't work right now!
+
+- generate_metadata: It only assigns one arc to RZ Mic and many arcs to other science targets: /priv/mulga2/nstanden/20181018/...
