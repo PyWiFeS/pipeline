@@ -59,3 +59,4 @@ TODO
 - object_list: doesn't work right now!
 
 - generate_metadata: It only assigns one arc to RZ Mic and many arcs to other science targets: /priv/mulga2/nstanden/20181018/...
+- generate metadata: import pu: remove this
