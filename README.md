@@ -15,8 +15,8 @@ export PYTHONPATH="/priv/mulga1/marusa/reduction_wifes/pipeline/reduction_script
 If you need to specify the nights with calibration files, use `python generate_metadata_script_marusa.py configRed.py 20190321 -b 2019018 -f 20190323`
 - Check metadata file.
 - Run `python reduce_marusa.py configBlue.py 20190321` in `reduction_scripts`.
-- Convert to ascii: `plumage/plotting.extract_stellar_spectra_ascii('/data/mash/marusa/2m3reduced/wifes/', '20190321')`
-- Make a pdf with spectra: `utils/pywifes_utils.plot_nightly_spectra('/data/mash/marusa/2m3reduced/wifes/', '20190321', plot_output_path='/data/mash/marusa/2m3reduced/wifes/')`
+- Convert to ascii: `utils/pywifes_utils.extract_stellar_spectra_ascii('/data/mash/marusa/2m3reduced/wifes/', '20190321')`
+- Make a pdf with spectra: `plumage/plotting.plot_nightly_spectra('/data/mash/marusa/2m3reduced/wifes/', '20190321', plot_output_path='/data/mash/marusa/2m3reduced/wifes/')`
 - Delete auxiliary reduction files (because there is a lot of data): `python utils/clean.py /data/mash/marusa/2m3reduced/wifes/20190321/reduced_b/` and same for `reduced_r`.
 
 # Modified pipeline to reduce young stars
