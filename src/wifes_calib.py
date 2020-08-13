@@ -511,7 +511,7 @@ def derive_wifes_calibration(cube_fn_list,
         # Didn't find any stars - there's no point in continuing
         raise Exception('Could not find calibration data for any stars!')
     if norm_stars:
-        i_mid = len(fratio_results[0][0])/2
+        i_mid = int(len(fratio_results[0][0])/2)
         fscale_max = min([x[1][i_mid] for x in fratio_results])
         init_full_y = numpy.concatenate(
             [x[1]-x[1][i_mid]+fscale_max for x in fratio_results])
