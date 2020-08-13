@@ -640,7 +640,7 @@ def derive_wifes_calibration(cube_fn_list,
     # SAVE IN THE PICKLE FILE THE WAVELENGTH AND CALIB FVAL ARRAYS
     save_calib = {'wave' : final_x,
                   'cal'  : final_y}
-    f1 = open(calib_out_fn, 'w')
+    f1 = open(calib_out_fn, 'wb')
     pickle.dump(save_calib, f1)
     f1.close()
     return
