@@ -253,6 +253,7 @@ def classify_frames_into_imagetypes(frames=None):
         fn = os.path.join(data_dir, obs+'.fits')
         header = pyfits.getheader(fn, 0)
         
+        
         try:
             obj_name = header['OBJNAME'].replace(' ', '')
         except:
@@ -264,6 +265,8 @@ def classify_frames_into_imagetypes(frames=None):
         run = header['RUN']
         imagetype = header['IMAGETYP'].upper()
         exptime = header['EXPTIME']
+        
+        print(fn, imagetype, obj_name)
 
 
         
@@ -783,7 +786,9 @@ if __name__ == '__main__':
         indices = list(np.argsort(lens))
         keys = [keys[index] for index in indices]
         keys=keys[::-1] # reverse order
-    
+    if len(modes)<1:
+        print('NO MODES FOUND! check your data')
+
     # Prepare metadata file for each mode    
     M=len(modes)
     m=0
@@ -791,7 +796,13 @@ if __name__ == '__main__':
     for mode in keys:
         filenames = modes[mode]
         # Classify filenames into blue/red
+        print('CLASSIFY'), mode
         blue_obs, red_obs, obs_date = classify_filenames(filenames)
+        print
+        print
+        print
+        print
+        print
     
         # Classify filenames into imagetypes
         if config.band == 'r':
@@ -819,6 +830,7 @@ if __name__ == '__main__':
                 print(k)
             print('#'+54*'-')
         else:
+            print('No science data found', mode)
             continue # Just ignore modes with no science data
         
         # Availability of calibration files
