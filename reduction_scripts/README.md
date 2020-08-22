@@ -1,5 +1,7 @@
 ## Data reduction
 
+There are two sets of data reduction scripts. The set in `multinight` folder is adjusted for the easier reductions of many nights of data.
+
 ### Generate and save metadata
 Run the `pipeline/reduction_scripts/extra_tools/generate_metadata_script.py` either in the directory where your data is, or passing the data directory as a command line argument like `./generate_metadata_script.py /home/mjc/wifes_data/20120922/` etc. This will generate the `save_red_metadata.py` and `save_blue_metadata.py` scripts.
 Run these from the command line as `python save_red_metadata.py` etc. or edit if the automated metadata structure is not what you desire for your reduction script. These scripts will create a `my_metadata.pkl` file SOMEWHERE.
