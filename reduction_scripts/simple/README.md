@@ -1,10 +1,16 @@
 ## Data reduction scripts for easier reduction of multiple nights of stellar data
+Data reduction steps:
+- (1) Edit `config.py` file
+- (2) [optional] Prepare a file with all available calibration files
+- (3) Prepare metadata files
+- (4) Run reduction scripts
+
 
 ### Calibration files
 If you would like to use calibration files from other nights, 
 - Update list of calibration files if using: `utils/find_all_calib_files.py`.
 
-### Prepare config file
+### Prepare `config.py` file
 - Edit `reduction_scripts/configBlue.py` and `reduction_scripts/configRed.py`. It is best to rename these files so they are unique and don't get overwritten when you do `git pull`.
 
 - [Is this true?] config file: everything you need to set. You don't have to set anything in generate metadata or reduction script anymore.
