@@ -13,6 +13,18 @@ If you would like to use calibration files from other nights,
 ### Prepare `config.py` file
 - Edit `reduction_scripts/configBlue.py` and `reduction_scripts/configRed.py`. It is best to rename these files so they are unique and don't get overwritten when you do `git pull`.
 
+- `input_root`: folder where nightly folders are stored with raw data.
+- `output_root`: where to save reductions with nightly data.
+- `prefix`: [default: None][optional] Save to folders with this prefix.
+- `calmin`: [default: 3]. Number of each of the calibration frames.
+- `coadd_images`: [default: True]. Co-add images of the same object. # If false, then separate them in the metadata file. Take care with arcs.
+- `multithread`: [default: False]. Does this work?
+- `skip_done`: [default: True]. Skip reduction steps that were already done previously.
+- `excluderun_filename`: [default: None] = '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'. # Run numbers of bad files that you don't want to include in the reduction
+- `badcalib_filename`: [default: None] = '/data/mash/marusa/2m3data/wifes/list_of_high_biases_pay_attention.dat' # None. # List of bad calibration files
+- `object_list_filename`: [default: None] = '/data/mash/marusa/2m3data/wifes/reduce_these_objects.dat'. Object list: reduce only these objects
+- `object_list`: [default: None] = ['RZ Mic']. reduce only these objects
+
 - [Is this true?] config file: everything you need to set. You don't have to set anything in generate metadata or reduction script anymore.
 
 ### Prepare metadata
@@ -51,6 +63,11 @@ There is a lot of data. `python utils/clean.py /data/mash/marusa/2m3reduced/wife
 
 ### Notes
 `config.py`, `generate_metadata_script_marusa.py` and `reduce_red_data_python3.py` are customized files used to reduce young stars on `mash`.
+
+### Advanced
+`step: cube_gen` (`suffix: '08'`): `dw_set`, `wmin_set` and `wmax_set` are now set in the `reduce_stellar.py`, based on the band (Blue/Red).
+
+
 
 # TODO [review this]
 - `files.fits`: Marusa: Add a column `Program` (young stars), Adam (tellurics, spphot, standard, TESS), the rest is 'Other/...'
