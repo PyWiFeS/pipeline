@@ -6,7 +6,7 @@ Data reduction steps:
 - (4) Run reduction scripts
 
 
-### Calibration files
+### Data Calibration files (bias, flat, dark)
 If you would like to use calibration files from other nights, 
 - Update list of calibration files if using: `utils/find_all_calib_files.py`.
 
@@ -38,6 +38,9 @@ If you need to specify the nights with calibration files, use `python generate_m
 
 - Check metadata file.
 - Rename metadata file. (?)
+
+# Flux and telluric calibration files
+Check if they are on the list. If not, add them, and provide Hubble files.
 
 ### Reduce data
 - Run `python reduce_marusa.py configBlue.py 20190321` in `reduction_scripts`.
