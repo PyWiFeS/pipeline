@@ -1,9 +1,18 @@
 # List of all bad exposures that shouldn't be included in the reduction process
+190114 299
+190114 300
+190114 301
 190115 384
 190115 385
 190115 386
 190115 387
 190115 388
+190219 9
+190219 10
+190219 29
+190219 75
+190225 17
+190302 17
 190317 5
 190317 15
 190320 6
@@ -64,6 +73,13 @@
 191019 125
 191017 18
 191017 29
+
+# Cloudy: noisy spectra
+20190115 409
+
+
+# Saturated tellurics
+
 
 # Bad flats (Red) (based on pywifes_utils.flats_stats()
 20190731 0126

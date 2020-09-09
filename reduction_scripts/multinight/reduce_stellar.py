@@ -1,10 +1,5 @@
 #! /usr/bin/env python
 
-"""
-Example:
-python reduce_red_data_python3.py config.py /priv/mulga1/marusa/2m3data/20190302
-"""
-
 import sys
 import os
 import pickle
@@ -15,10 +10,6 @@ import datetime
 import warnings
 import numpy as np
 import imp
-#~ from importlib import reload
-
-#~ import calibration_filenames_date as cal
-#~ cal=cal.result
 
 #------------------------------------------------------------------------
 start_time = datetime.datetime.now()
@@ -28,11 +19,6 @@ start_time = datetime.datetime.now()
 config_name=sys.argv[1]
 config = imp.load_source(config_name.replace('.py', ''), config_name)
 reload(config)
-#~ metadata=config.reduce_metadata # Need this for the flux calibration
-
-# This is not so simple as output folder is not the same
-# What is this?
-#absolute_paths=True
 
 prefix=config.prefix
 
@@ -41,23 +27,15 @@ obsdate = sys.argv[2]
 # Input folder with raw data
 data_dir = os.path.join(config.input_root, obsdate) #sys.argv[2]
 
-
 # Output folder (should already exist and metadata should be there)
 
 ###### OUTPUT FOLDER ################
-# Get obsdate
-#~ path = sys.argv[2]
-#~ obsdate = path.split('/')[-1]
-#~ if len(obsdate)<2: # in case path ends with /
-    #~ obsdate = path.split('/')[-2] # Hope that works
 print('OBSDATE', obsdate)
 
 root_obsdate = os.path.join(config.output_root, '%s'%obsdate)
 
 # Create folder with date
 root_bool = os.path.isdir(root_obsdate) and os.path.exists(root_obsdate)
-print 'ROOT_BOOL', root_obsdate, os.path.isdir(root_obsdate), os.path.exists(root_obsdate)
-print 'TEST', os.path.isdir('/data/mash/marusa/reduction_wifes/pipeline/reduction_scripts/'), os.path.exists('/data/mash/marusa/reduction_wifes/pipeline/reduction_scripts/')
 if not root_bool:
     os.mkdir(root_obsdate)
 print('root_obsdate', root_obsdate)
@@ -73,23 +51,6 @@ if not out_dir_bool:
     os.mkdir(out_dir)
 print('out_dir', out_dir)
 ######################################
-
-#~ path = sys.argv[2]
-#~ obsdate = path.split('/')[-1]
-#~ if len(obsdate)<1:
-    #~ obsdate = path.split('/')[-2]
-#~ print('OBSDATE', obsdate)
-#~ if prefix is not None and len(prefix)>0:
-    #~ out_dir = os.path.join(config.output_root, '%s/reduced_r_%s'%(obsdate, prefix))
-#~ else:
-    #~ out_dir = os.path.join(config.output_root, '%s/reduced_r'%obsdate)
-#~ print config.output_root, obsdate, prefix
-#~ out_dir_bool = os.path.isdir(out_dir) and os.path.exists(out_dir)
-#~ print('Trying to create', out_dir)
-#~ if not out_dir_bool:
-    #~ os.mkdir(out_dir)
-    #~ print('DIR %s CREATED.'%out_dir)
-#~ print('out_dir', out_dir)
 
 if config.band == 'r':
     calib_prefix = os.path.join(out_dir,'wifesR')
@@ -107,7 +68,7 @@ else:
         metadata_filename=os.path.join(out_dir, 'metadata_WiFeSRed.py')
     elif config.band == 'b':
         metadata_filename=os.path.join(out_dir, 'metadata_WiFeSBlue.py')
-print('metadata_filename', metadata_filename, config.metadata_filename)
+#~ print('metadata_filename', metadata_filename, config.metadata_filename)
 obs_metadata = imp.load_source('obs_metadata', metadata_filename).night_data
 #~ mode = imp.load_source('obs_metadata', metadata_filename).mode
 
@@ -911,14 +872,14 @@ for step in proc_steps:
         std_obs_list = get_primary_std_obs_list(obs_metadata, 'telluric')
         if len(std_obs_list)<1:
             step_run=False
-            print('WARNING: No telluric standards found. Not doing telluric correction.')
+            print('WARNING: No telluric standards found. Not doing telluric correction. step_run=', step_run)
     
     # Skip this step if there are no standards available
     if step_run and step_name == 'flux_calib':
         std_obs_list = get_primary_std_obs_list(obs_metadata)
         if len(std_obs_list)<1:
             step_run=False
-            print('WARNING: No flux standards found. Not doing flux correction.')
+            print('WARNING: No flux standards found. Not doing flux correction. step_run=', step_run)
     
     
     if step_run:

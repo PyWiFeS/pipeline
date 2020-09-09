@@ -254,6 +254,7 @@ def lacos_wifes_oneproc(inimg, outimg,
     else:
         nslits = 25
     # open and operate on data
+    print('MZ', 'LACOSMIC', inimg)
     f = pyfits.open(inimg)
     outfits = pyfits.HDUList(f)
     for i in range(nslits):

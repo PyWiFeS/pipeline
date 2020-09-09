@@ -1,64 +1,39 @@
-"""
-Parameters for data reduction of the WiFeS data.
-
-Processing steps:
-(1) Edit this file.
-(2) Generate metadata.
-(3) Run reduction.
-(4) Process stellar.
-(5) Cleanup.
-"""
-
 import os
 import sys
-import numpy as np
 
-#------------------------------------------------------------------------
-#------------------------------------------------------------------------
+#************************************************************************
+#************************************************************************
+#*****                         DATA                                 *****
+#************************************************************************
+#************************************************************************
+
+# Input root: folder where nightly folders are stored
 input_root = '/data/mash/marusa/2m3data/wifes/'
-#input_root = "/priv/mulga2/arains/ys/wifes/raw/"
-# root needed only for output
-#output_root = "/priv/mulga2/arains/ys/wifes/reduced/"
+
+# Output root: where to save nightly data
 output_root = '/data/mash/marusa/2m3reduced/wifes/'
 
-# Do you want to reduce only specific objects? Names must match those in the fits file headers (OBJNAME).
-objectnames=None
-exclude_objectnames=['PDS 70', 'TW Hya']
-
-# Run numbers of bad files that you don't want to include in the reduction
-excluderun_filename = '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'
-
-
-# Do you want to reduce only images with specific binning?
-ccdsum=None #'1 1' # '1 2' # binning; False or None
-naxis2=None #2056 # False # 2056 for PDS 70
-
 # Save to folders with this prefix
-prefix=None#'ys'
-
-# This thing with metadata_filename is actually not used yet.
-if prefix is not None and len(prefix)>0:
-    metadata_filename='%s_metadata'%prefix
-else:
-    metadata_filename='metadata'
+prefix=None
 
 # Minimal number of each of the calibration frames. Default is 3.
 calmin = 3
 
-#------------------------------------------------------------------------
+# Object list: reduce only these objects
+object_list_filename = '/data/mash/marusa/2m3data/wifes/reduce_these_objects.dat'
+object_list = ['RZ Mic']
 
-generate_metadata={'prefix': prefix,
-                    'CCDSUM': ccdsum,
-                    'objectnames': objectnames,
-                    'exclude_objectnames': exclude_objectnames,
-                    'metadata_filename': metadata_filename,
-                    'output_root': output_root,
-                    }
+# Run numbers of bad files that you don't want to include in the reduction
+excluderun_filename = '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'
 
-#------------------------------------------------------------------------
-#------------------------------------------------------------------------
+# List of bad calibration files
+badcalib_filename = '/data/mash/marusa/2m3data/wifes/list_of_high_biases_pay_attention.dat' # None
+
+
+#************************************************************************
 #************************************************************************
 #*****                USER REDUCTION DESIGN IS SET HERE             *****
+#************************************************************************
 #************************************************************************
 
 band = 'r' # RedBand

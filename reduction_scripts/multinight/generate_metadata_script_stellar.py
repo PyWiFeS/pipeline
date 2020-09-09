@@ -26,29 +26,34 @@ print('################### %s ###########################'%obsdate)
 print('########################################################')
 print('########################################################')
 
+
+# Config file (should be in the output folder)
+config = imp.load_source('config', sys.argv[1])
+
 # Calibration files in case some are missing for this night: this is a file containing a dictionary with filenames
-sys.path.insert(1, '/data/mash/marusa/2m3data/wifes/')
+sys.path.insert(1, '/data/mash/marusa/2m3data/wifes/') # TODO: THIS SHOULDN'T BE LIKE THIS!!
 import calibration_all_filenames as cal
 cal=cal.result
 
 # Some nights have unusually high bias levels. Print a warning if reducing such a night.
 # Also, be careful if including calibrations from such a night!
-badcalib = np.loadtxt('/data/mash/marusa/2m3data/wifes/list_of_high_biases_pay_attention.dat', comments='#', dtype=int)
-badcalib_obsdates = set(badcalib[:,0])
-if int(obsdate) in badcalib_obsdates:
-    print('WARNING WARNING WARNING: Biases in this night have unusually high values!')
+try:
+    if config.badcalib_filename is not None:
+        badcalib = np.loadtxt(config.badcalib_filename, comments='#', dtype=int)
+        badcalib_obsdates = set(badcalib[:,0])
+        if int(obsdate) in badcalib_obsdates:
+            print('WARNING WARNING WARNING: Biases in this night have unusually high values!')
+except:
+    pass
 
 # List of standard stars
 stdstar_list = wifes_calib.ref_fname_lookup.keys()
 stdstar_is_flux_cal = wifes_calib.ref_flux_lookup
 stdstar_is_telluric = wifes_calib.ref_telluric_lookup
 
-# Config file (should be in the output folder)
-config = imp.load_source('config', sys.argv[1])
-metadata=config.generate_metadata
 
 # Input folder with raw data
-data_dir = os.path.join(config.input_root, obsdate) #sys.argv[2]
+data_dir = os.path.join(config.input_root, obsdate)
 
 print('#'+54*'-')
 print('data_dir', data_dir)
@@ -65,7 +70,7 @@ print('root_obsdate', root_obsdate)
 # Add band (grating) to the output folder name
 out_dir = os.path.join(root_obsdate, 'reduced_%s'%config.band)
 
-prefix=metadata['prefix']
+prefix=config.prefix
 
 if prefix is not None and len(prefix)>0:
     print('prefix', prefix)
@@ -76,7 +81,7 @@ if not out_dir_bool:
 print('out_dir', out_dir)
 
 print('#'+54*'-')
-print('prefix: %s'%metadata['prefix'])
+print('prefix: %s'%prefix)
 print('#'+54*'-')
 
 # Get list of all fits files in directory
@@ -84,6 +89,54 @@ print('#'+54*'-')
 all_files = os.listdir(data_dir)
 all_files = [os.path.join(data_dir, x) for x in all_files if x.endswith('.fits') and 'T2m3ag' not in x and 'T2m3Ec'.lower() not in x.lower()]
 
+
+def take_only_specific_objects(object_list, all_files):
+    """
+    If you have a folder with many different objects but want to reduce only a few specific
+    stars, then specify them in the object_list
+    
+    Return:
+    all_files without science frames that are not needed here
+    
+    """
+    
+    all_files2=[]
+    for fn in all_files:
+        try:
+            header = pyfits.getheader(fn, 0)
+        except:
+            print('Cant open file', fn)
+            continue
+        try:
+            objectname=header['OBJNAME']
+            if objectname.replace(' ', '') not in object_list:
+                continue
+            else:
+                all_files2.append(fn)
+        except: # calibration files
+            all_files2.append(fn)
+    
+    print('all_files, all_files2', len(all_files), len(all_files2))
+    return all_files2
+
+
+
+try:
+    object_list = np.loadtxt(config.object_list_filename)
+    print('Object list read from', config.object_list_filename)
+    object_list = [x.replace(' ', '') for x in object_list]
+    all_files = take_only_specific_objects(object_list, all_files)
+    print('Taken only selected objectnames.')
+except:
+    try:
+        object_list = config.object_list
+        object_list = [x.replace(' ', '') for x in object_list]
+        all_files = take_only_specific_objects(object_list, all_files)
+        print('Taken only selected objectnames.')
+    except:
+        object_list=None
+
+print('object_list', object_list)
 print('ALLFILES ', len(all_files))
 
 print('Excluding bad frames...')
@@ -108,6 +161,9 @@ for opt, arg in opts:
     
 print 'SELECTED_CAL_DATES', selected_cal_dates
 ###################################################
+
+
+
 
 
 def classify_files_into_modes():
@@ -197,6 +253,7 @@ def classify_frames_into_imagetypes(frames=None):
         fn = os.path.join(data_dir, obs+'.fits')
         header = pyfits.getheader(fn, 0)
         
+        
         try:
             obj_name = header['OBJNAME'].replace(' ', '')
         except:
@@ -208,6 +265,8 @@ def classify_frames_into_imagetypes(frames=None):
         run = header['RUN']
         imagetype = header['IMAGETYP'].upper()
         exptime = header['EXPTIME']
+        
+        print(fn, imagetype, obj_name)
 
 
         
@@ -475,8 +534,87 @@ def propose_missing_calib_files(mode=None, calstat=None):
                 else:
                     print('*** (case2) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
 
+def include_missing_calib_files(mode=None, calstat=None, camera=None):
+    """
+    calstat: stats on calibrations: calstat[imagetype]=False/len(images)
+    Include just the correct name. The path to the files is reconstructed in the reduction code from the date in the filename.
+    """
+    result={}
 
-     
+    keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
+    
+    mode_dark_zero = tuple([mode[x] for x in keyword_indices])
+
+
+    # What calib files are missing?
+    for imagetype, status in calstat.iteritems():
+        if imagetype.upper() not in ['DARK', 'ZERO', 'BIAS']:
+            c=cal[mode]
+        else:
+            c=cal[mode_dark_zero]
+                
+        if imagetype not in selected_cal_dates:
+            continue
+        else:
+            if imagetype not in ['BIAS', 'ZERO']:
+                date_wanted = selected_cal_dates[imagetype] # check BIAS-ZERO
+            else:
+                try:
+                    date_wanted = selected_cal_dates['ZERO'] # check BIAS-ZERO
+                except:
+                    date_wanted = selected_cal_dates['BIAS'] # check BIAS-ZERO
+            
+        if status: # Calibration files available, so don't do anything. BUT: Set lower limit on number of calib files needed.
+            if len(status)<3:
+                missing=True
+                TODO=True
+        
+        else: # Missing. Find them. What if c==None?
+            try:
+                dates=c[imagetype] # dates available for this particular imagetype
+                filenames = dates[date_wanted]
+                
+                # Take only a selected band (blue or red)
+                if camera=='WiFeSRed':
+                    filenames = [x for x in filenames if 'T2m3wr' in x]
+                elif camera=='WiFeSBlue':
+                    filenames = [x for x in filenames if 'T2m3wb' in x]
+                
+                # Delete path. It is added later in the reduction code
+                filenames = [x.split('/')[-1].replace('.fits', '') for x in filenames]
+                
+                print('Adding %d %s images:'%(len(filenames), imagetype))
+                result[imagetype]=filenames
+                for x in filenames:
+                    print(x)
+                print()
+            except:
+                if imagetype=='BIAS': # zero instead of bias
+                    try:
+                        dates=c['ZERO'] # dates available for this particular imagetype
+                        filenames = dates[date_wanted]
+
+                        # Take only a selected band (blue or red)
+                        if camera=='WiFeSRed':
+                            filenames = [x for x in filenames if 'T2m3wr' in x]
+                        elif camera=='WiFeSBlue':
+                            filenames = [x for x in filenames if 'T2m3wb' in x]
+
+                        filenames = [x.split('/')[-1].replace('.fits', '') for x in filenames]
+
+                        print('Adding %d %s images:'%(len(filenames), imagetype))
+                        result[imagetype]=filenames
+                        for x in filenames:
+                            print(x)
+                        print()
+                    except:
+                        print('*** (include case1) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
+
+                else:
+                    print('*** (include case2) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)    
+
+    return result
+ 
 def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=None, arc=None, arcs_per_star=None, wire=None, camera=None, std_obs=None, nmode=0, kmode=None, number_of_modes=0):
     if len(science)>0:
         pass
@@ -634,88 +772,7 @@ def write_metadata(science=None, bias=None, domeflat=None, twiflat=None, dark=No
     print('########################################################')
     return True
 
-
-def include_missing_calib_files(mode=None, calstat=None, camera=None):
-    """
-    calstat: stats on calibrations: calstat[imagetype]=False/len(images)
-    Include just the correct name. The path to the files is reconstructed in the reduction code from the date in the filename.
-    """
-    result={}
-
-    keyword_indices = [keywords.index(x) for x in keywords_dark_zero]
-    
-    mode_dark_zero = tuple([mode[x] for x in keyword_indices])
-
-
-    # What calib files are missing?
-    for imagetype, status in calstat.iteritems():
-        if imagetype.upper() not in ['DARK', 'ZERO', 'BIAS']:
-            c=cal[mode]
-        else:
-            c=cal[mode_dark_zero]
-                
-        if imagetype not in selected_cal_dates:
-            continue
-        else:
-            if imagetype not in ['BIAS', 'ZERO']:
-                date_wanted = selected_cal_dates[imagetype] # check BIAS-ZERO
-            else:
-                try:
-                    date_wanted = selected_cal_dates['ZERO'] # check BIAS-ZERO
-                except:
-                    date_wanted = selected_cal_dates['BIAS'] # check BIAS-ZERO
-            
-        if status: # Calibration files available, so don't do anything. BUT: Set lower limit on number of calib files needed.
-            if len(status)<3:
-                missing=True
-                TODO=True
-        
-        else: # Missing. Find them. What if c==None?
-            try:
-                dates=c[imagetype] # dates available for this particular imagetype
-                filenames = dates[date_wanted]
-                
-                # Take only a selected band (blue or red)
-                if camera=='WiFeSRed':
-                    filenames = [x for x in filenames if 'T2m3wr' in x]
-                elif camera=='WiFeSBlue':
-                    filenames = [x for x in filenames if 'T2m3wb' in x]
-                
-                # Delete path. It is added later in the reduction code
-                filenames = [x.split('/')[-1].replace('.fits', '') for x in filenames]
-                
-                print('Adding %d %s images:'%(len(filenames), imagetype))
-                result[imagetype]=filenames
-                for x in filenames:
-                    print(x)
-                print()
-            except:
-                if imagetype=='BIAS': # zero instead of bias
-                    try:
-                        dates=c['ZERO'] # dates available for this particular imagetype
-                        filenames = dates[date_wanted]
-
-                        # Take only a selected band (blue or red)
-                        if camera=='WiFeSRed':
-                            filenames = [x for x in filenames if 'T2m3wr' in x]
-                        elif camera=='WiFeSBlue':
-                            filenames = [x for x in filenames if 'T2m3wb' in x]
-
-                        filenames = [x.split('/')[-1].replace('.fits', '') for x in filenames]
-
-                        print('Adding %d %s images:'%(len(filenames), imagetype))
-                        result[imagetype]=filenames
-                        for x in filenames:
-                            print(x)
-                        print()
-                    except:
-                        print('*** (include case1) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)
-
-                else:
-                    print('*** (include case2) NO %s AVAILABLE FOR THIS MODE!!!'%imagetype)    
-
-    return result
-    
+   
 if __name__ == '__main__':
     # Data might be taken with different settings (modes)
     # 'modes' is a dictionary with modes as keys and filenames as values
@@ -729,7 +786,9 @@ if __name__ == '__main__':
         indices = list(np.argsort(lens))
         keys = [keys[index] for index in indices]
         keys=keys[::-1] # reverse order
-    
+    if len(modes)<1:
+        print('NO MODES FOUND! check your data')
+
     # Prepare metadata file for each mode    
     M=len(modes)
     m=0
@@ -737,7 +796,13 @@ if __name__ == '__main__':
     for mode in keys:
         filenames = modes[mode]
         # Classify filenames into blue/red
+        print('CLASSIFY'), mode
         blue_obs, red_obs, obs_date = classify_filenames(filenames)
+        print
+        print
+        print
+        print
+        print
     
         # Classify filenames into imagetypes
         if config.band == 'r':
@@ -765,28 +830,32 @@ if __name__ == '__main__':
                 print(k)
             print('#'+54*'-')
         else:
+            print('No science data found', mode)
             continue # Just ignore modes with no science data
         
         # Availability of calibration files
         calstat = test_if_all_essential_files_are_available(camera=camera, science=science, arcs=arc, dark=dark, bias=bias, flat_dome=domeflat, flat_twi=twiflat, std_obs=stdstar, wire=wire)
 
-        # If calibration files are missing, find them in other nights          
-        propose_missing_calib_files(mode=mode, calstat=calstat)
-        
-        # Update array with missing data. Only include correct filenames (data is not copied here!)
-        missing_cal = include_missing_calib_files(mode=mode, calstat=calstat, camera=camera)
-        for imagetype, filenames in missing_cal.iteritems():
-            if imagetype=='BIAS':
-                bias=filenames
-                print('new biases'), bias
-            elif imagetype=='DARK':
-                dark=filenames
-                print('new darks'), dark
-            elif imagetype=='FLAT':
-                domeflat=filenames
-                print('new flats'), domeflat
-            else:
-                print("Update missing data: We've got a problem here.", imagetype)
+        try:
+            # If calibration files are missing, find them in other nights          
+            propose_missing_calib_files(mode=mode, calstat=calstat)
+            
+            # Update array with missing data. Only include correct filenames (data is not copied here!)
+            missing_cal = include_missing_calib_files(mode=mode, calstat=calstat, camera=camera)
+            for imagetype, filenames in missing_cal.iteritems():
+                if imagetype=='BIAS':
+                    bias=filenames
+                    print('new biases'), bias
+                elif imagetype=='DARK':
+                    dark=filenames
+                    print('new darks'), dark
+                elif imagetype=='FLAT':
+                    domeflat=filenames
+                    print('new flats'), domeflat
+                else:
+                    print("Update missing data: We've got a problem here.", imagetype)
+        except:
+            print('There is no additional calibration data available for this mode.')
         
         
         # SORT filenames

@@ -1564,7 +1564,7 @@ def derive_wifes_optical_wave_solution(inimg,
   # *** Mike's edits: operate on PyWiFeS MEF files ***
   #------------------------------------------------------
   # step 1 - gather metadata from header
-  f = pyfits.open(inimg)
+  f = pyfits.open(inimg, ignore_missing_end=True) # MZ: added ignore_missing_end=True, but this is supposed to work only for python 2 but not 3.
   camera = f[1].header['CAMERA']
   if camera == 'WiFeSRed':
       grating = f[1].header['GRATINGR']
