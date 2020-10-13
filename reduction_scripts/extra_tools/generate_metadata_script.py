@@ -12,6 +12,10 @@ try:
     data_dir = os.path.abspath(sys.argv[1])+'/'
 except:
     data_dir = os.getcwd()+'/'
+try:
+    naxis2_use = int(sys.argv[2])
+except:
+    naxis2_use = 0
 
 # get list of all fits files in directory
 all_files = os.listdir(data_dir)
@@ -31,9 +35,13 @@ for fn in all_files:
     try:
         f = pyfits.open(data_dir+fn)
         camera = f[0].header['CAMERA']
+        naxis2 = f[0].header['NAXIS2']
         f.close()
     except:
         continue
+    if naxis2_use!=0:
+        if naxis2 != naxis2_use:
+            continue
     if camera == 'WiFeSBlue':
         if obs in blue_obs:
             continue
