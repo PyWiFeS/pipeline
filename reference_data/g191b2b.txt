@@ -1,6 +1,6 @@
-g191b2b_stis_nic_003.ascii CALSPEC Feb2010
-CALSPEC Feb2010
-3698
+#g191b2b_stis_nic_003.ascii CALSPEC Feb2010
+#CALSPEC Feb2010
+#3698
        1140.10   1.85413e-11
        1141.10   1.89142e-11
        1142.10   1.87691e-11

@@ -1,6 +1,6 @@
-GD71_stisnic_003.ascii  CALSPEC Feb2010
-CALSPEC Feb2010
-4104
+#GD71_stisnic_003.ascii  CALSPEC Feb2010
+#CALSPEC Feb2010
+#4104
        1140.33   3.97790e-12
        1140.92   3.87670e-12
        1141.50   3.83060e-12
