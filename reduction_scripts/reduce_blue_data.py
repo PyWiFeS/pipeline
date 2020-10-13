@@ -64,7 +64,7 @@ proc_steps = [
     {'step':'slitlet_profile', 'run':True, 'suffix':None, 'args':{}},
     #------------------
     {'step':'flat_cleanup'   , 'run':True, 'suffix':None,
-     'args':{'type':['dome','twi'],  # ADD TWI
+#     'args':{'type':['dome','twi'],  # ADD TWI for twilight flats
      'args':{'type':['dome'], 
              'verbose':True, 
              'plot':False,
