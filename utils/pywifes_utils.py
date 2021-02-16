@@ -78,9 +78,13 @@ def extract_stellar_spectra_ascii(root, night, steps = ["08", "09", "10"]):
 def extract_stellar_spectra_fits_all(
     root, 
     night, 
+    subfolder="reduced_*",
     steps=["08", "09", "10"],
     npix=7,
-    manual_click=False):
+    manual_click=False,
+    out_dir=None,
+    do_median_subtraction=False,
+    min_slit_i=5):
     """Make a fits data cube of the reduced and extracted stellar spectra, with
     a different HDU for each data reduction step. Store this new cube in a 
     folder called 'extracted_1D_cubes' in the night folder. By default:
@@ -95,6 +99,8 @@ def extract_stellar_spectra_fits_all(
         stored.)
     night: string
         The night to extract spectra from (in the form 201XYYZZ).
+    subfolder: string or None, default:'reduced_*'
+
     steps: list of strings
         The PyWiFeS data reduction steps to extract and convert to 1D spectra.
     npix: int
@@ -102,10 +108,26 @@ def extract_stellar_spectra_fits_all(
     manual_click: bool, default: True
         Whether to ask for user input during extraction
     """
+    # Figure out where to grab files from
+    night_folder = data_dir = os.path.join(root, night)
+
+    if subfolder is not None:
+        data_dir = os.path.join(night_folder, subfolder)
+    else:
+        data_dir = night_folder
+
+    # Sort out output directory
+    if out_dir is None:
+        out_dir = os.path.join(night_folder, 'extracted_fits_1d')
+    
+    if not os.path.isdir(out_dir) and not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+
     # Get a list of the of the reduced files. Assume files have the naming
-    # convention T2m3w[r/b]-20190828.104313-0031.p08.fits' where [r/b] will be
+    # convention T2m3w[r/b]-YYYYMMDD.hhmmss-NNNN.pXX.fits' where [r/b] will be
     # a single character indicating the arm of WiFeS used.
     unique_obs = glob.glob(os.path.join(data_dir, "*%s.fits" % steps[0]))
+    unique_obs.sort()
 
     # Generalise by removing the suffixes
     unique_obs = [ob.replace(".p%s.fits" % steps[0], "") for ob in unique_obs]
@@ -116,20 +138,22 @@ def extract_stellar_spectra_fits_all(
     for ob in unique_obs:
         extract_stellar_spectra_fits(
             ob,
-            root, 
             night, 
-            steps=["08", "09", "10"],
+            steps=steps,
             npix=npix,
-            manual_click=manual_click)
+            manual_click=manual_click,
+            out_dir=out_dir,
+            do_median_subtraction=do_median_subtraction,)
 
 def extract_stellar_spectra_fits(
     ob,
-    root, 
     night, 
     steps=["08", "09", "10"],
     npix=7,
     manual_click=False,
-    out_dir=None,):
+    out_dir=None,
+    do_median_subtraction=False,
+    min_slit_i=5,):
     """Make a fits data cube of the reduced and extracted stellar spectra, with
     a different HDU for each data reduction step. Store this new cube in a 
     folder called 'extracted_1D_cubes' in the night folder. By default:
@@ -141,11 +165,8 @@ def extract_stellar_spectra_fits(
     -----------
     ob: string
         Unique part of the fits filename (i.e. excluding .pXX.fits)
-    root: string
-        The base path to the reduced data (i.e. where the nightly folders are
-        stored.)
     night: string
-        The night to extract spectra from (in the form 201XYYZZ).
+        The night to extract spectra from (in the form YYYYMMDD).
     steps: list of strings
         The PyWiFeS data reduction steps to extract and convert to 1D spectra.
     npix: int
@@ -155,15 +176,6 @@ def extract_stellar_spectra_fits(
     out_dir: str or None, default None
         Overriden output directory
     """
-    # Sort out directory structures
-    data_dir = os.path.join(root, night, "reduced_*")
-
-    if out_dir is None:
-        out_dir = os.path.join(data_dir, 'extracted_fits_1d')
-    
-    if not os.path.isdir(out_dir) and not os.path.exists(out_dir):
-        os.mkdir(out_dir)
-
     # Get the list of fits files to extract 1D spectra from
     fits_files = [ob + ".p%s.fits" % step for step in steps]
 
@@ -171,6 +183,15 @@ def extract_stellar_spectra_fits(
     header = fits.getheader(fits_files[0])
 
     obj_id = header['OBJNAME'].replace(" ","")
+
+    if "T2m3wb" in ob:
+        arm = "b"
+    elif "T2m3wr" in ob:
+        arm = "r"
+    else:
+        arm = ""
+
+    fig_fn = os.path.join(out_dir, "extracted_region_{}_{}.pdf".format(arm, obj_id))
 
     # Construct a new fits file
     hdus = []
@@ -184,7 +205,12 @@ def extract_stellar_spectra_fits(
         flux, wave = ps.read_and_find_star_p08(
             fits_file,
             npix=npix,
-            manual_click=manual_click)
+            manual_click=manual_click,
+            fig_fn=fig_fn,
+            fig_title=obj_id,
+            do_median_subtraction=do_median_subtraction,
+            arm=arm,
+            min_slit_i=min_slit_i,)
         spectrum, sig = ps.weighted_extract_spectrum(flux)
 
         # Make fits table from numpy record array
