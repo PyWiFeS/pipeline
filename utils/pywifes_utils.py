@@ -109,7 +109,7 @@ def extract_stellar_spectra_fits_all(
         Whether to ask for user input during extraction
     """
     # Figure out where to grab files from
-    night_folder = data_dir = os.path.join(root, night)
+    night_folder = os.path.join(root, night)
 
     if subfolder is not None:
         data_dir = os.path.join(night_folder, subfolder)
@@ -126,7 +126,7 @@ def extract_stellar_spectra_fits_all(
     # Get a list of the of the reduced files. Assume files have the naming
     # convention T2m3w[r/b]-YYYYMMDD.hhmmss-NNNN.pXX.fits' where [r/b] will be
     # a single character indicating the arm of WiFeS used.
-    unique_obs = glob.glob(os.path.join(data_dir, "*%s.fits" % steps[0]))
+    unique_obs = glob.glob(os.path.join(data_dir, "*.p%s.fits" % steps[0]))
     unique_obs.sort()
 
     # Generalise by removing the suffixes
