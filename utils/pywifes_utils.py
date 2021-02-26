@@ -84,7 +84,8 @@ def extract_stellar_spectra_fits_all(
     manual_click=False,
     out_dir=None,
     do_median_subtraction=False,
-    min_slit_i=5):
+    min_slit_i=0,
+    take_uncertainties_from_p08=True,):
     """Make a fits data cube of the reduced and extracted stellar spectra, with
     a different HDU for each data reduction step. Store this new cube in a 
     folder called 'extracted_1D_cubes' in the night folder. By default:
@@ -107,6 +108,14 @@ def extract_stellar_spectra_fits_all(
         Number of pixels to extract for aperture photometry
     manual_click: bool, default: True
         Whether to ask for user input during extraction
+    do_median_subtraction: bool, default: False
+        Whether to do median subtraction on process_stellar plots.
+    min_slit_i: int, default: 0
+        process_stellar plotting parameter.
+    take_uncertainties_from_p08: boolean, default: True
+        Whether to take uncertainties from p08 spectra (propagated as 
+        fractional uncertainty), which is in counts and suited to 
+        process_stellar extraction.
     """
     # Figure out where to grab files from
     night_folder = os.path.join(root, night)
@@ -143,7 +152,9 @@ def extract_stellar_spectra_fits_all(
             npix=npix,
             manual_click=manual_click,
             out_dir=out_dir,
-            do_median_subtraction=do_median_subtraction,)
+            do_median_subtraction=do_median_subtraction,
+            min_slit_i=min_slit_i,
+            take_uncertainties_from_p08=take_uncertainties_from_p08,)
 
 def extract_stellar_spectra_fits(
     ob,
@@ -153,7 +164,8 @@ def extract_stellar_spectra_fits(
     manual_click=False,
     out_dir=None,
     do_median_subtraction=False,
-    min_slit_i=5,):
+    min_slit_i=0,
+    take_uncertainties_from_p08=True,):
     """Make a fits data cube of the reduced and extracted stellar spectra, with
     a different HDU for each data reduction step. Store this new cube in a 
     folder called 'extracted_1D_cubes' in the night folder. By default:
@@ -175,6 +187,14 @@ def extract_stellar_spectra_fits(
         Whether to ask for user input during extraction
     out_dir: str or None, default None
         Overriden output directory
+    do_median_subtraction: bool, default: False
+        Whether to do median subtraction on process_stellar plots.
+    min_slit_i: int, default: 0
+        process_stellar plotting parameter.
+    take_uncertainties_from_p08: boolean, default: True
+        Whether to take uncertainties from p08 spectra (propagated as 
+        fractional uncertainty), which is in counts and suited to 
+        process_stellar extraction.
     """
     # Get the list of fits files to extract 1D spectra from
     fits_files = [ob + ".p%s.fits" % step for step in steps]
@@ -212,6 +232,17 @@ def extract_stellar_spectra_fits(
             arm=arm,
             min_slit_i=min_slit_i,)
         spectrum, sig = ps.weighted_extract_spectrum(flux)
+
+        # Initialise fractional uncertainty vectors
+        if step == "08":
+            sigma_frac = sig / spectrum
+
+        # Details of extraction do not lend themselves to determining correct
+        # uncertainties from fluxed spectra. As such, the default behaviour is
+        # to propagate the uncertainties from the p08 spectra while it is in
+        # units of counts and Poisson uncertainties make sense.
+        if take_uncertainties_from_p08 and step != "08":
+            sig = spectrum * sigma_frac
 
         # Make fits table from numpy record array
         data = np.array([wave, spectrum, sig]).T.tolist()
