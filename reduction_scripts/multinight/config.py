@@ -1,53 +1,46 @@
-"""
-Parameters for data reduction of the WiFeS data.
+#************************************************************************
+#************************************************************************
+#*****                         DATA                                 *****
+#************************************************************************
+#************************************************************************
 
-Processing steps:
-(1) Edit this file.
-(2) Generate metadata.
-(3) Run reduction.
-(4) Process stellar.
-(5) Cleanup.
-"""
+# Input root: folder where nightly folders are stored
+input_root = '/data/mash/marusa/2m3data/wifes/'
 
-import os
-import sys
-
-#------------------------------------------------------------------------
-#------------------------------------------------------------------------
-# root needed only for output
-output_root = '/priv/mulga1/marusa/2m3reduced/wifes/'
-
-# Do you want to reduce only specific objects? Names must match those in the fits file headers (OBJNAME).
-objectnames=None
-exclude_objectnames=['PDS 70']
-
-# Do you want to reduce only images with specific binning?
-ccdsum=None #'1 1' # '1 2' # binning; False or None
-naxis2=None #2056 # False # 2056 for PDS 70
+# Output root: where to save nightly data
+output_root = '/Users/marusa/observing/23m/testdataoutput/'
 
 # Save to folders with this prefix
-prefix=None#'ys'
+prefix=None
 
+# Minimal number of each of the calibration frames. Default is 3.
+calmin = 3
+
+# Object list: reduce only these objects
+object_list_filename = '/data/mash/marusa/2m3data/wifes/reduce_these_objects.dat'
+object_list = ['RZ Mic']
+
+# Run numbers of bad files that you don't want to include in the reduction
+excluderun_filename = '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'
+
+# List of bad calibration files
+badcalib_filename = '/data/mash/marusa/2m3data/wifes/list_of_high_biases_pay_attention.dat' # None
+
+
+"""
+TODO: Optional metadata filename
+"""
 # This thing with metadata_filename is actually not used yet.
 if prefix is not None and len(prefix)>0:
     metadata_filename='%s_metadata'%prefix
 else:
     metadata_filename='metadata'
 
-#------------------------------------------------------------------------
 
-generate_metadata={'prefix': prefix,
-                    'CCDSUM': ccdsum,
-                    'objectnames': objectnames,
-                    'exclude_objectnames': exclude_objectnames,
-                    'metadata_filename': metadata_filename,
-                    'output_root': output_root,
-                    }
-
-#------------------------------------------------------------------------
-#------------------------------------------------------------------------
+#************************************************************************
 #************************************************************************
 #*****                USER REDUCTION DESIGN IS SET HERE             *****
+#************************************************************************
 #************************************************************************
 
 # Don't show plots. Just save them into diagnostics folder so reduction doesn't need any interaction if not asked for. Verbose.
@@ -91,7 +84,7 @@ proc_steps = [
              'buffer':4,
              'offsets':[0.4,0.4],
              'radius':10.0,
-             'nsig_lim':3.0}},
+             'nsig_lim':5.0}},
     #------------------
     {'step':'superflat_mef'  , 'run':True, 'suffix':None,
      'args':{'source':'dome'}},
@@ -134,25 +127,36 @@ proc_steps = [
              'wmin_set': (5400.0 if band=='r' else 3500.0), 
              'wmax_set': (7000.0 if band=='r' else 5700.0)}},     
     #------------------
-    #~ {'step':'extract_stars'  , 'run':True, 'suffix':None,
-     #~ 'args':{'ytrim':4, 
-             #~ 'type':'flux'}},
-    #~ {'step':'derive_calib'   , 'run':True, 'suffix':None,
-     #~ 'args':{'plot_stars':True,
-             #~ 'plot_sensf':True,
-             #~ 'polydeg':10,
-             #~ 'method':'smooth_SG', # 'poly' or 'smooth_SG'
-             #~ 'boxcar':10, # smoothing for smooth_SG only
-             #~ 'norm_stars':True}},
-    #~ {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}},
+    {'step':'extract_stars'  , 'run':True, 'suffix':None,
+     'args':{'ytrim':4, 
+             'type':'flux'}},
+    {'step':'derive_calib'   , 'run':True, 'suffix':None,
+     'args':{'plot_stars':False,
+             'plot_sensf':False,
+             'polydeg':10, # DIFF
+             'method':'smooth_SG', # 'poly' or 'smooth_SG' # DIFF
+             'boxcar':10, # smoothing for smooth_SG only
+             'norm_stars':True}},
+
+            # BLUE
+             'polydeg':25,
+             'excise_cut' : 0.005,
+             'method':'poly', # 'poly' or 'smooth_SG'
+             'boxcar':10, # smoothing for smooth_SG only
+
+
+
+
+
+    {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}},
     #------------------
-    #~ {'step':'extract_stars'  , 'run':True, 'suffix':None,
-     #~ 'args':{'ytrim':4, 
-             #~ 'type':'telluric'}},
-    #~ {'step':'derive_telluric', 'run':True, 'suffix':None,
-     #~ 'args':{'plot':True}},
-    #~ {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
+    {'step':'extract_stars'  , 'run':True, 'suffix':None,
+     'args':{'ytrim':4, 
+             'type':'telluric'}},
+    {'step':'derive_telluric', 'run':True, 'suffix':None,
+     'args':{'plot':False}},
+    {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
     #------------------
-    #~ {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
+    {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
     #~ #------------------
     ]

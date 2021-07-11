@@ -23,6 +23,7 @@ reload(config)
 prefix=config.prefix
 
 obsdate = sys.argv[2]
+band = sys.argv[3]
 
 # Input folder with raw data
 data_dir = os.path.join(config.input_root, obsdate) #sys.argv[2]
@@ -52,21 +53,45 @@ if not out_dir_bool:
 print('out_dir', out_dir)
 ######################################
 
-if config.band == 'r':
+
+if band== 'r':
     calib_prefix = os.path.join(out_dir,'wifesR')
-elif config.band == 'b':
+elif band== 'b':
     calib_prefix = os.path.join(out_dir,'wifesB')
+
+
+"""
+Set some args in step: 'cube_gen' that are band specific
+"""
+for step in proc_steps:
+    step_name   = step['step']
+    if step_name == 'cube_gen':
+        step_args = step['args']
+        step_args['dw_set'] = (0.44 if band=='r' else 0.77)
+        step_args['wmin_set'] = (5400.0 if band=='r' else 3500.0)
+        step_args['wmax_set'] = (7000.0 if band=='r' else 5700.0)
+        
+        step['args']=step_args
+        proc_steps[step]
+
+print('TEST PROC_STEP CUBE_GEN')
+print(proc_steps)
+
+
+
+
+
 
 # Load metadata
 if prefix is not None and len(prefix)>0:
-    if config.band == 'r':
+    if band== 'r':
         metadata_filename=os.path.join(out_dir, '%s_metadata_WiFeSRed.py'%prefix)
-    elif config.band == 'b':
+    elif band== 'b':
         metadata_filename=os.path.join(out_dir, '%s_metadata_WiFeSBlue.py'%prefix)
 else:
-    if config.band == 'r':
+    if band== 'r':
         metadata_filename=os.path.join(out_dir, 'metadata_WiFeSRed.py')
-    elif config.band == 'b':
+    elif band== 'b':
         metadata_filename=os.path.join(out_dir, 'metadata_WiFeSBlue.py')
 #~ print('metadata_filename', metadata_filename, config.metadata_filename)
 obs_metadata = imp.load_source('obs_metadata', metadata_filename).night_data
@@ -240,10 +265,10 @@ def run_bpm_repair(metadata, prev_suffix, curr_suffix):
         if skip_done and os.path.isfile(out_fn):
             continue
         
-        if config.band == 'r':
+        if band== 'r':
             print('Repairing red bad pixels for %s' % in_fn.split('/')[-1])
             pywifes.repair_red_bad_pix(in_fn, out_fn, data_hdu=my_data_hdu)
-        elif config.band == 'b':
+        elif band== 'b':
             print('Repairing blue bad pixels for %s' % in_fn.split('/')[-1])
             pywifes.repair_blue_bad_pix(in_fn, out_fn, data_hdu=my_data_hdu)
     return
@@ -720,10 +745,10 @@ def run_cube_gen(metadata, prev_suffix, curr_suffix, **args):
                 if ds1>0 and ds2>0:
                     # Alright, I need to interpolate betweent the two arcs
                     # There is a difference between blue and red arm: # MZ
-                    if config.band == 'r':
+                    if band== 'r':
                         w1 = ds2/(ds1+ds2)
                         w2 = ds1/(ds1+ds2)
-                    elif config.band == 'b':
+                    elif band== 'b':
                         w1 = ds1/(ds1+ds2)
                         w2 = ds2/(ds1+ds2)
                      

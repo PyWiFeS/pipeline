@@ -1,6 +1,14 @@
 # pipeline
 The Python data reduction pipeline for WiFeS
 
+### July 2021: How is this code different from the main pyWiFeS repository?
+- Update to python3 and bug fixes (Adam fixed lots of them)
+- We should keep the old structure, and only add a set of scripts to tackle multinight observations:
+-- `reduction_scripts` still contains `reduce_blue_data.py`, `reduce_red_data.py`, `save_blue_metadata.py` and `save_red_metadata.py` just as before. We added `multinight` folder with our multinight scripts.
+
+- Is there still a problem with pickle files?
+
+
 ### For Marusa's scripts to work, don't forget to add these lines (or modifies) in the `.bashrc` file:
 `export PYTHONPATH="/priv/mulga1/marusa/reduction_wifes/pipeline/src/:$PYTHONPATH"
 export PYWIFES_DIR=/priv/mulga1/marusa/reduction_wifes/pipeline/reference_data/
