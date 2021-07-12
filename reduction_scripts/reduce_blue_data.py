@@ -64,7 +64,7 @@ proc_steps = [
     {'step':'slitlet_profile', 'run':True, 'suffix':None, 'args':{}},
     #------------------
     {'step':'flat_cleanup'   , 'run':True, 'suffix':None,
-     'args':{'type':['dome','twi'],  # ADD TWI
+#     'args':{'type':['dome','twi'],  # ADD TWI for twilight flats
      'args':{'type':['dome'], 
              'verbose':True, 
              'plot':False,
@@ -501,8 +501,7 @@ def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
 # Wire solution
 def run_wire_soln(metadata, prev_suffix, curr_suffix):
     # Global wire solution
-    wire_in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (out_dir,
-                                     metadata['wire'][0],
+    wire_in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (metadata['wire'][0],
                                      prev_suffix))
     print('Deriving global wire solution from %s' % wire_in_fn.split('/')[-1])
     pywifes.derive_wifes_wire_solution(wire_in_fn, wire_out_fn)

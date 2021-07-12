@@ -650,14 +650,20 @@ def find_lines_and_guess_refs(slitlet_data,
                               [best_stretch], False, verbose) )
         if multithread :
             cpu = None
+            if verbose :
+                print('  ... assign lambdas using up to %d cpu(s) ...' % multiprocessing.cpu_count())
+            with multiprocessing.Pool(cpu) as mypool:
+                results = mypool.imap_unordered(xcorr_shift_all,jobs)
         else :
-            cpu = 1
-        if verbose :
-            print('  ... assign lambdas using up to %d cpu(s) ...' % multiprocessing.cpu_count())
-        mypool = multiprocessing.Pool(cpu)
-        results = mypool.imap_unordered(xcorr_shift_all,jobs)
-        mypool.close()
-        mypool.join()
+            #Completely avoid using Pool in case of an ipython debugging environment.
+            results = [xcorr_shift_all(job) for job in jobs] 
+            
+        #import pdb; pdb.set_trace()
+        #mypool = multiprocessing.Pool(cpu)
+        #results = mypool.imap_unordered(xcorr_shift_all,jobs)
+        #mypool.close()
+        #mypool.join()
+        
 
         # All done ! Now, let's collect the results ...
         # Careful, the order may be random ... !

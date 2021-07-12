@@ -144,6 +144,8 @@ def lacos_spec_data(data,
         if verbose:
             print('%d CR pixels found in iteration %d' % (
                 len(new_bpix[0]), i+1))
+        if len(new_bpix > 1000):
+            import pdb; pdb.set_trace()
         # if no new CRs found, exit loop
         if len(new_bpix[0]) == 0:
             break

@@ -1,4 +1,5 @@
 # FILENAME       STAR_NAME   STAR_RA      STAR_DEC     SPEC_SRC        IS_FLUX   IS_TELLURIC
+flds749b.dat     LDS749B     21:32:16.2   +00:15:14.4  ESO             1         1
 bd-122669.tab    BD-122669   08:46:39.6   -13:21:25.4  Bessell99       1         1
 bd174708.tab     BD174708    22:11:31.37  +18:05:34.2  Bessell99       1         1
 cd-3018140.tab   CD-3018140  20:44:06.3   -30:00:07.6  Bessell99       1         1
