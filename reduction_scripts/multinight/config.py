@@ -1,8 +1,13 @@
-#************************************************************************
-#************************************************************************
-#*****                         DATA                                 *****
-#************************************************************************
-#************************************************************************
+"""
+Parameters for data reduction of the WiFeS data.
+
+Processing steps:
+(1) Edit this file.
+(2) Generate metadata.
+(3) Run reduction.
+(4) Extract objects (e.g. process_stellar).
+(5) Cleanup.
+"""
 
 # Input root: folder where nightly folders are stored
 input_root = '/data/mash/marusa/2m3data/wifes/'
