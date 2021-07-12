@@ -1319,6 +1319,7 @@ def excludeLines(lines, exclude, index=3, epsilon=0.05):
       We do this by constructing a matrix of differences between the input lines
       and the exclude lines, then determining whether any are close enough to
       count as a match.  We then exclude those. """
+  print('MZ: EXCLUDE LINES', lines, exclude)
   if ((not exclude is None) and len(exclude) > 0):
     print('Excluding', exclude, 'with tolerance of', epsilon)
     exclude = numpy.asarray(exclude)
@@ -1371,6 +1372,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
   var = numpy.sum(resid**2) / len(allx)
   bias = numpy.sum(resid) / len(allx)
   rmse = math.sqrt(var + bias**2)
+  print('MZ: diagnostics', var, bias, rmse)
   print("Initial RMSE",rmse)
 
   # Set up parameter info ready for fitting
@@ -1568,7 +1570,7 @@ def derive_wifes_optical_wave_solution(inimg,
   # *** Mike's edits: operate on PyWiFeS MEF files ***
   #------------------------------------------------------
   # step 1 - gather metadata from header
-  f = pyfits.open(inimg)
+  f = pyfits.open(inimg, ignore_missing_end=True) # MZ: added ignore_missing_end=True, but this is supposed to work only for python 2 but not 3.
   camera = f[1].header['CAMERA']
   if camera == 'WiFeSRed':
       grating = f[1].header['GRATINGR']
@@ -1686,6 +1688,7 @@ def derive_wifes_optical_wave_solution(inimg,
 
   # Exclude the lines from the data set
   lines = excludeLines(lines, exclude, index=3, epsilon=epsilon)
+  print('MZ: LINES', lines)
 
   # Set parameters
   alphap = None

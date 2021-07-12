@@ -188,20 +188,24 @@ def extract_wifes_stdstar(cube_fn,
         halfframe_mask = full_y < 12.5
     else:
         halfframe_mask = full_y < 50
+        
+    # MZ: Uncommented
     # centroid version
-    #if x_ctr == None:
-    #    std_x = numpy.sum(numpy.sum(
-    #        obj_cube_data*cube_x,axis=1),axis=1)/flux
-    #else:
-    #    std_x = x_ctr*numpy.ones(nlam, dtype='d')
-    #if y_ctr == None:
-    #    std_y = numpy.sum(numpy.sum(
-    #        obj_cube_data*cube_y,axis=2),axis=1)/flux
-    #else:
-    #    std_y = y_ctr*numpy.ones(nlam, dtype='d')
+    #~ if x_ctr == None:
+        #~ std_x = numpy.sum(numpy.sum(
+            #~ obj_cube_data*cube_x,axis=1),axis=1)/flux
+    #~ else:
+        #~ std_x = x_ctr*numpy.ones(nlam, dtype='d')
+    #~ if y_ctr == None:
+        #~ std_y = numpy.sum(numpy.sum(
+            #~ obj_cube_data*cube_y,axis=2),axis=1)/flux
+    #~ else:
+        #~ std_y = y_ctr*numpy.ones(nlam, dtype='d')
+    
+    # MZ: Commented out
     if x_ctr == None or y_ctr == None:
         cube_im = numpy.sum(obj_cube_data, axis=0)
-        maxind = numpy.nonzero(cube_im == cube_im.max()) 
+        maxind = numpy.nonzero(cube_im == cube_im.max()) # numpy.nonzero returns indices of nonzero elements
         yc = maxind[0][0]
         xc = maxind[1][0]
         std_x = xc*numpy.ones(nlam, dtype='d')
@@ -407,7 +411,11 @@ def derive_wifes_calibration(cube_fn_list,
                              ytrim=5,
                              boxcar = 11):
     if plot_stars or plot_sensf or savefigs:
+        #~ import matplotlib
+        #~ matplotlib.use('agg')
+        #~ matplotlib.use('Agg')
         import pylab
+        #~ import matplotlib.pyplot as pylab #TODO: THIS IS A DIRTY HACK!
     # get extinction curve
     if extinction_fn == None:
         extinct_interp = sso_extinct_interp
@@ -512,6 +520,7 @@ def derive_wifes_calibration(cube_fn_list,
         raise Exception('Could not find calibration data for any stars!')
     if norm_stars:
         i_mid = int(len(fratio_results[0][0])/2)
+        print('i_mid', i_mid, type(i_mid))
         fscale_max = min([x[1][i_mid] for x in fratio_results])
         init_full_y = numpy.concatenate(
             [x[1]-x[1][i_mid]+fscale_max for x in fratio_results])
@@ -578,12 +587,26 @@ def derive_wifes_calibration(cube_fn_list,
         this_f = scipy.interpolate.interp1d(
             smooth_x,final_fvals,bounds_error=False, 
             kind='linear')
+        print('this_f', this_f)
+        #~ f111 = open('this_f.pkl', 'w')
+        #~ pickle.dump(this_f, f111)
+        #~ f111.close()
+    
         all_final_fvals = this_f(init_full_x)
         final_x = full_x
         final_y = this_f(final_x)
     else :
         best_calib = numpy.polyfit(full_x, full_y, polydeg)
         this_f = numpy.poly1d(best_calib)
+
+    best_calib = numpy.polyfit(full_x, full_y, polydeg)
+    this_f2 = numpy.poly1d(best_calib)
+    #~ if print_result: # TODO
+    print('best_calib')
+    print(method)
+    print(stdstar_name_list)
+    print(best_calib)
+    print('')
 
     # Calculate the final result
     final_fvals = this_f(full_x)
@@ -675,6 +698,7 @@ def calibrate_wifes_cube(inimg, outimg,
     # calculate the flux calibration array
     if mode == 'pywifes':
         f1 = open(calib_fn, 'rb')
+        print('open rb')
         calib_info = pickle.load(f1)
         f1.close()
         sort_order = calib_info['wave'].argsort()
@@ -882,7 +906,7 @@ def derive_wifes_telluric(cube_fn_list,
         'H2O'  : final_H2O_corr,
         'O2_power' : O2_power,
         'H2O_power' : H2O_power}
-    f1 = open(out_fn, 'w')
+    f1 = open(out_fn, 'wb')
     pickle.dump(tellcorr_info, f1)
     f1.close()
     return
@@ -893,7 +917,7 @@ def apply_wifes_telluric(inimg,
                          airmass=None):
     #---------------------------------------------
     # open the telluric corrction file
-    f1 = open(tellcorr_fn)
+    f1 = open(tellcorr_fn, 'rb')
     tellcorr_info = pickle.load(f1)
     O2_interp = scipy.interpolate.interp1d(
         tellcorr_info['wave'],

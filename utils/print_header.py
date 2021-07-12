@@ -16,4 +16,4 @@ except:
 if keyword is None:
     print fits.getheader(filename, 0)
 else:
-    print fits.getheader(filename, 0)[keyword]
+    print "'%s'"%fits.getheader(filename, 0)[keyword]
