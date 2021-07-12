@@ -6,8 +6,15 @@ The Python data reduction pipeline for WiFeS
 - We should keep the old structure, and only add a set of scripts to tackle multinight observations:
 -- `reduction_scripts` still contains `reduce_blue_data.py`, `reduce_red_data.py`, `save_blue_metadata.py` and `save_red_metadata.py` just as before. We added `multinight` folder with our multinight scripts.
 
-- Is there still a problem with pickle files?
 
+
+- There is one config.py file now for both blue and red. Filter (band: blue/red) is set in the command line.
+- How to run: `python reduce_stellar.py config.py obsdate band`, e.g. `python reduce_stellar.py config.py 20181128 r` for red band
+
+- reduction steps for the original pywifes are on http://www.mso.anu.edu.au/pywifes/doku.php?id=documentation
+
+### Known problems
+- Is there still a problem with pickle files?
 
 ### For Marusa's scripts to work, don't forget to add these lines (or modifies) in the `.bashrc` file:
 `export PYTHONPATH="/priv/mulga1/marusa/reduction_wifes/pipeline/src/:$PYTHONPATH"
@@ -19,8 +26,8 @@ export PYTHONPATH="/priv/mulga1/marusa/reduction_wifes/pipeline/reduction_script
 ### How to run PyWiFeS reduction (stellar)
 - Update list of calibration files if using: `utils/find_all_calib_files.py`.
 - Edit `reduction_scripts/configBlue.py` and `reduction_scripts/configRed.py`. It is best to rename these files so they are unique and don't get overwritten when you do `git pull`.
-- Generate a metadata file in `reduction_scripts`: `python generate_metadata_script_marusa.py configRed.py 20190321`
-If you need to specify the nights with calibration files, use `python generate_metadata_script_marusa.py configRed.py 20190321 -b 2019018 -f 20190323`
+- Generate a metadata file in `reduction_scripts`: `python generate_metadata_script_stellar.py configRed.py 20190321`
+If you need to specify the nights with calibration files, use `python generate_metadata_script_stellar.py configRed.py 20190321 -b 2019018 -f 20190323`
 - Check metadata file.
 - Run `python reduce_marusa.py configBlue.py 20190321` in `reduction_scripts`.
 - Convert to ascii: `utils/pywifes_utils.extract_stellar_spectra_ascii('/data/mash/marusa/2m3reduced/wifes/', '20190321')`

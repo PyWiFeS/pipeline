@@ -139,8 +139,16 @@ except:
 print('object_list', object_list)
 print('ALLFILES ', len(all_files))
 
-print('Excluding bad frames...')
-all_files = pu.exclude_bad_frames(all_files, config.excluderun_filename)
+
+try:
+    if config.badcalib_filename is not None:
+        print('Excluding bad frames...')
+        all_files = pu.exclude_bad_frames(all_files, config.excluderun_filename)        
+except:    
+    pass
+
+
+
 
 print('Ready to start with %d files.'%len(all_files))
 

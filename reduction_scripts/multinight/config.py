@@ -8,7 +8,8 @@
 input_root = '/data/mash/marusa/2m3data/wifes/'
 
 # Output root: where to save nightly data
-output_root = '/Users/marusa/observing/23m/testdataoutput/'
+#~ output_root = '/Users/marusa/observing/23m/testdataoutput/'
+output_root = '/data/mash/marusa/test/'
 
 # Save to folders with this prefix
 prefix=None
@@ -16,15 +17,15 @@ prefix=None
 # Minimal number of each of the calibration frames. Default is 3.
 calmin = 3
 
-# Object list: reduce only these objects
-object_list_filename = '/data/mash/marusa/2m3data/wifes/reduce_these_objects.dat'
-object_list = ['RZ Mic']
+# Object list [default=None]: reduce only these objects
+#~ object_list_filename = '/data/mash/marusa/2m3data/wifes/reduce_these_objects.dat'
+#~ object_list = ['RZ Mic']
 
 # Run numbers of bad files that you don't want to include in the reduction
-excluderun_filename = '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'
+#~ excluderun_filename = '/data/mash/marusa/2m3data/wifes/list_of_bad_exposures_that_we_shouldn_use.dat'
 
 # List of bad calibration files
-badcalib_filename = '/data/mash/marusa/2m3data/wifes/list_of_high_biases_pay_attention.dat' # None
+#~ badcalib_filename = '/data/mash/marusa/2m3data/wifes/list_of_high_biases_pay_attention.dat' # None
 
 
 """
@@ -36,6 +37,10 @@ if prefix is not None and len(prefix)>0:
 else:
     metadata_filename='metadata'
 
+
+### Band: blue or red. This is read from the argument line
+import sys
+band = sys.argv[3]
 
 #************************************************************************
 #************************************************************************
@@ -133,21 +138,11 @@ proc_steps = [
     {'step':'derive_calib'   , 'run':True, 'suffix':None,
      'args':{'plot_stars':False,
              'plot_sensf':False,
-             'polydeg':10, # DIFF
-             'method':'smooth_SG', # 'poly' or 'smooth_SG' # DIFF
+             'polydeg': (10 if band=='r' else 25),
+             'method': ('smooth_SG' if band=='r' else 'poly'), # 'poly' or 'smooth_SG'
+             'excise_cut': (None if band=='r' else 0.005), # This is only set for the blue band
              'boxcar':10, # smoothing for smooth_SG only
              'norm_stars':True}},
-
-            # BLUE
-             'polydeg':25,
-             'excise_cut' : 0.005,
-             'method':'poly', # 'poly' or 'smooth_SG'
-             'boxcar':10, # smoothing for smooth_SG only
-
-
-
-
-
     {'step':'flux_calib'     , 'run':True, 'suffix':'09', 'args':{}},
     #------------------
     {'step':'extract_stars'  , 'run':True, 'suffix':None,

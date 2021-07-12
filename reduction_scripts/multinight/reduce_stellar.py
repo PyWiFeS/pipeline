@@ -1,5 +1,17 @@
 #! /usr/bin/env python
 
+"""
+Reduce multinight stellar data.
+
+Usage:
+python reduce_stellar.py config.py obsdate band
+e.g.
+python reduce_stellar.py config.py 20181128 r
+
+bands: r or b
+
+"""
+
 import sys
 import os
 import pickle
@@ -21,6 +33,7 @@ config = imp.load_source(config_name.replace('.py', ''), config_name)
 reload(config)
 
 prefix=config.prefix
+proc_steps = config.proc_steps
 
 obsdate = sys.argv[2]
 band = sys.argv[3]
@@ -60,22 +73,22 @@ elif band== 'b':
     calib_prefix = os.path.join(out_dir,'wifesB')
 
 
-"""
-Set some args in step: 'cube_gen' that are band specific
-"""
-for step in proc_steps:
-    step_name   = step['step']
-    if step_name == 'cube_gen':
-        step_args = step['args']
-        step_args['dw_set'] = (0.44 if band=='r' else 0.77)
-        step_args['wmin_set'] = (5400.0 if band=='r' else 3500.0)
-        step_args['wmax_set'] = (7000.0 if band=='r' else 5700.0)
+#~ """
+#~ Set some args in step: 'cube_gen' that are band specific
+#~ """
+#~ for step in proc_steps:
+    #~ step_name   = step['step']
+    #~ if step_name == 'cube_gen':
+        #~ step_args = step['args']
+        #~ step_args['dw_set'] = (0.44 if band=='r' else 0.77)
+        #~ step_args['wmin_set'] = (5400.0 if band=='r' else 3500.0)
+        #~ step_args['wmax_set'] = (7000.0 if band=='r' else 5700.0)
         
-        step['args']=step_args
-        proc_steps[step]
+        #~ step['args']=step_args
+        #~ proc_steps[step]
 
-print('TEST PROC_STEP CUBE_GEN')
-print(proc_steps)
+#~ print('TEST PROC_STEP CUBE_GEN')
+#~ print(proc_steps)
 
 
 
