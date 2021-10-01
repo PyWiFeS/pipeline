@@ -126,107 +126,107 @@ dsplit = '#' + 54*'-'
 
 #------------------
 # headers
-print >> f, 'import pickle'
-print >> f, ''
+f.write('import pickle' + '\n')
+f.write('' + '\n')
 
 #------------------
 # calibrations
-print >> f, dsplit
+f.write(dsplit
 
 # 1 - bias
-print >> f, 'bias_obs = ['
+f.write('bias_obs = [' + '\n')
 for obs in blue_bias:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 # 2 - domeflat
-print >> f, 'domeflat_obs = ['
+f.write('domeflat_obs = [' + '\n')
 for obs in blue_domeflat:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 # 3 - twiflat
-print >> f, 'twiflat_obs = ['
+f.write('twiflat_obs = [' + '\n')
 for obs in blue_twiflat:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 # 4 - dark
-print >> f, 'dark_obs = ['
+f.write('dark_obs = [' + '\n')
 for obs in blue_dark:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 # 5 - arc
-print >> f, 'arc_obs = ['
+f.write('arc_obs = [' + '\n')
 for obs in blue_arc:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 # 6 - wire
-print >> f, 'wire_obs = ['
+f.write('wire_obs = [' + '\n')
 for obs in blue_wire:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 #------------------
 # science
-print >> f, dsplit
-print >> f, 'sci_obs = ['
+f.write(dsplit
+f.write('sci_obs = ['
 for obj_name in blue_science.keys():
     obs_list = blue_science[obj_name]
     obs_str = '\'%s\'' % obs_list[0]
     for i in range(1,len(obs_list)):
         obs = obs_list[i]
         obs_str += ',\n               \'%s\'' % obs
-    print >> f, '    # %s' % obj_name
-    print >> f, '    {\'sci\'  : [%s],' % obs_str
-    print >> f, '     \'sky\'  : []},'
+    f.write('    # %s' % obj_name + '\n')
+    f.write('    {\'sci\'  : [%s],' % obs_str + '\n')
+    f.write('     \'sky\'  : []},' + '\n')
 
 
-print >> f, '    ]'
-print >> f, ''
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 #------------------
 # stdstars
-print >> f, dsplit
-print >> f, 'std_obs = ['
+f.write(dsplit
+f.write('std_obs = [' + '\n')
 for obj_name in blue_stdstar.keys():
     obs_list = blue_stdstar[obj_name]
     obs_str = '\'%s\'' % obs_list[0]
     for i in range(1,len(obs_list)):
         obs = obs_list[i]
         obs_str += ',\n               \'%s\'' % obs
-    print >> f, '    # %s' % obj_name
-    print >> f, '    {\'sci\'  : [%s],' % obs_str
-    print >> f, '     \'name\' : [\'%s\'],' % obj_name
-    print >> f, '     \'type\' : [\'flux\', \'telluric\']},'
-print >> f, '    ]'
-print >> f, ''
+    f.write('    # %s' % obj_name + '\n')
+    f.write('    {\'sci\'  : [%s],' % obs_str + '\n')
+    f.write('     \'name\' : [\'%s\'],' % obj_name + '\n')
+    f.write('     \'type\' : [\'flux\', \'telluric\']},' + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 #------------------
 # footers
-print >> f, dsplit
+f.write(dsplit
 out_fn = 'wifesB_%s_metadata.pkl' % obs_date
-print >> f, 'night_data = {'
-print >> f, '    \'bias\' : bias_obs,'
-print >> f, '    \'domeflat\' : domeflat_obs,'
-print >> f, '    \'twiflat\' : twiflat_obs,'
-print >> f, '    \'dark\' : dark_obs,'
-print >> f, '    \'wire\' : wire_obs,'
-print >> f, '    \'arc\'  : arc_obs,'
-print >> f, '    \'sci\'  : sci_obs,'
-print >> f, '    \'std\'  : std_obs}'
-print >> f, ''
-print >> f, 'f1 = open(\'%s\', \'w\')' % out_fn
-print >> f, 'pickle.dump(night_data, f1)'
-print >> f, 'f1.close()'
+f.write('night_data = {' + '\n')
+f.write('    \'bias\' : bias_obs,' + '\n')
+f.write('    \'domeflat\' : domeflat_obs,' + '\n')
+f.write('    \'twiflat\' : twiflat_obs,' + '\n')
+f.write('    \'dark\' : dark_obs,' + '\n')
+f.write('    \'wire\' : wire_obs,' + '\n')
+f.write('    \'arc\'  : arc_obs,' + '\n')
+f.write('    \'sci\'  : sci_obs,' + '\n')
+f.write('    \'std\'  : std_obs}' + '\n')
+f.write('' + '\n')
+f.write('f1 = open(\'%s\', \'w\')' % out_fn + '\n')
+f.write('pickle.dump(night_data, f1)' + '\n')
+f.write('f1.close()' + '\n')
 
 f.close()
 
@@ -301,106 +301,106 @@ dsplit = '#' + 54*'-'
 
 #------------------
 # headers
-print >> f, 'import pickle'
-print >> f, ''
+f.write('import pickle' + '\n')
+f.write('' + '\n')
 
 #------------------
 # calibrations
-print >> f, dsplit
+f.write(dsplit + '\n')
 
 # 1 - bias
-print >> f, 'bias_obs = ['
+f.write('bias_obs = [' + '\n')
 for obs in red_bias:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 # 2 - domeflat
-print >> f, 'domeflat_obs = ['
+f.write('domeflat_obs = [' + '\n')
 for obs in red_domeflat:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 # 3 - twiflat
-print >> f, 'twiflat_obs = ['
+f.write('twiflat_obs = [' + '\n')
 for obs in red_twiflat:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 # 4 - dark
-print >> f, 'dark_obs = ['
+f.write('dark_obs = [' + '\n')
 for obs in red_dark:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 # 5 - arc
-print >> f, 'arc_obs = ['
+f.write('arc_obs = [' + '\n')
 for obs in red_arc:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 # 6 - wire
-print >> f, 'wire_obs = ['
+f.write('wire_obs = [' + '\n')
 for obs in red_wire:
-    print >> f, '   \'%s\',' % obs
-print >> f, '    ]'
-print >> f, ''
+    f.write('   \'%s\',' % obs + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 #------------------
 # science
-print >> f, dsplit
-print >> f, 'sci_obs = ['
+f.write(dsplit
+f.write('sci_obs = [' + '\n')
 for obj_name in red_science.keys():
     obs_list = red_science[obj_name]
     obs_str = '\'%s\'' % obs_list[0]
     for i in range(1,len(obs_list)):
         obs = obs_list[i]
         obs_str += ',\n               \'%s\'' % obs
-    print >> f, '    # %s' % obj_name
-    print >> f, '    {\'sci\'  : [%s],' % obs_str
-    print >> f, '     \'sky\'  : []},'
+    f.write('    # %s' % obj_name + '\n')
+    f.write('    {\'sci\'  : [%s],' % obs_str + '\n')
+    f.write('     \'sky\'  : []},' + '\n')
 
 
-print >> f, '    ]'
-print >> f, ''
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 #------------------
 # stdstars
-print >> f, dsplit
-print >> f, 'std_obs = ['
+f.write(dsplit
+f.write('std_obs = [' + '\n')
 for obj_name in red_stdstar.keys():
     obs_list = red_stdstar[obj_name]
     obs_str = '\'%s\'' % obs_list[0]
     for i in range(1,len(obs_list)):
         obs = obs_list[i]
         obs_str += ',\n               \'%s\'' % obs
-    print >> f, '    # %s' % obj_name
-    print >> f, '    {\'sci\'  : [%s],' % obs_str
-    print >> f, '     \'name\' : [\'%s\'],' % obj_name
-    print >> f, '     \'type\' : [\'flux\', \'telluric\']},'
-print >> f, '    ]'
-print >> f, ''
+    f.write('    # %s' % obj_name + '\n')
+    f.write('    {\'sci\'  : [%s],' % obs_str + '\n')
+    f.write('     \'name\' : [\'%s\'],' % obj_name + '\n')
+    f.write('     \'type\' : [\'flux\', \'telluric\']},' + '\n')
+f.write('    ]' + '\n')
+f.write('' + '\n')
 
 #------------------
 # footers
-print >> f, dsplit
+f.write(dsplit
 out_fn = 'wifesR_%s_metadata.pkl' % obs_date
-print >> f, 'night_data = {'
-print >> f, '    \'bias\' : bias_obs,'
-print >> f, '    \'domeflat\' : domeflat_obs,'
-print >> f, '    \'twiflat\' : twiflat_obs,'
-print >> f, '    \'dark\' : dark_obs,'
-print >> f, '    \'wire\' : wire_obs,'
-print >> f, '    \'arc\'  : arc_obs,'
-print >> f, '    \'sci\'  : sci_obs,'
-print >> f, '    \'std\'  : std_obs}'
-print >> f, ''
-print >> f, 'f1 = open(\'%s\', \'w\')' % out_fn
-print >> f, 'pickle.dump(night_data, f1)'
-print >> f, 'f1.close()'
+f.write('night_data = {' + '\n')
+f.write('    \'bias\' : bias_obs,' + '\n')
+f.write('    \'domeflat\' : domeflat_obs,' + '\n')
+f.write('    \'twiflat\' : twiflat_obs,' + '\n')
+f.write('    \'dark\' : dark_obs,' + '\n')
+f.write('    \'wire\' : wire_obs,' + '\n')
+f.write('    \'arc\'  : arc_obs,' + '\n')
+f.write('    \'sci\'  : sci_obs,' + '\n')
+f.write('    \'std\'  : std_obs}' + '\n')
+f.write('' + '\n')
+f.write('f1 = open(\'%s\', \'w\')' % out_fn + '\n')
+f.write('pickle.dump(night_data, f1)' + '\n')
+f.write('f1.close()' + '\n')
 
 f.close()
