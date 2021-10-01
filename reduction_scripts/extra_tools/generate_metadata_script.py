@@ -131,7 +131,7 @@ f.write('' + '\n')
 
 #------------------
 # calibrations
-f.write(dsplit
+f.write(dsplit, '\n')
 
 # 1 - bias
 f.write('bias_obs = [' + '\n')
@@ -177,8 +177,8 @@ f.write('' + '\n')
 
 #------------------
 # science
-f.write(dsplit
-f.write('sci_obs = ['
+f.write(dsplit+ '\n')
+f.write('sci_obs = [' + '\n')
 for obj_name in blue_science.keys():
     obs_list = blue_science[obj_name]
     obs_str = '\'%s\'' % obs_list[0]
@@ -195,7 +195,7 @@ f.write('' + '\n')
 
 #------------------
 # stdstars
-f.write(dsplit
+f.write(dsplit+ '\n')
 f.write('std_obs = [' + '\n')
 for obj_name in blue_stdstar.keys():
     obs_list = blue_stdstar[obj_name]
@@ -212,7 +212,7 @@ f.write('' + '\n')
 
 #------------------
 # footers
-f.write(dsplit
+f.write(dsplit+ '\n')
 out_fn = 'wifesB_%s_metadata.pkl' % obs_date
 f.write('night_data = {' + '\n')
 f.write('    \'bias\' : bias_obs,' + '\n')
@@ -352,7 +352,7 @@ f.write('' + '\n')
 
 #------------------
 # science
-f.write(dsplit
+f.write(dsplit+ '\n')
 f.write('sci_obs = [' + '\n')
 for obj_name in red_science.keys():
     obs_list = red_science[obj_name]
@@ -370,7 +370,7 @@ f.write('' + '\n')
 
 #------------------
 # stdstars
-f.write(dsplit
+f.write(dsplit+ '\n')
 f.write('std_obs = [' + '\n')
 for obj_name in red_stdstar.keys():
     obs_list = red_stdstar[obj_name]
@@ -387,7 +387,7 @@ f.write('' + '\n')
 
 #------------------
 # footers
-f.write(dsplit
+f.write(dsplit+ '\n')
 out_fn = 'wifesR_%s_metadata.pkl' % obs_date
 f.write('night_data = {' + '\n')
 f.write('    \'bias\' : bias_obs,' + '\n')
