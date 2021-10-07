@@ -131,7 +131,7 @@ f.write('' + '\n')
 
 #------------------
 # calibrations
-f.write(dsplit, '\n')
+f.write(dsplit+ '\n')
 
 # 1 - bias
 f.write('bias_obs = [' + '\n')
@@ -224,7 +224,7 @@ f.write('    \'arc\'  : arc_obs,' + '\n')
 f.write('    \'sci\'  : sci_obs,' + '\n')
 f.write('    \'std\'  : std_obs}' + '\n')
 f.write('' + '\n')
-f.write('f1 = open(\'%s\', \'w\')' % out_fn + '\n')
+f.write('f1 = open(\'%s\', \'wb\')' % out_fn + '\n')
 f.write('pickle.dump(night_data, f1)' + '\n')
 f.write('f1.close()' + '\n')
 
@@ -399,7 +399,7 @@ f.write('    \'arc\'  : arc_obs,' + '\n')
 f.write('    \'sci\'  : sci_obs,' + '\n')
 f.write('    \'std\'  : std_obs}' + '\n')
 f.write('' + '\n')
-f.write('f1 = open(\'%s\', \'w\')' % out_fn + '\n')
+f.write('f1 = open(\'%s\', \'wb\')' % out_fn + '\n')
 f.write('pickle.dump(night_data, f1)' + '\n')
 f.write('f1.close()' + '\n')
 
