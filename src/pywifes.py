@@ -854,7 +854,7 @@ def fit_wifes_interslit_bias(inimg,
     interstice_map = numpy.ones(numpy.shape(orig_data))
     interstice_mask = numpy.ones(numpy.shape(orig_data)[0])
     if slitlet_def_file != None:
-        f2 = open(slitlet_def_file, 'r')
+        f2 = open(slitlet_def_file, 'rb')
         slitlet_defs = pickle.load(f2)
         f2.close()
     elif camera == 'WiFeSRed':
