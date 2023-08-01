@@ -693,7 +693,7 @@ def subtract_overscan(inimg, outimg,
         ny = 2048//bin_y
         nx = 4096//bin_x
         # note: offset will be equal to ny
-        subbed_data = numpy.zeros([ny,nx], dtype=numpy.float)
+        subbed_data = numpy.zeros([ny,nx], dtype=float)
         for i in range(len(fmt_det_reg)):
             init_det = fmt_det_reg[i]
             det = [init_det[0], init_det[1]-ny, init_det[2], init_det[3]]
@@ -711,7 +711,7 @@ def subtract_overscan(inimg, outimg,
     else:
         ny = 4096//bin_y
         nx = 4096//bin_x
-        subbed_data = numpy.zeros([ny,nx], dtype=numpy.float)
+        subbed_data = numpy.zeros([ny,nx], dtype=float)
         for i in range(len(fmt_det_reg)):
             det = fmt_det_reg[i]
             ovs = fmt_ovs_reg[i]
@@ -1450,7 +1450,7 @@ def interslice_cleanup(input_fn, output_fn,
     # (and smooth it as well)
     for slit in slitlets_n:
         # Get the slit boundaries
-        [xmin,xmax,ymin,ymax] = slitlet_defs[numpy.str(slit)]
+        [xmin,xmax,ymin,ymax] = slitlet_defs[str(slit)]
         # Account for binning
         xmin = numpy.round(xmin//bin_x)
         xmax = numpy.round(xmax//bin_x)
@@ -1465,7 +1465,7 @@ def interslice_cleanup(input_fn, output_fn,
             symax = numpy.shape(data)[0]
         else :
             symin = ymax
-            symax = numpy.round(slitlet_defs[numpy.str(slit-1)][2]//bin_y)
+            symax = numpy.round(slitlet_defs[str(slit-1)][2]//bin_y)
 
         # Need to get rid of cosmic rays
         # here's a quick and dirty way of doing it ...
@@ -1501,7 +1501,7 @@ def interslice_cleanup(input_fn, output_fn,
     dx = 10
     dy = 3
     for slit in slitlets_n:
-        [xmin,xmax,y2,y3] = slitlet_defs[numpy.str(slit)]
+        [xmin,xmax,y2,y3] = slitlet_defs[str(slit)]
         # Account for binning
         xmin = numpy.round(xmin//bin_x)
         xmax = numpy.round(xmax//bin_x)
@@ -1517,11 +1517,11 @@ def interslice_cleanup(input_fn, output_fn,
         # Special case we have to extrapolate for the half slitlet rather than
         # interpolate as there is not dark interslit region on the other side.
         elif slit == 13 and halfframe:
-            y4 = numpy.round(slitlet_defs[numpy.str(slit-1)][2]//bin_y)
+            y4 = numpy.round(slitlet_defs[str(slit-1)][2]//bin_y)
             y1 = y2 
         else:
-            y4 = numpy.round(slitlet_defs[numpy.str(slit-1)][2]//bin_y)
-            y1 = numpy.round(slitlet_defs[numpy.str(slit+1)][3]//bin_y)   
+            y4 = numpy.round(slitlet_defs[str(slit-1)][2]//bin_y)
+            y1 = numpy.round(slitlet_defs[str(slit+1)][3]//bin_y)   
 
         # Select a subsample of point to do the integration
         x = numpy.arange(xmin+3,xmax-3,dx)
