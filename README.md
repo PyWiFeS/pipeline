@@ -1,5 +1,5 @@
 # pipeline
-The Python data reduction pipeline for the ANU 2.3m WiFeS
+The Python data reduction pipeline for WiFeS
 
 ### July 2021: How is this code different from the main pyWiFeS repository?
 - Update to python3 and bug fixes (Adam fixed lots of them)
