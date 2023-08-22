@@ -369,8 +369,8 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
        """
         from math import factorial   
         try:
-           window_size = numpy.abs(numpy.int(window_size))
-           order = numpy.abs(numpy.int(order))
+           window_size = numpy.abs(int(window_size))
+           order = numpy.abs(int(order))
         except ValueError(msg):
             raise ValueError("window_size and order have to be of type int")
         if window_size % 2 != 1 or window_size < 1:

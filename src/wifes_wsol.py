@@ -283,7 +283,7 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
             cpu = 1 
         # list the jobs
         jobs = []
-        fitted_centers = numpy.zeros_like(peak_centers, dtype = numpy.float)
+        fitted_centers = numpy.zeros_like(peak_centers, dtype = float)
         for i in range(narc):
             curr_ctr_guess = peak_centers[i]
             ifit_lo = int(curr_ctr_guess-5*width_guess)
@@ -512,7 +512,7 @@ def find_lines_and_guess_refs(slitlet_data,
     # then for all other slices, just re-fit the lines that are real.
     # Do this, and you reduce the total time by 50% for this step !
     if find_method == 'mpfit':
-        mid_slit = numpy.int(nrows/2./bin_y)
+        mid_slit = int(nrows/2./bin_y)
         #~ print('SLITLET_DATA', mid_slit, slitlet_data[mid_slit,:]) # MZ
         mid_fit_centers = quick_arcline_fit(slitlet_data[mid_slit,:],
                                             find_method = find_method,
@@ -633,7 +633,7 @@ def find_lines_and_guess_refs(slitlet_data,
         # Stretch value is not varying much over 1 slice.
         # So, get it in the middle, and use it throughout. 
         # Gain some ~6.3 sec per slice by doing this !
-        mid_row = numpy.int(nrows/2)
+        mid_row = int(nrows/2)
         mid_row_ind = (init_y_array == mid_row)
         best_stretch = xcorr_shift_all( (chosen_slitlet, 
                                        mid_row,ncols,mid_row_ind,

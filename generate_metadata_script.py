@@ -86,7 +86,7 @@ for obs in blue_obs:
         pass
     #---------------------------
     # 1 - bias frames
-    if imagetype == 'ZERO':
+    if imagetype == 'BIAS':#    if imagetype == 'ZERO':
         blue_bias.append(obs)
     # 2 - quartz flats
     if imagetype == 'FLAT':
@@ -103,7 +103,15 @@ for obs in blue_obs:
     # 6 - wire frames
     if imagetype == 'WIRE':
         blue_wire.append(obs)
-    # all else are science targets
+    # 7 - standard star
+    if imagetype == 'STANDARD':
+        # group standard obs together!
+        if obj_name in blue_stdstar.keys():
+            blue_stdstar[obj_name].append(obs)
+        else:
+            blue_stdstar[obj_name] = [obs]
+    
+    # all else are science targets (also consider standar star in imagety = OBJECT)
     if imagetype == 'OBJECT':
         if obj_name in stdstar_list:
             # group standard obs together!
@@ -260,7 +268,7 @@ for obs in red_obs:
         pass
     #---------------------------
     # 1 - bias frames
-    if imagetype == 'ZERO':
+    if imagetype == 'BIAS':#    if imagetype == 'ZERO':
         red_bias.append(obs)
     # 2 - quartz flats
     if imagetype == 'FLAT':
@@ -277,6 +285,14 @@ for obs in red_obs:
     # 6 - wire frames
     if imagetype == 'WIRE':
         red_wire.append(obs)
+    # 7 - standard star
+    if imagetype == 'STANDARD':
+        # group standard obs together!
+        if obj_name in red_stdstar.keys():
+            red_stdstar[obj_name].append(obs)
+        else:
+            red_stdstar[obj_name] = [obs]
+        
     # all else are science targets
     if imagetype == 'OBJECT':
         if obj_name in stdstar_list:
