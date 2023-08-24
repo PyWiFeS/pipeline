@@ -10,10 +10,10 @@ import sys, getopt
 import os
 import glob
 from astropy.io import fits as pyfits
-import wifes_calib
-sys.path.insert(1, '/data/mash/marusa/reduction_wifes/pipeline/utils/')
-import pywifes_utils as pu
 import imp
+
+from pywifes import wifes_calib
+from pywifes import pywifes_utils as pu
 
 keywords = ['GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSUM', 'CCDSEC']
 keywords_dark_zero = ['CCDSEC', 'CCDSUM']
@@ -31,7 +31,6 @@ print('########################################################')
 config = imp.load_source('config', sys.argv[1])
 
 # Calibration files in case some are missing for this night: this is a file containing a dictionary with filenames
-sys.path.insert(1, '/data/mash/marusa/2m3data/wifes/') # TODO: THIS SHOULDN'T BE LIKE THIS!!
 import calibration_all_filenames as cal
 cal=cal.result
 

@@ -5,8 +5,6 @@ import pickle
 import scipy.interpolate
 import multiprocessing
 import subprocess
-from wifes_metadata import metadata_dir
-from wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
 import gc
 import mpfit
 import sys
@@ -14,11 +12,16 @@ import os
 import scipy.ndimage as ndimage
 import scipy.interpolate as interp
 import pylab
-import pdb
 import matplotlib.pyplot as plt
+import pylab
+
+from .wifes_metadata import metadata_dir
+from .wifes_imtrans import transform_data, detransform_data
+from .wifes_wsol import fit_wsol_poly, evaluate_wsol_poly
+from .wifes_adr import ha_degrees, dec_dms2dd, adr_x_y
 
 # CODE VERSION
-from wifes_metadata import __version__
+from .wifes_metadata import __version__
 
 #------------------------------------------------------------------------
 # NEED TO OPEN / ACCESS WIFES METADATA FILE!!
@@ -952,7 +955,6 @@ def fit_wifes_interslit_bias(inimg,
             fit_x = full_x[curr_inds].flatten()
             fit_y = full_y[curr_inds].flatten()
             fit_b = curr_data[curr_inds].flatten()
-            from wifes_wsol import fit_wsol_poly, evaluate_wsol_poly
             init_x_poly, init_y_poly = fit_wsol_poly(fit_x, fit_y, fit_b,
                                                      x_polydeg, y_polydeg)
             init_bias_fvals = evaluate_wsol_poly(
@@ -976,8 +978,6 @@ def fit_wifes_interslit_bias(inimg,
                 randplot_lin_mask[randplot_inds] = 1
                 randplot_mask = numpy.reshape(randplot_lin_mask, numpy.shape(full_x))
                 randplot_fit  = numpy.nonzero(randplot_mask)
-                import pylab
-                from mpl_toolkits.mplot3d import axes3d
                 fig = pylab.figure()
                 sp = fig.gca(projection='3d')
                 sp.plot(fit_x[randplot_data],
@@ -1314,7 +1314,6 @@ def derive_slitlet_profiles(flatfield_fn,
         orig_ctr = 0.5*float(len(y_prof))
         new_ctr = 0.5*(new_ymin+new_ymax)
         if plot:
-            import pylab
             pylab.figure()
             pylab.plot(y_prof, color='b')
             pylab.axvline(orig_ctr, color='r')
@@ -2286,7 +2285,6 @@ def wifes_2dim_response(spec_inimg,
     spatial_flat_spec = numpy.median(rect_data, axis=0)
     spec_norm = curr_ff_rowwise_ave / (
         10.0**(numpy.polyval(smooth_poly, mid_lam_array)))
-    #import pylab
     #pylab.figure()
     #pylab.plot(mid_lam_array, spec_norm)
     #pylab.show()
@@ -2334,7 +2332,6 @@ def wifes_2dim_response(spec_inimg,
                                            dtype='d')
             alt_interp_spat = numpy.zeros(numpy.shape(rect_spat_data),
                                           dtype='d')
-            #import pylab
             #f1 = pylab.figure()
             #sp1 = f1.add_subplot(111)
             #pylab.title(str(curr_hdu))
@@ -2504,11 +2501,6 @@ def wifes_illumination(spatial_inimg,
     return
 
 #------------------------------------------------------------------------
-# function to fit the wavelength solution!
-from wifes_wsol import derive_wifes_wave_solution
-from wifes_wsol import derive_wifes_skyline_solution
-
-#------------------------------------------------------------------------
 # function to fit the wire solution!
 def derive_wifes_wire_solution(inimg, out_file,
                                bin_x=None, bin_y=None,
@@ -2627,7 +2619,6 @@ def derive_wifes_wire_solution(inimg, out_file,
                                    fit_y_arr[good_inds],
                                    wire_polydeg)
         trend_y = numpy.polyval(wire_trend, ccd_x)
-        #pdb.set_trace()
         #pylab.figure()
         #pylab.plot(fit_x_arr, fit_y_arr, 'b')
         #pylab.plot(ccd_x, trend_y, 'r')
@@ -2674,12 +2665,6 @@ def generate_wifes_cube(inimg, outimg,
             offset_orig=offset_orig,
             verbose=verbose,
             adr=adr)
-
-# ------------------- Fred's update (2) -----------------------
-
-from wifes_adr import ha_degrees
-from wifes_adr import dec_dms2dd
-from wifes_adr import adr_x_y
 
 # ------------------- Fred's update (2) -----------------------
 # Now takes into account ADR correction
@@ -3261,16 +3246,8 @@ def generate_wifes_cube_multithread(
     outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, overwrite=True)
     f3.close()
-    return    
+    return
 
-#------------------------------------------------------------------------
-# scripts to derive a wavelength calibration from standard stars
-from wifes_calib import derive_wifes_calibration
-from wifes_calib import extract_wifes_stdstar
-from wifes_calib import calibrate_wifes_cube
-from wifes_calib import derive_wifes_telluric
-from wifes_calib import apply_wifes_telluric
-from wifes_calib import load_wifes_cube
 
 #------------------------------------------------------------------------
 def generate_wifes_3dcube(inimg, outimg):

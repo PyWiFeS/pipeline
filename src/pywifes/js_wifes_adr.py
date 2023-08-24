@@ -1,7 +1,4 @@
 import numpy
-import pylab
-from astropy.io import fits as pyfits
-import scipy.optimize
 
 def ha_degrees(ha_str):
     full_hours, mins, secs = ha_str.split(':')

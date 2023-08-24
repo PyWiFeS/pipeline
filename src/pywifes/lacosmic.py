@@ -5,7 +5,7 @@ import multiprocessing
 import scipy.signal
 import scipy.ndimage
 import scipy.interpolate
-from wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
+from .wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
 
 import warnings
 warnings.simplefilter('ignore', scipy.ComplexWarning)

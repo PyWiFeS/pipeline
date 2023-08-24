@@ -14,7 +14,8 @@ from matplotlib.colors import LogNorm
 import pickle
 from collections import Counter
 from astropy.table import Table
-import wifes_calib
+
+from pywifes import wifes_calib
 
 root = '/data/mash/marusa/2m3reduced/wifes/'
 

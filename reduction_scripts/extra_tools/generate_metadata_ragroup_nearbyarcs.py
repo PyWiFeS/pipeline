@@ -3,8 +3,9 @@
 import sys
 import os
 import astropy.io.fits as pyfits
-import wifes_calib
 import numpy
+
+from pywifes import wifes_calib
 
 class MyList(object):
     def __init__(self):
