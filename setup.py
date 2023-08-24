@@ -5,7 +5,7 @@ setup(
     version="0.0.1",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    python_requires=">=3.10",
+    python_requires=">=3.8",
     install_requires=[
         "wheel",
         "setuptools",
@@ -13,7 +13,6 @@ setup(
         "scipy",
         "numpy>=1.23",
         "matplotlib",
-        "mpfit",
     ],
     description="A Python package for optical data reduction pipeline.",
     author="Timothy Davies",

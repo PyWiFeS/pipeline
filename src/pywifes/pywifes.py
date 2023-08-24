@@ -6,7 +6,6 @@ import scipy.interpolate
 import multiprocessing
 import subprocess
 import gc
-import mpfit
 import sys
 import os
 import scipy.ndimage as ndimage
@@ -19,6 +18,7 @@ from .wifes_metadata import metadata_dir
 from .wifes_imtrans import transform_data, detransform_data
 from .wifes_wsol import fit_wsol_poly, evaluate_wsol_poly
 from .wifes_adr import ha_degrees, dec_dms2dd, adr_x_y
+from .mpfit import mpfit
 
 # CODE VERSION
 from .wifes_metadata import __version__
@@ -1202,7 +1202,7 @@ def generate_wifes_bias_fit(bias_img, outimg, data_hdu=0,
                                ]
 
             print(' Fitting bias frame %s' % bias_img.split('/')[-1])
-            fit_result = mpfit.mpfit(error_wifes_bias_model, p0, functkw = fa, 
+            fit_result = mpfit(error_wifes_bias_model, p0, functkw = fa, 
                                      parinfo = constraints, quiet=not verbose) 
             p1 = fit_result.params
             #print p1
