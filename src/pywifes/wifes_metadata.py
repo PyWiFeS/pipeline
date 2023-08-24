@@ -10,7 +10,7 @@ if mdir == None:
     # Where are we located ?
     src_dir = os.path.dirname(__file__)
     # Where are the reference data ?
-    pywifes_dir = os.path.join(src_dir, '..')
+    pywifes_dir = os.path.join(src_dir, '../..')
     metadata_dir = os.path.join(pywifes_dir, 'reference_data')
 else:
     metadata_dir = mdir

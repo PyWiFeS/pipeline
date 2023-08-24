@@ -5,8 +5,6 @@ import numpy
 import pylab
 import pickle
 import scipy.interpolate
-import scipy.optimize
-import optical_model as om
 import math
 import multiprocessing
 from itertools import cycle
@@ -14,8 +12,8 @@ import scipy.optimize as op
 # Fred's upadate (wsol)
 import os
 import datetime
-#import utils #MJI Testing 
 
+from . import optical_model as om
 from .wifes_metadata import metadata_dir
 from .wifes_metadata import __version__
 from .mpfit import mpfit
