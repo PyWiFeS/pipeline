@@ -7,7 +7,7 @@ from astropy.io import fits
 import sys
 import os
 
-# PyWiFeS
+# PyWiFeS tools
 import process_stellar as ps # WHEN running this without ssh -Y, I get RuntimeError: Invalid DISPLAY variable
 
 #~ root = '/priv/mulga1/marusa/2m3reduced/wifes/'

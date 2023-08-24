@@ -5,16 +5,10 @@ from __future__ import print_function, division
 import glob
 import numpy as np
 from astropy.io import fits
-import sys
 import os
+
+# PyWiFeS tools
 import process_stellar as ps
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.colors import LogNorm
-import pickle
-from collections import Counter
-from astropy.table import Table
-import wifes_calib
 
 #~ root = '/data/mash/marusa/2m3reduced/wifes/'
 root = '/data/mash/marusa/2m3reduced/wifes/20190722/'

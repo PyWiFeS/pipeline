@@ -9,6 +9,8 @@ import gc
 import datetime
 import numpy as np
 
+from pywifes.lacosmic import lacos_wifes
+
 #------------------------------------------------------------------------
 start_time = datetime.datetime.now()
 #------------------------------------------------------------------------
@@ -526,7 +528,6 @@ def run_wire_soln(metadata, prev_suffix, curr_suffix):
 # Cosmic Rays
 def run_cosmic_rays(metadata, prev_suffix, curr_suffix,
                     ns=False, multithread=False):
-    from lacosmic import lacos_wifes
     # now run ONLY ON SCIENCE TARGETS AND STANDARDS
     sci_obs_list  = get_sci_obs_list(metadata)
     sky_obs_list  = get_sky_obs_list(metadata)
