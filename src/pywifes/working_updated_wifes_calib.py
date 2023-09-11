@@ -12,7 +12,7 @@ from .wifes_metadata import __version__
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
 # reference star information!
-stdstar_fn = metadata_dir+'stdstar_lookup_table.dat'
+stdstar_fn = metadata_dir+'/stdstar_lookup_table.dat'
 f1 = open(stdstar_fn, 'r')
 stdstar_lines = f1.readlines()[1:]
 f1.close()
@@ -28,7 +28,7 @@ for line in stdstar_lines:
     ref_coords_lookup[name] = radec
 
 # extinction interpolation object
-extinct_fn = metadata_dir+'sso_extinction.dat'
+extinct_fn = metadata_dir+'/sso_extinction.dat'
 extinct_data = numpy.loadtxt(extinct_fn)
 sso_extinct_interp = scipy.interpolate.interp1d(extinct_data[:,0],
                                                 extinct_data[:,1],
@@ -38,7 +38,7 @@ sso_extinct_interp = scipy.interpolate.interp1d(extinct_data[:,0],
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
 # high-level function to find nearest standard star for a given frame!
-stdstar_list = ref_coords_lookup.keys()
+stdstar_list = list(ref_coords_lookup.keys())
 stdstar_list.sort()
 nstds = len(stdstar_list)
 stdstar_ra_array  = numpy.zeros(nstds, dtype='d')
@@ -273,7 +273,7 @@ def extract_wifes_stdstar(cube_fn,
         f.close()
     else:
         f.close()
-        raise ValueError, 'Standard Star save format not recognized'
+        raise ValueError('Standard Star save format not recognized')
 
 # here write wrapper function to save the extracted star spectrum
 
@@ -361,7 +361,7 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
         try:
            window_size = numpy.abs(numpy.int(window_size))
            order = numpy.abs(numpy.int(order))
-        except ValueError, msg:
+        except ValueError:
             raise ValueError("window_size and order have to be of type int")
         if window_size % 2 != 1 or window_size < 1:
             raise TypeError("window_size size must be a positive odd number")
@@ -442,7 +442,7 @@ def derive_wifes_calibration(cube_fn_list,
             try:
                 secz = cube_hdr['AIRMASS']
             except:
-                print 'AIRMASS header missing for %s' % cube_fn_list[i].split('/')[-1]
+                print('AIRMASS header missing for %s' % cube_fn_list[i].split('/')[-1])
                 secz = 1.0
         # check if there is a calib spectrum...
         if ref_fname_list != None:
@@ -636,7 +636,7 @@ def calibrate_wifes_cube(inimg, outimg,
         secz = f3[1].header['AIRMASS']
     except:
         secz = 1.0
-        print 'AIRMASS keyword not found, assuming airmass=1.0'
+        print('AIRMASS keyword not found, assuming airmass=1.0')
     nlam = numpy.shape(f3[1].data)[1]
     wave_array = wave0+dwave*numpy.arange(nlam,dtype='d')
     # calculate the flux calibration array
@@ -670,7 +670,7 @@ def calibrate_wifes_cube(inimg, outimg,
         inst_fcal_array = calib_interp(wave_array)
         f.close()
     else:
-        raise ValueError, 'Calibration mode not defined'
+        raise ValueError('Calibration mode not defined')
     # calculate extinction curve for observed airmass
     obj_ext = 10.0**(-0.4*((secz-1.0)*extinct_interp(wave_array)))
     fcal_array = inst_fcal_array*obj_ext
@@ -717,7 +717,7 @@ def derive_wifes_telluric(cube_fn_list,
                 f.close()
             except:
                 new_am = 1.0
-                print 'AIRMASS keyword not found, assuming 1.0'
+                print('AIRMASS keyword not found, assuming 1.0')
             airmass_list.append(new_am)
     #---------------------------------------------
     # now extract each star spectrum and derive telluric correction spectra
@@ -872,7 +872,7 @@ def apply_wifes_telluric(inimg,
             airmass = float(f3[1].header['AIRMASS'])
         except:
             airmass = 1.0
-            print 'AIRMASS keyword not found, assuming airmass=1.0'
+            print('AIRMASS keyword not found, assuming airmass=1.0')
     # get the wavelength array
     wave0 = f3[1].header['CRVAL1']
     dwave = f3[1].header['CDELT1']
