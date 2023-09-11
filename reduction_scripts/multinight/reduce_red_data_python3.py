@@ -20,6 +20,9 @@ import imp
 #~ import calibration_filenames_date as cal
 #~ cal=cal.result
 
+print("[Multithreading debug] Unexpected call to/import of this file!", file=sys.stderr)
+exit(1)
+
 #------------------------------------------------------------------------
 start_time = datetime.datetime.now()
 #------------------------------------------------------------------------

@@ -13,6 +13,9 @@ import numpy as np
 #------------------------------------------------------------------------
 start_time = datetime.datetime.now()
 #------------------------------------------------------------------------
+if len(sys.argv) != 3:
+    print("[Multithreading debug] Please add arguments for metadata file (str) and multithread (bool)", file=sys.stderr)
+    exit(1)
 
 # get name of metadata file
 meta_fn = sys.argv[1]
@@ -36,7 +39,10 @@ my_data_hdu=0
 
 # SET MULTITHREAD ?
 #~ multithread=False
-multithread=True # THIS DOESN'T WORK WITH PYTHON 2.7
+multithread = sys.argv[2].lower() == 'true'
+
+print(f"sys.argv = {sys.argv}")
+print(f"multithread = {multithread}")
 
 # SET SKIP ALREADY DONE FILES ?
 skip_done=False
@@ -137,7 +143,7 @@ proc_steps = [
      'args':{'plot':True}},
     {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
     #~ #------------------
-    {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
+    {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}},
     #------------------
     ]
 
@@ -889,12 +895,15 @@ for step in proc_steps:
     func_name = 'run_'+step_name
     func = globals()[func_name]
     if step_run:
+        print(f"Running step {step_name}. prev_suffix: {prev_suffix}, step_suffix: {step_suffix}")
         func(obs_metadata,
-             prev_suffix = prev_suffix,
-             curr_suffix = step_suffix,
-             **step_args)
-    if step_suffix != None:
-        prev_suffix = step_suffix
+            prev_suffix = prev_suffix,
+            curr_suffix = step_suffix,
+            **step_args)
+        if step_suffix != None:
+            prev_suffix = step_suffix
+    else:
+        print(f"Skipping step {step_name}. prev_suffix: {prev_suffix}, step_suffix: {step_suffix}")
 
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------

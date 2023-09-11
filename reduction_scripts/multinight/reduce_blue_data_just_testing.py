@@ -9,6 +9,9 @@ import gc
 import datetime
 import numpy as np
 
+print("[Multithreading debug] Unexpected call to/import of this file!", file=sys.stderr)
+exit(1)
+
 #------------------------------------------------------------------------
 start_time = datetime.datetime.now()
 #------------------------------------------------------------------------

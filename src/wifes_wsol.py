@@ -277,11 +277,6 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
         # Do an mpfit with gaussian function instead (can limit width!)
         # Use multicore to speed things up
         # Mike I : change in a minimal way to use scipy least squares.
-        if multithread :
-            cpu = None
-        else :
-            cpu = 1 
-        # list the jobs
         jobs = []
         fitted_centers = numpy.zeros_like(peak_centers, dtype = float)
         for i in range(narc):
@@ -303,7 +298,9 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
             #jobs2 = [jobs[:len(jobs)//4], jobs[len(jobs)//4:2*len(jobs)//4],jobs[2*len(jobs)//4:3*len(jobs)//4],jobs[3*len(jobs)//4:]]
             #results = mypool.imap_unordered(utils.lsq_gauss_line,jobs2)
             if multithread: 
-                with multiprocessing.Pool(cpu) as mypool:
+                num_available_cpus = len(os.sched_getaffinity(0))
+                print(f'  ... weighted_loggauss_arc_fit using up to {num_available_cpus} cpu(s) ...')
+                with multiprocessing.Pool(num_available_cpus) as mypool:
                     #start = datetime.datetime.now() #!!! MJI
                     if find_method =='mpfit':
                         results = mypool.imap_unordered(mpfit_gauss_line,jobs)
@@ -649,31 +646,32 @@ def find_lines_and_guess_refs(slitlet_data,
                               init_x_array[row_inds],ref_arc, 
                               [best_stretch], False, verbose) )
         if multithread :
-            cpu = None
+            num_available_cpus = len(os.sched_getaffinity(0))
             if verbose :
-                print('  ... assign lambdas using up to %d cpu(s) ...' % multiprocessing.cpu_count())
-            with multiprocessing.Pool(cpu) as mypool:
-                results = mypool.imap_unordered(xcorr_shift_all,jobs)
+                print(f'  ... assign lambdas using up to {num_available_cpus} cpu(s) ...')
+            with multiprocessing.Pool(num_available_cpus) as pool:
+                # TODO: Consider setting a chunksize if there can be a large number of jobs.
+                print(f"[Multithreading debug] Starting '{jobs}' job(s).")
+                results = pool.imap_unordered(xcorr_shift_all,jobs)
         else :
             #Completely avoid using Pool in case of an ipython debugging environment.
             results = [xcorr_shift_all(job) for job in jobs] 
-            
-        #import pdb; pdb.set_trace()
-        #mypool = multiprocessing.Pool(cpu)
-        #results = mypool.imap_unordered(xcorr_shift_all,jobs)
-        #mypool.close()
-        #mypool.join()
-        
+
+        print("[Multithreading debug] Finished xcorr_shift_all!")
 
         # All done ! Now, let's collect the results ...
         # Careful, the order may be random ... !
         for this_fit in results:
             try:
+                print(f'[Multihreading debug] processing results: this_row: {this_fit[0]}')
                 this_row = this_fit[0]
                 this_row_inds = (init_y_array == this_row+1)
                 ref_array[this_row_inds] = this_fit[2]
             except:
+                print(f'[Multihreading debug] except in processing results!')
                 continue
+
+        # TODO: Could compare ref_array both single & multithreaded. Results should be identical.
 
         # Create array with only detected lines
         good_inds = ref_array > 0
@@ -854,6 +852,8 @@ def xcorr_shift_all( packaged_args ):
     stretches, # if provided, will only try these ones !
     get_stretch, # if yes, get the best stretch+exit
     verbose ) = packaged_args
+
+    print(f'[Multithreading debug] xcorr_shift_all. this_row: {this_row}, ncols: {ncols}')
 
     if stretches == None:
         stretches = numpy.arange(0.98,1.03,0.001)
