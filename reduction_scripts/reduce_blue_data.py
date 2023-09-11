@@ -4,12 +4,14 @@ import sys
 import os
 import pickle
 from astropy.io import fits as pyfits
-import pywifes
 import gc
 import datetime
 import numpy as np
 
 from pywifes.lacosmic import lacos_wifes
+from pywifes import pywifes
+from pywifes import wifes_wsol
+from pywifes import wifes_calib
 
 #------------------------------------------------------------------------
 start_time = datetime.datetime.now()
@@ -21,11 +23,11 @@ f1 = open(meta_fn, 'rb')
 obs_metadata = pickle.load(f1)
 f1.close()
 
-# WHERE IS EVERYTHING ?
+# Where is everything ?
 # New in 0.7.x: get the project directory from the file location !
 proj_dir = os.path.dirname(__file__)
-data_dir = os.path.join(proj_dir, 'data')
-out_dir = os.path.join(proj_dir, 'reduc_b') # This folder must exist prior to reduction
+data_dir = os.path.join(proj_dir, 'raw_data/')
+out_dir = os.path.join(proj_dir, 'reduc_b/') # This folder must exist prior to reduction
 calib_prefix = os.path.join(out_dir, 'wifesB_20150314')
 
 # Some WiFeS specific things
@@ -384,7 +386,7 @@ def run_flat_cleanup(metadata, prev_suffix, curr_suffix,
         slitlet_fn=None
     if 'dome' in type :
         print('Correcting master domeflat',super_dflat_fn.split('/')[-1])
-        pywifes.interslice_cleanup(super_dflat_raw,super_dflat_fn, slitlet_fn,
+        pywifes.interslice_cleanup(super_dflat_raw, super_dflat_fn, slitlet_fn,
                                    offset=offsets[type.index('dome')],
                                    method='2D',**args)
     if 'twi' in type :
@@ -474,7 +476,7 @@ def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
     wsol_in_fn  = os.path.join(out_dir, '%s.p%s.fits' % ( metadata['arc'][0],
                                      prev_suffix))
     print('Deriving master wavelength solution from %s' % wsol_in_fn.split('/')[-1])
-    pywifes.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn,
+    wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn,
                                        **args)
     # local wave solutions for science or standards
     sci_obs_list  = get_sci_obs_list(metadata)
@@ -495,7 +497,7 @@ def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
                 if os.path.isfile(local_wsol_out_fn):
                     continue
                 print('Deriving local wavelength solution for %s' % local_arcs[i])
-                pywifes.derive_wifes_wave_solution(local_arc_fn, local_wsol_out_fn,
+                wifes_wsol.derive_wifes_wave_solution(local_arc_fn, local_wsol_out_fn,
                                                     **args)
     return
 
@@ -804,7 +806,7 @@ def run_extract_stars(metadata, prev_suffix, curr_suffix, type='all',**args):
         in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
         out_fn = os.path.join(out_dir, '%s.x%s.dat'  % (fn, prev_suffix))
         print('Extract %s standard star from %s' % (type, in_fn.split('/')[-1]))
-        pywifes.extract_wifes_stdstar(in_fn,
+        wifes_calib.extract_wifes_stdstar(in_fn,
                                       save_fn=out_fn,
                                       save_mode='ascii',
                                       **args)
@@ -818,7 +820,7 @@ def run_derive_calib(metadata, prev_suffix, curr_suffix, method = 'poly',**args)
     extract_list = [os.path.join(out_dir, '%s.x%s.dat' % (fn, prev_suffix))
                     for fn in std_obs_list]
     print('Deriving sensitivity function')
-    best_calib = pywifes.derive_wifes_calibration(
+    best_calib = wifes_calib.derive_wifes_calibration(
         std_cube_list,
         calib_fn,
         extract_in_list=extract_list,method=method,
@@ -835,7 +837,7 @@ def run_flux_calib(metadata, prev_suffix, curr_suffix,
         in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
         out_fn = os.path.join(out_dir, '%s.p%s.fits' % (fn, curr_suffix))
         print('Flux-calibrating cube %s' % in_fn.split('/')[-1])
-        pywifes.calibrate_wifes_cube(
+        wifes_calib.calibrate_wifes_cube(
             in_fn, out_fn, calib_fn, mode)
     return
 
@@ -848,7 +850,7 @@ def run_derive_telluric(metadata, prev_suffix, curr_suffix, **args):
     extract_list = [os.path.join(out_dir, '%s.x%s.dat' % (fn, prev_suffix))
                     for fn in std_obs_list]
     print('Deriving telluric correction')
-    pywifes.derive_wifes_telluric(std_cube_list,
+    wifes_calib.derive_wifes_telluric(std_cube_list,
                                   tellcorr_fn,
                                   extract_in_list=extract_list,
                                   **args)
@@ -863,7 +865,7 @@ def run_telluric_corr(metadata, prev_suffix, curr_suffix, **args):
         in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
         out_fn = os.path.join(out_dir, '%s.p%s.fits' % (fn, curr_suffix))
         print('Correcting telluric in %s' % in_fn.split('/')[-1])
-        pywifes.apply_wifes_telluric(
+        wifes_calib.apply_wifes_telluric(
             in_fn, out_fn, tellcorr_fn)
     return
 

@@ -204,7 +204,7 @@ def mpfit_gauss_line( packaged_args ):
                 'limited':[1,1], 'limits':[width_guess/20.,width_guess]},
                ]
 
-    my_fit = mpfit.mpfit(err_gauss_line,functkw=fa, parinfo=parinfo, 
+    my_fit = mpfit(err_gauss_line,functkw=fa, parinfo=parinfo, 
                              quiet=True)
     p1 = my_fit.params
     #print p1, my_fit.status
@@ -1446,7 +1446,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
         while (not fitdone):
           fitcount += 1
           # Actually do the fit
-          m = mpfit.mpfit(om.mpfitfunc, functkw=fa, parinfo=parinfo, iterfunct=None, ftol=FTOL)
+          m = mpfit(om.mpfitfunc, functkw=fa, parinfo=parinfo, iterfunct=None, ftol=FTOL)
           # Report on it
           if (verbose):
             print('status = ', m.status)

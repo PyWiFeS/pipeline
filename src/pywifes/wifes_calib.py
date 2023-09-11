@@ -4,11 +4,12 @@ import pickle
 from astropy.io import fits as pyfits
 import os
 import scipy.interpolate
-import wifes_ephemeris
-from .wifes_metadata import metadata_dir
-from .wifes_metadata import __version__
 from math import factorial   
 import pylab
+
+from .wifes_metadata import metadata_dir
+from .wifes_metadata import __version__
+from . import wifes_ephemeris
 
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
