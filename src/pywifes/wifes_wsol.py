@@ -275,11 +275,6 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
         # Do an mpfit with gaussian function instead (can limit width!)
         # Use multicore to speed things up
         # Mike I : change in a minimal way to use scipy least squares.
-        if multithread :
-            cpu = None
-        else :
-            cpu = 1 
-        # list the jobs
         jobs = []
         fitted_centers = numpy.zeros_like(peak_centers, dtype = float)
         for i in range(narc):
@@ -295,36 +290,24 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
                 continue
             jobs.append( (i,curr_ctr_guess, width_guess, xfit, yfit) )
         if len(jobs)>0:
-            # Do the threading (see below and http://stackoverflow.com/a/3843313)
-            # MJI: with the following test, the code ran faster, but even just the Pool(cpu)
-            # command slowed things down. 
-            #jobs2 = [jobs[:len(jobs)//4], jobs[len(jobs)//4:2*len(jobs)//4],jobs[2*len(jobs)//4:3*len(jobs)//4],jobs[3*len(jobs)//4:]]
-            #results = mypool.imap_unordered(utils.lsq_gauss_line,jobs2)
-            if multithread: 
-                with multiprocessing.Pool(cpu) as mypool:
-                    #start = datetime.datetime.now() #!!! MJI
+            if multithread:
+                num_available_cpus = len(os.sched_getaffinity(0))
+                with multiprocessing.Pool(num_available_cpus) as mypool:
+                    chunksize = math.ceil(len(jobs) / num_available_cpus)
                     if find_method =='mpfit':
-                        results = mypool.imap_unordered(mpfit_gauss_line,jobs)
+                        results = mypool.imap_unordered(mpfit_gauss_line, jobs, chunksize=chunksize)
                     else:
-                        results = mypool.imap_unordered(lsq_gauss_line,jobs)
-                        
-                    # Close off the pool now that we're done with it
-                    # !!!MJI Not needed with the "with" command. The iterator below
-                    # waits for completion.
-                    #mypool.close()
-                    #mypool.join()            
+                        results = mypool.imap_unordered(lsq_gauss_line, jobs, chunksize=chunksize)
+
                     # Process the results
                     for r in results:
-                        #for r in rr:
                         try:
                             this_line = r[0]
                             this_center = r[1]
                         except:
                             continue
                         fitted_centers[this_line] = float(this_center)
-                    #print('  core done in',datetime.datetime.now()-start)
             else:
-                start = datetime.datetime.now() #!!! MJI
                 for i in range(narc):
                     if find_method =='mpfit':
                         # If sentence added by MZ
@@ -335,7 +318,6 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
                             pass
                     else:
                         fitted_centers[i] = lsq_gauss_line(jobs[i])[1]
-                #print('  serial core done in',datetime.datetime.now()-start)
 
     if find_method == 'loggauss':
         return numpy.array(fitted_centers)
@@ -349,7 +331,7 @@ def quick_arcline_fit(arc_data,
                       width_guess=2.0,
                       flux_saturation = 50000.0,
                       prev_centers = None, # Fred's update (wsol)
-                      multithread=False #!!!MJI. See comments above.
+                      multithread=False
                       ):
     N = len(arc_data)
     arc_deriv = arc_data[1:]-arc_data[:-1]
@@ -449,6 +431,15 @@ def evaluate_wsol_poly(x_array, y_array, xpoly, ypoly):
     wave_array = (numpy.polyval(xpoly, x_array)+
                   numpy.polyval(ypoly, y_array))
     return wave_array
+
+def _set_refarray_from_fits(ref_array, init_y_array, fits):
+    for this_fit in fits:
+        try:
+            row_ind = this_fit[0]
+            ref_row_inds = (init_y_array == row_ind + 1)
+            ref_array[ref_row_inds] = this_fit[2]
+        except:
+            continue
 
 #------------------------------------------------------------------------
 # FUNCTION TO FIND LINES AND GUESS THEIR WAVELENGTHS
@@ -646,32 +637,18 @@ def find_lines_and_guess_refs(slitlet_data,
                 jobs.append( (chosen_slitlet,i,ncols,row_inds,
                               init_x_array[row_inds],ref_arc, 
                               [best_stretch], False, verbose) )
-        if multithread :
-            cpu = None
-            if verbose :
-                print('  ... assign lambdas using up to %d cpu(s) ...' % multiprocessing.cpu_count())
-            with multiprocessing.Pool(cpu) as mypool:
-                results = mypool.imap_unordered(xcorr_shift_all,jobs)
+        if multithread:
+            num_available_cpus = len(os.sched_getaffinity(0))
+            chunksize = math.ceil(len(jobs) / num_available_cpus)
+            if verbose:
+                print(f'  ... assign lambdas using up to {num_available_cpus} cpu(s) ...')
+            with multiprocessing.Pool(num_available_cpus) as pool:
+                results = pool.imap_unordered(xcorr_shift_all, jobs, chunksize=chunksize)
+                _set_refarray_from_fits(ref_array, init_y_array, results)
         else :
             #Completely avoid using Pool in case of an ipython debugging environment.
             results = [xcorr_shift_all(job) for job in jobs] 
-            
-        #import pdb; pdb.set_trace()
-        #mypool = multiprocessing.Pool(cpu)
-        #results = mypool.imap_unordered(xcorr_shift_all,jobs)
-        #mypool.close()
-        #mypool.join()
-        
-
-        # All done ! Now, let's collect the results ...
-        # Careful, the order may be random ... !
-        for this_fit in results:
-            try:
-                this_row = this_fit[0]
-                this_row_inds = (init_y_array == this_row+1)
-                ref_array[this_row_inds] = this_fit[2]
-            except:
-                continue
+            _set_refarray_from_fits(ref_array, init_y_array, results)
 
         # Create array with only detected lines
         good_inds = ref_array > 0

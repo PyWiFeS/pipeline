@@ -39,7 +39,7 @@ my_data_hdu=0
 
 # SET MULTITHREAD ?
 #~ multithread=False
-multithread=True # THIS DOESN'T WORK WITH PYTHON 2.7
+multithread=True
 
 # SET SKIP ALREADY DONE FILES ?
 skip_done=False
