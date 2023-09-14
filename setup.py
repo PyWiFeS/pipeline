@@ -11,10 +11,8 @@ setup(
         "setuptools",
         "astropy",
         "scipy",
-        "numpy>=1.23",
+        "numpy",
         "matplotlib",
     ],
     description="A Python package for optical data reduction pipeline.",
-    author="Timothy Davies",
-    author_email="tim.davies@uwa.edu.au",
 )

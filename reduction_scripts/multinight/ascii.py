@@ -6,7 +6,6 @@ import numpy as np
 from astropy.io import fits
 import os
 
-# PyWiFeS tools
 import process_stellar as ps
 
 root = '/data/mash/marusa/2m3reduced/wifes/'

@@ -15,7 +15,6 @@ import pickle
 from collections import Counter
 from astropy.table import Table
 
-# PyWiFeS tools
 import process_stellar as ps
 
 from pywifes import wifes_calib
