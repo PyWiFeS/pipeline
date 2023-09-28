@@ -22,7 +22,7 @@ f1.close()
 # WHERE IS EVERYTHING ?
 # New in 0.7.x: get the project directory from the file location !
 proj_dir = os.path.dirname(__file__)
-data_dir = os.path.join(proj_dir, 'data')
+data_dir = os.path.join(proj_dir, 'raw_data')
 out_dir = os.path.join(proj_dir, 'reduc_b') # This folder must exist prior to reduction
 calib_prefix = os.path.join(out_dir, 'wifesB_20150314')
 
@@ -31,7 +31,7 @@ my_data_hdu=0
 
 # SET MULTITHREAD ?
 #~ multithread=False
-multithread=True
+multithread=False
 
 # SET SKIP ALREADY DONE FILES ?
 skip_done=False

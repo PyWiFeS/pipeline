@@ -36,7 +36,7 @@ my_data_hdu=0
 
 # SET MULTITHREAD ?
 #~ multithread=False
-multithread=True # THIS DOESN'T WORK WITH PYTHON 2.7
+multithread=False # THIS DOESN'T WORK WITH PYTHON 2.7
 
 # SET SKIP ALREADY DONE FILES ?
 skip_done=False
@@ -822,7 +822,7 @@ def run_derive_calib(metadata, prev_suffix, curr_suffix, method = 'poly',**args)
         **args)
     return
 
-# Applying Calibration
+# Applying Flux Calibration
 def run_flux_calib(metadata, prev_suffix, curr_suffix,
                    mode='pywifes', **args):
     # calibrate all sci and std obs
