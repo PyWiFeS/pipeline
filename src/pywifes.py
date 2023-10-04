@@ -1950,7 +1950,7 @@ def wifes_slitlet_mef_ns(inimg, outimg_obj, outimg_sky,
         obj_hdu.header.set('DATASEC', obj_dim_str)
         obj_hdu.header.set('TRIMSEC', obj_dim_str)
         # fix the exposure time!!
-        exptime_true = float(old_hdr['SEXP'])*float(old_hdr['NSUBEXPS'])
+        exptime_true = float(old_hdr['SEXPTIME'])
         obj_hdu.header.set('EXPTIME', exptime_true,
                               comment='Total NS exposure time')
         outfits_obj.append(obj_hdu)
@@ -1981,7 +1981,7 @@ def wifes_slitlet_mef_ns(inimg, outimg_obj, outimg_sky,
         sky_hdu.header.set('DATASEC', sky_dim_str)
         sky_hdu.header.set('TRIMSEC', sky_dim_str)
         # fix the exposure time!!
-        exptime_true = float(old_hdr['NEXP'])*float(old_hdr['NSUBEXPS'])
+        exptime_true = float(old_hdr['EXPTIME'])
         sky_hdu.header.set('EXPTIME', exptime_true,
                               comment='Total NS exposure time')
         outfits_sky.append(sky_hdu)
@@ -2035,7 +2035,7 @@ def wifes_slitlet_mef_ns(inimg, outimg_obj, outimg_sky,
         obj_hdu.header.set('DATASEC', obj_dim_str)
         obj_hdu.header.set('TRIMSEC', obj_dim_str)
         # fix the exposure time!!
-        exptime_true = float(old_hdr['SEXP'])*float(old_hdr['NSUBEXPS'])
+        exptime_true = float(old_hdr['SEXPTIME'])
         obj_hdu.header.set('EXPTIME', exptime_true,
                               comment='Total NS exposure time')
         outfits_obj.append(obj_hdu)
@@ -2047,7 +2047,7 @@ def wifes_slitlet_mef_ns(inimg, outimg_obj, outimg_sky,
         sky_hdu.header.set('DATASEC', sky_dim_str)
         sky_hdu.header.set('TRIMSEC', sky_dim_str)
         # fix the exposure time!!
-        exptime_true = float(old_hdr['NEXP'])*float(old_hdr['NSUBEXPS'])
+        exptime_true = float(old_hdr['EXPTIME'])
         sky_hdu.header.set('EXPTIME', exptime_true,
                               comment='Total NS exposure time')
         outfits_sky.append(sky_hdu)
@@ -2499,7 +2499,7 @@ def wifes_illumination(spatial_inimg,
         # need to fit this for each slitlet
     outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, overwrite=True)
-    f1.close()
+    #f1.close()
     f2.close()
     return
 
