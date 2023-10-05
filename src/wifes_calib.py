@@ -794,10 +794,13 @@ def derive_wifes_telluric(cube_fn_list,
             obs_wave = ex_data[:,0]
             obs_flux = ex_data[:,1]
         
-        # Filtering nan values
-        obs_wave_nan = numpy.where(~numpy.isnan(obs_wave))[0]
-        obs_flux_nan = numpy.where(~numpy.isnan(obs_flux))[0]
+        # Filtering nan values in case of missing flux values
+
+        filter_nan = ~numpy.isnan(obs_flux)
+        obs_wave_nan = obs_wave[filter_nan]  
+        obs_flux_nan = obs_flux[filter_nan]
         
+
         print("OBS_WAVE_NAN", obs_wave_nan)
         print("OBS_FLUX", obs_flux_nan)
         print("O2_tell_bands", O2_telluric_bands)
@@ -815,8 +818,6 @@ def derive_wifes_telluric(cube_fn_list,
                                  *(obs_wave_nan >= fit_wmin)
                                  *(obs_wave_nan <= fit_wmax))[0]
         
-        print("OBS_WAVE",obs_wave_nan)
-        print("OBS_FLUX",obs_flux_nan)
         print("OBS_INDS",fit_inds)
         
 
