@@ -86,7 +86,7 @@ for obs in blue_obs:
         pass
     #---------------------------
     # 1 - bias frames
-    if imagetype == 'BIAS':
+    if (imagetype == 'BIAS') or (imagetype == 'ZERO'):
         blue_bias.append(obs)
     # 2 - quartz flats
     if imagetype == 'FLAT':
@@ -260,7 +260,7 @@ for obs in red_obs:
         pass
     #---------------------------
     # 1 - bias frames
-    if imagetype == 'BIAS':
+    if (imagetype == 'BIAS') or (imagetype == 'ZERO'):
         red_bias.append(obs)
     # 2 - quartz flats
     if imagetype == 'FLAT':
