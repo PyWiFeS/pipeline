@@ -794,54 +794,43 @@ def derive_wifes_telluric(cube_fn_list,
             obs_wave = ex_data[:,0]
             obs_flux = ex_data[:,1]
         
-        # Filtering nan values in case of missing flux values
-
+        # Filtering nan values in case of missing flux values, see #27
         filter_nan = ~numpy.isnan(obs_flux)
-        obs_wave_nan = obs_wave[filter_nan]  
+        filtered_obs_wave = obs_wave[filter_nan]  
         obs_flux_nan = obs_flux[filter_nan]
-        
-
-        print("OBS_WAVE_NAN", obs_wave_nan)
-        print("OBS_FLUX", obs_flux_nan)
-        print("O2_tell_bands", O2_telluric_bands)
-        print("H2O_tell_bands", H2O_telluric_bands)
-
 
 
         # define all the telluric regions
-        O2_mask  = wavelength_mask(obs_wave_nan, O2_telluric_bands)
-        H2O_mask = wavelength_mask(obs_wave_nan, H2O_telluric_bands)
+        O2_mask  = wavelength_mask(filtered_obs_wave, O2_telluric_bands)
+        H2O_mask = wavelength_mask(filtered_obs_wave, H2O_telluric_bands)
         O2_inds  = numpy.nonzero(O2_mask==0)[0]
         H2O_inds = numpy.nonzero(H2O_mask==0)[0]
         # fit smooth polynomial to non-telluric regions!
         fit_inds = numpy.nonzero(O2_mask*H2O_mask
-                                 *(obs_wave_nan >= fit_wmin)
-                                 *(obs_wave_nan <= fit_wmax))[0]
-        
-        print("OBS_INDS",fit_inds)
-        
+                                 *(filtered_obs_wave >= fit_wmin)
+                                 *(filtered_obs_wave <= fit_wmax))[0]        
 
-        smooth_poly = numpy.polyfit(obs_wave_nan[fit_inds],
+        smooth_poly = numpy.polyfit(filtered_obs_wave[fit_inds],
                                     obs_flux_nan[fit_inds],
                                     polydeg)
         # get ratio of data to smooth continuum
-        smooth_cont = numpy.polyval(smooth_poly, obs_wave_nan)
+        smooth_cont = numpy.polyval(smooth_poly, filtered_obs_wave)
         init_ratio = obs_flux_nan / smooth_cont
         if plot_stars or savefigs:
             pylab.figure()
-            pylab.plot(obs_wave_nan, obs_flux_nan, 'b')
-            pylab.plot(obs_wave_nan, smooth_cont, 'g')
+            pylab.plot(filtered_obs_wave, obs_flux_nan, 'b')
+            pylab.plot(filtered_obs_wave, smooth_cont, 'g')
             if savefigs:
                 save_fn = save_prefix + 'star_%d.png' % (i+1)
         # isolate desired regions, apply thresholds!
-        O2_ratio = numpy.ones(len(obs_wave_nan), dtype='d')
+        O2_ratio = numpy.ones(len(filtered_obs_wave), dtype='d')
         O2_ratio[O2_inds] = init_ratio[O2_inds]
         O2_ratio[numpy.nonzero(O2_ratio >= telluric_threshold)[0]] = 1.0
-        O2_corrections.append([obs_wave_nan, O2_ratio])
-        H2O_ratio = numpy.ones(len(obs_wave_nan), dtype='d')
+        O2_corrections.append([filtered_obs_wave, O2_ratio])
+        H2O_ratio = numpy.ones(len(filtered_obs_wave), dtype='d')
         H2O_ratio[H2O_inds] = init_ratio[H2O_inds]
         H2O_ratio[numpy.nonzero(H2O_ratio >= telluric_threshold)[0]] = 1.0
-        H2O_corrections.append([obs_wave_nan, H2O_ratio])
+        H2O_corrections.append([filtered_obs_wave, H2O_ratio])
     #---------------------------------------------
     # now using all, derive the appropriate solutions!
     # wavelength range shouldn't change much, use the first one!

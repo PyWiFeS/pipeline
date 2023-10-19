@@ -2499,7 +2499,6 @@ def wifes_illumination(spatial_inimg,
         # need to fit this for each slitlet
     outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, overwrite=True)
-    #f1.close()
     f2.close()
     return
 
