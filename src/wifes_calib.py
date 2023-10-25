@@ -71,9 +71,9 @@ def find_nearest_stdstar(inimg, data_hdu=0):
 # high-level functions to check if an observation is half-frame or N+S
 def is_halfframe(inimg, data_hdu=0):
     f = pyfits.open(inimg)
-    ccdsec = f[data_hdu].header['CCDSEC']
+    detsec = f[data_hdu].header['DETSEC']
     f.close()
-    ystart = int(float(ccdsec.split(',')[1].split(':')[0]))
+    ystart = int(float(detsec.split(',')[1].split(':')[0]))
     if ystart == 2049:
         return True
     else:
@@ -204,7 +204,7 @@ def extract_wifes_stdstar(cube_fn,
     
     # MZ: Commented out
     if x_ctr == None or y_ctr == None:
-        cube_im = numpy.sum(obj_cube_data, axis=0)
+        cube_im = numpy.nansum(obj_cube_data, axis=0)
         maxind = numpy.nonzero(cube_im == cube_im.max()) # numpy.nonzero returns indices of nonzero elements
         yc = maxind[0][0]
         xc = maxind[1][0]
@@ -251,16 +251,24 @@ def extract_wifes_stdstar(cube_fn,
     std_flux /= fscale
     std_var  /= (fscale**2)
     sky_flux /= fscale
+    
+    ## Filtering nan values in case of missing flux values, see #27
+    filter_nan = ~numpy.isnan(std_flux)
+    filtered_lam_array = lam_array[filter_nan]
+    filtered_std_flux = std_flux[filter_nan]
+    filtered_std_var = std_var[filter_nan]
+
     # return flux or save!
     if save_mode == None:
         f.close()
-        return lam_array, std_flux
+        return filtered_lam_array, filtered_std_flux
+    
     elif save_mode == 'ascii':
         f.close()
         save_data = numpy.zeros([nlam,3],dtype='d')
-        save_data[:,0] = lam_array
-        save_data[:,1] = std_flux
-        save_data[:,2] = std_var
+        save_data[:,0] = filtered_lam_array
+        save_data[:,1] = filtered_std_flux
+        save_data[:,2] = filtered_std_var
         numpy.savetxt(save_fn, save_data)
     elif save_mode == 'iraf':
         out_header = f[1].header
@@ -269,10 +277,10 @@ def extract_wifes_stdstar(cube_fn,
         out_header.set('CD3_3', 1)
         out_header.set('LTM3_3', 1)
         out_data = numpy.zeros([4,1,nlam],dtype='d')
-        out_data[0,0,:] = std_flux
+        out_data[0,0,:] = filtered_std_flux
         out_data[1,0,:] = sky_flux
-        out_data[2,0,:] = std_var
-        out_data[3,0,:] = std_var
+        out_data[2,0,:] = filtered_std_var
+        out_data[3,0,:] = filtered_std_var
         out_hdu = pyfits.PrimaryHDU(
             data=out_data,
             header=out_header)
@@ -793,6 +801,7 @@ def derive_wifes_telluric(cube_fn_list,
             ex_data = numpy.loadtxt(extract_in_list[i])
             obs_wave = ex_data[:,0]
             obs_flux = ex_data[:,1]
+
         # define all the telluric regions
         O2_mask  = wavelength_mask(obs_wave, O2_telluric_bands)
         H2O_mask = wavelength_mask(obs_wave, H2O_telluric_bands)
@@ -801,7 +810,8 @@ def derive_wifes_telluric(cube_fn_list,
         # fit smooth polynomial to non-telluric regions!
         fit_inds = numpy.nonzero(O2_mask*H2O_mask
                                  *(obs_wave >= fit_wmin)
-                                 *(obs_wave <= fit_wmax))[0]
+                                 *(obs_wave <= fit_wmax))[0]        
+
         smooth_poly = numpy.polyfit(obs_wave[fit_inds],
                                     obs_flux[fit_inds],
                                     polydeg)

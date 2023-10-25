@@ -34,9 +34,9 @@ all_ref_lines = wifes_metadata['ref_linelists']
 # high-level functions to check if an observation is half-frame or N+S
 def is_halfframe(inimg, data_hdu=0):
     f = pyfits.open(inimg)
-    ccdsec = f[data_hdu].header['CCDSEC']
+    detsec = f[data_hdu].header['DETSEC']
     f.close()
-    ystart = int(float(ccdsec.split(',')[1].split(':')[0]))
+    ystart = int(float(detsec.split(',')[1].split(':')[0]))
     if ystart == 2049:
         return True
     else:
@@ -1158,7 +1158,7 @@ def derive_wifes_polynomial_wave_solution(inimg,
         else:
             grating = arc_hdr['GRATINGB']
     if arc_name == None:
-        init_arc_name = arc_hdr['M1ARCLMP']
+        init_arc_name = arc_hdr['LAMP']
         next_arc_name = re.sub('-', '', init_arc_name)
         again_arc_name = re.sub(' ', '', next_arc_name)
         arc_name = re.sub('_', '', again_arc_name)
@@ -1242,7 +1242,7 @@ def save_found_lines(inimg,
         else:
             grating = arc_hdr['GRATINGB']
     if arc_name == None:
-        init_arc_name = arc_hdr['M1ARCLMP']
+        init_arc_name = arc_hdr['LAMP']
         next_arc_name = re.sub('-', '', init_arc_name)
         again_arc_name = re.sub(' ', '', next_arc_name)
         arc_name = re.sub('_', '', again_arc_name)
@@ -1587,7 +1587,7 @@ def derive_wifes_optical_wave_solution(inimg,
   rh = f[1].header.get('RH')
   rma = f[1].header.get('ROTSKYPA') # Dumb name for rotator mechanical angle
   if arc_name == None:
-      init_arc_name = f[1].header['M1ARCLMP']
+      init_arc_name = f[1].header['LAMP']
       next_arc_name = re.sub('-', '', init_arc_name)
       again_arc_name = re.sub(' ', '', next_arc_name)
       arc_name = re.sub('_', '', again_arc_name)
@@ -1605,9 +1605,9 @@ def derive_wifes_optical_wave_solution(inimg,
   yrange = []
   for i in range(1,26):
       # and the yrange...
-      ccdsec = f[i].header['CCDSEC']
-      y0 = int(ccdsec.split(',')[1].split(':')[0])
-      y1 = int(ccdsec.split(',')[1].split(':')[1].split(']')[0])
+      detsec = f[i].header['DETSEC']
+      y0 = int(detsec.split(',')[1].split(':')[0])
+      y1 = int(detsec.split(',')[1].split(':')[1].split(']')[0])
       # Make the values work nicely with the range() command
       if (y0 > y1):
           ystop = y0 + 1
