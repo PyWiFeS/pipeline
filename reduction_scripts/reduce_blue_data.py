@@ -23,11 +23,10 @@ f1 = open(meta_fn, 'rb')
 obs_metadata = pickle.load(f1)
 f1.close()
 
-# Where is everything ?
-# New in 0.7.x: get the project directory from the file location !
+# Get the project directory from the file location 
 proj_dir = os.path.dirname(__file__)
-data_dir = os.path.join(proj_dir, 'raw_data/')
-out_dir = os.path.join(proj_dir, 'reduc_b/') # This folder must exist prior to reduction
+data_dir = os.path.join(proj_dir, 'raw_data')
+out_dir = os.path.join(proj_dir, 'reduc_b') # This folder must exist prior to reduction
 calib_prefix = os.path.join(out_dir, 'wifesB_20150314')
 
 # Some WiFeS specific things
@@ -35,7 +34,7 @@ my_data_hdu=0
 
 # SET MULTITHREAD ?
 #~ multithread=False
-multithread=True
+multithread=False
 
 # SET SKIP ALREADY DONE FILES ?
 skip_done=False
@@ -91,7 +90,7 @@ proc_steps = [
              'shift_method' : 'xcorr_all',
              'find_method' : 'mpfit',
              'doalphapfit' : True,
-             'doplot' : ['step2'], # True, False, or ['step1','step2']
+             'doplot' : False, # True, False, or ['step1','step2']
              #~ 'doplot' : False, # True, False, or ['step1','step2']
              'dlam_cut_start':5.0,
              'multithread': multithread}},
@@ -123,8 +122,8 @@ proc_steps = [
      'args':{'ytrim':4, 
              'type':'flux'}},
     {'step':'derive_calib'   , 'run':True, 'suffix':None,
-     'args':{'plot_stars':True,
-             'plot_sensf':True,
+     'args':{'plot_stars':False,
+             'plot_sensf':False,
              'polydeg':25,
              'excise_cut' : 0.005,
              'method':'poly',# 'poly' or 'smooth_SG'
@@ -827,7 +826,7 @@ def run_derive_calib(metadata, prev_suffix, curr_suffix, method = 'poly',**args)
         **args)
     return
 
-# Applying Calibration
+# Applying Flux Calibration
 def run_flux_calib(metadata, prev_suffix, curr_suffix,
                    mode='pywifes', **args):
     # calibrate all sci and std obs

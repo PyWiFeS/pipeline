@@ -39,7 +39,7 @@ my_data_hdu=0
 
 # SET MULTITHREAD ?
 #~ multithread=False
-multithread=True # THIS DOESN'T WORK WITH PYTHON 2.7
+multithread=False # THIS DOESN'T WORK WITH PYTHON 2.7
 
 # SET SKIP ALREADY DONE FILES ?
 skip_done=False
@@ -57,7 +57,7 @@ proc_steps = [
     #------------------
     {'step':'superbias'      , 'run':True, 'suffix':None,
      'args':{'method':'row_med', 
-             'plot':True, 
+             'plot':False, 
              'verbose':False}},
     {'step':'bias_sub'       , 'run':True, 'suffix':'02',
      'args':{'method':'subtract', 
@@ -74,7 +74,7 @@ proc_steps = [
     {'step':'flat_cleanup'   , 'run':True, 'suffix':None,
      'args':{'type':['dome'], # Add 'twi' for twilight flats
              'verbose':True, 
-             'plot':True,
+             'plot':False,
              'buffer':4,
              'offsets':[0.4,0.4],
              'radius':10.0,
@@ -92,7 +92,7 @@ proc_steps = [
      'args':{'verbose':True,
              'method' : 'optical',
              'doalphapfit' : True,
-             'doplot' : ['step2'], # True, False, or ['step1','step2']
+             'doplot' : False, # True, False, or ['step1','step2']
              'shift_method' : 'xcorr_all',
              'find_method' : 'mpfit',
              'dlam_cut_start':5.0,
@@ -125,8 +125,8 @@ proc_steps = [
      'args':{'ytrim':4, 
              'type':'flux'}},
     {'step':'derive_calib'   , 'run':True, 'suffix':None,
-     'args':{'plot_stars':True,
-             'plot_sensf':True,
+     'args':{'plot_stars':False,
+             'plot_sensf':False,
              'polydeg':10,
              'method':'smooth_SG', # 'poly' or 'smooth_SG'
              'boxcar':10, # smoothing for smooth_SG only
@@ -137,7 +137,7 @@ proc_steps = [
      'args':{'ytrim':4, 
              'type':'telluric'}},
     {'step':'derive_telluric', 'run':True, 'suffix':None,
-     'args':{'plot':True}},
+     'args':{'plot':False}},
     {'step':'telluric_corr'  , 'run':True, 'suffix':'10', 'args':{}},
     #~ #------------------
     {'step':'save_3dcube'    , 'run':True, 'suffix':'11', 'args':{}}
@@ -824,7 +824,7 @@ def run_derive_calib(metadata, prev_suffix, curr_suffix, method = 'poly',**args)
         **args)
     return
 
-# Applying Calibration
+# Applying Flux Calibration
 def run_flux_calib(metadata, prev_suffix, curr_suffix,
                    mode='pywifes', **args):
     # calibrate all sci and std obs
