@@ -8,7 +8,6 @@ python generate_metadata_script_marusa.py config.py /priv/mulga1/marusa/2m3data/
 import numpy as np
 import sys, getopt
 import os
-import glob
 from astropy.io import fits as pyfits
 import imp
 
@@ -31,6 +30,7 @@ print('########################################################')
 config = imp.load_source('config', sys.argv[1])
 
 # Calibration files in case some are missing for this night: this is a file containing a dictionary with filenames
+sys.path.insert(1, '/data/mash/marusa/2m3data/wifes/') # TODO: THIS SHOULDN'T BE LIKE THIS!!
 import calibration_all_filenames as cal
 cal=cal.result
 
