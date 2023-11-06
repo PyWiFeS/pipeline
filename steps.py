@@ -1,44 +1,22 @@
 # =============================================================================
-# 1) Put all the data in the same directory. /Users/.../raw_data
+# 1) Put all the raw data and calibration files in the same directory 
+# /Users/.../my_folder/raw_data
 # =============================================================================
 
-
 # =============================================================================
-# 2) Run the script  /Users/.../pipeline/generate_metadata_script.py
-# giving the data directory as an input parameter
-# =============================================================================
-python3 /Users/.../pipeline/generate_metadata_script.py raw_data 
-
-
-
-# =============================================================================
-# 3) Run the generated save_*_metadata.py to produce the dictionary (wifesB_20230312_metadata.pkl and wifesR_20230312_metadata.pkl)
+# 2) Copy reduce data scripts and files to the above menctioned folder
 # =============================================================================
 
-python3 save_blue_metadata.py 
-python3 save_red_metadata.py 
-
-
+cp /Users/.../pipeline/reduction_scripts/*.py /Users/.../my_folder/
+cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_folder/
 
 
 # =============================================================================
-# 4) Create dir reduc_r and mkdir reduc_b
-# =============================================================================
-mkdir reduc_r reduc_b
-
-
-# =============================================================================
-# 5) Copy reduce data scripts
-# check the reduce_*_data.py 
-# then run them using as a parameter the gererated .pkl dictionary  (with the corresponding color)
-
+# 3) Run the script reduce_data.py giving the data directory as an input parameter
 # =============================================================================
 
-cp /Users/.../pipeline/reduction_scripts/reduce_* .
+python3 reduce_data.py raw_data
 
-python3 reduce_red_data.py wifesR_20230312_metadata.pkl
-
-python3 reduce_blue_data.py wifesB_20230312_metadata.pkl
 
 
 
@@ -48,6 +26,13 @@ python3 reduce_blue_data.py wifesB_20230312_metadata.pkl
 
 
 
+
+
+
+
+###########
+# TO DO   #
+###########
 
 # =============================================================================
 # Extract spectrum from Cube
