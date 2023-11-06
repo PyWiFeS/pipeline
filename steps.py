@@ -4,21 +4,18 @@
 # =============================================================================
 
 # =============================================================================
-# 2) Copy reduce data scripts and files to the above menctioned folder
+# 2) Copy the reduce data script and .json files to the above menctioned folder
 # =============================================================================
 
-cp /Users/.../pipeline/reduction_scripts/*.py /Users/.../my_folder/
+cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_folder/
 cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_folder/
 
 
 # =============================================================================
-# 3) Run the script reduce_data.py giving the data directory as an input parameter
+# 3) Run reduce_data.py giving the data directory as an input parameter
 # =============================================================================
 
 python3 reduce_data.py raw_data
-
-
-
 
 
 # DATA REDUCED !!!!
