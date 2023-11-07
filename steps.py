@@ -4,7 +4,7 @@
 # =============================================================================
 
 # =============================================================================
-# 2) Copy the reduce data script and .json files to the above menctioned folder
+# 2) Copy the reduce data script and .json files to the above mentioned folder
 # =============================================================================
 
 cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_folder/
@@ -13,13 +13,13 @@ cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_folder/
 
 # =============================================================================
 # 3) Run reduce_data.py giving the data directory as an input parameter
+# ** The pipeline now runs both arms automatically and choose the observing mode checking the headers
 # =============================================================================
 
 python3 reduce_data.py raw_data
 
 
 # DATA REDUCED !!!!
-
 
 
 

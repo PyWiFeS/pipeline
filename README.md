@@ -1,6 +1,9 @@
 # pipeline
 The Python data reduction pipeline for WiFeS
 
+## THIS IS ALL INFO FOR THE PIPELINE IN THE MAIN BRANCH
+
+
 ### July 2021: How is this code different from the main pyWiFeS repository?
 - Update to python3 and bug fixes (Adam fixed lots of them)
 - We should keep the old structure, and only add a set of scripts to tackle multinight observations:
