@@ -8,12 +8,11 @@ python generate_metadata_script_marusa.py config.py /priv/mulga1/marusa/2m3data/
 import numpy as np
 import sys, getopt
 import os
-import glob
 from astropy.io import fits as pyfits
-import wifes_calib
-sys.path.insert(1, '/data/mash/marusa/reduction_wifes/pipeline/utils/')
-import pywifes_utils as pu
 import imp
+
+from pywifes import wifes_calib
+from pywifes import pywifes_utils as pu
 
 keywords = ['GRATINGB', 'GRATINGR', 'BEAMSPLT', 'CCDSUM', 'CCDSEC']
 keywords_dark_zero = ['CCDSEC', 'CCDSUM']

@@ -1,7 +1,5 @@
 import os
-import re
 import numpy
-import pylab
 import scipy.interpolate
 
 #------------------------------------------------------------------------

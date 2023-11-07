@@ -3,7 +3,8 @@
 import sys
 import os
 from astropy.io import fits as pyfits
-import wifes_calib
+
+from . import wifes_calib
 
 
 

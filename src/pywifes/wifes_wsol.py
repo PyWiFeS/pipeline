@@ -5,20 +5,18 @@ import numpy
 import pylab
 import pickle
 import scipy.interpolate
-import scipy.optimize
-from wifes_metadata import metadata_dir
-import mpfit
-import optical_model as om
 import math
-import mpfit
 import multiprocessing
 from itertools import cycle
-from wifes_metadata import __version__
 import scipy.optimize as op
 # Fred's upadate (wsol)
 import os
 import datetime
-#import utils #MJI Testing 
+
+from . import optical_model as om
+from .wifes_metadata import metadata_dir
+from .wifes_metadata import __version__
+from .mpfit import mpfit
 
 #------------------------------------------------------------------------
 f0 = open(os.path.join(metadata_dir,'basic_wifes_metadata.pkl'), 'rb')
@@ -206,7 +204,7 @@ def mpfit_gauss_line( packaged_args ):
                 'limited':[1,1], 'limits':[width_guess/20.,width_guess]},
                ]
 
-    my_fit = mpfit.mpfit(err_gauss_line,functkw=fa, parinfo=parinfo, 
+    my_fit = mpfit(err_gauss_line,functkw=fa, parinfo=parinfo, 
                              quiet=True)
     p1 = my_fit.params
     #print p1, my_fit.status
@@ -1448,7 +1446,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
         while (not fitdone):
           fitcount += 1
           # Actually do the fit
-          m = mpfit.mpfit(om.mpfitfunc, functkw=fa, parinfo=parinfo, iterfunct=None, ftol=FTOL)
+          m = mpfit(om.mpfitfunc, functkw=fa, parinfo=parinfo, iterfunct=None, ftol=FTOL)
           # Report on it
           if (verbose):
             print('status = ', m.status)
