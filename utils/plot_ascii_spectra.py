@@ -5,7 +5,6 @@ import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from itertools import cycle
 
 try:
     root = sys.argv[1]
