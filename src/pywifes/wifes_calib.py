@@ -178,13 +178,13 @@ def extract_wifes_stdstar(cube_fn,
     inlam, iny, inx = numpy.shape(init_obj_cube_data)
     obj_cube_data = init_obj_cube_data[:,ytrim:iny-ytrim,:]
     obj_cube_var  = init_obj_cube_var[:,ytrim:iny-ytrim,:]
-    nlam, ny, nx = numpy.shape(obj_cube_data)
+    len_lam, ny, nx = numpy.shape(obj_cube_data)
     # get stdstar centroid
     lin_x = numpy.arange(nx,dtype='d')
     lin_y = numpy.arange(ny,dtype='d')
     full_x, full_y = numpy.meshgrid(lin_x, lin_y)
-    cube_x = full_x*numpy.ones([nlam,ny,nx])
-    cube_y = full_y*numpy.ones([nlam,ny,nx])
+    cube_x = full_x*numpy.ones([len_lam,ny,nx])
+    cube_y = full_y*numpy.ones([len_lam,ny,nx])
     flux = numpy.sum(numpy.sum(obj_cube_data,axis=2),axis=1)
     # make a mask for halfframe
     if halfframe:
@@ -198,12 +198,12 @@ def extract_wifes_stdstar(cube_fn,
         #~ std_x = numpy.sum(numpy.sum(
             #~ obj_cube_data*cube_x,axis=1),axis=1)/flux
     #~ else:
-        #~ std_x = x_ctr*numpy.ones(nlam, dtype='d')
+        #~ std_x = x_ctr*numpy.ones(len_lam, dtype='d')
     #~ if y_ctr == None:
         #~ std_y = numpy.sum(numpy.sum(
             #~ obj_cube_data*cube_y,axis=2),axis=1)/flux
     #~ else:
-        #~ std_y = y_ctr*numpy.ones(nlam, dtype='d')
+        #~ std_y = y_ctr*numpy.ones(len_lam, dtype='d')
     
     # MZ: Commented out
     if x_ctr == None or y_ctr == None:
@@ -211,24 +211,24 @@ def extract_wifes_stdstar(cube_fn,
         maxind = numpy.nonzero(cube_im == cube_im.max()) # numpy.nonzero returns indices of nonzero elements
         yc = maxind[0][0]
         xc = maxind[1][0]
-        std_x = xc*numpy.ones(nlam, dtype='d')
-        std_y = yc*numpy.ones(nlam, dtype='d')
+        std_x = xc*numpy.ones(len_lam, dtype='d')
+        std_y = yc*numpy.ones(len_lam, dtype='d')
     else:
-        std_x = x_ctr*numpy.ones(nlam, dtype='d')
-        std_y = y_ctr*numpy.ones(nlam, dtype='d')
+        std_x = x_ctr*numpy.ones(len_lam, dtype='d')
+        std_y = y_ctr*numpy.ones(len_lam, dtype='d')
     # fit smooth curves!
     polydeg=6
-    lin_lam = numpy.arange(nlam,dtype='d')
+    lin_lam = numpy.arange(len_lam,dtype='d')
     xpoly = numpy.polyfit(lin_lam, std_x, polydeg)
     xfvals = numpy.polyval(xpoly, lin_lam)
     ypoly = numpy.polyfit(lin_lam, std_y, polydeg)
     yfvals = numpy.polyval(ypoly, lin_lam)
     # now extract
-    std_flux = numpy.zeros(nlam,dtype='d')
-    sky_flux = numpy.zeros(nlam,dtype='d')
-    std_var  = numpy.zeros(nlam,dtype='d')
+    std_flux = numpy.zeros(len_lam,dtype='d')
+    sky_flux = numpy.zeros(len_lam,dtype='d')
+    std_var  = numpy.zeros(len_lam,dtype='d')
     # THERE IS A FASTER WAY TO DO THIS WITH MASKING...
-    for i in range(nlam):
+    for i in range(len_lam):
         # get *distance* of each pixels from stdstar center x/y
         pix_dists = ((slice_size_arcsec*(full_x-std_x[i]))**2+
                      (pix_size_arcsec*(full_y-std_y[i]))**2)**0.5
@@ -261,6 +261,8 @@ def extract_wifes_stdstar(cube_fn,
     filtered_std_flux = std_flux[filter_nan]
     filtered_std_var = std_var[filter_nan]
 
+    len_filtered_lam = len(filtered_lam_array)
+
     # return flux or save!
     if save_mode == None:
         f.close()
@@ -268,7 +270,7 @@ def extract_wifes_stdstar(cube_fn,
     
     elif save_mode == 'ascii':
         f.close()
-        save_data = numpy.zeros([nlam,3],dtype='d')
+        save_data = numpy.zeros([len_filtered_lam,3],dtype='d')
         save_data[:,0] = filtered_lam_array
         save_data[:,1] = filtered_std_flux
         save_data[:,2] = filtered_std_var
@@ -279,7 +281,7 @@ def extract_wifes_stdstar(cube_fn,
         out_header.set('CD2_2', 1)
         out_header.set('CD3_3', 1)
         out_header.set('LTM3_3', 1)
-        out_data = numpy.zeros([4,1,nlam],dtype='d')
+        out_data = numpy.zeros([4,1,len_filtered_lam],dtype='d')
         out_data[0,0,:] = filtered_std_flux
         out_data[1,0,:] = sky_flux
         out_data[2,0,:] = filtered_std_var
