@@ -1,7 +1,7 @@
 # pipeline
 The Python data reduction pipeline for WiFeS
 
-## THIS IS ALL INFO FOR THE PIPELINE IN THE MAIN BRANCH
+## THIS IS ALL INFO FOR THE PIPELINE IN THE MASTER BRANCH
 
 
 ### July 2021: How is this code different from the main pyWiFeS repository?
