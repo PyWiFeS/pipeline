@@ -32,9 +32,7 @@ calib_prefix = os.path.join(out_dir, 'wifesB_20150314')
 # Some WiFeS specific things
 my_data_hdu=0
 
-# SET MULTITHREAD ?
-#~ multithread=False
-multithread=False
+multithread=True
 
 # SET SKIP ALREADY DONE FILES ?
 skip_done=False
