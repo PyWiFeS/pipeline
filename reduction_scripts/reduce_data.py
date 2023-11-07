@@ -18,6 +18,7 @@ start_time = datetime.datetime.now()
 # Read the raw data directory from command line
 data_dir = os.path.abspath(sys.argv[1])+'/'
 
+
 # Classify all raw data (red and blue arm)
 obs_metadatas = classify(data_dir)
 
@@ -28,7 +29,23 @@ for arm in obs_metadatas.keys():
     # Get the project directory from the file location 
     proj_dir = os.path.dirname(__file__)
     
-    
+    # Check observing mode
+    sci_im = obs_metadatas[arm]['sci'][0]['sci'][0]+'.fits'
+    if pywifes.is_nodshuffle(data_dir+sci_im):
+        obs_mode = 'ns'
+    else:
+        obs_mode = 'class'    
+
+    #************************************************************************
+    #*****       LOAD JSON FILE WITH USER REDUCTION SETUP              *****
+    #************************************************************************
+    # Read the JSON file
+    file_path = 'params_'+obs_mode+'.json'
+    with open(file_path, 'r') as f:
+        proc_steps = json.load(f)
+    #************************************************************************
+
+
     # Check if the reduc_blue/red folders already exists and create them if required
     out_dir = os.path.join(proj_dir, 'reduc_'+arm) 
     if not os.path.exists(out_dir):
@@ -49,19 +66,6 @@ for arm in obs_metadatas.keys():
     # SET SKIP ALREADY DONE FILES ?
     skip_done=False
     #skip_done=True
-
-    #------------------------------------------------------------------------
-
-    #************************************************************************
-    #*****       LOAD JSON FILES WITH USER REDUCTION SETUP              *****
-    #************************************************************************
-    # Read the JSON file
-    file_path = arm+'_params.json'
-    with open(file_path, 'r') as f:
-        proc_steps = json.load(f)
-    #************************************************************************
-
-
 
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
@@ -820,7 +824,7 @@ for arm in obs_metadatas.keys():
     # RUN THE PROCESSING STEPS
     prev_suffix = None
         # Make changes to the data
-    for step in proc_steps:
+    for step in proc_steps[arm]:
         step_name   = step['step']
         step_run    = step['run']
         step_suffix = step['suffix']
