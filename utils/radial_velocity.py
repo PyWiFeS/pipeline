@@ -3,7 +3,6 @@ Determine radial velocities
 How is template determined?
 """
 
-# PyWiFeS tools
 import process_stellar as ps
 
 ps.calc_rv_template(spect,wave,sig, template_dir,bad_intervals,smooth_distance=101, \

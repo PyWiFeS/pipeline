@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="pywifes",
-    version="0.0.1",
+    version="0.7.4",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     python_requires=">=3.8",
@@ -11,10 +11,8 @@ setup(
         "setuptools",
         "astropy",
         "scipy",
-        "numpy>=1.23",
+        "numpy",
         "matplotlib",
     ],
     description="A Python package for optical data reduction pipeline.",
-    author="Timothy Davies",
-    author_email="tim.davies@uwa.edu.au",
 )

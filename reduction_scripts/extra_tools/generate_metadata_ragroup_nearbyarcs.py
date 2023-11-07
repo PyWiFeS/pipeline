@@ -3,7 +3,6 @@
 import sys
 import os
 import astropy.io.fits as pyfits
-import numpy
 
 from pywifes import wifes_calib
 
