@@ -61,7 +61,3 @@ target/
 reduction_scripts/.DS_Store
 reduction_scripts/extra_tools/.DS_Store
 
-# Directories to test the DRP
-reduction_scripts/raw_data/
-reduction_scripts/reduc_blue/
-reduction_scripts/reduc_red/
