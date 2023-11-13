@@ -7,9 +7,9 @@ from astropy.io import fits as pyfits
 import gc
 import datetime
 import numpy as np
-from data_classifier import classify
 import json
 
+from pywifes.data_classifier import classify
 from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
 from pywifes import wifes_wsol
