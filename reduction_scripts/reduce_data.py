@@ -699,7 +699,7 @@ for arm in obs_metadatas.keys():
                             fits0[i].data = w1*fits0[i].data + w2*fits1[i].data
 
                         wsol_fn = os.path.join(out_dir, '%s.wsol.fits' % (fn))
-                        fits0.writeto(wsol_fn, clobber=True)
+                        fits0.writeto(wsol_fn, overwrite=True)
 
                         print('(2 arcs found)')
                         print('(Note: using %sx%s.wsol.fits + %sx%s.wsol.fits as wsol file)' % (np.round(w1,2),local_arcs[0],np.round(w2,2),local_arcs[1]))
@@ -819,7 +819,6 @@ for arm in obs_metadatas.keys():
     #------------------------------------------------------------------------
     # RUN THE PROCESSING STEPS
     prev_suffix = None
-        # Make changes to the data
     for step in proc_steps[arm]:
         step_name   = step['step']
         step_run    = step['run']
