@@ -28,8 +28,8 @@ for arm in obs_metadatas.keys():
     project_dir = os.path.dirname(__file__)
     
     # Check observing mode
-    sci_im = obs_metadatas[arm]['sci'][0]['sci'][0]+'.fits'
-    if pywifes.is_nodshuffle(data_dir+sci_im):
+    sci_filename = obs_metadatas[arm]['sci'][0]['sci'][0]+'.fits'
+    if pywifes.is_nodshuffle(data_dir+sci_filename):
         obs_mode = 'ns'
     else:
         obs_mode = 'class'    
