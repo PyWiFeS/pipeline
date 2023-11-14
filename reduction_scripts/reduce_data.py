@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 import sys
 import os
 import pickle
@@ -46,9 +44,9 @@ for arm in obs_metadatas.keys():
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
     else:
-        out_dir: print(f"Folder '{out_dir}' already exists.")
+        print(f"Folder '{out_dir}' already exists.")
 
-    calib_prefix = os.path.join(out_dir, 'wifes_'+arm)
+    calib_prefix = os.path.join(out_dir, f'wifes_{arm}')
 
     # Some WiFeS specific things
     my_data_hdu=0
@@ -189,17 +187,18 @@ for arm in obs_metadatas.keys():
     # repair bad pixels!
     def run_bpm_repair(metadata, prev_suffix, curr_suffix):
         full_obs_list = get_full_obs_list(metadata)
-        for fn in full_obs_list:
-            in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, '%s.p%s.fits' % (fn, curr_suffix))
-            if skip_done and os.path.isfile(out_fn):
+        for basename in full_obs_list:
+            input_filename =  f'{basename}.p{prev_suffix}.fits'
+            output_filename =  f'{basename}.p{curr_suffix}.fits'
+            input_filepath = os.path.join(out_dir, input_filename)
+            output_filepath = os.path.join(out_dir, output_filename)
+            if skip_done and os.path.isfile(output_filepath):
                 continue
-            print('Repairing %s bad pixels for %s' % (arm, in_fn.split('/')[-1]))
+            print(f'Repairing {arm} bad pixels for {input_filename}.')
             if arm == 'red':
-                pywifes.repair_red_bad_pix(in_fn, out_fn, data_hdu=my_data_hdu)
+                pywifes.repair_red_bad_pix(input_filepath, output_filepath, data_hdu=my_data_hdu)
             if arm == 'blue':
-                pywifes.repair_blue_bad_pix(in_fn, out_fn, data_hdu=my_data_hdu)
-        return
+                pywifes.repair_blue_bad_pix(input_filepath, output_filepath, data_hdu=my_data_hdu)
 
     #------------------------------------------------------
     # Generate super-bias
@@ -681,8 +680,13 @@ for arm in obs_metadatas.keys():
                     ds2 = (t2 - t1).total_seconds()
                     if ds1>0 and ds2>0:
                         # Alright, I need to interpolate betweent the two arcs
-                        w1 = ds2/(ds1+ds2)
-                        w2 = ds1/(ds1+ds2)
+                        file_arm = sci_header['ARM']
+                        if file_arm == 'Red':
+                            w1 = ds1/(ds1+ds2)
+                            w2 = ds2/(ds1+ds2)
+                        if file_arm == 'Blue':
+                            w1 = ds2/(ds1+ds2)
+                            w2 = ds1/(ds1+ds2)
                         
                         # Open the arc solution files 
                         fn0 = os.path.join(out_dir, '%s.wsol.fits' % (local_arcs[0]))
