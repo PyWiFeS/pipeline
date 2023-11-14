@@ -54,7 +54,7 @@ for arm in obs_metadatas.keys():
         print(f"Folder '{'reduc_'+arm}' already exists.")
 
     
-    calib_prefix = os.path.join(out_dir, 'wifesR_20150314')
+    calib_prefix = os.path.join(out_dir, 'wifes_'+arm)
 
     # Some WiFeS specific things
     my_data_hdu=0
