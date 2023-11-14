@@ -51,10 +51,6 @@ for arm in obs_metadatas.keys():
     # Some WiFeS specific things
     my_data_hdu=0
 
-    # SET MULTITHREAD ?
-    #~ multithread=False
-    multithread=False
-
     # SET SKIP ALREADY DONE FILES ?
     skip_done=False
     #skip_done=True
