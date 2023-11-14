@@ -18,16 +18,16 @@ start_time = datetime.datetime.now()
 # Read the raw data directory from command line
 data_dir = os.path.abspath(sys.argv[1])+'/'
 
-
 # Classify all raw data (red and blue arm)
 obs_metadatas = classify(data_dir)
 
 
 for arm in obs_metadatas.keys():
-
+    #------------------------------------------------------------------------
+    #      LOAD JSON FILE WITH USER REDUCTION SETUP             
+    #------------------------------------------------------------------------
     obs_metadata = obs_metadatas[arm]
-    # Get the project directory from the file location 
-    proj_dir = os.path.dirname(__file__)
+    project_dir = os.path.dirname(__file__)
     
     # Check observing mode
     sci_im = obs_metadatas[arm]['sci'][0]['sci'][0]+'.fits'
@@ -36,24 +36,18 @@ for arm in obs_metadatas.keys():
     else:
         obs_mode = 'class'    
 
-    #************************************************************************
-    #*****       LOAD JSON FILE WITH USER REDUCTION SETUP              *****
-    #************************************************************************
     # Read the JSON file
-    file_path = 'params_'+obs_mode+'.json'
+    file_path = f'params_{obs_mode}.json'  
     with open(file_path, 'r') as f:
         proc_steps = json.load(f)
-    #************************************************************************
-
 
     # Check if the reduc_blue/red folders already exists and create them if required
-    out_dir = os.path.join(proj_dir, 'reduc_'+arm) 
+    out_dir = os.path.join(project_dir, f'reduc_{arm}') 
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
     else:
-        print(f"Folder '{'reduc_'+arm}' already exists.")
+        out_dir: print(f"Folder '{out_dir}' already exists.")
 
-    
     calib_prefix = os.path.join(out_dir, 'wifes_'+arm)
 
     # Some WiFeS specific things
@@ -177,7 +171,6 @@ for arm in obs_metadatas.keys():
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
     # DEFINE THE PROCESSING STEPS
-
     #------------------------------------------------------
     # Subtract overscan
     def run_overscan_sub(metadata, prev_suffix, curr_suffix):
@@ -818,7 +811,6 @@ for arm in obs_metadatas.keys():
         return
 
 
-
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
     # RUN THE PROCESSING STEPS
@@ -841,7 +833,6 @@ for arm in obs_metadatas.keys():
 
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
-
 
     #------------------------- Fred's update --------------------------------
     duration = datetime.datetime.now() - start_time
