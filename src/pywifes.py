@@ -67,19 +67,15 @@ def is_halfframe(inimg, data_hdu=0):
     detsec = f[data_hdu].header['DETSEC']
     f.close()
     ystart = int(float(detsec.split(',')[1].split(':')[0]))
-    if ystart > 2000:
-        return True
-    else:
-        return False
+    return ystart > 2000
+
 
 def is_nodshuffle(inimg, data_hdu=0):
     f = pyfits.open(inimg)
     ns = f[data_hdu].header['WIFESOBS']
     f.close()
-    if ns == 'NodAndShuffle':
-        return True
-    else:
-        return False
+    return ns == 'NodAndShuffle'
+
 
 #------------------------------------------------------------------------
 def imcombine(inimg_list, outimg,
