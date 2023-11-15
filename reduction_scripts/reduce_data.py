@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 import sys
 import os
 import pickle
@@ -22,50 +20,40 @@ start_time = datetime.datetime.now()
 # Read the raw data directory from command line
 data_dir = os.path.abspath(sys.argv[1])+'/'
 
-
 # Classify all raw data (red and blue arm)
 obs_metadatas = classify(data_dir)
 
 
 for arm in obs_metadatas.keys():
-
+    #------------------------------------------------------------------------
+    #      LOAD JSON FILE WITH USER REDUCTION SETUP             
+    #------------------------------------------------------------------------
     obs_metadata = obs_metadatas[arm]
-    # Get the project directory from the file location 
-    proj_dir = os.path.dirname(__file__)
+    project_dir = os.path.dirname(__file__)
     
     # Check observing mode
-    sci_im = obs_metadatas[arm]['sci'][0]['sci'][0]+'.fits'
-    if pywifes.is_nodshuffle(data_dir+sci_im):
+    sci_filename = obs_metadatas[arm]['sci'][0]['sci'][0]+'.fits'
+    if pywifes.is_nodshuffle(data_dir+sci_filename):
         obs_mode = 'ns'
     else:
         obs_mode = 'class'    
 
-    #************************************************************************
-    #*****       LOAD JSON FILE WITH USER REDUCTION SETUP              *****
-    #************************************************************************
     # Read the JSON file
-    file_path = 'params_'+obs_mode+'.json'
+    file_path = f'params_{obs_mode}.json'  
     with open(file_path, 'r') as f:
         proc_steps = json.load(f)
-    #************************************************************************
-
 
     # Check if the reduc_blue/red folders already exists and create them if required
-    out_dir = os.path.join(proj_dir, 'reduc_'+arm) 
+    out_dir = os.path.join(project_dir, f'reduc_{arm}') 
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
     else:
-        print(f"Folder '{'reduc_'+arm}' already exists.")
+        print(f"Folder '{out_dir}' already exists.")
 
-    
-    calib_prefix = os.path.join(out_dir, 'wifesR_20150314')
+    calib_prefix = os.path.join(out_dir, f'wifes_{arm}')
 
     # Some WiFeS specific things
     my_data_hdu=0
-
-    # SET MULTITHREAD ?
-    #~ multithread=False
-    multithread=False
 
     # SET SKIP ALREADY DONE FILES ?
     skip_done=False
@@ -181,7 +169,6 @@ for arm in obs_metadatas.keys():
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
     # DEFINE THE PROCESSING STEPS
-
     #------------------------------------------------------
     # Subtract overscan
     def run_overscan_sub(metadata, prev_suffix, curr_suffix):
@@ -200,17 +187,18 @@ for arm in obs_metadatas.keys():
     # repair bad pixels!
     def run_bpm_repair(metadata, prev_suffix, curr_suffix):
         full_obs_list = get_full_obs_list(metadata)
-        for fn in full_obs_list:
-            in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, '%s.p%s.fits' % (fn, curr_suffix))
-            if skip_done and os.path.isfile(out_fn):
+        for basename in full_obs_list:
+            input_filename =  f'{basename}.p{prev_suffix}.fits'
+            output_filename =  f'{basename}.p{curr_suffix}.fits'
+            input_filepath = os.path.join(out_dir, input_filename)
+            output_filepath = os.path.join(out_dir, output_filename)
+            if skip_done and os.path.isfile(output_filepath):
                 continue
-            print('Repairing %s bad pixels for %s' % (arm, in_fn.split('/')[-1]))
+            print(f'Repairing {arm} bad pixels for {input_filename}.')
             if arm == 'red':
-                pywifes.repair_red_bad_pix(in_fn, out_fn, data_hdu=my_data_hdu)
+                pywifes.repair_red_bad_pix(input_filepath, output_filepath, data_hdu=my_data_hdu)
             if arm == 'blue':
-                pywifes.repair_blue_bad_pix(in_fn, out_fn, data_hdu=my_data_hdu)
-        return
+                pywifes.repair_blue_bad_pix(input_filepath, output_filepath, data_hdu=my_data_hdu)
 
     #------------------------------------------------------
     # Generate super-bias
@@ -691,8 +679,13 @@ for arm in obs_metadatas.keys():
                     ds2 = (t2 - t1).total_seconds()
                     if ds1>0 and ds2>0:
                         # Alright, I need to interpolate betweent the two arcs
-                        w1 = ds2/(ds1+ds2)
-                        w2 = ds1/(ds1+ds2)
+                        file_arm = sci_header['ARM']
+                        if file_arm == 'Red':
+                            w1 = ds1/(ds1+ds2)
+                            w2 = ds2/(ds1+ds2)
+                        if file_arm == 'Blue':
+                            w1 = ds2/(ds1+ds2)
+                            w2 = ds1/(ds1+ds2)
                         
                         # Open the arc solution files 
                         fn0 = os.path.join(out_dir, '%s.wsol.fits' % (local_arcs[0]))
@@ -705,7 +698,7 @@ for arm in obs_metadatas.keys():
                             fits0[i].data = w1*fits0[i].data + w2*fits1[i].data
 
                         wsol_fn = os.path.join(out_dir, '%s.wsol.fits' % (fn))
-                        fits0.writeto(wsol_fn, clobber=True)
+                        fits0.writeto(wsol_fn, overwrite=True)
 
                         print('(2 arcs found)')
                         print('(Note: using %sx%s.wsol.fits + %sx%s.wsol.fits as wsol file)' % (np.round(w1,2),local_arcs[0],np.round(w2,2),local_arcs[1]))
@@ -821,12 +814,10 @@ for arm in obs_metadatas.keys():
         return
 
 
-
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
     # RUN THE PROCESSING STEPS
     prev_suffix = None
-        # Make changes to the data
     for step in proc_steps[arm]:
         step_name   = step['step']
         step_run    = step['run']
@@ -844,7 +835,6 @@ for arm in obs_metadatas.keys():
 
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
-
 
     #------------------------- Fred's update --------------------------------
     duration = datetime.datetime.now() - start_time

@@ -7,10 +7,6 @@ from astropy.io import fits as pyfits
 from . import wifes_calib
 
 
-
-
-
-
 def classifier(obs,data_dir):
     stdstar_list = wifes_calib.ref_fname_lookup.keys()
 

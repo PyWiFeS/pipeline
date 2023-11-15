@@ -1,6 +1,6 @@
-## THIS IS A VERSION IN DEVELOPMENT 
-## THIS INFO IS UPDATED FOR THE AUTOMATION BRANCH ONLY
-###########
+## This is a version IN DEVELOPMENT 
+## This info is UPDATED for the AUTOMATION BRANCH ONLY
+
 
 
 # Pipeline
@@ -16,13 +16,13 @@ The Python data reduction pipeline for WiFeS
 ### Known problems
 - Multiprocessing not always work properly
 
-###########
+
 ## How to install the pipeline
 - Download or clone the `pipeline` repository in the `automation` branch
 - In a Python environment and from the pipeline root directory, do:
 `pip install .`
 
-###########
+
 ## How to run the pipeline
 - Put all the raw data and calibration files in the same directory 
 `/Users/.../my_folder/raw_data`
@@ -36,12 +36,6 @@ The Python data reduction pipeline for WiFeS
 ### DATA REDUCED !!!!
 
 
-
-
-
-
-
-###########
 
 # TO DO   
 - Extract spectrum from Cube
