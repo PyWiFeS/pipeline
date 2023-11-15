@@ -690,16 +690,17 @@ for arm in obs_metadatas.keys():
                         if file_arm == 'Red':
                             w1 = ds1/(ds1+ds2)
                             w2 = ds2/(ds1+ds2)
-                        if file_arm == 'Blue':
+                        elif file_arm == 'Blue':
                             w1 = ds2/(ds1+ds2)
                             w2 = ds1/(ds1+ds2)
+                        else:
+                            print(f"Error: 'ARM' keyword not recognized in the header of '{in_fn}'.")                        
                         
                         # Open the arc solution files 
                         fn0 = os.path.join(out_dir, '%s.wsol.fits' % (local_arcs[0]))
                         fn1 = os.path.join(out_dir, '%s.wsol.fits' % (local_arcs[1]))
                         fits0 = pyfits.open(fn0)
                         fits1 = pyfits.open(fn1)
-
 
                         for i in range(1,len(fits0)):
                             fits0[i].data = w1*fits0[i].data + w2*fits1[i].data
