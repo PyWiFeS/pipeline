@@ -23,6 +23,7 @@ if len(sys.argv) < 2:
 # Read the raw data directory from command line
 data_dir = os.path.abspath(sys.argv[1])+'/'
 
+naxis2_to_process = 0
 if len(sys.argv) == 3:
     naxis2_to_process = int(sys.argv[2])
 
@@ -200,7 +201,7 @@ for arm in obs_metadatas.keys():
             output_filepath = os.path.join(out_dir, output_filename)
             if skip_done and os.path.isfile(output_filepath):
                 continue
-            print(f'Repairing {arm} bad pixels for {input_filename}.')
+            print(f'Repairing {arm} bad pixels for {input_filename}')
             if arm == 'red':
                 pywifes.repair_red_bad_pix(input_filepath, output_filepath, data_hdu=my_data_hdu)
             if arm == 'blue':
@@ -690,7 +691,7 @@ for arm in obs_metadatas.keys():
                         if file_camera == 'WiFeSRed':
                             w1 = ds1/(ds1+ds2)
                             w2 = ds2/(ds1+ds2)
-                        elif file_camera == 'WiFeSBlue':
+                        else: # file_camera == 'WiFeSBlue'
                             w1 = ds2/(ds1+ds2)
                             w2 = ds1/(ds1+ds2)
 
