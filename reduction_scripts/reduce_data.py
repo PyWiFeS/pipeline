@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 import sys
 import os
 import pickle
@@ -13,11 +15,19 @@ import json
 start_time = datetime.datetime.now()
 #------------------------------------------------------------------------
 
+# Parse command line arguments
+if len(sys.argv) < 2:
+    print("Error: Please enter a raw data directory.")
+    sys.exit(1)
+
 # Read the raw data directory from command line
 data_dir = os.path.abspath(sys.argv[1])+'/'
 
+if len(sys.argv) == 3:
+    naxis2_to_process = int(sys.argv[2])
+
 # Classify all raw data (red and blue arm)
-obs_metadatas = classify(data_dir)
+obs_metadatas = classify(data_dir, naxis2_to_process)
 
 
 for arm in obs_metadatas.keys():
