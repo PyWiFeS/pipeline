@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 import sys
 import os
 from astropy.io import fits as pyfits
@@ -111,16 +109,7 @@ def classifier(obs,data_dir):
 
 
 
-
-
-def classify(data_dir):
-
-    # What is this option for? TODO change to a default variable in the function
-    try:
-        naxis2_use = int(sys.argv[2])
-    except:
-        naxis2_use = 0
-
+def classify(data_dir, naxis2_to_process = 0):
     # Get list of all fits files in directory
     all_files = os.listdir(data_dir)
 
@@ -148,9 +137,8 @@ def classify(data_dir):
             f.close()
         except:
             continue
-        if naxis2_use!=0:
-            if naxis2 != naxis2_use:
-                continue
+        if naxis2_to_process != 0 and naxis2_to_process != naxis2:
+            continue
         if camera == 'WiFeSBlue':
             if obs in blue_obs:
                 continue
