@@ -689,16 +689,14 @@ for arm in obs_metadatas.keys():
                     ds2 = (t2 - t1).total_seconds()
                     if ds1>0 and ds2>0:
                         # Alright, I need to interpolate betweent the two arcs
-                        file_arm = sci_header['ARM']
-                        if file_arm == 'Red':
+                        file_camera = sci_header['CAMERA']
+                        if file_camera == 'WiFeSRed':
                             w1 = ds1/(ds1+ds2)
                             w2 = ds2/(ds1+ds2)
-                        elif file_arm == 'Blue':
+                        elif file_camera == 'WiFeSBlue':
                             w1 = ds2/(ds1+ds2)
                             w2 = ds1/(ds1+ds2)
-                        else:
-                            print(f"Error: 'ARM' keyword not recognized in the header of '{in_fn}'.")                        
-                        
+
                         # Open the arc solution files 
                         fn0 = os.path.join(out_dir, '%s.wsol.fits' % (local_arcs[0]))
                         fn1 = os.path.join(out_dir, '%s.wsol.fits' % (local_arcs[1]))

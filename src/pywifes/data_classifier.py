@@ -111,27 +111,27 @@ def classifier(obs,data_dir):
 
 def classify(data_dir, naxis2_to_process = 0):
     # Get list of all fits files in directory
-    all_files = os.listdir(data_dir)
+    filenames = os.listdir(data_dir)
 
     # Filtering the data as per blue and red arm
     blue_obs = []
     red_obs = []
 
     obs_date = None
-    for fn in all_files:
-        obs = fn.replace('.fits', '')
+    for filename in filenames:
+        obs = filename.replace('.fits', '')
 
         # Date of the observations: Is really needed?
         if obs_date == None:
             try:
-                f = pyfits.open(data_dir+fn)
+                f = pyfits.open(data_dir+filename)
                 obs_date = f[0].header['DATE-OBS'].split('T')[0].replace('-', '')
                 f.close()
             except:
                 continue
         # ------------------------------------------------
         try:
-            f = pyfits.open(data_dir+fn)
+            f = pyfits.open(data_dir+filename)
             camera = f[0].header['CAMERA']
             naxis2 = f[0].header['NAXIS2']
             f.close()
