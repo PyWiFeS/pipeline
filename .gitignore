@@ -56,7 +56,8 @@ docs/_build/
 # PyBuilder
 target/
 
-# macOS files 
+# MacOS files
 .DS_Store
 reduction_scripts/.DS_Store
 reduction_scripts/extra_tools/.DS_Store
+
