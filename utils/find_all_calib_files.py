@@ -1,13 +1,10 @@
 #! /usr/bin/env python
 
 import numpy as np
-import sys
 import os
-import glob
 from astropy.io import fits as pyfits
-from collections import OrderedDict
-from astropy.table import Table
-import pywifes_utils as pu
+
+from pywifes import pywifes_utils as pu
 
 """
 Often you don't take all calib frames in the same night. Make a folder just with all calib frames from the run. Then select ones with the closest data (preferrably the same date as science frames).

@@ -1,7 +1,8 @@
 import sys
 import os
 from astropy.io import fits as pyfits
-import wifes_calib
+
+from . import wifes_calib
 
 
 def get_obs_metadata(filenames,data_dir):

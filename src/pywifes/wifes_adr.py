@@ -1,7 +1,4 @@
 import numpy
-import pylab
-from astropy.io import fits as pyfits
-import scipy.optimize
 
 def ha_degrees(ha_str):
     full_hours, mins, secs = ha_str.split(':')
@@ -57,15 +54,12 @@ def adr_r(lam, secz, p, t, f):
 def adr_eta(ha, lat, dec):
     # NOTE: bug discovered and fixed by Julia Scharwaechter
     #       in version 0.7.0
-    term1 = (numpy.sin(numpy.radians(ha))
-             * numpy.cos(numpy.radians(lat)))
-    term3 = (numpy.sin(numpy.radians(lat))
-             * numpy.sin(numpy.radians(dec))
-             + numpy.cos(numpy.radians(lat))
-             * numpy.cos(numpy.radians(dec))
+    term1 = numpy.sin(numpy.radians(ha))
+    term4 = (numpy.cos(numpy.radians(dec))
+             * numpy.tan(numpy.radians(lat))
+             - numpy.sin(numpy.radians(dec))
              * numpy.cos(numpy.radians(ha)) )
-    term4 = (1.0-term3**2-term1**2)**0.5
-    return numpy.pi - numpy.arctan2(term1, term4)
+    return numpy.arctan2(term1, term4)
 
 def adr_x_y(wavelength_array,
             secz,
@@ -77,14 +71,7 @@ def adr_x_y(wavelength_array,
             telpa=0.0):
     # get adr results
     eta = adr_eta(objha, tellat, objdec)
-    #obj_eta = numpy.radians(telpa) + eta + 0.5*numpy.pi
-    obj_eta = numpy.radians(telpa) + eta - 0.5*numpy.pi
-    #obj_eta = numpy.radians(telpa) - eta
-    #obj_eta = -numpy.radians(telpa) - eta
-    #obj_eta = eta - numpy.radians(telpa)
-    #obj_eta = eta + numpy.radians(telpa)
-    #obj_eta = eta - numpy.radians(telpa) - numpy.pi
-    #obj_eta = numpy.radians(telpa) - eta - numpy.pi
+    obj_eta = eta - telpa
     n_pix = len(wavelength_array)
     adrx = numpy.zeros(n_pix, dtype = 'f')
     adry = numpy.zeros(n_pix, dtype = 'f')
