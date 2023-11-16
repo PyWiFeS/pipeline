@@ -5,7 +5,7 @@ from astropy.io import fits as pyfits
 from . import wifes_calib
 
 
-def classifier(obs,data_dir):
+def get_obs_metadata(obs,data_dir):
     stdstar_list = wifes_calib.ref_fname_lookup.keys()
 
     # classify each obs
@@ -108,7 +108,6 @@ def classifier(obs,data_dir):
 
 
 
-
 def classify(data_dir, naxis2_to_process = 0):
     # Get list of all fits files in directory
     filenames = os.listdir(data_dir)
@@ -120,15 +119,6 @@ def classify(data_dir, naxis2_to_process = 0):
     obs_date = None
     for filename in filenames:
         obs = filename.replace('.fits', '')
-
-        # Date of the observations: Is really needed?
-        if obs_date == None:
-            try:
-                f = pyfits.open(data_dir+filename)
-                obs_date = f[0].header['DATE-OBS'].split('T')[0].replace('-', '')
-                f.close()
-            except:
-                continue
         # ------------------------------------------------
         try:
             f = pyfits.open(data_dir+filename)
@@ -150,9 +140,7 @@ def classify(data_dir, naxis2_to_process = 0):
             else:
                 red_obs.append(obs)
 
+    blue_obs_metadata = get_obs_metadata(blue_obs, data_dir)
+    red_obs_metadata = get_obs_metadata(red_obs, data_dir)
 
-    blue_obs_metadata = classifier(blue_obs,data_dir)
-    red_obs_metadata = classifier(red_obs,data_dir)
-
-
-    return {"blue":blue_obs_metadata,"red": red_obs_metadata}
+    return {"blue": blue_obs_metadata, "red": red_obs_metadata}
