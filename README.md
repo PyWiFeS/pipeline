@@ -1,10 +1,8 @@
-## This is a version IN DEVELOPMENT 
-## This info is UPDATED for the AUTOMATION BRANCH ONLY
-
-
-
 # Pipeline
 The Python data reduction pipeline for WiFeS
+
+## This is a version IN DEVELOPMENT 
+## This info is UPDATED for the AUTOMATION BRANCH ONLY
 
 
 ### NOV 2022: How is this code different from the main pyWiFeS repository?
@@ -14,7 +12,7 @@ The Python data reduction pipeline for WiFeS
 
 
 ### Known problems
-- Multiprocessing not always work properly
+- Multiprocessing not always works properly
 
 
 ## How to install the pipeline
@@ -24,24 +22,27 @@ The Python data reduction pipeline for WiFeS
 
 
 ## How to run the pipeline
-- Put all the raw data and calibration files in the same directory 
+1. Put all the raw data and calibration files in the same directory 
 `/Users/.../my_folder/raw_data`
-- Copy the reduce data script and .json files to the above mentioned folder
+2. Copy the reduce data script and .json files to the above mentioned folder
 `cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_folder/`
 `cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_folder/`
-- Run `reduce_data.py` giving the raw data directory as an input parameter. The pipeline will run both arms automatically and choose the observing mode checking the headers.
+3. Run `reduce_data.py` giving the raw data directory as an input parameter. The pipeline will run both arms automatically and choose the observing mode checking the headers.
 `python3 reduce_data.py raw_data`
 
 
-### DATA REDUCED !!!!
+### *DATA REDUCED!* 
 
 
 
-# TO DO   
+### TO DO   
 - Extract spectrum from Cube
 - Splice blue and red spectra
 
 
+
+## **Reporting Issues or Suggestions:**
+If you encounter any issues or have suggestions for improving the pipeline, please [open a new issue] in the `issues` tab and fill out the provided template. Your feedback is valuable!
 
 
 
