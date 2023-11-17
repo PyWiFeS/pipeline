@@ -44,15 +44,15 @@ The Python data reduction pipeline for WiFeS
 
 
 
-**DATA REDUCED!**
+**DATA REDUCED:**
 The pipeline will automatically generate two directories for the reduced data: `/Users/.../my_folder/reduc_red` and `/Users/.../my_folder/reduc_blue` containing: 
 - Master calibration files
-- The intermediate files generated during the data reduction named as `*.p00.fits, *.p01.fits, ..., *.p10.fits`  
-- Final data cubes named as `*.p11.fits`  
+- The intermediate files generated during the data reduction named as `file_name.p00.fits, file_name.p01.fits, ..., file_name.p10.fits`  
+- Final data cubes named as `file_name.p11.fits`  
 
 
 ### TO DO
-- Extract spectra from data cubes
+- Extract spectra from the data cubes
 - Splice blue and red spectra
 
 ## Reporting Issues or Suggestions
