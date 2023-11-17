@@ -1,7 +1,7 @@
 # Pipeline
 The Python data reduction pipeline for WiFeS
 
-## Development Version - AUTOMATION BRANCH
+## Development Version - use only AUTOMATION BRANCH
 
 **Note:** This version is in active development.
 
@@ -21,23 +21,27 @@ The Python data reduction pipeline for WiFeS
 ---
 
 ## Installation
-1. Download or clone the `pipeline` repository in the `automation` branch.
+1. Download or clone the `pipeline` repository in the `automation` branch:
+    ```sh
+   git clone -b automation https://github.com/PyWiFeS/pipeline.git
+   ```
 2. In a Python environment and from the pipeline root directory, run:
-
-$ pip install .
-
+    ```sh
+   pip install .
+   ```
 
 ## Running the Pipeline
 1. Put all raw data and calibration files in the same directory: `/Users/.../my_folder/raw_data`
 2. Copy the reduce data script and `.json` files to the above-mentioned folder:
-
-$ cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_folder/
-
-$ cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_folder/
-
+    ```sh
+   cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_folder/
+   cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_folder/
+   ```
 3. Run `reduce_data.py`, giving the raw data directory as an input parameter. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
+    ```sh
+   python3 reduce_data.py raw_data
+   ```
 
-$ python3 reduce_data.py raw_data
 
 
 **DATA REDUCED!**
