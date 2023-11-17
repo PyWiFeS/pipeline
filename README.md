@@ -6,7 +6,7 @@ The Python data reduction pipeline for WiFeS
 **Note:** This version is in active development.
 
 ### November 2023 Update
-#### How is this code different from the [master](https://github.com/PyWiFeS/pipeline/tree/master) pyWiFeS repository?
+#### How is this code different from the [master](https://github.com/PyWiFeS/pipeline/tree/master) PyWiFeS repository?
 - Updated to Python 3, with bug fixes and headers for the new telescope setup.
 - Cleaner repository (some defunct scripts to be removed).
 - Adjusted to read and reduce data automatically all at once.
@@ -56,7 +56,7 @@ The pipeline will automatically generate two directories for the reduced data: `
 - Splice blue and red spectra
 
 ## Reporting Issues or Suggestions
-If you encounter any issues or have suggestions for improving the pipeline, please [**open a new issue**](https://github.com/PyWiFeS/pipeline/issues) in the `issues` tab and fill out the provided template. Your feedback is valuable!
+If you encounter any issues or have suggestions for improving the pipeline, please [**open a new issue**](https://github.com/PyWiFeS/pipeline/issues) in the `issues` tab and fill out the provided template. Your feedback is very valuable!
 
 
 
