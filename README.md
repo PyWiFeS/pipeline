@@ -5,8 +5,8 @@ The Python data reduction pipeline for WiFeS
 
 **Note:** This version is in active development.
 
-### November 2022 Update
-#### How is this code different from the main pyWiFeS repository?
+### November 2023 Update
+#### How is this code different from the [master](https://github.com/PyWiFeS/pipeline/tree/master) pyWiFeS repository?
 - Updated to Python 3, with bug fixes and headers for the new telescope setup.
 - Cleaner repository (some defunct scripts to be removed).
 - Adjusted to read and reduce data automatically all at once.
@@ -31,23 +31,28 @@ The Python data reduction pipeline for WiFeS
    ```
 
 ## Running the Pipeline
-1. Put all raw data and calibration files in the same directory: `/Users/.../my_folder/raw_data`
+1. Put all raw data and calibration files in the same directory: `/Users/.../my_folder/my_raw_data`
 2. Copy the reduce data script and `.json` files to the above-mentioned folder:
     ```sh
    cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_folder/
    cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_folder/
    ```
-3. Run `reduce_data.py`, giving the raw data directory as an input parameter. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
+3. Run `reduce_data.py`, giving the raw data directory as an input parameter. from `/Users/.../my_folder/` The pipeline will run both arms automatically and choose the observing mode by checking the headers.
     ```sh
-   python3 reduce_data.py raw_data
+   python3 reduce_data.py my_raw_data
    ```
 
 
 
 **DATA REDUCED!**
+The pipeline will automatically generate two directories for the reduced data: `/Users/.../my_folder/reduc_red` and `/Users/.../my_folder/reduc_blue` containing: 
+- Master calibration files
+- The intermediate files generated during the data reduction named as `*.p00.fits, *.p01.fits, ..., *.p10.fits`  
+- Final data cubes named as `*.p11.fits`  
+
 
 ### TO DO
-- Extract spectrum from Cube
+- Extract spectra from data cubes
 - Splice blue and red spectra
 
 ## Reporting Issues or Suggestions
