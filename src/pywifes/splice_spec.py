@@ -129,7 +129,7 @@ def joinSpectra(blueSpec, redSpec):
     return flux, fluxVar
 
 
-def splice(blue_spec_path, red_spec_path):
+def splice(blue_spec_path, red_spec_path, output):
     """
     The main routine
     """
@@ -163,8 +163,6 @@ def splice(blue_spec_path, red_spec_path):
 
     hdu_fluxvar = fits.ImageHDU(data=fluxVar, header=hdr_fluxvar)
     hdulist.append(hdu_fluxvar)
-
-    output = blue_spec_path.replace("-Blue", "-Splice").replace("12.fits", "13.fits")
 
     hdulist.writeto(output, overwrite=True)
     hdulist.close()

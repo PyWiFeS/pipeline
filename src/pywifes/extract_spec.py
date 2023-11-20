@@ -27,9 +27,9 @@ def sec_image(ap, image):
     return sec_data
 
 
-def plot_apertures(red_cube, blue_cube, source_aps, sky_aps=None):
+def plot_apertures(red_cube, blue_cube, source_aps, sky_aps=None, border_width=0):
     blue_collapse = collapse_cube(blue_cube)
-    ave_collapse = collapse_cube(red_cube)
+    red_collapse = collapse_cube(red_cube)
 
     plt.close("all")
 
@@ -37,8 +37,8 @@ def plot_apertures(red_cube, blue_cube, source_aps, sky_aps=None):
     # Plot Red
     plt.subplot(1, 2, 2)
     plt.title("Red arm")
-    vmin, vmax = np.percentile(ave_collapse, (5, 95))
-    plt.imshow(ave_collapse, vmin=vmin, vmax=vmax)
+    vmin, vmax = np.percentile(red_collapse[border_width:-border_width, border_width:-border_width], (5, 95))
+    plt.imshow(red_collapse, vmin=vmin, vmax=vmax)
 
     # Color of the overlay area
     cmap = mcolors.ListedColormap(["white"])
@@ -47,7 +47,7 @@ def plot_apertures(red_cube, blue_cube, source_aps, sky_aps=None):
     for index, source_ap in enumerate(source_aps):
         ap_index = index + 1
         # Plot a overlaped transparent area
-        mask = source_ap.to_mask(method="center").to_image(np.shape(ave_collapse))
+        mask = source_ap.to_mask(method="center").to_image(np.shape(red_collapse))
         mask[mask == 0] = np.nan
         plt.imshow(mask, alpha=alpha, cmap=cmap)
         # Plot theoretical aperture contourn
@@ -67,7 +67,7 @@ def plot_apertures(red_cube, blue_cube, source_aps, sky_aps=None):
     if sky_aps is not None:
         for sky_ap in sky_aps:
             # Plot a overlaped transparent area
-            mask = sky_ap.to_mask(method="center").to_image(np.shape(ave_collapse))
+            mask = sky_ap.to_mask(method="center").to_image(np.shape(red_collapse))
             mask[mask == 0] = np.nan
             plt.imshow(mask, alpha=alpha, cmap=cmap)
             # Plot theoretical aperture contourn
@@ -76,7 +76,7 @@ def plot_apertures(red_cube, blue_cube, source_aps, sky_aps=None):
     # Plot blue
     plt.subplot(1, 2, 1)
     plt.title("Blue arm")
-    vmin, vmax = np.percentile(blue_collapse, (5, 95))
+    vmin, vmax = np.percentile(blue_collapse[border_width:-border_width, border_width:-border_width], (5, 95))
     plt.imshow(blue_collapse, vmin=vmin, vmax=vmax)
     for source_ap in source_aps:
         # Plot a overlaped transparent area
@@ -227,7 +227,7 @@ def auto_extract(blue_cube_path, red_cube_path, sky_sub=False, check_plot=False)
         writeFITS(red_flux, red_var, r_sci_hdr, r_var_hdr, red_output)
 
     if check_plot:
-        plot_apertures(red_sci, blue_sci, source_aps, sky_aps)
+        plot_apertures(red_sci, blue_sci, source_aps, sky_aps, border_width)
 
 
 # ###################################################################################################################
