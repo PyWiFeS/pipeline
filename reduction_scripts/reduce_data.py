@@ -14,6 +14,9 @@ from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
+from pywifes.extract_spec import auto_extract
+from pywifes.splice_spec import splice
+import glob
 
 def main():
     #------------------------------------------------------------------------
@@ -861,9 +864,30 @@ def main():
         #------------------------------------------------------------------------
         #------------------------------------------------------------------------
 
-        #------------------------- Fred's update --------------------------------
-        duration = datetime.datetime.now() - start_time
-        print('All done in %.01f seconds.' % duration.total_seconds())
+        
+    # AUTOMATIC SPECTRA EXTRACTION
+
+    # Extraction
+    blue_cube_path = glob.glob(project_dir + '/reduc_blue/*.p11.fits')[0]
+    red_cube_path = glob.glob(project_dir + '/reduc_red/*.p11.fits')[0]
+    auto_extract(blue_cube_path, red_cube_path, sky_sub=True, check_plot=True)
+
+    # Splice spectra 
+    # We check for all (up to 3) sources detected
+
+    blue_specs = glob.glob(project_dir + '/reduc_blue/*.p12.fits')
+    red_specs = glob.glob(project_dir + '/reduc_red/*.p12.fits')
+
+    for index, (blue_spec, red_spec) in enumerate(zip(blue_specs,red_specs)):
+        ap_index = index + 1
+        output = os.path.join(project_dir, "splice.ap%s.fits" % ap_index)
+        splice(blue_spec, red_spec, output)
+
+#------------------------------------------------------------------------
+#------------------------------------------------------------------------
+
+    duration = datetime.datetime.now() - start_time
+    print('All done in %.01f seconds.' % duration.total_seconds())
 
 
 if __name__ == "__main__":
