@@ -109,7 +109,7 @@
                 "doalphapfit": true,
                 "doplot": false,
                 "dlam_cut_start": 5.0,
-                "multithread": false
+                "multithread": true
             }
         },
         {
@@ -132,7 +132,7 @@
             "suffix": "04",
             "args": {
                 "ns": true,
-                "multithread": false
+                "multithread": true
             }
         },
         {
@@ -162,7 +162,7 @@
             "run": true,
             "suffix": "08",
             "args": {
-                "multithread": false,
+                "multithread": true,
                 "adr": true,
                 "wmin_set": 3500.0,
                 "wmax_set": 5700.0
@@ -315,7 +315,7 @@
                 "shift_method": "xcorr_all",
                 "find_method": "mpfit",
                 "dlam_cut_start": 5.0,
-                "multithread": false
+                "multithread": true
             }
         },
         {
@@ -338,7 +338,7 @@
             "suffix": "04",
             "args": {
                 "ns": true,
-                "multithread": false
+                "multithread": true
             }
         },
         {
@@ -368,7 +368,7 @@
             "run": true,
             "suffix": "08",
             "args": {
-                "multithread": false,
+                "multithread": true,
                 "adr": true,
                 "wmin_set": 5400.0,
                 "wmax_set": 7000.0
