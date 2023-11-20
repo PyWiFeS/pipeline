@@ -14,6 +14,9 @@ from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
+from pywifes.extract_spec import auto_extract
+from pywifes.splice_spec import splice
+import glob
 
 #------------------------------------------------------------------------
 start_time = datetime.datetime.now()
@@ -35,12 +38,15 @@ if len(sys.argv) == 3:
 obs_metadatas = classify(data_dir, naxis2_to_process)
 
 
+project_dir = os.path.dirname(__file__)
+
+
+
 for arm in obs_metadatas.keys():
     #------------------------------------------------------------------------
     #      LOAD JSON FILE WITH USER REDUCTION SETUP             
     #------------------------------------------------------------------------
     obs_metadata = obs_metadatas[arm]
-    project_dir = os.path.dirname(__file__)
     
     # Check observing mode
     sci_filename = obs_metadatas[arm]['sci'][0]['sci'][0]+'.fits'
@@ -68,7 +74,6 @@ for arm in obs_metadatas.keys():
 
     # SET SKIP ALREADY DONE FILES ?
     skip_done=False
-    #skip_done=True
 
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
@@ -846,6 +851,38 @@ for arm in obs_metadatas.keys():
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
 
-    #------------------------- Fred's update --------------------------------
-    duration = datetime.datetime.now() - start_time
-    print('All done in %.01f seconds.' % duration.total_seconds())
+
+# AUTOMATIC SPECTRA EXTRACTION
+
+# Extraction
+blue_cube_path = glob.glob(project_dir + '/reduc_blue/*.p11.fits')[0]
+red_cube_path = glob.glob(project_dir + '/reduc_red/*.p11.fits')[0]
+auto_extract(blue_cube_path, red_cube_path, sky_sub=True, check_plot=True)
+
+
+# Splice spectra 
+# We check for all (up to 3) sources detected
+
+blue_specs = glob.glob(project_dir + '/reduc_blue/*.p12.fits')
+red_specs = glob.glob(project_dir + '/reduc_red/*.p12.fits')
+
+
+for index, (blue_spec, red_spec) in enumerate(zip(blue_specs,red_specs)):
+
+    ap_index = index + 1
+    output = os.path.join(project_dir, "splice.ap%s.fits" % ap_index)
+
+    splice(blue_spec, red_spec, output)
+
+
+
+
+
+
+
+#------------------------------------------------------------------------
+#------------------------------------------------------------------------
+
+
+duration = datetime.datetime.now() - start_time
+print('All done in %.01f seconds.' % duration.total_seconds())
