@@ -261,14 +261,15 @@ def extract_wifes_stdstar(cube_fn,
     filtered_std_flux = std_flux[filter_nan]
     filtered_std_var = std_var[filter_nan]
 
+    len_filtered_lam = len(filtered_lam_array)
+
     # return flux or save!
     if save_mode == None:
         f.close()
         return filtered_lam_array, filtered_std_flux
-    
     elif save_mode == 'ascii':
         f.close()
-        save_data = numpy.zeros([nlam,3],dtype='d')
+        save_data = numpy.zeros([len_filtered_lam, 3], dtype='d')
         save_data[:,0] = filtered_lam_array
         save_data[:,1] = filtered_std_flux
         save_data[:,2] = filtered_std_var
@@ -279,7 +280,7 @@ def extract_wifes_stdstar(cube_fn,
         out_header.set('CD2_2', 1)
         out_header.set('CD3_3', 1)
         out_header.set('LTM3_3', 1)
-        out_data = numpy.zeros([4,1,nlam],dtype='d')
+        out_data = numpy.zeros([4, 1, len_filtered_lam], dtype='d')
         out_data[0,0,:] = filtered_std_flux
         out_data[1,0,:] = sky_flux
         out_data[2,0,:] = filtered_std_var
