@@ -227,6 +227,16 @@ def mpfit_gauss_line( packaged_args ):
         return[nline,p1[1]]
     # return desired values, for now only care about centers
 
+def _get_fitted_centers(line_centers, fitted_centers):
+    for line_center in line_centers:
+        try:
+            this_line = line_center[0]
+            this_center = line_center[1]
+        except:
+            continue
+        fitted_centers[this_line] = float(this_center)
+    return fitted_centers
+
 def weighted_loggauss_arc_fit(subbed_arc_data,
                               peak_centers,
                               width_guess,
@@ -288,25 +298,18 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
             except:
                 fitted_centers[i] = float('nan')
                 continue
-            jobs.append( (i,curr_ctr_guess, width_guess, xfit, yfit) )
+            jobs.append( (i, curr_ctr_guess, width_guess, xfit, yfit) )
         if len(jobs)>0:
             if multithread:
                 num_available_cpus = len(os.sched_getaffinity(0))
                 with multiprocessing.Pool(num_available_cpus) as mypool:
                     chunksize = math.ceil(len(jobs) / num_available_cpus)
+                    # line_centers is lazily evaluated and must be read within the pool's scope.
                     if find_method =='mpfit':
-                        results = mypool.imap_unordered(mpfit_gauss_line, jobs, chunksize=chunksize)
+                        line_centers = mypool.imap_unordered(mpfit_gauss_line, jobs, chunksize=chunksize)
                     else:
-                        results = mypool.imap_unordered(lsq_gauss_line, jobs, chunksize=chunksize)
-
-                    # Process the results
-                    for r in results:
-                        try:
-                            this_line = r[0]
-                            this_center = r[1]
-                        except:
-                            continue
-                        fitted_centers[this_line] = float(this_center)
+                        line_centers = mypool.imap_unordered(lsq_gauss_line, jobs, chunksize=chunksize)
+                    fitted_centers = _get_fitted_centers(line_centers, fitted_centers)
             else:
                 for i in range(narc):
                     if find_method =='mpfit':
@@ -331,8 +334,7 @@ def quick_arcline_fit(arc_data,
                       width_guess=2.0,
                       flux_saturation = 50000.0,
                       prev_centers = None, # Fred's update (wsol)
-                      multithread=False
-                      ):
+                      multithread=False):
     N = len(arc_data)
     arc_deriv = arc_data[1:]-arc_data[:-1]
     p1_data  = numpy.zeros(N,dtype='d')
@@ -432,14 +434,17 @@ def evaluate_wsol_poly(x_array, y_array, xpoly, ypoly):
                   numpy.polyval(ypoly, y_array))
     return wave_array
 
-def _set_refarray_from_fits(ref_array, init_y_array, fits):
-    for this_fit in fits:
+def _get_ref_array(row_ref_arrays, init_x_array, init_y_array):
+    # Create the storage array for the reference wavelength
+    ref_array = numpy.zeros_like(init_x_array)
+    for row_ref_array in row_ref_arrays:
         try:
-            row_ind = this_fit[0]
+            row_ind = row_ref_array[0]
             ref_row_inds = (init_y_array == row_ind + 1)
-            ref_array[ref_row_inds] = this_fit[2]
+            ref_array[ref_row_inds] = row_ref_array[1]
         except:
             continue
+    return ref_array
 
 #------------------------------------------------------------------------
 # FUNCTION TO FIND LINES AND GUESS THEIR WAVELENGTHS
@@ -600,8 +605,6 @@ def find_lines_and_guess_refs(slitlet_data,
         else : 
             print(' Ref. file for the current arc lamp + grating unavailable.')
 
-        # Create the storage array for the reference wavelength
-        ref_array = numpy.zeros_like(init_x_array)
         # Careful here ... some reference files have line position inverted
         # Check which one
         f = open(ref_fn,'r')
@@ -624,31 +627,31 @@ def find_lines_and_guess_refs(slitlet_data,
         # Gain some ~6.3 sec per slice by doing this !
         mid_row = int(nrows/2)
         mid_row_ind = (init_y_array == mid_row)
-        best_stretch = xcorr_shift_all( (chosen_slitlet, 
-                                       mid_row,ncols,mid_row_ind,
-                                       init_x_array[mid_row_ind],
-                                       ref_arc,None, True,
-                                       verbose) )
+        best_stretch = _xcorr_shift_all( (mid_row, ncols,
+                                         init_x_array[mid_row_ind],
+                                         ref_arc, None, True) )
         jobs = []
         for i in range(nrows):
             row_inds = (init_y_array == i+1)
             # only use rows where enough lines are found
             if len(init_x_array[row_inds]) >= 0.5*len(ref_arc[:,0]):    
-                jobs.append( (chosen_slitlet,i,ncols,row_inds,
-                              init_x_array[row_inds],ref_arc, 
-                              [best_stretch], False, verbose) )
+                jobs.append( (i, ncols, init_x_array[row_inds], ref_arc, 
+                              [best_stretch], False) )
+
+        ref_array = None
         if multithread:
             num_available_cpus = len(os.sched_getaffinity(0))
             chunksize = math.ceil(len(jobs) / num_available_cpus)
             if verbose:
                 print(f'  ... assign lambdas using up to {num_available_cpus} cpu(s) ...')
             with multiprocessing.Pool(num_available_cpus) as pool:
-                results = pool.imap_unordered(xcorr_shift_all, jobs, chunksize=chunksize)
-                _set_refarray_from_fits(ref_array, init_y_array, results)
+                # row_ref_arrays is lazily evaluated and must be read within the pool's scope.
+                row_ref_arrays = pool.imap_unordered(_xcorr_shift_all, jobs, chunksize=chunksize)
+                ref_array = _get_ref_array(row_ref_arrays, init_x_array, init_y_array)
         else :
             #Completely avoid using Pool in case of an ipython debugging environment.
-            results = [xcorr_shift_all(job) for job in jobs] 
-            _set_refarray_from_fits(ref_array, init_y_array, results)
+            row_ref_arrays = [_xcorr_shift_all(job) for job in jobs]
+            ref_array = _get_ref_array(row_ref_arrays, init_x_array, init_y_array)
 
         # Create array with only detected lines
         good_inds = ref_array > 0
@@ -824,11 +827,10 @@ def xcorr_shift_grid(slitlet_data,
 
 # Fred's update (wsol)
 
-def xcorr_shift_all( packaged_args ):
-    (slitlet_data, this_row, ncols, row_inds, this_init_x_array, this_ref_arc, \
+def _xcorr_shift_all( packaged_args ):
+    (this_row, ncols, this_init_x_array, this_ref_arc, \
     stretches, # if provided, will only try these ones !
-    get_stretch, # if yes, get the best stretch+exit
-    verbose ) = packaged_args
+    get_stretch) = packaged_args # if yes, get the best stretch+exit
 
     if stretches == None:
         stretches = numpy.arange(0.98,1.03,0.001)
@@ -920,7 +922,7 @@ def xcorr_shift_all( packaged_args ):
                 this_ref_array[numpy.where(this_init_x_array==item)] = \
                     numpy.max(final_lam_bes[loc-2:loc+3])
 
-    return [this_row,this_init_x_array,this_ref_array]
+    return [this_row, this_ref_array]
 
 #------------------------------------------------------------------------
 def slitlet_wsol(slitlet_data,
