@@ -154,7 +154,7 @@ def gauss_line_resid(p,x,y, gain=None, rnoise=10.0):
     else:
         return np.sqrt(numpy.maximum(y,0) + rnoise**2)
 
-def lsq_gauss_line( args ):
+def _lsq_gauss_line( args ):
     """
     Fit a Gaussian to data y(x)
     
@@ -190,7 +190,7 @@ def scipy_gauss_line(nline, guess_center, width_guess, xfit, yfit):
     """
     return None
 
-def mpfit_gauss_line( packaged_args ):
+def _mpfit_gauss_line( packaged_args ):
     (nline, guess_center, width_guess, xfit, yfit) = packaged_args
     # choose x,y subregions for this line
     fa = {'x':xfit, 'y':yfit}
@@ -227,14 +227,14 @@ def mpfit_gauss_line( packaged_args ):
         return[nline,p1[1]]
     # return desired values, for now only care about centers
 
-def _get_fitted_centers(line_centers, fitted_centers):
-    for line_center in line_centers:
+def _get_fitted_centers(line_center_pairs, fitted_centers):
+    for line_center_pair in line_center_pairs:
         try:
-            this_line = line_center[0]
-            this_center = line_center[1]
+            line_ind = line_center_pair[0]
+            fitted_center = line_center_pair[1]
         except:
             continue
-        fitted_centers[this_line] = float(this_center)
+        fitted_centers[line_ind] = float(fitted_center)
     return fitted_centers
 
 def weighted_loggauss_arc_fit(subbed_arc_data,
@@ -305,22 +305,17 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
                 with multiprocessing.Pool(num_available_cpus) as mypool:
                     chunksize = math.ceil(len(jobs) / num_available_cpus)
                     # line_centers is lazily evaluated and must be read within the pool's scope.
-                    if find_method =='mpfit':
-                        line_centers = mypool.imap_unordered(mpfit_gauss_line, jobs, chunksize=chunksize)
+                    if find_method == 'mpfit':
+                        line_center_pairs = mypool.imap_unordered(_mpfit_gauss_line, jobs, chunksize=chunksize)
                     else:
-                        line_centers = mypool.imap_unordered(lsq_gauss_line, jobs, chunksize=chunksize)
-                    fitted_centers = _get_fitted_centers(line_centers, fitted_centers)
+                        line_center_pairs = mypool.imap_unordered(_lsq_gauss_line, jobs, chunksize=chunksize)
+                    fitted_centers = _get_fitted_centers(line_center_pairs, fitted_centers)
             else:
-                for i in range(narc):
-                    if find_method =='mpfit':
-                        # If sentence added by MZ
-                        #~ print('FITTED CENTERS', len(fitted_centers))
-                        if i<len(jobs):
-                            fitted_centers[i] = mpfit_gauss_line(jobs[i])[1]
-                        else:
-                            pass
-                    else:
-                        fitted_centers[i] = lsq_gauss_line(jobs[i])[1]
+                if find_method =='mpfit':
+                    line_center_pairs = [_mpfit_gauss_line(job) for job in jobs]
+                else:
+                    line_center_pairs = [_lsq_gauss_line(job) for job in jobs]
+                fitted_centers = _get_fitted_centers(line_center_pairs, fitted_centers)
 
     if find_method == 'loggauss':
         return numpy.array(fitted_centers)
@@ -434,14 +429,14 @@ def evaluate_wsol_poly(x_array, y_array, xpoly, ypoly):
                   numpy.polyval(ypoly, y_array))
     return wave_array
 
-def _get_ref_array(row_ref_arrays, init_x_array, init_y_array):
+def _get_ref_array(row_refs_pairs, init_x_array, init_y_array):
     # Create the storage array for the reference wavelength
     ref_array = numpy.zeros_like(init_x_array)
-    for row_ref_array in row_ref_arrays:
+    for row_refs_pair in row_refs_pairs:
         try:
-            row_ind = row_ref_array[0]
+            row_ind = row_refs_pair[0]
             ref_row_inds = (init_y_array == row_ind + 1)
-            ref_array[ref_row_inds] = row_ref_array[1]
+            ref_array[ref_row_inds] = row_refs_pair[1]
         except:
             continue
     return ref_array
@@ -645,26 +640,26 @@ def find_lines_and_guess_refs(slitlet_data,
             if verbose:
                 print(f'  ... assign lambdas using up to {num_available_cpus} cpu(s) ...')
             with multiprocessing.Pool(num_available_cpus) as pool:
-                # row_ref_arrays is lazily evaluated and must be read within the pool's scope.
-                row_ref_arrays = pool.imap_unordered(_xcorr_shift_all, jobs, chunksize=chunksize)
-                ref_array = _get_ref_array(row_ref_arrays, init_x_array, init_y_array)
+                # row_refs_pairs is lazily evaluated and must be read within the pool's scope.
+                row_refs_pairs = pool.imap_unordered(_xcorr_shift_all, jobs, chunksize=chunksize)
+                ref_array = _get_ref_array(row_refs_pairs, init_x_array, init_y_array)
         else :
             #Completely avoid using Pool in case of an ipython debugging environment.
-            row_ref_arrays = [_xcorr_shift_all(job) for job in jobs]
-            ref_array = _get_ref_array(row_ref_arrays, init_x_array, init_y_array)
+            row_refs_pairs = [_xcorr_shift_all(job) for job in jobs]
+            ref_array = _get_ref_array(row_refs_pairs, init_x_array, init_y_array)
 
         # Create array with only detected lines
         good_inds = ref_array > 0
         iter_x_array = init_x_array[good_inds]
         iter_y_array = init_y_array[good_inds]
         iter_ref_array = ref_array[good_inds]
-        
+
         if plot :
             plot_detected_lines(chosen_slitlet, iter_x_array, 
                                 iter_y_array, iter_ref_array, ncols)
-        
+
         return  iter_x_array,iter_y_array, iter_ref_array
-            
+
     #---------
     else:
         raise ValueError('Xcorr shift method not recognized.')
