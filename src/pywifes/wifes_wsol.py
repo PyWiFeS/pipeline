@@ -154,7 +154,7 @@ def gauss_line_resid(p,x,y, gain=None, rnoise=10.0):
     else:
         return np.sqrt(numpy.maximum(y,0) + rnoise**2)
 
-def lsq_gauss_line( args ):
+def _lsq_gauss_line( args ):
     """
     Fit a Gaussian to data y(x)
     
@@ -190,7 +190,7 @@ def scipy_gauss_line(nline, guess_center, width_guess, xfit, yfit):
     """
     return None
 
-def mpfit_gauss_line( packaged_args ):
+def _mpfit_gauss_line( packaged_args ):
     (nline, guess_center, width_guess, xfit, yfit) = packaged_args
     # choose x,y subregions for this line
     fa = {'x':xfit, 'y':yfit}
@@ -226,6 +226,16 @@ def mpfit_gauss_line( packaged_args ):
     else:
         return[nline,p1[1]]
     # return desired values, for now only care about centers
+
+def _get_fitted_centers(line_center_pairs, fitted_centers):
+    for line_center_pair in line_center_pairs:
+        try:
+            line_ind = line_center_pair[0]
+            fitted_center = line_center_pair[1]
+        except:
+            continue
+        fitted_centers[line_ind] = float(fitted_center)
+    return fitted_centers
 
 def weighted_loggauss_arc_fit(subbed_arc_data,
                               peak_centers,
@@ -299,43 +309,22 @@ def weighted_loggauss_arc_fit(subbed_arc_data,
             # MJI: with the following test, the code ran faster, but even just the Pool(cpu)
             # command slowed things down. 
             #jobs2 = [jobs[:len(jobs)//4], jobs[len(jobs)//4:2*len(jobs)//4],jobs[2*len(jobs)//4:3*len(jobs)//4],jobs[3*len(jobs)//4:]]
-            #results = mypool.imap_unordered(utils.lsq_gauss_line,jobs2)
+            #results = mypool.imap_unordered(utils._lsq_gauss_line,jobs2)
             if multithread: 
                 with multiprocessing.Pool(cpu) as mypool:
                     #start = datetime.datetime.now() #!!! MJI
                     if find_method =='mpfit':
-                        results = mypool.imap_unordered(mpfit_gauss_line,jobs)
+                        line_center_pairs = mypool.imap_unordered(_mpfit_gauss_line,jobs)
                     else:
-                        results = mypool.imap_unordered(lsq_gauss_line,jobs)
-                        
-                    # Close off the pool now that we're done with it
-                    # !!!MJI Not needed with the "with" command. The iterator below
-                    # waits for completion.
-                    #mypool.close()
-                    #mypool.join()            
-                    # Process the results
-                    for r in results:
-                        #for r in rr:
-                        try:
-                            this_line = r[0]
-                            this_center = r[1]
-                        except:
-                            continue
-                        fitted_centers[this_line] = float(this_center)
-                    #print('  core done in',datetime.datetime.now()-start)
+                        line_center_pairs = mypool.imap_unordered(_lsq_gauss_line,jobs)
+
+                    fitted_centers = _get_fitted_centers(line_center_pairs, fitted_centers)
             else:
-                start = datetime.datetime.now() #!!! MJI
-                for i in range(narc):
-                    if find_method =='mpfit':
-                        # If sentence added by MZ
-                        #~ print('FITTED CENTERS', len(fitted_centers))
-                        if i<len(jobs):
-                            fitted_centers[i] = mpfit_gauss_line(jobs[i])[1]
-                        else:
-                            pass
-                    else:
-                        fitted_centers[i] = lsq_gauss_line(jobs[i])[1]
-                #print('  serial core done in',datetime.datetime.now()-start)
+                if find_method =='mpfit':
+                    line_center_pairs = [_mpfit_gauss_line(job) for job in jobs]
+                else:
+                    line_center_pairs = [_lsq_gauss_line(job) for job in jobs]
+                fitted_centers = _get_fitted_centers(line_center_pairs, fitted_centers)
 
     if find_method == 'loggauss':
         return numpy.array(fitted_centers)
