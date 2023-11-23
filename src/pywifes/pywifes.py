@@ -13,6 +13,9 @@ import scipy.interpolate as interp
 import pylab
 import matplotlib.pyplot as plt
 import pylab
+from astropy.wcs import WCS
+from astropy.coordinates import SkyCoord
+import  astropy.units as u
 
 from .wifes_metadata import metadata_dir
 from .wifes_imtrans import transform_data, detransform_data
@@ -3285,9 +3288,46 @@ def generate_wifes_3dcube(inimg, outimg):
                 obj_cube_data[:,:,nx-i-1] = curr_data
                 obj_cube_var[:,:,nx-i-1] = curr_var
                 obj_cube_dq[:,:,nx-i-1] = curr_dq
+
+    # Calculate astrometry solution from pointing
+    # Celestial coordinates
+    ra_str = f[1].header['RA']
+    dec_str = f[1].header['DEC']
+    # Convert celestial coordinates to degrees
+    coord = SkyCoord(ra=ra_str, dec=dec_str, unit=(u.hourangle, u.deg))
+
+    #crota1 = 0
+    crota2 = f[1].header['TELPAN']
+    #crota3 = 0
+
+    crval1 = coord.ra.deg
+    crval2 = coord.dec.deg
+    
+    ctype1 = 'RA---TAN'
+    ctype2 = 'DEC--TAN'
+    #ctype3 = 'WAVE'
+
+    cdelt1 = 0.00027777777777778   # 1 arcsecond in degree
+    cdelt2 = 0.00013888888888889   # 0.5 arcsecond in degree
+
+    crpix1 = 25/2 # Central pixel
+    crpix2 = 38/2 # Central pixel
+    #crpix3 = 1
+
+    cube_hdu = pyfits.PrimaryHDU(obj_cube_data, header = f[0].header)
+    
     # save to data cube
     # DATA
-    cube_hdu = pyfits.PrimaryHDU(obj_cube_data, header = f[0].header)
+    cube_hdu.header.set('CROTA2',crota2, 'Wavelength step')
+    cube_hdu.header.set('CRVAL1',crval1, 'Wavelength step')
+    cube_hdu.header.set('CRVAL2',crval2, 'Wavelength step')
+    cube_hdu.header.set('CTYPE1',ctype1, 'Wavelength step')
+    cube_hdu.header.set('CTYPE2',ctype2, 'Wavelength step')
+    cube_hdu.header.set('CDELT1',cdelt1, 'Wavelength step')
+    cube_hdu.header.set('CDELT2',cdelt2, 'Wavelength step')
+    cube_hdu.header.set('CRPIX1',crpix1, 'Wavelength step')
+    cube_hdu.header.set('CRPIX2',crpix2, 'Wavelength step')
+
     cube_hdu.header.set('CRVAL3',lam0, 'Reference wavelength')
     cube_hdu.header.set('CDELT3',dlam, 'Wavelength step')
     #cube_hdu.header.set('PYWIFES',__version__, 'Pywifes version'))
@@ -3302,7 +3342,9 @@ def generate_wifes_3dcube(inimg, outimg):
     dq_hdu = pyfits.PrimaryHDU(obj_cube_dq, header = f[0].header)
     dq_hdu.header.set('CRVAL3',lam0, 'Reference wavelength')
     dq_hdu.header.set('CDELT3',dlam, 'Wavelength step')
-    #dq_hdu.header.set('PYWIFES',__version__, 'Pywifes version')
+    #dq_hdu.header.set('PYWIFES',__version__, 'Pywifes version') TODO we need to add this. How to track pipeline version properly?
+    
+
     outfits.append(dq_hdu)
     # SAVE IT
     outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
