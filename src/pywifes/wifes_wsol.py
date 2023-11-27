@@ -152,7 +152,7 @@ def gauss_line_resid(p,x,y, gain=None, rnoise=10.0):
     if gain==None:
         return (gauss_line(p,x) - y)/rnoise**2
     else:
-        return np.sqrt(numpy.maximum(y,0) + rnoise**2)
+        return numpy.sqrt(numpy.maximum(y,0) + rnoise**2)
 
 def _lsq_gauss_line( args ):
     """
@@ -247,8 +247,7 @@ def _get_loggauss_arc_fit(subbed_arc_data,
         except:
             fitted_centers.append(float('nan'))
             continue
-        np = len(good_pix)
-        P = numpy.ones([np, 3], dtype='d')
+        P = numpy.ones([len(good_pix), 3], dtype='d')
         P[:, 0] = xfit[good_pix] ** 2
         P[:, 1] = xfit[good_pix]
         weights = yfit[good_pix]
@@ -275,11 +274,11 @@ def _set_fitted_centers(line_center_pairs, fitted_centers):
         fitted_centers[line_ind] = float(fitted_center)
     return fitted_centers
 
-def _get_mpfit_arc_fit(subbed_arc_data,
-                       peak_centers,
-                       width_guess,
-                       fit_function,
-                       multithread = True):
+def _get_gauss_arc_fit(fit_function,
+                 subbed_arc_data,
+                 peak_centers,
+                 width_guess,
+                 multithread = True):
     N = len(subbed_arc_data)
     x = numpy.arange(N, dtype='d')
     y = subbed_arc_data
@@ -294,10 +293,10 @@ def _get_mpfit_arc_fit(subbed_arc_data,
         xfit = x[ifit_lo:ifit_hi]
         yfit = y[ifit_lo:ifit_hi]
 
-        if len(numpy.nonzero(yfit > 0.2 * yfit.max())) == 0:
-            fitted_centers[i] = float('nan')
+        if len(yfit) > 0 and len(numpy.nonzero(yfit > 0.2 * yfit.max())) > 0:
+            jobs.append((i, curr_ctr_guess, width_guess, xfit, yfit))
         else:
-            jobs.append( (i,curr_ctr_guess, width_guess, xfit, yfit) )
+            fitted_centers[i] = float('nan')
 
     if len(jobs) > 0:
         if multithread: 
@@ -311,7 +310,7 @@ def _get_mpfit_arc_fit(subbed_arc_data,
 
     return fitted_centers
 
-def _get_weighted_arc_fit(subbed_arc_data,
+def _get_arc_fit(subbed_arc_data,
                       peak_centers,
                       width_guess,
                       find_method = 'mpfit',
@@ -321,7 +320,7 @@ def _get_weighted_arc_fit(subbed_arc_data,
         return _get_loggauss_arc_fit(subbed_arc_data, peak_centers, width_guess)
 
     fit_function = _mpfit_gauss_line if find_method =='mpfit' else _lsq_gauss_line
-    return _get_mpfit_arc_fit(subbed_arc_data, peak_centers, width_guess, fit_function, multithread)
+    return _get_gauss_arc_fit(fit_function, subbed_arc_data, peak_centers, width_guess, multithread)
 
 def quick_arcline_fit(arc_data,
                       find_method='loggauss',
@@ -394,7 +393,7 @@ def quick_arcline_fit(arc_data,
         potential_line_inds = numpy.array(checked_ones)
     
     # fit the centers, make sure it didn't fit noise
-    next_ctrs = _get_weighted_arc_fit(arc_data,
+    next_ctrs = _get_arc_fit(arc_data,
                                       potential_line_inds,
                                       width_guess,
                                       find_method=find_method,
@@ -413,8 +412,7 @@ def quick_arcline_fit(arc_data,
 # functions for getting wavelength solution for a given set of data
 def fit_wsol_poly(x_array, y_array, ref_array, x_polydeg, y_polydeg):
     ncoeffs = x_polydeg+y_polydeg+1
-    np = len(x_array)
-    base_array = numpy.ones([np, ncoeffs], dtype='d')
+    base_array = numpy.ones([len(x_array), ncoeffs], dtype='d')
     for i in range(x_polydeg):
         base_array[:,x_polydeg-i-1] = x_array**(i+1)
     for j in range(y_polydeg):
