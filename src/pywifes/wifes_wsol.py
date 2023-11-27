@@ -227,7 +227,45 @@ def _mpfit_gauss_line( packaged_args ):
         return[nline,p1[1]]
     # return desired values, for now only care about centers
 
-def _get_fitted_centers(line_center_pairs, fitted_centers):
+def _get_loggauss_arc_fit(subbed_arc_data,
+                          peak_centers,
+                          width_guess):
+    N = len(subbed_arc_data)
+    x = numpy.arange(N, dtype='d')
+    y = subbed_arc_data
+    num_arcs = len(peak_centers)
+    fitted_centers = []
+    for i in range(num_arcs):
+        curr_ctr_guess = peak_centers[i]
+        # choose x,y subregions for this line
+        ifit_lo = int(curr_ctr_guess - 5 * width_guess)
+        ifit_hi = int(curr_ctr_guess + 5 * width_guess)
+        xfit = x[ifit_lo:ifit_hi]
+        yfit = y[ifit_lo:ifit_hi]
+        try:
+            good_pix = numpy.nonzero(yfit > 0.2 * yfit.max())[0]
+        except:
+            fitted_centers.append(float('nan'))
+            continue
+        np = len(good_pix)
+        P = numpy.ones([np, 3], dtype='d')
+        P[:, 0] = xfit[good_pix] ** 2
+        P[:, 1] = xfit[good_pix]
+        weights = yfit[good_pix]
+        A_mat = numpy.transpose(numpy.transpose(P) * (weights ** 2))
+        B_mat = numpy.log(yfit[good_pix]) * (weights ** 2)
+        results = numpy.linalg.lstsq(A_mat, B_mat)
+        # fit parabola to log of flux
+        A, B, C = results[0]
+        new_xctr = (-1.0 * B) / (2.0 * A)
+        if numpy.abs(new_xctr-curr_ctr_guess) > 2.0 * width_guess:
+            fitted_centers.append(float('nan'))
+        else:
+            fitted_centers.append(new_xctr)
+    # return desired values, for now only care about centers
+    return numpy.array(fitted_centers)
+
+def _set_fitted_centers(line_center_pairs, fitted_centers):
     for line_center_pair in line_center_pairs:
         try:
             line_ind = line_center_pair[0]
@@ -237,99 +275,54 @@ def _get_fitted_centers(line_center_pairs, fitted_centers):
         fitted_centers[line_ind] = float(fitted_center)
     return fitted_centers
 
-def weighted_loggauss_arc_fit(subbed_arc_data,
-                              peak_centers,
-                              width_guess,
-                              find_method = 'mpfit',
-                              multithread = True): 
+def _get_mpfit_arc_fit(subbed_arc_data,
+                       peak_centers,
+                       width_guess,
+                       fit_function,
+                       multithread = True):
     N = len(subbed_arc_data)
-    x = numpy.arange(N,dtype='d')
+    x = numpy.arange(N, dtype='d')
     y = subbed_arc_data
-    narc = len(peak_centers)
-    fitted_centers = []
-    # So, Fred's update (via mpfit) is very much slower ... :-(
-    # To make things better, let's do some multiprocessing ...
-    if find_method == 'loggauss': #Mike C.'s original code using log(gaussian)
-        for i in range(narc):
-            curr_ctr_guess = peak_centers[i]
-            # choose x,y subregions for this line
-            ifit_lo = int(curr_ctr_guess-5*width_guess)
-            ifit_hi = int(curr_ctr_guess+5*width_guess)
-            xfit = x[ifit_lo:ifit_hi]
-            yfit = y[ifit_lo:ifit_hi]
-            try:
-                good_pix = numpy.nonzero(yfit > 0.2*yfit.max())[0]
-            except:
-                fitted_centers.append(float('nan'))
-                continue
-            np = len(good_pix)
-            P = numpy.ones([np,3],dtype='d')
-            P[:,0] = xfit[good_pix]**2
-            P[:,1] = xfit[good_pix]
-            weights = yfit[good_pix]
-            A_mat = numpy.transpose(numpy.transpose(P)*(weights**2))
-            B_mat = numpy.log(yfit[good_pix])*(weights**2)
-            results = numpy.linalg.lstsq(A_mat, B_mat)
-            # fit parabola to log of flux
-            A, B, C = results[0]
-            #print 2.0*numpy.sqrt(2.0*numpy.log(2.0)*(-2.0*A)**-1)
-            new_xctr = (-1.0*B)/(2.0*A)
-            if numpy.abs(new_xctr-curr_ctr_guess) > 2.0*width_guess:
-                fitted_centers.append(float('nan'))
-            else:
-                fitted_centers.append(new_xctr)
-        # return desired values, for now only care about centers
-    elif find_method =='mpfit' or find_method =='least_squares':
-        # Fred's update : fitting a log(gaussian) fails miserably if other 
-        # lines are close-by (not even blended !). 
-        # Do an mpfit with gaussian function instead (can limit width!)
-        # Use multicore to speed things up
-        # Mike I : change in a minimal way to use scipy least squares.
-        if multithread :
-            cpu = None
-        else :
-            cpu = 1 
-        # list the jobs
-        jobs = []
-        fitted_centers = numpy.zeros_like(peak_centers, dtype = float)
-        for i in range(narc):
-            curr_ctr_guess = peak_centers[i]
-            ifit_lo = int(curr_ctr_guess-5*width_guess)
-            ifit_hi = int(curr_ctr_guess+5*width_guess)
-            xfit = x[ifit_lo:ifit_hi]
-            yfit = y[ifit_lo:ifit_hi]
-            try:
-                good_pix = numpy.nonzero(yfit > 0.2*yfit.max())[0]
-            except:
-                fitted_centers[i] = float('nan')
-                continue
-            jobs.append( (i,curr_ctr_guess, width_guess, xfit, yfit) )
-        if len(jobs)>0:
-            # Do the threading (see below and http://stackoverflow.com/a/3843313)
-            # MJI: with the following test, the code ran faster, but even just the Pool(cpu)
-            # command slowed things down. 
-            #jobs2 = [jobs[:len(jobs)//4], jobs[len(jobs)//4:2*len(jobs)//4],jobs[2*len(jobs)//4:3*len(jobs)//4],jobs[3*len(jobs)//4:]]
-            #results = mypool.imap_unordered(utils._lsq_gauss_line,jobs2)
-            if multithread: 
-                with multiprocessing.Pool(cpu) as mypool:
-                    #start = datetime.datetime.now() #!!! MJI
-                    if find_method =='mpfit':
-                        line_center_pairs = mypool.imap_unordered(_mpfit_gauss_line,jobs)
-                    else:
-                        line_center_pairs = mypool.imap_unordered(_lsq_gauss_line,jobs)
+    num_arcs = len(peak_centers)
 
-                    fitted_centers = _get_fitted_centers(line_center_pairs, fitted_centers)
-            else:
-                if find_method =='mpfit':
-                    line_center_pairs = [_mpfit_gauss_line(job) for job in jobs]
-                else:
-                    line_center_pairs = [_lsq_gauss_line(job) for job in jobs]
-                fitted_centers = _get_fitted_centers(line_center_pairs, fitted_centers)
+    jobs = []
+    fitted_centers = numpy.zeros_like(peak_centers, dtype=float)
+    for i in range(num_arcs):
+        curr_ctr_guess = peak_centers[i]
+        ifit_lo = int(curr_ctr_guess - 5 * width_guess)
+        ifit_hi = int(curr_ctr_guess + 5 * width_guess)
+        xfit = x[ifit_lo:ifit_hi]
+        yfit = y[ifit_lo:ifit_hi]
+        try:
+            good_pix = numpy.nonzero(yfit > 0.2*yfit.max())[0]
+        except:
+            fitted_centers[i] = float('nan')
+            continue
+        jobs.append( (i,curr_ctr_guess, width_guess, xfit, yfit) )
+
+    if len(jobs) > 0:
+        if multithread: 
+            with multiprocessing.Pool(processes=None) as mypool:
+                # line_center_pairs is lazily evaluated and must be read within the pool's scope.
+                line_center_pairs = mypool.imap_unordered(fit_function, jobs)
+                fitted_centers = _set_fitted_centers(line_center_pairs, fitted_centers)
+        else:
+            line_center_pairs = [fit_function(job) for job in jobs]
+            fitted_centers = _set_fitted_centers(line_center_pairs, fitted_centers)
+
+    return fitted_centers
+
+def _get_weighted_arc_fit(subbed_arc_data,
+                      peak_centers,
+                      width_guess,
+                      find_method = 'mpfit',
+                      multithread = True):
 
     if find_method == 'loggauss':
-        return numpy.array(fitted_centers)
-    elif find_method == 'mpfit' or find_method =='least_squares':
-        return fitted_centers
+        return _get_loggauss_arc_fit(subbed_arc_data, peak_centers, width_guess)
+
+    fit_function = _mpfit_gauss_line if find_method =='mpfit' else _lsq_gauss_line
+    return _get_mpfit_arc_fit(subbed_arc_data, peak_centers, width_guess, fit_function, multithread)
 
 def quick_arcline_fit(arc_data,
                       find_method='loggauss',
@@ -402,11 +395,11 @@ def quick_arcline_fit(arc_data,
         potential_line_inds = numpy.array(checked_ones)
     
     # fit the centers, make sure it didn't fit noise
-    next_ctrs = weighted_loggauss_arc_fit(arc_data,
-                                          potential_line_inds,
-                                          width_guess,
-                                          find_method=find_method,
-                                          multithread=multithread)
+    next_ctrs = _get_weighted_arc_fit(arc_data,
+                                      potential_line_inds,
+                                      width_guess,
+                                      find_method=find_method,
+                                      multithread=multithread)
     next_peak_list = []
     for x in next_ctrs:
         if x == x:
