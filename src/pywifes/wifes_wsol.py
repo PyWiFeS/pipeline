@@ -293,7 +293,7 @@ def _get_gauss_arc_fit(fit_function,
         xfit = x[ifit_lo:ifit_hi]
         yfit = y[ifit_lo:ifit_hi]
 
-        if len(yfit) > 0 and len(numpy.nonzero(yfit > 0.2 * yfit.max())) > 0:
+        if len(yfit) > 0 and numpy.count_nonzero(yfit > 0.2 * yfit.max()) > 0:
             jobs.append((i, curr_ctr_guess, width_guess, xfit, yfit))
         else:
             fitted_centers[i] = float('nan')
