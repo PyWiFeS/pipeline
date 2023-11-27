@@ -293,12 +293,11 @@ def _get_mpfit_arc_fit(subbed_arc_data,
         ifit_hi = int(curr_ctr_guess + 5 * width_guess)
         xfit = x[ifit_lo:ifit_hi]
         yfit = y[ifit_lo:ifit_hi]
-        try:
-            good_pix = numpy.nonzero(yfit > 0.2*yfit.max())[0]
-        except:
+
+        if len(numpy.nonzero(yfit > 0.2 * yfit.max())) == 0:
             fitted_centers[i] = float('nan')
-            continue
-        jobs.append( (i,curr_ctr_guess, width_guess, xfit, yfit) )
+        else:
+            jobs.append( (i,curr_ctr_guess, width_guess, xfit, yfit) )
 
     if len(jobs) > 0:
         if multithread: 
