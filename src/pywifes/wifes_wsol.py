@@ -266,11 +266,8 @@ def _get_loggauss_arc_fit(subbed_arc_data,
 
 def _set_fitted_centers(line_center_pairs, fitted_centers):
     for line_center_pair in line_center_pairs:
-        try:
-            line_ind = line_center_pair[0]
-            fitted_center = line_center_pair[1]
-        except:
-            continue
+        line_ind = line_center_pair[0]
+        fitted_center = line_center_pair[1]
         fitted_centers[line_ind] = float(fitted_center)
     return fitted_centers
 
@@ -430,16 +427,16 @@ def evaluate_wsol_poly(x_array, y_array, xpoly, ypoly):
                   numpy.polyval(ypoly, y_array))
     return wave_array
 
-def _get_ref_array(row_refs_pairs, init_x_array, init_y_array):
+def _set_ref_array(row_refs_pairs, init_x_array, init_y_array):
     # Create the storage array for the reference wavelength
     ref_array = numpy.zeros_like(init_x_array)
     for row_refs_pair in row_refs_pairs:
-        try:
-            row_ind = row_refs_pair[0]
-            ref_row_inds = (init_y_array == row_ind + 1)
-            ref_array[ref_row_inds] = row_refs_pair[1]
-        except:
-            continue
+        row_ind = row_refs_pair[0]
+        refs = row_refs_pair[1]
+
+        ref_row_inds = (init_y_array == row_ind + 1)
+        if len(ref_row_inds) > 0:
+            ref_array[ref_row_inds] = refs
     return ref_array
 
 #------------------------------------------------------------------------
@@ -643,11 +640,11 @@ def find_lines_and_guess_refs(slitlet_data,
             with multiprocessing.Pool(num_available_cpus) as pool:
                 # row_refs_pairs is lazily evaluated and must be read within the pool's scope.
                 row_refs_pairs = pool.imap_unordered(_xcorr_shift_all, jobs, chunksize=chunksize)
-                ref_array = _get_ref_array(row_refs_pairs, init_x_array, init_y_array)
+                ref_array = _set_ref_array(row_refs_pairs, init_x_array, init_y_array)
         else :
             #Completely avoid using Pool in case of an ipython debugging environment.
             row_refs_pairs = [_xcorr_shift_all(job) for job in jobs]
-            ref_array = _get_ref_array(row_refs_pairs, init_x_array, init_y_array)
+            ref_array = _set_ref_array(row_refs_pairs, init_x_array, init_y_array)
 
         # Create array with only detected lines
         good_inds = ref_array > 0
