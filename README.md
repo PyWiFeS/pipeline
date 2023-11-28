@@ -37,7 +37,13 @@ The Python data reduction pipeline for WiFeS
    cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_folder/
    cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_folder/
    ```
-3. Run `reduce_data.py`, giving the raw data directory as an input parameter. from `/Users/.../my_folder/` The pipeline will run both arms automatically and choose the observing mode by checking the headers.
+3. Set the environment variable `PYWIFES_DIR` to your reference data directory:
+    ```sh
+    export PYWIFES_DIR=/Users/.../pipeline/reference_data
+    ```
+    1. If `PYWIFES_DIR` is not set, the pipeline assumes it is located in your program's *install* directory. 
+    That assumption only works if you install with `pip install -e .`
+4. Run `reduce_data.py`, giving the raw data directory as an input parameter. from `/Users/.../my_folder/` The pipeline will run both arms automatically and choose the observing mode by checking the headers.
     ```sh
    python3 reduce_data.py my_raw_data
    ```
