@@ -29,13 +29,13 @@ The Python data reduction pipeline for WiFeS
     ```sh
    pip install .
    ```
-3. Point the environment variable `PYWIFES_DIR` to your reference data directory:
-    1. Either add the following line to your `~/.bashrc` so it will run on login:
+3. Point the environment variable `PYWIFES_DIR` to your reference data directory. There are a few possible ways to do that:
+    1. Add the following line to your `~/.bashrc` so it will run on login:
     ```sh
     export PYWIFES_DIR=/Users/.../pipeline/reference_data
     ```
     2. Or run the command manually before 'Running the Pipeline'.
-    3. Alternatively, If `PYWIFES_DIR` is not set, the pipeline searches the program's *install* directory.
+    3. Alternatively, if `PYWIFES_DIR` is not set, the pipeline searches the program's *install* directory.
     For this approach to work, you would instead need to install with `pip install -e .`
 
 ## Running the Pipeline
