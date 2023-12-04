@@ -297,9 +297,10 @@ def _get_gauss_arc_fit(fit_function,
 
     if len(jobs) > 0:
         if multithread:
-            num_available_cpus = len(os.sched_getaffinity(0))
-            with multiprocessing.Pool(processes=num_available_cpus) as mypool:
-                chunksize = math.ceil(len(jobs) / num_available_cpus)
+            # NOTE: The number of cores available to this process may be lower. See #36
+            num_cpus = os.cpu_count()
+            with multiprocessing.Pool(processes=num_cpus) as mypool:
+                chunksize = math.ceil(len(jobs) / num_cpus)
                 # line_center_pairs is lazily evaluated and must be read within the pool's scope.
                 line_center_pairs = mypool.imap_unordered(fit_function, jobs, chunksize=chunksize)
                 fitted_centers = _set_fitted_centers(line_center_pairs, fitted_centers)
@@ -633,11 +634,12 @@ def find_lines_and_guess_refs(slitlet_data,
 
         ref_array = None
         if multithread:
-            num_available_cpus = len(os.sched_getaffinity(0))
-            chunksize = math.ceil(len(jobs) / num_available_cpus)
+            # NOTE: The number of cores available to this process may be lower. See #36
+            num_cpus = os.cpu_count()
+            chunksize = math.ceil(len(jobs) / num_cpus)
             if verbose:
-                print(f'  ... assign lambdas using up to {num_available_cpus} cpu(s) ...')
-            with multiprocessing.Pool(num_available_cpus) as pool:
+                print(f'  ... assign lambdas using up to {num_cpus} cpu(s) ...')
+            with multiprocessing.Pool(num_cpus) as pool:
                 # row_refs_pairs is lazily evaluated and must be read within the pool's scope.
                 row_refs_pairs = pool.imap_unordered(_xcorr_shift_all, jobs, chunksize=chunksize)
                 ref_array = _set_ref_array(row_refs_pairs, init_x_array, init_y_array)
