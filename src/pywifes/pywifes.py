@@ -2957,7 +2957,7 @@ def generate_wifes_cube_multithread(
     xarr = numpy.arange(ndx)
     yarr = numpy.arange(ndy)
     full_x, full_y = numpy.meshgrid(xarr, yarr)
-    obs_hdr = f3[1].header
+    obs_hdr = f3[0].header
     # figure out the binning!
     try:
         bin_temp = f3[1].header['CCDSUM'].split()
