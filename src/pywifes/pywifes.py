@@ -2673,7 +2673,6 @@ def generate_wifes_cube_oneproc(
     bin_x=None, bin_y=None,
     ny_orig=76,
     offset_orig=4,
-    multithread=False,
     verbose=True,
     adr=False):
     #---------------------------
@@ -2720,12 +2719,9 @@ def generate_wifes_cube_oneproc(
         frame_wdisps.append(curr_wdisp)
         #print numpy.shape(f3[i].data)
     if dw_set != None:
-        disp_ave = dw_set 
-    else : 
+        disp_ave = dw_set
+    else:
         disp_ave = numpy.mean(frame_wdisps)
-    if verbose:
-        print(' Data spectral resolution (min/max):',numpy.round(numpy.min(frame_wdisps),4),numpy.round(numpy.max(frame_wdisps),4))
-        print(' Cube spectral resolution : ',disp_ave)
     # excise lowest pixel so interpolation doesn't fail
     frame_wmin += disp_ave
     # finally check against the user input value
@@ -2737,6 +2733,11 @@ def generate_wifes_cube_oneproc(
         final_frame_wmax = min(wmax_set, frame_wmax)
     else:
         final_frame_wmax = frame_wmax
+
+    if verbose:
+        print(' Data spectral resolution (min/max):',numpy.round(numpy.min(frame_wdisps),4),numpy.round(numpy.max(frame_wdisps),4))
+        print(' Cube spectral resolution : ',disp_ave)
+
     out_lambda = numpy.arange(final_frame_wmin, final_frame_wmax, disp_ave)
     # set up output data
     # load in spatial solutions
@@ -2775,19 +2776,15 @@ def generate_wifes_cube_oneproc(
         tanz = numpy.tan(zd)
         # telescope PA!
         telpa = numpy.radians(obs_hdr['TELPAN'])
-        # THIS SHOULD BE A FIXED VALUE!!
-        #adr_ref = adr_x_y(numpy.array([out_lambda[-1]]),secz, ha, dec, lat, 
-        #                  teltemp = 0.0, telpres=700.0, telpa=telpa)
+        # THIS MUST BE A FIXED VALUE
         adr_ref = adr_x_y(numpy.array([5600.0]),
                           secz, ha, dec, lat, 
                           teltemp = 0.0, telpres=700.0, telpa=telpa)
     #---------------------------
-    outfits = pyfits.HDUList(f3)
     # Create a temporary storage array for first iteration
     flux_data_cube_tmp = numpy.zeros([nx,ny,nlam])
     var_data_cube_tmp = numpy.ones([nx,ny,nlam])
     dq_data_cube_tmp = numpy.ones([nx,ny,nlam])
-    orig_flux        = numpy.zeros([25,43,4096])
     # First interpolation : Wavelength + y (=wire & ADR)
     if verbose:
         print(' -> Step 1: interpolating along lambda and y (2D interp.)\r')
@@ -2797,7 +2794,6 @@ def generate_wifes_cube_oneproc(
         f4 = pyfits.open(wsol_fn)
         wave = f4[i].data
         f4.close()
-        #print ' -> generating cube data for slitlet %d' % i
         curr_flux = f3[i].data
         curr_var  = f3[25+i].data
         curr_dq   = f3[50+i].data
@@ -2808,7 +2804,7 @@ def generate_wifes_cube_oneproc(
         full_dw[:,0] = dw[:,0]
         # and *y* to real y
         curr_wire = wire_trans[i-1,:]
-        all_ypos = full_y - curr_wire - wire_offset # what is the wire offset doing ?
+        all_ypos = full_y - curr_wire - wire_offset
         # from the y-lambda-flux data, interpolate the flux
         # for the desired output y-lambda grid
         wave_flat = wave.flatten()
@@ -2902,6 +2898,7 @@ def generate_wifes_cube_oneproc(
                     sys.stdout.write('\n')
     # All done, at last ! Now, let's save it all ...
     # ALWAYS ITERATE TO 25 EVEN IF HALFFRAME HERE!!
+    outfits = pyfits.HDUList(f3)
     for i in range(1,26):
         # save to data cube
         outfits[i].data = flux_data_cube_tmp[i-1,:,:]
@@ -2913,7 +2910,8 @@ def generate_wifes_cube_oneproc(
     outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, overwrite=True)
     f3.close()
-    return 
+    return
+
 
 ###--------------------------------------------------------------
 # multithread cube processes
@@ -2938,7 +2936,7 @@ def generate_wifes_cube_multithread(
     inimg, outimg,
     wire_fn,
     wsol_fn,
-    wmin_set = None, wmax_set = None,dw_set = None,
+    wmin_set = None, wmax_set = None, dw_set = None,
     bin_x=None, bin_y=None,
     ny_orig=76,
     offset_orig=4,
@@ -3001,15 +2999,14 @@ def generate_wifes_cube_multithread(
         final_frame_wmax = min(wmax_set, frame_wmax)
     else:
         final_frame_wmax = frame_wmax
-    
+
     if verbose:
         print(' Data spectral resolution (min/max):',numpy.round(numpy.min(frame_wdisps),4),numpy.round(numpy.max(frame_wdisps),4))
         print(' Cube spectral resolution : ',disp_ave)
-    
+
     out_lambda = numpy.arange(final_frame_wmin, final_frame_wmax, disp_ave)
     # set up output data
     # load in spatial solutions
-    # Rajika's edit. Allows for reduction without wires
     try:
         f5 = pyfits.open(wire_fn)
         wire_trans = f5[0].data
@@ -3025,9 +3022,6 @@ def generate_wifes_cube_multithread(
     init_out_y = numpy.arange(ny,dtype='d')
     out_y = init_out_y - numpy.median(init_out_y)
     out_y_full, out_lambda_full = numpy.meshgrid(out_y, out_lambda)
-    #print numpy.shape(out_y_full)
-    #print numpy.shape(full_y)
-    #print squirrel
     #---------------------------
     # Prepare ADR corrections ...
     if adr :
@@ -3049,12 +3043,13 @@ def generate_wifes_cube_multithread(
         # telescope PA!
         telpa = numpy.radians(obs_hdr['TELPAN'])
         # THIS MUST BE A FIXED VALUE
-        #adr_ref = adr_x_y(numpy.array([out_lambda[-1]]),secz, ha, dec, lat, 
-        #                  teltemp = 0.0, telpres=700.0, telpa=telpa)
         adr_ref = adr_x_y(numpy.array([5600.0]),
                           secz, ha, dec, lat, 
                           teltemp = 0.0, telpres=700.0, telpa=telpa)
     #---------------------------
+    flux_data_cube_tmp = numpy.zeros([nx,ny,nlam])
+    var_data_cube_tmp = numpy.ones([nx,ny,nlam])
+    dq_data_cube_tmp = numpy.ones([nx,ny,nlam])
     if verbose:
         print(' -> Step 1: interpolating along lambda and y (2D interp.) MULTITHREAD\r')
         sys.stdout.write('\r 0%')
@@ -3066,7 +3061,6 @@ def generate_wifes_cube_multithread(
         wave = f4[i].data
         wave_hdr = f4[i].header
         f4.close()
-        #print 'Generating cube data for slitlet %d' % i
         curr_flux = f3[i].data
         curr_var  = f3[25+i].data
         curr_dq   = f3[50+i].data
@@ -3078,9 +3072,6 @@ def generate_wifes_cube_multithread(
         # and *y* to real y
         curr_wire = wire_trans[i-1,:]
         all_ypos = full_y - curr_wire - wire_offset
-        #print curr_wire
-        #if i == 2:
-        #    print squirrel
         # from the y-lambda-flux data, interpolate the flux
         # for the desired output y-lambda grid
         wave_flat = wave.flatten()
@@ -3154,9 +3145,6 @@ def generate_wifes_cube_multithread(
     #---------------------------
     # GATHER ALL TRANSFORMED DATA
     # Create a temporary storage array for first iteration
-    flux_data_cube_tmp = numpy.zeros([nx,ny,nlam])
-    var_data_cube_tmp = numpy.ones([nx,ny,nlam])
-    dq_data_cube_tmp = numpy.ones([nx,ny,nlam])
     for i in range(1,nslits+1):
         temp_data_fn = 'tmp_cubegen_wifes_s%02d.fits' % (i)
         fm = pyfits.open(temp_data_fn)
