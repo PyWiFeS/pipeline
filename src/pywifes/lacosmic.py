@@ -11,15 +11,10 @@ from .wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
 
 #------------------------------------------------------------------------
 # high-level functions to check if an observation is half-frame or N+S
-def is_halfframe(inimg, data_hdu=0):
-    f = pyfits.open(inimg)
-    detsec = f[data_hdu].header['DETSEC']
-    f.close()
+def _is_halfframe(hdu_list, data_hdu=0):
+    detsec = hdu_list[data_hdu].header['DETSEC']
     ystart = int(float(detsec.split(',')[1].split(':')[0]))
-    if ystart == 2049:
-        return True
-    else:
-        return False
+    return ystart == 2049
 
 #-----------------------------------------------------------------------------
 laplace_kernel = numpy.array(
@@ -238,36 +233,31 @@ def lacos_wifes(inimg, outimg,
             n_ny = n_ny)
     return
 
-def lacos_wifes_oneproc(inimg, outimg,
+def lacos_wifes_oneproc(inimg_filepath, outimg_filepath,
                         gain=1.0,       # assume data has been scaled by its gain 
                         rdnoise=5.0,
-                        wsol_fn=None,
+                        wsol_filepath=None,
                         sig_clip = 4.0,
                         sig_frac = 0.5,
                         obj_lim  = 1.0,
                         niter = 4,
                         n_nx = 1,
                         n_ny = 5):
-    # check if halfframe
-    halfframe = is_halfframe(inimg)
+    hdu_list = pyfits.open(inimg_filepath)
+    halfframe = _is_halfframe(hdu_list)
     if halfframe:
         nslits = 12
     else:
         nslits = 25
-    # open and operate on data
-    print('MZ', 'LACOSMIC', inimg)
-    f = pyfits.open(inimg)
-    outfits = pyfits.HDUList(f)
+
+    outfits = pyfits.HDUList(hdu_list)
+    wsol_hdu_list = pyfits.open(wsol_filepath)
     for i in range(nslits):
         curr_hdu = i+1
-        print('Starting slitlet %d of image %s' % (curr_hdu,
-                                                   inimg.split('/')[-1]))
         curr_dq_hdu = 50+curr_hdu
-        orig_data = f[curr_hdu].data
-        if wsol_fn != None:
-            f2 = pyfits.open(wsol_fn)
-            wave = f2[i+1].data
-            f2.close()
+        orig_data = hdu_list[curr_hdu].data
+        if wsol_filepath != None:
+            wave = wsol_hdu_list[i+1].data
         else:
             wave = None
         clean_data, global_bpm = lacos_spec_data(
@@ -285,46 +275,47 @@ def lacos_wifes_oneproc(inimg, outimg,
         outfits[curr_hdu].data = clean_data
         # save the bad pixel mask in the DQ extention
         outfits[curr_dq_hdu].data = global_bpm
-    outfits.writeto(outimg, overwrite=True)
-    f.close()
+    wsol_hdu_list.close()
+    hdu_list.close()
+
+    outfits.writeto(outimg_filepath, overwrite=True)
     return
 
 def lacos_wifes_multithread(
-    inimg, outimg,
+    inimg_filepath, outimg_filepath,
     gain=1.0,       # assume data has been scaled by its gain 
     rdnoise=5.0,
-    wsol_fn=None,
+    wsol_filepath=None,
     sig_clip = 4.0,
     sig_frac = 0.5,
     obj_lim  = 1.0,
     niter = 4,
     n_nx = 1,
     n_ny = 5):
-    f = pyfits.open(inimg)
-    # check if halfframe
-    halfframe = is_halfframe(inimg)
+    hdu_list = pyfits.open(inimg_filepath)
+    halfframe = _is_halfframe(hdu_list)
     if halfframe:
         nslits = 12
     else:
         nslits = 25
-    # open and operate on data
+
     # 1 - spool off thread for each set of data!
     threads = []
+    wsol_hdu_list = pyfits.open(wsol_filepath)
     for i in range(nslits):
         curr_hdu = i+1
         curr_dq_hdu = 50+curr_hdu
-        orig_data = f[curr_hdu].data
-        if wsol_fn != None:
-            f2 = pyfits.open(wsol_fn)
-            wave = f2[i+1].data
-            f2.close()
+        orig_data = hdu_list[curr_hdu].data
+        if wsol_filepath != None:
+            wave = wsol_hdu_list[i+1].data
         else:
             wave = None
-        # HERE DO THE THREADING!!
-        temp_fn = 'tmp_lacos_wifes_s%02d.fits' % (i+1)
+
+        # Save each slit to its own file.
+        temp_filename = 'tmp_lacos_wifes_s%02d.fits' % (i+1)
         new_thread = multiprocessing.Process(
             target=lacos_data_savefits,
-            args=(orig_data, temp_fn),
+            args=(orig_data, temp_filename),
             kwargs={'gain':gain,
                     'rdnoise':rdnoise,
                     'wave':wave,
@@ -334,28 +325,33 @@ def lacos_wifes_multithread(
                     'niter':niter,
                     'n_nx':n_nx,
                     'n_ny':n_ny})
-        new_thread.start()
         threads.append(new_thread)
+
+    for t in threads:
+        new_thread.start()
+
     for t in threads:
         t.join()
+
     # 2 - gather fitted data
-    outfits = pyfits.HDUList(f)
+    outfits = pyfits.HDUList(hdu_list)
     for i in range(nslits):
         curr_hdu = i+1
         curr_dq_hdu = 50+curr_hdu
         # read in the temporary output!
-        temp_fn = 'tmp_lacos_wifes_s%02d.fits' % (i+1)
-        f2 = pyfits.open(temp_fn)
-        clean_data = f2[0].data
-        global_bpm = f2[1].data
+        temp_filename = 'tmp_lacos_wifes_s%02d.fits' % (i+1)
+        lacos_hdu_list = pyfits.open(temp_filename)
+        clean_data = lacos_hdu_list[0].data
+        global_bpm = lacos_hdu_list[1].data
         # update the data hdu
         outfits[curr_hdu].data = clean_data
         # save the bad pixel mask in the DQ extention
         outfits[curr_dq_hdu].data = global_bpm
         # delete the temporary file
-        f2.close()
-        subprocess.call(['rm', '-f', temp_fn])
-    # 3 - save it!
-    outfits.writeto(outimg, overwrite=True)
-    f.close()
+        lacos_hdu_list.close()
+        subprocess.call(['rm', '-hdu_list', temp_filename])
+    wsol_hdu_list.close()
+    hdu_list.close()
+
+    outfits.writeto(outimg_filepath, overwrite=True)
     return
