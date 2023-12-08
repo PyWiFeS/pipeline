@@ -5,7 +5,7 @@ The Python data reduction pipeline for WiFeS
 
 **Note:** This version is in active development.
 
-### November 2023 Update
+### December 2023 Update
 #### How is this code different from the [master](https://github.com/PyWiFeS/pipeline/tree/master) PyWiFeS repository?
 - Updated to Python 3, with bug fixes and headers for the new telescope setup.
 - Cleaner repository (some defunct scripts to be removed).
@@ -16,7 +16,13 @@ The Python data reduction pipeline for WiFeS
   - Users can create their own `.JSON` file following the same structure with their preferred setup.
 
 #### Known Problems
-- Multiprocessing not always works properly.
+- **Multiprocessing** not always works properly.
+    - **Update Dec 2023**: Multiprocessing can be enabled by **linux users ONLY** so the pipeline will do the job faster. To enable the multithreading option, please follow these steps:
+        1. In your working directory, open the `.json` file that corresponds to the observing mode of tour data. That is, `params_class.json` for classic mode, or `params_ns.json` for nod-and-shuffle. The `.json` files should have been previously copied to your working directory in step 2 in "Running the Pipeline".
+        2. Set `"multithread": true` in all the cases. There should be a total of 6 `"multithread"`, 3 for each arm in the following steps: `"step": "wave_soln"`, `"step": "cosmic_rays"`, and `"step": "cube_gen"`.
+        3. Run the pipeline following the instructions below.
+    Please note that this option is **not available for MacOS or Windows** users. We are working on it. 
+
 
 ---
 
@@ -45,7 +51,7 @@ The Python data reduction pipeline for WiFeS
    cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_folder/
    cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_folder/
    ```
-3. Run `reduce_data.py`, giving the raw data directory as an input parameter. from `/Users/.../my_folder/` The pipeline will run both arms automatically and choose the observing mode by checking the headers.
+3. Run `reduce_data.py`, giving the raw data directory as an input parameter from `/Users/.../my_folder/`. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
     ```sh
    python3 reduce_data.py my_raw_data
    ```
