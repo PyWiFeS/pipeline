@@ -3295,8 +3295,8 @@ def generate_wifes_3dcube(inimg, outimg):
     dec_str = f[1].header['DEC']
     # Convert celestial coordinates to degrees
     coord = SkyCoord(ra=ra_str, dec=dec_str, unit=(u.hourangle, u.deg))
-    crval1 = coord.ra.deg +  0.00013888888888889 # + 0.5 arcsec in deg
-    crval2 = coord.dec.deg + 0.00055555555555556 # + 2 arcsec in deg
+    crval1 = coord.ra.deg 
+    crval2 = coord.dec.deg 
     crval3 = lam0
     
     # Set up a tangential projection
