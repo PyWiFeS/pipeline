@@ -17,7 +17,7 @@ The Python data reduction pipeline for WiFeS
 
 #### Known Problems
 - **Multiprocessing** not always works properly.
-    - **Update Dec 2023**: Multiprocessing can be enabled by **Linux users ONLY** so the pipeline will does the job faster. To enable the multithreading option, please follow these steps:
+    - **Update Dec 2023**: Multiprocessing can be enabled by **Linux users ONLY** so the pipeline *may* do the job faster. To enable the multithreading option, please follow these steps:
         1. In your working directory, open the `.json` file that corresponds to the observing mode of your data. That is, `params_class.json` for classic mode, or `params_ns.json` for nod-and-shuffle. The `.json` files should have been previously copied to your working directory in step 2 in "Running the Pipeline".
         2. Set `"multithread": true` in all the cases. There should be a total of 6 `"multithread"`, 3 for each of the blue and red arms in the following steps: `"step": "wave_soln"`, `"step": "cosmic_rays"`, and `"step": "cube_gen"`.
         3. Run the pipeline following the instructions below.
