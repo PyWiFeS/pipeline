@@ -3289,7 +3289,7 @@ def generate_wifes_3dcube(inimg, outimg):
                 obj_cube_var[:,:,nx-i-1] = curr_var
                 obj_cube_dq[:,:,nx-i-1] = curr_dq
     
-    # ASTROMETY: obtained from pointing
+    # ASTROMETRY: obtained from pointing
     # # Celestial coordinates
     ra_str = f[1].header['RA']
     dec_str = f[1].header['DEC']
@@ -3325,13 +3325,15 @@ def generate_wifes_3dcube(inimg, outimg):
     pc3_3 = 1.0
 
     # Equiv. to 1 pixel width in each axis' units
-    cdelt1 = -0.00027777777777778   # 1 arcsecond in degree
-    cdelt2 = 0.00027777777777778   # 1 arcsecond in degree
+    binning2 = int(f[0].header['CCDSUM'][2])
+    arsec_deg = 0.00027777777777778   # 1 arcsecond in degrees
+    cdelt1 = arsec_deg   
+    cdelt2 = arsec_deg/2*binning2  
     cdelt3 = dlam
 
-    # Central pixel: defined in the centre of the central pixel
-    crpix1 = 25/2 + 0.5  # Central pixel
-    crpix2 = 38/2 + 0.5 # Central pixel
+    # Central pixel: defined in the centre of the central pixel   
+    crpix1 = nx/2 + 0.5  # Central pixel
+    crpix2 = ny/2 + 0.5 # Central pixel
     crpix3 = 1
 
     # Axis units
@@ -3343,38 +3345,69 @@ def generate_wifes_3dcube(inimg, outimg):
     # DATA
     cube_hdu = pyfits.PrimaryHDU(obj_cube_data, header = f[0].header)
     # Add header info
-    cube_hdu.header.set('CROTA2',telpa, 'Telescope rotation angle (degrees)')
     cube_hdu.header.set('CRVAL1',crval1, 'Value at ref. pixel on axis 1 (degrees)')
     cube_hdu.header.set('CRVAL2',crval2, 'Value at ref. pixel on axis 2 (degrees)')
     cube_hdu.header.set('CTYPE1',ctype1, 'Type of co-ordinate on axis 1')
     cube_hdu.header.set('CTYPE2',ctype2, 'Type of co-ordinate on axis 2')
-    cube_hdu.header.set('CTYPE3',ctype3, 'Type of co-ordinate on axis 3')
     cube_hdu.header.set('CDELT1',cdelt1, 'RA axis pixel width (degrees)')
     cube_hdu.header.set('CDELT2',cdelt2, 'Dec axis pixel width (degrees)')
     cube_hdu.header.set('CRPIX1',crpix1, 'Reference pixel on axis 1')
     cube_hdu.header.set('CRPIX2',crpix2, 'Reference pixel on axis 2')
-    cube_hdu.header.set('CRPIX2',crpix2, 'Reference pixel on axis 2')
-    cube_hdu.header.set('CRPIX3',crpix3, 'Reference pixel on axis 3')    
-    cube_hdu.header.set('CRVAL3',lam0, 'Reference wavelength (Angstroms)')
-    cube_hdu.header.set('CDELT3',dlam, 'Wavelength step (Angstroms)')
+    cube_hdu.header.set('CRPIX2',crpix2, 'Reference pixel on axis 2')  
     cube_hdu.header.set('PC1_1',pc1_1, 'Transformation matrix element')
     cube_hdu.header.set('PC1_2',pc1_2, 'Transformation matrix element')
     cube_hdu.header.set('PC2_1',pc2_1, 'Transformation matrix element')
     cube_hdu.header.set('PC2_2',pc2_2, 'Transformation matrix element')
+    cube_hdu.header.set('CRVAL3',lam0, 'Reference wavelength (Angstroms)')
+    cube_hdu.header.set('CTYPE3',ctype3, 'Type of co-ordinate on axis 3')
+    cube_hdu.header.set('CDELT3',dlam, 'Wavelength step (Angstroms)')
+    cube_hdu.header.set('CRPIX3',crpix3, 'Reference pixel on wavelength (axis 3)')  
     #cube_hdu.header.set('PYWIFES',__version__, 'Pywifes version'))
     outfits = pyfits.HDUList([cube_hdu])
-    
+
     # VARIANCE
     var_hdu = pyfits.PrimaryHDU(obj_cube_var, header = f[0].header)
-    var_hdu.header.set('CRVAL3',lam0, 'Reference wavelength')
-    var_hdu.header.set('CDELT3',dlam, 'Wavelength step')
+    # Add header info
+    var_hdu.header.set('CRVAL1',crval1, 'Value at ref. pixel on axis 1 (degrees)')
+    var_hdu.header.set('CRVAL2',crval2, 'Value at ref. pixel on axis 2 (degrees)')
+    var_hdu.header.set('CTYPE1',ctype1, 'Type of co-ordinate on axis 1')
+    var_hdu.header.set('CTYPE2',ctype2, 'Type of co-ordinate on axis 2')
+    var_hdu.header.set('CDELT1',cdelt1, 'RA axis pixel width (degrees)')
+    var_hdu.header.set('CDELT2',cdelt2, 'Dec axis pixel width (degrees)')
+    var_hdu.header.set('CRPIX1',crpix1, 'Reference pixel on axis 1')
+    var_hdu.header.set('CRPIX2',crpix2, 'Reference pixel on axis 2')
+    var_hdu.header.set('CRPIX2',crpix2, 'Reference pixel on axis 2')  
+    var_hdu.header.set('PC1_1',pc1_1, 'Transformation matrix element')
+    var_hdu.header.set('PC1_2',pc1_2, 'Transformation matrix element')
+    var_hdu.header.set('PC2_1',pc2_1, 'Transformation matrix element')
+    var_hdu.header.set('PC2_2',pc2_2, 'Transformation matrix element')
+    var_hdu.header.set('CRVAL3',lam0, 'Reference wavelength (Angstroms)')
+    var_hdu.header.set('CTYPE3',ctype3, 'Type of co-ordinate on axis 3')
+    var_hdu.header.set('CDELT3',dlam, 'Wavelength step (Angstroms)')
+    var_hdu.header.set('CRPIX3',crpix3, 'Reference pixel on wavelength (axis 3)')  
     #var_hdu.header.set('PYWIFES',__version__, 'Pywifes version')
     outfits.append(var_hdu)
     
     # DQ
     dq_hdu = pyfits.PrimaryHDU(obj_cube_dq, header = f[0].header)
-    dq_hdu.header.set('CRVAL3',lam0, 'Reference wavelength')
-    dq_hdu.header.set('CDELT3',dlam, 'Wavelength step')
+    # Add header info
+    dq_hdu.header.set('CRVAL1',crval1, 'Value at ref. pixel on axis 1 (degrees)')
+    dq_hdu.header.set('CRVAL2',crval2, 'Value at ref. pixel on axis 2 (degrees)')
+    dq_hdu.header.set('CTYPE1',ctype1, 'Type of co-ordinate on axis 1')
+    dq_hdu.header.set('CTYPE2',ctype2, 'Type of co-ordinate on axis 2')
+    dq_hdu.header.set('CDELT1',cdelt1, 'RA axis pixel width (degrees)')
+    dq_hdu.header.set('CDELT2',cdelt2, 'Dec axis pixel width (degrees)')
+    dq_hdu.header.set('CRPIX1',crpix1, 'Reference pixel on axis 1')
+    dq_hdu.header.set('CRPIX2',crpix2, 'Reference pixel on axis 2')
+    dq_hdu.header.set('CRPIX2',crpix2, 'Reference pixel on axis 2')  
+    dq_hdu.header.set('PC1_1',pc1_1, 'Transformation matrix element')
+    dq_hdu.header.set('PC1_2',pc1_2, 'Transformation matrix element')
+    dq_hdu.header.set('PC2_1',pc2_1, 'Transformation matrix element')
+    dq_hdu.header.set('PC2_2',pc2_2, 'Transformation matrix element')
+    dq_hdu.header.set('CRVAL3',lam0, 'Reference wavelength (Angstroms)')
+    dq_hdu.header.set('CTYPE3',ctype3, 'Type of co-ordinate on axis 3')
+    dq_hdu.header.set('CDELT3',dlam, 'Wavelength step (Angstroms)')
+    dq_hdu.header.set('CRPIX3',crpix3, 'Reference pixel on wavelength (axis 3)')  
     #dq_hdu.header.set('PYWIFES',__version__, 'Pywifes version')
     outfits.append(dq_hdu)
     
