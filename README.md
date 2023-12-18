@@ -14,7 +14,7 @@ The Python data reduction pipeline for WiFeS
   - The pipeline chooses the template automatically.
   - Users don't need to set anything in generate metadata or reduction scripts anymore.
   - Users can create their own `.JSON` file following the same structure with their preferred setup.
-- Astrometry in the data cubes is implemented (still some small offsets in RA and Dec that will be fixed)
+- Astrometry is now implemented in the data cubes (still some small offsets in RA and Dec that will be fixed)
 
 
 #### Known Problems
