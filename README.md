@@ -14,6 +14,8 @@ The Python data reduction pipeline for WiFeS
   - The pipeline chooses the template automatically.
   - Users don't need to set anything in generate metadata or reduction scripts anymore.
   - Users can create their own `.JSON` file following the same structure with their preferred setup.
+- Astrometry is now implemented in the data cubes (still some small offsets in RA and Dec that will be fixed)
+
 
 #### Known Problems
 - **Multiprocessing** not always works properly.
@@ -46,13 +48,13 @@ The Python data reduction pipeline for WiFeS
     For this approach to work, you would instead need to install with `pip install -e .`
 
 ## Running the Pipeline
-1. Put all raw data and calibration files in the same directory: `/Users/.../my_folder/my_raw_data`
-2. Copy the reduce data script and `.json` files to the above-mentioned folder:
+1. Put all raw data and calibration files in the same directory: `/Users/.../my_directory/my_raw_data`
+2. Copy the reduce data script and `.json` files to the above-mentioned directory:
     ```sh
-   cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_folder/
-   cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_folder/
+   cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_directory/
+   cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_directory/
    ```
-3. Run `reduce_data.py`, giving the raw data directory as an input parameter from `/Users/.../my_folder/`. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
+3. Run `reduce_data.py`, giving the raw data directory path as an input parameter from `/Users/.../my_directory/`. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
     ```sh
    python3 reduce_data.py my_raw_data
    ```
@@ -60,7 +62,7 @@ The Python data reduction pipeline for WiFeS
 
 
 **DATA REDUCED:**
-The pipeline will automatically generate two directories for the reduced data: `/Users/.../my_folder/reduc_red` and `/Users/.../my_folder/reduc_blue` containing: 
+The pipeline will automatically generate two directories for the reduced data: `/Users/.../my_directory/reduc_red` and `/Users/.../my_directory/reduc_blue` containing: 
 - Master calibration files
 - The intermediate files generated during the data reduction named as `file_name.p00.fits, file_name.p01.fits, ..., file_name.p10.fits`  
 - Final data cubes named as `file_name.p11.fits`  
