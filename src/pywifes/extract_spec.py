@@ -35,7 +35,7 @@ def collapse_cube(*data_cubes):
     # Filter out None elements from the data_cubes
     valid_data_cubes = [cube for cube in data_cubes if cube is not None]
 
-    if len(valid_data_cubes)==1:
+    if len(valid_data_cubes) == 1:
         joined_cubes = valid_data_cubes[0]
     else:
         joined_cubes = np.concatenate(valid_data_cubes, axis=0)
@@ -71,7 +71,7 @@ def sec_image(ap, image):
     """
     mask = ap.to_mask(method="center")
     sec_data = mask.get_values(image)
-    
+
     return sec_data
 
 
@@ -122,8 +122,8 @@ def spect_extract(sci_cube, var_cube, source_ap, sky_ap):
         average = np.average(
             sci_section,
             weights=np.reciprocal(var_section),
-            ) 
-            
+        )
+
         err = np.reciprocal(np.sum(np.reciprocal(var_section)))
 
         if sky_ap is not None:
@@ -133,16 +133,16 @@ def spect_extract(sci_cube, var_cube, source_ap, sky_ap):
             sky_average = np.average(
                 sky_section,
                 weights=np.reciprocal(sky_var_section),
-                ) 
+            )
 
             sky_err = np.reciprocal(np.sum(np.reciprocal(sky_var_section)))
 
             fl.append((average - sky_average) * area)
-            var.append((err + sky_err) * area)  
+            var.append((err + sky_err) * area)
 
         else:
             fl.append(average * area)
-            var.append(err * area)  
+            var.append(err * area)
 
     return np.array(fl), np.array(var)
 
@@ -171,7 +171,7 @@ def writeFITS(sci_cube, var_cube, sci_header, var_header, output):
 
 
 def plot_apertures(data_cube, source_aps, sky_aps=None, border_width=0):
-    # Collapse cube in the waevelenght dimesion for obtaing a median image 
+    # Collapse cube in the waevelenght dimesion for obtaing a median image
     collapsed_cube = collapse_cube(data_cube)
 
     # Improbe ccontrats on the image usefull for see faint sources
@@ -215,9 +215,14 @@ def plot_apertures(data_cube, source_aps, sky_aps=None, border_width=0):
             sky_ap.plot(color="white", lw=0.8, ls="--")
 
 
-
 def auto_extract(
-    blue_cube_path=None, red_cube_path=None, a=1, b=1, border_width = 3, sky_sub=False, check_plot=False
+    blue_cube_path=None,
+    red_cube_path=None,
+    a=1,
+    b=1,
+    border_width=3,
+    sky_sub=False,
+    check_plot=False,
 ):
     # Load in the data
 
@@ -240,7 +245,6 @@ def auto_extract(
         red_sci = None
         red_wcs = None
 
-
     # Average all the data for detecting the source
     collapsed_cube = collapse_cube(blue_sci, red_sci)
 
@@ -259,10 +263,9 @@ def auto_extract(
 
     if detection is None:
         raise ValueError("No source detected.")
-    
+
     # Sort detections as brighter peaks first
-    detection.sort('peak_value', reverse=True)
-    
+    detection.sort("peak_value", reverse=True)
 
     # Detected sources positions
     positions = np.transpose((detection["x_peak"], detection["y_peak"]))
@@ -272,18 +275,18 @@ def auto_extract(
 
     # Set the annulus
     if sky_sub:
-
         a_in = a * 3
         a_out = a * 4
 
         b_in = b * 3
         b_out = b * 4
 
-        sky_aps = EllipticalAnnulus(positions, a_in=a_in, a_out=a_out, b_out=b_out, b_in=b_in)
+        sky_aps = EllipticalAnnulus(
+            positions, a_in=a_in, a_out=a_out, b_out=b_out, b_in=b_in
+        )
 
     else:
         sky_aps = None
-
 
     # Flux extraction for the aperture at all the wavelenghts
     for index, source_ap in enumerate(source_aps):
@@ -296,7 +299,9 @@ def auto_extract(
 
         if blue_cube_path is not None:
             # Extraction
-            blue_flux, blue_var = spect_extract(blue_sci, b_var, source_ap, sky_ap=sky_ap)
+            blue_flux, blue_var = spect_extract(
+                blue_sci, b_var, source_ap, sky_ap=sky_ap
+            )
 
             # Write out the results
             blue_output = blue_cube_path.replace("p11.fits", "ap%s.p12.fits" % ap_index)
@@ -310,53 +315,56 @@ def auto_extract(
             writeFITS(red_flux, red_var, r_sci_hdr, r_var_hdr, red_output)
 
     if check_plot:
-
         plt.close("all")
 
         # Plot Red
         ax1 = plt.subplot(1, 2, 2, projection=red_wcs)
         plt.title("Red arm")
         if red_cube_path is not None:
-            plot_apertures(red_sci, source_aps, sky_aps=sky_aps, border_width=border_width)
-                    #  Axis labels    
-            plt.xlabel('Right Ascension')
-            plt.ylabel('Declination ')
+            plot_apertures(
+                red_sci, source_aps, sky_aps=sky_aps, border_width=border_width
+            )
+            #  Axis labels
+            plt.xlabel("Right Ascension")
+            plt.ylabel("Declination ")
 
         else:
             plt.xlim(0, 1)
             plt.ylim(0, 1)
             # Add text to the center of the figure
             text = "No red arm data"
-            plt.text(0.5, 0.5, text, ha='center', va='center', fontsize=12, color='black')
+            plt.text(
+                0.5, 0.5, text, ha="center", va="center", fontsize=12, color="black"
+            )
 
             # Hide ticks and labels on both axes
             ax1.set_xticks([])
             ax1.set_yticks([])
-            ax1.axis('off')
-
+            ax1.axis("off")
 
         # Plot Blue
         ax0 = plt.subplot(1, 2, 1, projection=blue_wcs)
         plt.title("Blue arm")
         if blue_cube_path is not None:
-            plot_apertures(blue_sci, source_aps, sky_aps=sky_aps, border_width=border_width)
-            plt.xlabel('Right Ascension')
-            plt.ylabel('Declination ')
-    
+            plot_apertures(
+                blue_sci, source_aps, sky_aps=sky_aps, border_width=border_width
+            )
+            plt.xlabel("Right Ascension")
+            plt.ylabel("Declination ")
+
         else:
             plt.xlim(0, 1)
             plt.ylim(0, 1)
             # Add text to the center of the figure
             text = "No blue arm data"
-            plt.text(0.5, 0.5, text, ha='center', va='center', fontsize=12, color='black')
+            plt.text(
+                0.5, 0.5, text, ha="center", va="center", fontsize=12, color="black"
+            )
 
             # Hide ticks and labels on both axes
             ax0.set_xticks([])
             ax0.set_yticks([])
-            ax0.axis('off')
-
+            ax0.axis("off")
 
         plt.tight_layout()
         plt.savefig("detected_apertures_plot.pdf", bbox_inches="tight", dpi=300)
-
-
