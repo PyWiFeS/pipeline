@@ -867,10 +867,26 @@ def main():
         
     # AUTOMATIC SPECTRA EXTRACTION
 
-    # Extraction
+    # Extraction of the spectra
     blue_cube_path = glob.glob(project_dir + '/reduc_blue/*.p11.fits')[0]
     red_cube_path = glob.glob(project_dir + '/reduc_red/*.p11.fits')[0]
-    auto_extract(blue_cube_path, red_cube_path, sky_sub=True, check_plot=True)
+        
+    # (will no subtract an annular sky region on nod and shuffle data)
+    if pywifes.is_nodshuffle(blue_cube_path) or pywifes.is_nodshuffle(red_cube_path):
+        sky_sub = False
+    else:
+        sky_sub = True
+
+
+    # We set the radius for circular aperture to extract the espectra as 2"
+    pixel_scale_x = 1 # arcsec/pix . We introduce this variable to be able to set the pixel scale from the header instead of from  by hand
+    pixel_scale_y = 1 # arcsec/pix . We introduce this variable to be able to set the pixel scale from the header instead of from  by hand
+    r_arcsec = 2 # 
+    a = r_arcsec / pixel_scale_x
+    b = r_arcsec / pixel_scale_y
+
+    # Extraction routine
+    auto_extract(blue_cube_path, red_cube_path, a=a, b=b, border_width= 3, sky_sub=sky_sub, check_plot=True)
 
     # Splice spectra 
     # We check for all (up to 3) sources detected
@@ -883,8 +899,8 @@ def main():
         output = os.path.join(project_dir, "splice.ap%s.fits" % ap_index)
         splice(blue_spec, red_spec, output)
 
-#------------------------------------------------------------------------
-#------------------------------------------------------------------------
+    #------------------------------------------------------------------------
+    #------------------------------------------------------------------------
 
     duration = datetime.datetime.now() - start_time
     print('All done in %.01f seconds.' % duration.total_seconds())
