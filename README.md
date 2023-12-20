@@ -26,6 +26,8 @@ The Python data reduction pipeline for WiFeS
     
     Please note that this option is **NOT available for MacOS or Windows** users. We are currently working on it. 
 
+- **Skip steps**: not all the steps in the data reduction process can be skipped (i.e., `"run": false` in the `.json` files). For example, the wavelength solution is always required for a succesfull data reduction. Other steps such as the flux calibration, the extraction of the standar star, or the telliric correction can be skipped in case of missing calibration files. 
+
 
 ---
 
