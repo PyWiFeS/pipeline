@@ -14,6 +14,7 @@ from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
+from pywifes.logging import setup_logger
 
 def main():
     #------------------------------------------------------------------------
@@ -775,6 +776,9 @@ def main():
     naxis2_to_process = 0
     if len(sys.argv) == 3:
         naxis2_to_process = int(sys.argv[2])
+
+    # Once click arguments are used, add options for the logger.
+    logger = setup_logger(file="./pywifes_logger.log")
 
     # Classify all raw data (red and blue arm)
     obs_metadatas = classify(data_dir, naxis2_to_process)
