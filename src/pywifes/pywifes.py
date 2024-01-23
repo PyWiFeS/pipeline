@@ -2915,7 +2915,6 @@ def generate_wifes_cube_oneproc(
     f3.close()
     return
 
-
 ###--------------------------------------------------------------
 # multithread cube processes
 def save_wifes_cube_single_thread(
@@ -3050,9 +3049,6 @@ def generate_wifes_cube_multithread(
                           secz, ha, dec, lat, 
                           teltemp = 0.0, telpres=700.0, telpa=telpa)
     #---------------------------
-    flux_data_cube_tmp = numpy.zeros([nx,ny,nlam])
-    var_data_cube_tmp = numpy.ones([nx,ny,nlam])
-    dq_data_cube_tmp = numpy.ones([nx,ny,nlam])
     if verbose:
         print(' -> Step 1: interpolating along lambda and y (2D interp.) MULTITHREAD\r')
         sys.stdout.write('\r 0%')
@@ -3148,6 +3144,9 @@ def generate_wifes_cube_multithread(
     #---------------------------
     # GATHER ALL TRANSFORMED DATA
     # Create a temporary storage array for first iteration
+    flux_data_cube_tmp = numpy.zeros([nx,ny,nlam])
+    var_data_cube_tmp = numpy.ones([nx,ny,nlam])
+    dq_data_cube_tmp = numpy.ones([nx,ny,nlam])
     for i in range(1,nslits+1):
         temp_data_fn = 'tmp_cubegen_wifes_s%02d.fits' % (i)
         fm = pyfits.open(temp_data_fn)
