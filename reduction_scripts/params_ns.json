@@ -132,7 +132,8 @@
             "suffix": "04",
             "args": {
                 "ns": true,
-                "multithread": false
+                "multithread": false,
+                "max_processes": -1
             }
         },
         {
@@ -338,7 +339,8 @@
             "suffix": "04",
             "args": {
                 "ns": true,
-                "multithread": false
+                "multithread": false,
+                "max_processes": -1
             }
         },
         {

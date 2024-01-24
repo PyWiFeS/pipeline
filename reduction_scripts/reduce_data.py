@@ -400,7 +400,7 @@ def main():
     #------------------------------------------------------
     # Cosmic Rays
     def run_cosmic_rays(metadata, prev_suffix, curr_suffix,
-                        ns=False, multithread=False):
+                        ns=False, multithread=False, max_processes=-1):
         # now run ONLY ON SCIENCE TARGETS AND STANDARDS
         sci_obs_list  = get_sci_obs_list(metadata)
         sky_obs_list  = get_sky_obs_list(metadata)
@@ -416,14 +416,14 @@ def main():
                 continue
             lacos_wifes(in_fn, out_fn, wsol_fn=wsol_out_fn, niter=3,
                         sig_clip=10.0, obj_lim=10.0, sig_frac=0.2,
-                        multithread=multithread)
+                        is_multithread=multithread, max_processes=max_processes)
             if ns:
                 in_fn  = os.path.join(out_dir, '%s.s%s.fits' % (fn, prev_suffix))
                 out_fn = os.path.join(out_dir, '%s.s%s.fits' % (fn, curr_suffix))
                 print('Cleaning cosmics in %s' % in_fn.split('/')[-1])
                 lacos_wifes(in_fn, out_fn, wsol_fn=wsol_out_fn, niter=3,
                             sig_clip=10.0, obj_lim=10.0, sig_frac=0.2,
-                            multithread=multithread)
+                            is_multithread=multithread, max_processes=max_processes)
             gc.collect()
         for fn in std_obs_list:
             in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
@@ -431,18 +431,16 @@ def main():
             if skip_done and os.path.isfile(out_fn):
                 continue
             print('Cleaning cosmics in %s' % in_fn.split('/')[-1])
-            #lacos_wifes(in_fn, out_fn, niter=1, sig_frac=2.0)
             lacos_wifes(in_fn, out_fn, wsol_fn=wsol_out_fn, niter=3,
                         sig_clip=10.0, obj_lim=10.0, sig_frac=0.2,
-                        multithread=multithread)
+                        is_multithread=multithread, max_processes=max_processes)
             if ns:
                 in_fn  = os.path.join(out_dir, '%s.s%s.fits' % (fn, prev_suffix))
                 out_fn = os.path.join(out_dir, '%s.s%s.fits' % (fn, curr_suffix))
                 print('Cleaning cosmics in %s' % in_fn.split('/')[-1])
-                #lacos_wifes(in_fn, out_fn, niter=1, sig_frac=2.0)
                 lacos_wifes(in_fn, out_fn, wsol_fn=wsol_out_fn, niter=3,
                             sig_clip=10.0, obj_lim=10.0, sig_frac=0.2,
-                            multithread=multithread)
+                            is_multithread=multithread, max_processes=max_processes)
             gc.collect()
         return
 
