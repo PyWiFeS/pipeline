@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import pylab
 import  astropy.units as u
 
+from .multiprocessing_utils import get_task, map_tasks
 from .wifes_metadata import metadata_dir
 from .wifes_imtrans import transform_data, detransform_data
 from .wifes_wsol import fit_wsol_poly, evaluate_wsol_poly
@@ -2639,6 +2640,7 @@ def generate_wifes_cube(inimg, outimg,
                         ny_orig=76,
                         offset_orig=4,
                         multithread=False,
+                        max_processes=-1,
                         verbose=True,
                         adr=False):
     if multithread:
@@ -2650,6 +2652,7 @@ def generate_wifes_cube(inimg, outimg,
             bin_x=bin_x, bin_y=bin_y,
             ny_orig=ny_orig,
             offset_orig=offset_orig,
+            max_processes=max_processes,
             verbose=verbose,
             adr=adr)
     else:
@@ -2664,9 +2667,16 @@ def generate_wifes_cube(inimg, outimg,
             verbose=verbose,
             adr=adr)
 
-# ------------------- Fred's update (2) -----------------------
-# Now takes into account ADR correction
-# 3D interpolation is hard/slow/impossible. Because of the symmetry of the system
+
+def _scale_grid_data(points,
+                     values,
+                     xi,
+                     method='linear',
+                     fill_value=0,
+                     scale_factor=1.0):
+    return scale_factor * scipy.interpolate.griddata(
+        points, values, xi, method=method, fill_value=fill_value).T
+
 
 def generate_wifes_cube_oneproc(
     inimg, outimg,
@@ -2817,33 +2827,35 @@ def generate_wifes_cube_oneproc(
         curr_dq_flat   = curr_dq.flatten()
         # Calculate the ADR corrections (this is slow)
         if adr :
-            adr = adr_x_y(wave_flat,secz, ha, dec, lat, teltemp = 0.0, telpres=700.0, 
-                          telpa=telpa)
+            adr = adr_x_y(wave_flat,secz, ha, dec, lat, teltemp = 0.0,
+                          telpres=700.0, telpa=telpa)
             adr_y = adr[1]-adr_ref[1]
             all_ypos_flat -= adr_y
         # Does the interpolation (this is equally slow ...)
-        flux_data_cube_tmp[i-1,:,:] = disp_ave * scipy.interpolate.griddata(
+        flux_data_cube_tmp[i-1,:,:] = _scale_grid_data(
             (wave_flat, all_ypos_flat),
             curr_flux_flat,
             (out_lambda_full, out_y_full),
             method='linear',
-            fill_value=0.0).T
-        ##two images that can be checked in testing
-        #orig_flux[i-1,:,:] = curr_flux
-        #ospat = numpy.sum(orig_flux,axis=2)
-        #spat = numpy.sum(flux_data_cube_tmp,axis=2)
-        var_data_cube_tmp[i-1,:,:] = (disp_ave**2) * scipy.interpolate.griddata(
+            fill_value=0.0,
+            scale_factor=disp_ave)
+
+        var_data_cube_tmp[i-1,:,:] = _scale_grid_data(
             (wave_flat, all_ypos_flat),
             curr_var_flat,
             (out_lambda_full, out_y_full),
             method='linear',
-            fill_value=0.0).T
-        dq_data_cube_tmp[i-1,:,:] = scipy.interpolate.griddata(
+            fill_value=0.0,
+            scale_factor=disp_ave ** 2)
+
+        dq_data_cube_tmp[i-1,:,:] = _scale_grid_data(
             (wave_flat, all_ypos_flat),
             curr_dq_flat,
             (out_lambda_full, out_y_full),
             method='nearest',
-            fill_value=1).T
+            fill_value=1.0,
+            scale_factor=1.0)
+
         if verbose:
             sys.stdout.flush()
             sys.stdout.write('\r\r %d' % (i/(float(nslits))*100.) + '%')
@@ -2915,24 +2927,6 @@ def generate_wifes_cube_oneproc(
     f3.close()
     return
 
-###--------------------------------------------------------------
-# multithread cube processes
-def save_wifes_cube_single_thread(
-    wave_in, ypos_in, flux_in,
-    wave_out, ypos_out, disp,
-    out_fn, method, hdr, fill_value=0):
-    interp_flux = disp*scipy.interpolate.griddata(
-        (wave_in, ypos_in),
-        flux_in,
-        (wave_out, ypos_out),
-        method=method,
-        fill_value=fill_value)
-    # save to a fits file
-    outfits = pyfits.HDUList([pyfits.PrimaryHDU(data = interp_flux,
-                                                header = hdr)])
-    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
-    outfits.writeto(out_fn, overwrite=True)
-    return
 
 def generate_wifes_cube_multithread(
     inimg, outimg,
@@ -2942,6 +2936,7 @@ def generate_wifes_cube_multithread(
     bin_x=None, bin_y=None,
     ny_orig=76,
     offset_orig=4,
+    max_processes=-1,
     verbose=True,
     adr=False):
     #---------------------------
@@ -2991,6 +2986,7 @@ def generate_wifes_cube_multithread(
         disp_ave = dw_set
     else:
         disp_ave = numpy.mean(frame_wdisps)
+    # excise lowest pixel so interpolation doesn't fail
     frame_wmin += disp_ave
     # finally check against the user input value
     if wmin_set != None:
@@ -3049,16 +3045,16 @@ def generate_wifes_cube_multithread(
                           secz, ha, dec, lat, 
                           teltemp = 0.0, telpres=700.0, telpa=telpa)
     #---------------------------
+    # First interpolation : Wavelength + y (=wire & ADR)
     if verbose:
         print(' -> Step 1: interpolating along lambda and y (2D interp.) MULTITHREAD\r')
         sys.stdout.write('\r 0%')
         sys.stdout.flush()
-    threads = []
 
+    tasks = []
     for i in range(1,nslits+1):
         f4 = pyfits.open(wsol_fn)
         wave = f4[i].data
-        wave_hdr = f4[i].header
         f4.close()
         curr_flux = f3[i].data
         curr_var  = f3[25+i].data
@@ -3075,97 +3071,57 @@ def generate_wifes_cube_multithread(
         # for the desired output y-lambda grid
         wave_flat = wave.flatten()
         all_ypos_flat = all_ypos.flatten()
-    
+        curr_flux_flat = (curr_flux/full_dw).flatten()
+        curr_var_flat  = (curr_var/full_dw**2).flatten()
+        curr_dq_flat   = curr_dq.flatten()
         # Calculate the ADR corrections (this is slow)
         if adr :
             adr = adr_x_y(wave_flat,secz, ha, dec, lat, teltemp = 0.0,
                           telpres=700.0, telpa=telpa)
             adr_y = adr[1]-adr_ref[1]
             all_ypos_flat -= adr_y
-        curr_flux_flat = (curr_flux/full_dw).flatten()
-        curr_var_flat  = (curr_var/full_dw**2).flatten()
-        curr_dq_flat   = curr_dq.flatten()
-        # HERE DO THE THREADING!!
-        temp_data_fn = 'tmp_cubegen_wifes_s%02d.fits' % (i)
-        new_data_thread = multiprocessing.Process(
-            target=save_wifes_cube_single_thread,
-            kwargs={'wave_in' : wave_flat,
-                    'ypos_in' : all_ypos_flat,
-                    'flux_in' : curr_flux_flat,
-                    'wave_out' : out_lambda_full,
-                    'ypos_out' : out_y_full,
-                    'disp' : disp_ave,
-                    'out_fn' : temp_data_fn,
-                    'method' : 'linear',
-                    'hdr' : wave_hdr})
-        new_data_thread.start()
-        threads.append(new_data_thread)
-        # and for var...
-        temp_var_fn  = 'tmp_cubegen_wifes_s%02d.fits' % (i+25)
-        new_var_thread = multiprocessing.Process(
-            target=save_wifes_cube_single_thread,
-            kwargs={'wave_in' : wave_flat,
-                    'ypos_in' : all_ypos_flat,
-                    'flux_in' : curr_var_flat,
-                    'wave_out' : out_lambda_full,
-                    'ypos_out' : out_y_full,
-                    'disp' : disp_ave**2,
-                    'out_fn' : temp_var_fn,
-                    'method' : 'linear',
-                    'hdr' : wave_hdr})
-        new_var_thread.start()
-        threads.append(new_var_thread)
-        # and for DQ
-        temp_dq_fn   = 'tmp_cubegen_wifes_s%02d.fits' % (i+50)
-        new_dq_thread = multiprocessing.Process(
-            target=save_wifes_cube_single_thread,
-            kwargs={'wave_in' : wave_flat,
-                    'ypos_in' : all_ypos_flat,
-                    'flux_in' : curr_dq_flat,
-                    'wave_out' : out_lambda_full,
-                    'ypos_out' : out_y_full,
-                    'disp' : 1.0,
-                    'out_fn' : temp_dq_fn,
-                    'method' : 'nearest',
-                    'fill_value' : 1,
-                    'hdr' : wave_hdr})
-        new_dq_thread.start()
-        threads.append(new_dq_thread)
 
-    for i in range(len(threads)):
-        t = threads[i]
-        t.join()
-        if verbose:
-            sys.stdout.flush()
-            sys.stdout.write('\r\r %d' % ((i+1)/(float(len(threads)))*100.) + '%')
-            sys.stdout.flush()
-            if i == (len(threads)-1) : sys.stdout.write('\n')
+        # Create tasks to calculate flux, var, and dq.
+        flux_task = get_task(_scale_grid_data,
+                            (wave_flat, all_ypos_flat),
+                            curr_flux_flat,
+                            (out_lambda_full, out_y_full),
+                            method='linear',
+                            fill_value=0.0,
+                            scale_factor=disp_ave)
+
+        var_task = get_task(_scale_grid_data,
+                            (wave_flat, all_ypos_flat),
+                            curr_var_flat,
+                            (out_lambda_full, out_y_full),
+                            method='linear',
+                            fill_value=0.0,
+                            scale_factor=disp_ave ** 2)
+
+        dq_task = get_task(_scale_grid_data,
+                            (wave_flat, all_ypos_flat),
+                            curr_dq_flat,
+                            (out_lambda_full, out_y_full),
+                            method='nearest',
+                            fill_value=1.0,
+                            scale_factor=1.0)
+
+        tasks.append(flux_task)
+        tasks.append(var_task)
+        tasks.append(dq_task)
+    results = map_tasks(tasks, max_processes=max_processes)
 
     #---------------------------
-    # GATHER ALL TRANSFORMED DATA
     # Create a temporary storage array for first iteration
     flux_data_cube_tmp = numpy.zeros([nx,ny,nlam])
     var_data_cube_tmp = numpy.ones([nx,ny,nlam])
     dq_data_cube_tmp = numpy.ones([nx,ny,nlam])
-    for i in range(1,nslits+1):
-        temp_data_fn = 'tmp_cubegen_wifes_s%02d.fits' % (i)
-        fm = pyfits.open(temp_data_fn)
-        curr_interp_flux = fm[0].data
-        flux_data_cube_tmp[i-1,:,:] = curr_interp_flux.T
-        fm.close()
-        temp_var_fn  = 'tmp_cubegen_wifes_s%02d.fits' % (i+25)
-        fm = pyfits.open(temp_var_fn)
-        curr_interp_var = fm[0].data
-        var_data_cube_tmp[i-1,:,:] = curr_interp_var.T
-        fm.close()
-        temp_dq_fn   = 'tmp_cubegen_wifes_s%02d.fits' % (i+50)
-        fm = pyfits.open(temp_dq_fn)
-        curr_interp_dq = fm[0].data
-        dq_data_cube_tmp[i-1,:,:] = curr_interp_dq.T
-        fm.close()
-        subprocess.call(['rm', '-f', temp_data_fn])
-        subprocess.call(['rm', '-f', temp_var_fn])
-        subprocess.call(['rm', '-f', temp_dq_fn])
+
+    for i in range(nslits):
+        flux_data_cube_tmp[i,:,:] = results[3 * i]
+        var_data_cube_tmp[i,:,:] = results[3 * i + 1]
+        dq_data_cube_tmp[i,:,:] = results[3 * i + 2]
+
     #---------------------------
     # Second interpolation : x (=ADR)
     if adr :
