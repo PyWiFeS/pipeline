@@ -3,7 +3,7 @@ import os
 import math
 
 
-def get_num_processes(max_processes=-1):
+def _get_num_processes(max_processes=-1):
     '''
     This function returns the number of processes that are likely to be efficient for parallel tasks.
 
@@ -26,6 +26,17 @@ def _unwrap_and_run(task):
     return func(*args, **kwargs)
 
 
+def run_tasks_singlethreaded(tasks):
+    '''
+    Run the `tasks` in a single thread.
+
+    Each task should follow the pattern in `get_task`, storing the function, args and kwargs to run.
+
+    The results will be returned in order.
+    '''
+    return [_unwrap_and_run(task) for task in tasks]
+
+
 def map_tasks(tasks, max_processes=-1, chunksize=-1):
     '''
     Run the `tasks`, divided between up to `max_processes` processes in chunks of `chunksize`.
@@ -36,7 +47,7 @@ def map_tasks(tasks, max_processes=-1, chunksize=-1):
 
     If `chunksize` is less than 1, then tasks will be run in a single batch.
     '''
-    num_processes = get_num_processes(max_processes)
+    num_processes = _get_num_processes(max_processes)
 
     if chunksize < 1:
         # By default, divide tasks evenly between processes.

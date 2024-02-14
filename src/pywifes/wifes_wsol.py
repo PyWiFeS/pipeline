@@ -6,7 +6,6 @@ import pylab
 import pickle
 import scipy.interpolate
 import math
-import multiprocessing
 from itertools import cycle
 import scipy.optimize as op
 # Fred's upadate (wsol)
@@ -17,6 +16,8 @@ from . import optical_model as om
 from .wifes_metadata import metadata_dir
 from .wifes_metadata import __version__
 from .mpfit import mpfit
+
+from .multiprocessing_utils import get_task, map_tasks, run_tasks_singlethreaded
 
 #------------------------------------------------------------------------
 f0 = open(os.path.join(metadata_dir,'basic_wifes_metadata.pkl'), 'rb')
@@ -275,13 +276,14 @@ def _get_gauss_arc_fit(fit_function,
                  subbed_arc_data,
                  peak_centers,
                  width_guess,
-                 multithread = True):
+                 multithread=True,
+                 max_processes=-1):
     N = len(subbed_arc_data)
     x = numpy.arange(N, dtype='d')
     y = subbed_arc_data
     num_arcs = len(peak_centers)
 
-    jobs = []
+    tasks = []
     fitted_centers = numpy.zeros_like(peak_centers, dtype=float)
     for i in range(num_arcs):
         curr_ctr_guess = peak_centers[i]
@@ -291,36 +293,33 @@ def _get_gauss_arc_fit(fit_function,
         yfit = y[ifit_lo:ifit_hi]
 
         if len(yfit) > 0 and numpy.count_nonzero(yfit > 0.2 * yfit.max()) > 0:
-            jobs.append((i, curr_ctr_guess, width_guess, xfit, yfit))
+            task = get_task(fit_function, (i, curr_ctr_guess, width_guess, xfit, yfit))
+            tasks.append(task)
         else:
             fitted_centers[i] = float('nan')
 
-    if len(jobs) > 0:
+    if len(tasks) > 0:
         if multithread:
-            # NOTE: The number of cores available to this process may be lower. See #36
-            num_cpus = os.cpu_count()
-            with multiprocessing.Pool(processes=num_cpus) as mypool:
-                chunksize = math.ceil(len(jobs) / num_cpus)
-                # line_center_pairs is lazily evaluated and must be read within the pool's scope.
-                line_center_pairs = mypool.imap_unordered(fit_function, jobs, chunksize=chunksize)
-                fitted_centers = _set_fitted_centers(line_center_pairs, fitted_centers)
+            line_center_pairs = map_tasks(tasks, max_processes=max_processes)
         else:
-            line_center_pairs = [fit_function(job) for job in jobs]
-            fitted_centers = _set_fitted_centers(line_center_pairs, fitted_centers)
+            line_center_pairs = run_tasks_singlethreaded(tasks)
+
+        fitted_centers = _set_fitted_centers(line_center_pairs, fitted_centers)
 
     return fitted_centers
 
 def _get_arc_fit(subbed_arc_data,
                       peak_centers,
                       width_guess,
-                      find_method = 'mpfit',
-                      multithread = True):
+                      find_method='mpfit',
+                      multithread=True,
+                      max_processes=-1):
 
     if find_method == 'loggauss':
         return _get_loggauss_arc_fit(subbed_arc_data, peak_centers, width_guess)
 
     fit_function = _mpfit_gauss_line if find_method =='mpfit' else _lsq_gauss_line
-    return _get_gauss_arc_fit(fit_function, subbed_arc_data, peak_centers, width_guess, multithread)
+    return _get_gauss_arc_fit(fit_function, subbed_arc_data, peak_centers, width_guess, multithread, max_processes)
 
 def quick_arcline_fit(arc_data,
                       find_method='loggauss',
@@ -329,7 +328,8 @@ def quick_arcline_fit(arc_data,
                       width_guess=2.0,
                       flux_saturation = 50000.0,
                       prev_centers = None, # Fred's update (wsol)
-                      multithread=False):
+                      multithread=False,
+                      max_processes=-1):
     N = len(arc_data)
     arc_deriv = arc_data[1:]-arc_data[:-1]
     p1_data  = numpy.zeros(N,dtype='d')
@@ -396,7 +396,8 @@ def quick_arcline_fit(arc_data,
                                       potential_line_inds,
                                       width_guess,
                                       find_method=find_method,
-                                      multithread=multithread)
+                                      multithread=multithread,
+                                      max_processes=max_processes)
     next_peak_list = []
     for x in next_ctrs:
         if x == x:
@@ -456,7 +457,8 @@ def find_lines_and_guess_refs(slitlet_data,
                               yzp=0,
                               flux_threshold_nsig=3.0,
                               deriv_threshold_nsig=1.0,
-                              multithread = True,
+                              multithread=True,
+                              max_processes=-1,
                               plot=False):
     #-----------------------------------
     # get arclines
@@ -507,7 +509,8 @@ def find_lines_and_guess_refs(slitlet_data,
                                             flux_threshold = flux_threshold,
                                             deriv_threshold = deriv_threshold,
                                             width_guess=2.0,
-                                            multithread=multithread)
+                                            multithread=multithread,
+                                            max_processes=max_processes)
     else :
         mid_fit_centers = None # don't do it for the loggauss method ...
 
@@ -519,7 +522,9 @@ def find_lines_and_guess_refs(slitlet_data,
             find_method=find_method,
             flux_threshold=flux_threshold,
             deriv_threshold=deriv_threshold,
-            width_guess=2.0,prev_centers = mid_fit_centers)
+            width_guess=2.0,
+            prev_centers=mid_fit_centers,
+            multithread=False)
         for ctr in fitted_ctrs:
             full_fitted_x.append(ctr)
             full_fitted_y.append(i+1)
@@ -624,29 +629,22 @@ def find_lines_and_guess_refs(slitlet_data,
         best_stretch = _xcorr_shift_all( (mid_row, ncols,
                                          init_x_array[mid_row_ind],
                                          ref_arc, None, True) )
-        jobs = []
+        tasks = []
         for i in range(nrows):
             row_inds = (init_y_array == i+1)
             # only use rows where enough lines are found
-            if len(init_x_array[row_inds]) >= 0.5*len(ref_arc[:,0]):    
-                jobs.append( (i, ncols, init_x_array[row_inds], ref_arc, 
-                              [best_stretch], False) )
+            if len(init_x_array[row_inds]) >= 0.5 * len(ref_arc[:,0]):
+                task = get_task(_xcorr_shift_all, (i, ncols, init_x_array[row_inds], ref_arc, 
+                              [best_stretch], False))
+                tasks.append(task)
 
         ref_array = None
         if multithread:
-            # NOTE: The number of cores available to this process may be lower. See #36
-            num_cpus = os.cpu_count()
-            chunksize = math.ceil(len(jobs) / num_cpus)
-            if verbose:
-                print(f'  ... assign lambdas using up to {num_cpus} cpu(s) ...')
-            with multiprocessing.Pool(num_cpus) as pool:
-                # row_refs_pairs is lazily evaluated and must be read within the pool's scope.
-                row_refs_pairs = pool.imap_unordered(_xcorr_shift_all, jobs, chunksize=chunksize)
-                ref_array = _set_ref_array(row_refs_pairs, init_x_array, init_y_array)
+            row_refs_pairs = map_tasks(tasks, max_processes=max_processes)
         else :
-            #Completely avoid using Pool in case of an ipython debugging environment.
-            row_refs_pairs = [_xcorr_shift_all(job) for job in jobs]
-            ref_array = _set_ref_array(row_refs_pairs, init_x_array, init_y_array)
+            row_refs_pairs = run_tasks_singlethreaded(tasks)
+
+        ref_array = _set_ref_array(row_refs_pairs, init_x_array, init_y_array)
 
         # Create array with only detected lines
         good_inds = ref_array > 0
@@ -971,7 +969,8 @@ def slitlet_wsol(slitlet_data,
             test_z,
             flux_threshold=flux_threshold,
             deriv_threshold=deriv_threshold,
-            width_guess=2.0)
+            width_guess=2.0,
+            multithread=False)
         for ctr in fitted_ctrs:
             full_fitted_x.append(ctr)
             full_fitted_y.append(i+1)
@@ -1536,7 +1535,8 @@ def derive_wifes_optical_wave_solution(inimg,
                                        doplot=False,
                                        savefigs=False,
                                        save_prefix='wsol_',
-                                       multithread=True):
+                                       multithread=True,
+                                       max_processes=-1):
   """ The main user-callable function that performs the fit"""
   #------------------------------------------------------
   # *** Mike's edits: operate on PyWiFeS MEF files ***
@@ -1613,6 +1613,7 @@ def derive_wifes_optical_wave_solution(inimg,
           flux_threshold_nsig=flux_threshold_nsig,
           deriv_threshold_nsig=1.0,
           multithread=multithread,
+          max_processes=max_processes,
           plot=step1plot)
       nl = len(new_x)
       found_x_lists.append(new_x)

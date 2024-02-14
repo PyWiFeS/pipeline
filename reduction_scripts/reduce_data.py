@@ -756,23 +756,41 @@ def main():
         return
 
 
+    # --------------------------------------------
+    # INICIATE THE SCRIPT
+    # --------------------------------------------
 
+    # Parse command line arguments
+    if len(sys.argv) < 4 or len(sys.argv) > 5:
+        print(f"Error: Expected `cmd data_dir project_dir json_dir [naxis2_to_process]`, but was '{sys.argv}'")
+        sys.exit(1)
+
+    data_dir = os.path.abspath(sys.argv[1])+'/'
+    project_dir = os.path.abspath(sys.argv[2])+'/'
+    json_dir = os.path.abspath(sys.argv[3])+'/'
+
+    naxis2_to_process = 0
+    if len(sys.argv) == 5:
+        naxis2_to_process = int(sys.argv[4])
 
     # --------------------------------------------
     # INICIATE THE SCRIPT
     # --------------------------------------------
 
     # Parse command line arguments
-    if len(sys.argv) < 2:
-        print("Error: Please enter a raw data directory.")
-        sys.exit(1)
+    # if len(sys.argv) < 5 or len(sys.argv) > 6:
+    #     print(f"Error: Expected `cmd data_dir project_dir json_dir max_processes [naxis2_to_process]`, but was '{sys.argv}'")
+    #     sys.exit(1)
 
-    # Read the raw data directory from command line
-    data_dir = os.path.abspath(sys.argv[1])+'/'
+    # data_dir = os.path.abspath(sys.argv[1])+'/'
+    # project_dir = os.path.abspath(sys.argv[2])+'/'
+    # json_dir = os.path.abspath(sys.argv[3])+'/'
+    # max_processes = int(sys.argv[4])
+    # max_processes = min(os.cpu_count(), max_processes)
 
-    naxis2_to_process = 0
-    if len(sys.argv) == 3:
-        naxis2_to_process = int(sys.argv[2])
+    # naxis2_to_process = 0
+    # if len(sys.argv) == 6:
+    #     naxis2_to_process = int(sys.argv[5])
 
     # Classify all raw data (red and blue arm)
     obs_metadatas = classify(data_dir, naxis2_to_process)
@@ -783,7 +801,6 @@ def main():
         #      LOAD JSON FILE WITH USER REDUCTION SETUP             
         #------------------------------------------------------------------------
         obs_metadata = obs_metadatas[arm]
-        project_dir = os.path.dirname(__file__)
         
         # Check observing mode
         sci_filename = obs_metadatas[arm]['sci'][0]['sci'][0]+'.fits'
@@ -793,7 +810,7 @@ def main():
             obs_mode = 'class'    
 
         # Read the JSON file
-        file_path = f'params_{obs_mode}.json'  
+        file_path = f'{json_dir}/params_{obs_mode}.json'  
         with open(file_path, 'r') as f:
             proc_steps = json.load(f)
 
