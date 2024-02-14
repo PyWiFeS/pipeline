@@ -17,7 +17,7 @@ from .wifes_metadata import metadata_dir
 from .wifes_metadata import __version__
 from .mpfit import mpfit
 
-from .multiprocessing_utils import get_task, map_tasks, run_tasks_singlethreaded
+from .multiprocessing_utils import get_task, run_tasks, run_tasks_singlethreaded
 
 #------------------------------------------------------------------------
 f0 = open(os.path.join(metadata_dir,'basic_wifes_metadata.pkl'), 'rb')
@@ -276,8 +276,7 @@ def _get_gauss_arc_fit(fit_function,
                  subbed_arc_data,
                  peak_centers,
                  width_guess,
-                 multithread=True,
-                 max_processes=-1):
+                 pool=None):
     N = len(subbed_arc_data)
     x = numpy.arange(N, dtype='d')
     y = subbed_arc_data
@@ -299,8 +298,8 @@ def _get_gauss_arc_fit(fit_function,
             fitted_centers[i] = float('nan')
 
     if len(tasks) > 0:
-        if multithread:
-            line_center_pairs = map_tasks(tasks, max_processes=max_processes)
+        if pool:
+            line_center_pairs = run_tasks(tasks, pool)
         else:
             line_center_pairs = run_tasks_singlethreaded(tasks)
 
@@ -312,14 +311,13 @@ def _get_arc_fit(subbed_arc_data,
                       peak_centers,
                       width_guess,
                       find_method='mpfit',
-                      multithread=True,
-                      max_processes=-1):
+                      pool=None):
 
     if find_method == 'loggauss':
         return _get_loggauss_arc_fit(subbed_arc_data, peak_centers, width_guess)
 
     fit_function = _mpfit_gauss_line if find_method =='mpfit' else _lsq_gauss_line
-    return _get_gauss_arc_fit(fit_function, subbed_arc_data, peak_centers, width_guess, multithread, max_processes)
+    return _get_gauss_arc_fit(fit_function, subbed_arc_data, peak_centers, width_guess, pool)
 
 def quick_arcline_fit(arc_data,
                       find_method='loggauss',
@@ -328,8 +326,7 @@ def quick_arcline_fit(arc_data,
                       width_guess=2.0,
                       flux_saturation = 50000.0,
                       prev_centers = None, # Fred's update (wsol)
-                      multithread=False,
-                      max_processes=-1):
+                      pool=None):
     N = len(arc_data)
     arc_deriv = arc_data[1:]-arc_data[:-1]
     p1_data  = numpy.zeros(N,dtype='d')
@@ -396,8 +393,7 @@ def quick_arcline_fit(arc_data,
                                       potential_line_inds,
                                       width_guess,
                                       find_method=find_method,
-                                      multithread=multithread,
-                                      max_processes=max_processes)
+                                      pool=pool)
     next_peak_list = []
     for x in next_ctrs:
         if x == x:
@@ -457,8 +453,7 @@ def find_lines_and_guess_refs(slitlet_data,
                               yzp=0,
                               flux_threshold_nsig=3.0,
                               deriv_threshold_nsig=1.0,
-                              multithread=True,
-                              max_processes=-1,
+                              pool=None,
                               plot=False):
     #-----------------------------------
     # get arclines
@@ -509,8 +504,7 @@ def find_lines_and_guess_refs(slitlet_data,
                                             flux_threshold = flux_threshold,
                                             deriv_threshold = deriv_threshold,
                                             width_guess=2.0,
-                                            multithread=multithread,
-                                            max_processes=max_processes)
+                                            pool=pool)
     else :
         mid_fit_centers = None # don't do it for the loggauss method ...
 
@@ -524,7 +518,7 @@ def find_lines_and_guess_refs(slitlet_data,
             deriv_threshold=deriv_threshold,
             width_guess=2.0,
             prev_centers=mid_fit_centers,
-            multithread=False)
+            pool=None)
         for ctr in fitted_ctrs:
             full_fitted_x.append(ctr)
             full_fitted_y.append(i+1)
@@ -639,8 +633,8 @@ def find_lines_and_guess_refs(slitlet_data,
                 tasks.append(task)
 
         ref_array = None
-        if multithread:
-            row_refs_pairs = map_tasks(tasks, max_processes=max_processes)
+        if pool:
+            row_refs_pairs = run_tasks(tasks, pool)
         else :
             row_refs_pairs = run_tasks_singlethreaded(tasks)
 
@@ -970,7 +964,7 @@ def slitlet_wsol(slitlet_data,
             flux_threshold=flux_threshold,
             deriv_threshold=deriv_threshold,
             width_guess=2.0,
-            multithread=False)
+            pool=None)
         for ctr in fitted_ctrs:
             full_fitted_x.append(ctr)
             full_fitted_y.append(i+1)
@@ -1535,8 +1529,7 @@ def derive_wifes_optical_wave_solution(inimg,
                                        doplot=False,
                                        savefigs=False,
                                        save_prefix='wsol_',
-                                       multithread=True,
-                                       max_processes=-1):
+                                       pool=None):
   """ The main user-callable function that performs the fit"""
   #------------------------------------------------------
   # *** Mike's edits: operate on PyWiFeS MEF files ***
@@ -1612,8 +1605,7 @@ def derive_wifes_optical_wave_solution(inimg,
           verbose=verbose,
           flux_threshold_nsig=flux_threshold_nsig,
           deriv_threshold_nsig=1.0,
-          multithread=multithread,
-          max_processes=max_processes,
+          pool=pool,
           plot=step1plot)
       nl = len(new_x)
       found_x_lists.append(new_x)
@@ -1704,12 +1696,13 @@ def derive_wifes_optical_wave_solution(inimg,
 def derive_wifes_wave_solution(inimg,
                                out_file,
                                method='optical',
+                               pool=None,
                                **args):
     if method == 'poly':
         derive_wifes_polynomial_wave_solution(
             inimg, out_file, **args)
     elif method == 'optical':
         derive_wifes_optical_wave_solution(
-            inimg, out_file, **args)
+            inimg, out_file, pool=pool, **args)
     else:
         raise ValueError('Wavelength solution method not recognized')

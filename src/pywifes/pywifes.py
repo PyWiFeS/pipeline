@@ -5,8 +5,6 @@ from astropy.coordinates import SkyCoord
 import numpy
 import pickle
 import scipy.interpolate
-import multiprocessing
-import subprocess
 import gc
 import sys
 import os
@@ -17,7 +15,7 @@ import matplotlib.pyplot as plt
 import pylab
 import  astropy.units as u
 
-from .multiprocessing_utils import get_task, map_tasks
+from .multiprocessing_utils import get_task, run_tasks
 from .wifes_metadata import metadata_dir
 from .wifes_imtrans import transform_data, detransform_data
 from .wifes_wsol import fit_wsol_poly, evaluate_wsol_poly
@@ -2639,20 +2637,18 @@ def generate_wifes_cube(inimg, outimg,
                         bin_x=None, bin_y=None,
                         ny_orig=76,
                         offset_orig=4,
-                        multithread=False,
-                        max_processes=-1,
+                        pool=None,
                         verbose=True,
                         adr=False):
-    if multithread:
+    if pool:
         generate_wifes_cube_multithread(
-            inimg, outimg,
+            pool, inimg, outimg,
             wire_fn,
             wsol_fn,
             wmin_set = wmin_set, wmax_set = wmax_set,dw_set=dw_set,
             bin_x=bin_x, bin_y=bin_y,
             ny_orig=ny_orig,
             offset_orig=offset_orig,
-            max_processes=max_processes,
             verbose=verbose,
             adr=adr)
     else:
@@ -2929,6 +2925,7 @@ def generate_wifes_cube_oneproc(
 
 
 def generate_wifes_cube_multithread(
+    pool,
     inimg, outimg,
     wire_fn,
     wsol_fn,
@@ -2936,7 +2933,6 @@ def generate_wifes_cube_multithread(
     bin_x=None, bin_y=None,
     ny_orig=76,
     offset_orig=4,
-    max_processes=-1,
     verbose=True,
     adr=False):
     #---------------------------
@@ -3109,7 +3105,8 @@ def generate_wifes_cube_multithread(
         tasks.append(flux_task)
         tasks.append(var_task)
         tasks.append(dq_task)
-    results = map_tasks(tasks, max_processes=max_processes)
+
+    results = run_tasks(tasks, pool)
 
     #---------------------------
     # Create a temporary storage array for first iteration

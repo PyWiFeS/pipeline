@@ -14,6 +14,7 @@ from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
+from pywifes.multiprocessing_utils import start_pool
 
 def main():
     #------------------------------------------------------------------------
@@ -342,12 +343,17 @@ def main():
 
     #------------------------------------------------------
     # Wavelength solution
-    def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
+    def run_wave_soln(metadata, prev_suffix, curr_suffix, multithread=False, max_processes=-1, **args):
         # First, generate the master arc solution, based on generic arcs
         wsol_in_fn  = os.path.join(out_dir, '%s.p%s.fits' % ( metadata['arc'][0],
                                         prev_suffix))
         print('Deriving master wavelength solution from %s' % wsol_in_fn.split('/')[-1])
-        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn,
+
+        pool = None
+        if multithread:
+            pool = start_pool(max_processes=max_processes)
+
+        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, pool=pool,
                                         **args)
         # local wave solutions for science or standards
         sci_obs_list  = get_sci_obs_list(metadata)
@@ -368,8 +374,12 @@ def main():
                     if os.path.isfile(local_wsol_out_fn):
                         continue
                     print('Deriving local wavelength solution for %s' % local_arcs[i])
-                    wifes_wsol.derive_wifes_wave_solution(local_arc_fn, local_wsol_out_fn,
+                    wifes_wsol.derive_wifes_wave_solution(local_arc_fn, local_wsol_out_fn, pool=pool,
                                                         **args)
+
+        if pool:
+            pool.close()
+
         return
 
     #------------------------------------------------------
@@ -405,6 +415,11 @@ def main():
         sci_obs_list  = get_sci_obs_list(metadata)
         sky_obs_list  = get_sky_obs_list(metadata)
         std_obs_list  = get_std_obs_list(metadata)
+
+        pool = None
+        if multithread:
+            pool = start_pool(max_processes=max_processes)
+
         for fn in sci_obs_list+sky_obs_list:
             in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, '%s.p%s.fits' % (fn, curr_suffix))
@@ -416,14 +431,14 @@ def main():
                 continue
             lacos_wifes(in_fn, out_fn, wsol_fn=wsol_out_fn, niter=3,
                         sig_clip=10.0, obj_lim=10.0, sig_frac=0.2,
-                        is_multithread=multithread, max_processes=max_processes)
+                        pool=pool)
             if ns:
                 in_fn  = os.path.join(out_dir, '%s.s%s.fits' % (fn, prev_suffix))
                 out_fn = os.path.join(out_dir, '%s.s%s.fits' % (fn, curr_suffix))
                 print('Cleaning cosmics in %s' % in_fn.split('/')[-1])
                 lacos_wifes(in_fn, out_fn, wsol_fn=wsol_out_fn, niter=3,
                             sig_clip=10.0, obj_lim=10.0, sig_frac=0.2,
-                            is_multithread=multithread, max_processes=max_processes)
+                            pool=pool)
             gc.collect()
         for fn in std_obs_list:
             in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
@@ -433,15 +448,19 @@ def main():
             print('Cleaning cosmics in %s' % in_fn.split('/')[-1])
             lacos_wifes(in_fn, out_fn, wsol_fn=wsol_out_fn, niter=3,
                         sig_clip=10.0, obj_lim=10.0, sig_frac=0.2,
-                        is_multithread=multithread, max_processes=max_processes)
+                        pool=pool)
             if ns:
                 in_fn  = os.path.join(out_dir, '%s.s%s.fits' % (fn, prev_suffix))
                 out_fn = os.path.join(out_dir, '%s.s%s.fits' % (fn, curr_suffix))
                 print('Cleaning cosmics in %s' % in_fn.split('/')[-1])
                 lacos_wifes(in_fn, out_fn, wsol_fn=wsol_out_fn, niter=3,
                             sig_clip=10.0, obj_lim=10.0, sig_frac=0.2,
-                            is_multithread=multithread, max_processes=max_processes)
+                            pool=pool)
             gc.collect()
+
+        if pool:
+            pool.close()
+
         return
 
     #------------------------------------------------------
@@ -557,10 +576,15 @@ def main():
 
     #------------------------------------------------------
     # Data Cube Generation
-    def run_cube_gen(metadata, prev_suffix, curr_suffix, **args):
+    def run_cube_gen(metadata, prev_suffix, curr_suffix, multithread=False, max_processes=-1, **args):
         # now generate cubes
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
+
+        pool = None
+        if multithread:
+            pool = start_pool(max_processes=max_processes)
+
         for fn in sci_obs_list+std_obs_list:
             in_fn  = os.path.join(out_dir, '%s.p%s.fits' % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, '%s.p%s.fits' % (fn, curr_suffix))
@@ -665,8 +689,12 @@ def main():
                 in_fn, out_fn,
                 wire_fn=wire_fn,
                 wsol_fn=wsol_fn,
-                ny_orig=76, offset_orig=2.0, **args)
+                ny_orig=76, offset_orig=2.0, pool=pool, **args)
             #print squirrel
+
+        if pool:
+            pool.close()
+
         return
 
     #------------------------------------------------------

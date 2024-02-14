@@ -1,15 +1,11 @@
 from astropy.io import fits as pyfits
 import numpy
-import subprocess
-import multiprocessing
 import scipy.signal
 import scipy.ndimage
 import scipy.interpolate
 import warnings
-import os
-import math
 
-from .multiprocessing_utils import get_task, map_tasks
+from .multiprocessing_utils import get_task, run_tasks
 from .wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
 
 #------------------------------------------------------------------------
@@ -177,10 +173,10 @@ def lacos_wifes(inimg, outimg,
                 niter = 4,
                 n_nx = 1,
                 n_ny = 5,
-                is_multithread=False,
-                max_processes=-1):
-    if is_multithread:
+                pool=None):
+    if pool:
         lacos_wifes_multithread(
+            pool,
             inimg, outimg,
             gain=gain,
             rdnoise=rdnoise,
@@ -190,8 +186,7 @@ def lacos_wifes(inimg, outimg,
             obj_lim=obj_lim,
             niter=niter,
             n_nx=n_nx,
-            n_ny=n_ny,
-            max_processes=max_processes)
+            n_ny=n_ny)
     else:
         lacos_wifes_oneproc(
             inimg, outimg,
@@ -262,7 +257,7 @@ def lacos_wifes_oneproc(in_img_filepath, out_filepath,
     return
 
 def lacos_wifes_multithread(
-    in_img_filepath, out_filepath,
+    pool, in_img_filepath, out_filepath,
     gain=1.0,       # assume data has been scaled by its gain 
     rdnoise=5.0,
     wsol_filepath=None,
@@ -271,8 +266,7 @@ def lacos_wifes_multithread(
     obj_lim=1.0,
     niter=4,
     n_nx=1,
-    n_ny=5,
-    max_processes=-1):
+    n_ny=5):
     hdus = pyfits.open(in_img_filepath)
     halfframe = _is_halfframe(hdus)
     if halfframe:
@@ -309,7 +303,7 @@ def lacos_wifes_multithread(
     if wsol_filepath:
         wsol_hdus.close()
 
-    results = map_tasks(tasks, max_processes=max_processes)
+    results = run_tasks(tasks, pool)
     
     outfits = pyfits.HDUList(hdus)
     for i, (clean_data, global_bpm) in enumerate(results):
