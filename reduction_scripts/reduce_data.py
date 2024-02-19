@@ -15,7 +15,7 @@ from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
 from pywifes.extract_spec import auto_extract
-from pywifes.splice import splice_spec
+from pywifes.splice import splice_spectra, splice_cubes
 import glob
 
 def main():
@@ -890,14 +890,18 @@ def main():
 
     # Splice spectra 
     # We check for all (up to 3) sources detected
-
     blue_specs = glob.glob(project_dir + '/reduc_blue/*.p12.fits')
     red_specs = glob.glob(project_dir + '/reduc_red/*.p12.fits')
 
     for index, (blue_spec, red_spec) in enumerate(zip(blue_specs,red_specs)):
         ap_index = index + 1
-        output = os.path.join(project_dir, "splice.ap%s.fits" % ap_index)
-        splice_spec(blue_spec, red_spec, output)
+        spliced_spectrum_path = "splice.ap%s.fits" % ap_index
+        output = os.path.join(project_dir, spliced_spectrum_path)
+        splice_spectra(blue_spec, red_spec, output)
+
+    # Splice Cubes
+    spliced_cube_path = "splice_cube.fits"
+    splice_cubes.splice_cube(blue_cube_path,blue_cube_pathred, spliced_cube_path)    
 
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
