@@ -15,7 +15,7 @@ from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
 from pywifes.extract_spec import auto_extract
-from pywifes.splice_spec import splice
+from pywifes.splice import splice_spec
 import glob
 
 def main():
@@ -897,7 +897,7 @@ def main():
     for index, (blue_spec, red_spec) in enumerate(zip(blue_specs,red_specs)):
         ap_index = index + 1
         output = os.path.join(project_dir, "splice.ap%s.fits" % ap_index)
-        splice(blue_spec, red_spec, output)
+        splice_spec(blue_spec, red_spec, output)
 
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
