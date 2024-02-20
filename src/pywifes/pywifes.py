@@ -5,8 +5,6 @@ from astropy.coordinates import SkyCoord
 import numpy
 import pickle
 import scipy.interpolate
-import multiprocessing
-import subprocess
 import gc
 import sys
 import os
