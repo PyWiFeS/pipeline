@@ -791,6 +791,8 @@ def main():
         sci_filename = obs_metadatas[arm]['sci'][0]['sci'][0]+'.fits'
         if pywifes.is_nodshuffle(data_dir+sci_filename):
             obs_mode = 'ns'
+        elif pywifes.is_subnodshuffle(data_dir+sci_filename):
+            obs_mode = 'ns'
         else:
             obs_mode = 'class'    
 
