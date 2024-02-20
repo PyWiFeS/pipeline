@@ -901,7 +901,7 @@ def main():
 
     # Splice Cubes
     spliced_cube_path = "splice_cube.fits"
-    splice_cubes.splice_cube(blue_cube_path,blue_cube_pathred, spliced_cube_path)    
+    splice_cubes(blue_cube_path, red_cube_path, spliced_cube_path)    
 
     #------------------------------------------------------------------------
     #------------------------------------------------------------------------
