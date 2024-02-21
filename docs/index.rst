@@ -11,6 +11,9 @@ Welcome to PyWiFeS's documentation!
    :caption: Contents:
 
 
+.. automodule:: data_classifier
+   :members: classify
+
 
 Indices and tables
 ==================

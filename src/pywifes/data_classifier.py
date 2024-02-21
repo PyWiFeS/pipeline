@@ -1,11 +1,13 @@
 import sys
 import os
 from astropy.io import fits as pyfits
-
-from . import wifes_calib
+from pywifes import wifes_calib
 
 
 def get_obs_metadata(filenames,data_dir):
+    """"
+    PRUEBA
+    """
     stdstar_list = wifes_calib.ref_fname_lookup.keys()
 
     # classify each obs
@@ -110,6 +112,33 @@ def get_obs_metadata(filenames,data_dir):
 
 
 def classify(data_dir, naxis2_to_process = 0):
+    """
+    Classify FITS files in the specified directory based on the CAMERA keyword in the FITS header.
+
+    Parameters
+    ----------
+    data_dir : str
+        The directory containing FITS files to classify.
+    naxis2_to_process : int, optional
+        The value of the NAXIS2 keyword to filter files by. Defaults to 0 (no filtering).
+
+    Returns
+    -------
+    dict
+        A dictionary containing metadata for the blue and red observations.
+
+    This function classifies FITS files in the specified directory based on the CAMERA keyword in the FITS header.
+    It filters files into blue and red observations, extracts metadata for each observation using the get_obs_metadata function,
+    and returns a dictionary containing metadata for the blue and red observations.
+
+    Example usage
+    -------------
+    >>> data_dir = '/path/to/data/'
+    >>> results = classify(data_dir, naxis2_to_process=100)
+    >>> print(results)
+    {'blue': [...], 'red': [...]}
+    """
+
     # Get list of all fits files in directory
     filenames = os.listdir(data_dir)
 
