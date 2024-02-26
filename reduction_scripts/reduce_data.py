@@ -785,10 +785,8 @@ def main():
         #      LOAD JSON FILE WITH USER REDUCTION SETUP             
         #------------------------------------------------------------------------
         obs_metadata = obs_metadatas[arm]
-        
         reduction_scripts_dir = os.path.dirname(__file__)
         working_dir = os.getcwd()
-        
 
         # Check observing mode
         sci_filename = obs_metadatas[arm]['sci'][0]['sci'][0]+'.fits'
@@ -802,9 +800,6 @@ def main():
 
         with open(file_path, 'r') as f:
             proc_steps = json.load(f)
-
-
-
 
         # Check if the reduc_blue/red folders already exists and create them if required
         out_dir = os.path.join(working_dir, f'reduc_{arm}') 
