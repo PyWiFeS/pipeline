@@ -1,12 +1,45 @@
-import sys
 import os
 from astropy.io import fits as pyfits
 from pywifes import wifes_calib
 
 
-def get_obs_metadata(filenames,data_dir):
-    """"
-    PRUEBA
+def get_obs_metadata(filenames, data_dir):
+    """
+    Retrieve metadata for observed data files.
+
+    This function categorizes observed data files based on their image type
+    ('BIAS', 'FLAT', 'SKYFLAT', 'DARK', 'ARC', 'WIRE', 'STANDARD', 'OBJECT')
+    and object name. It groups standard star observations together and separates
+    science observations from standard star observations.
+
+
+    Parameters
+    ----------
+    filenames : list of str
+        List of filenames of observed data files.
+    data_dir : str
+        Directory path where the data files are located.
+
+    Returns
+    -------
+    dict
+        Dictionary containing metadata for observed data files. The dictionary
+        has the following keys:
+
+        - 'bias': List of filenames of bias frames.
+        - 'domeflat': List of filenames of domeflat frames.
+        - 'twiflat': List of filenames of twilight flat frames.
+        - 'dark': List of filenames of dark frames.
+        - 'arc': List of filenames of arc frames.
+        - 'wire': List of filenames of wire frames.
+        - 'sci': List of dictionaries, each containing information about science observations. Each dictionary has the following keys:
+        - 'sci': List of filenames of science observations.
+        - 'sky': Empty list (not used in this function).
+        - 'std': List of dictionaries, each containing information about standard star observations. Each dictionary has the following keys:
+        - 'sci': List of filenames of standard star observations.
+        - 'name': Name of the standard star.
+        - 'type': List of strings indicating the type of observation ('flux','telluric').
+
     """
     stdstar_list = wifes_calib.ref_fname_lookup.keys()
 
@@ -113,7 +146,8 @@ def get_obs_metadata(filenames,data_dir):
 
 def classify(data_dir, naxis2_to_process = 0):
     """
-    Classify FITS files in the specified directory based on the CAMERA keyword in the FITS header.
+    Classify FITS files in the specified directory based on the CAMERA keyword in the header. It filters files into blue and red (arms) observations, extracting metadata for each. It returns a dictionary containing metadata for the blue and red observations.
+
 
     Parameters
     ----------
@@ -127,16 +161,6 @@ def classify(data_dir, naxis2_to_process = 0):
     dict
         A dictionary containing metadata for the blue and red observations.
 
-    This function classifies FITS files in the specified directory based on the CAMERA keyword in the FITS header.
-    It filters files into blue and red observations, extracts metadata for each observation using the get_obs_metadata function,
-    and returns a dictionary containing metadata for the blue and red observations.
-
-    Example usage
-    -------------
-    >>> data_dir = '/path/to/data/'
-    >>> results = classify(data_dir, naxis2_to_process=100)
-    >>> print(results)
-    {'blue': [...], 'red': [...]}
     """
 
     # Get list of all fits files in directory

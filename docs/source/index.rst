@@ -1,5 +1,5 @@
 .. PyWiFeS documentation master file, created by
-   sphinx-quickstart on Wed Feb 21 14:09:40 2024.
+   sphinx-quickstart on Mon Feb 26 14:20:05 2024.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
@@ -10,10 +10,11 @@ Welcome to PyWiFeS's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   data_classifier
 
-.. automodule:: data_classifier
-   :members: classify
 
+
+# Add more automodule directives for other modules as needed
 
 Indices and tables
 ==================
