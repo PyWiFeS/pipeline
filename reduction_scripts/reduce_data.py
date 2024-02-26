@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3 
 
 import sys
 import os
@@ -785,8 +785,9 @@ def main():
         #      LOAD JSON FILE WITH USER REDUCTION SETUP             
         #------------------------------------------------------------------------
         obs_metadata = obs_metadatas[arm]
-        project_dir = os.path.dirname(__file__)
-        
+        reduction_scripts_dir = os.path.dirname(__file__)
+        working_dir = os.getcwd()
+
         # Check observing mode
         sci_filename = obs_metadatas[arm]['sci'][0]['sci'][0]+'.fits'
         if pywifes.is_nodshuffle(data_dir+sci_filename):
@@ -795,12 +796,13 @@ def main():
             obs_mode = 'class'    
 
         # Read the JSON file
-        file_path = f'params_{obs_mode}.json'  
+        file_path = os.path.join(reduction_scripts_dir, f'params_{obs_mode}.json')
+
         with open(file_path, 'r') as f:
             proc_steps = json.load(f)
 
         # Check if the reduc_blue/red folders already exists and create them if required
-        out_dir = os.path.join(project_dir, f'reduc_{arm}') 
+        out_dir = os.path.join(working_dir, f'reduc_{arm}') 
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
         else:

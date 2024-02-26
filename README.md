@@ -48,19 +48,17 @@ The Python data reduction pipeline for WiFeS
     2. Or run the command manually before 'Running the Pipeline'.
     3. Alternatively, if `PYWIFES_DIR` is not set, the pipeline searches the program's *install* directory.
     For this approach to work, you would instead need to install with `pip install -e .`
+4.  Set up an alias for the main reduction routine: 
+    ```sh
+    alias pywifes-reduce='/Users/.../pipeline/reduction_scripts/reduce_data.py'
+    ```    
 
 ## Running the Pipeline
 1. Put all raw data and calibration files in the same directory: `/Users/.../my_directory/my_raw_data`
-2. Copy the reduce data script and `.json` files to the above-mentioned directory:
+2. Run the main reduction routine, giving the raw data directory path as an input parameter. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
     ```sh
-   cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_directory/
-   cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_directory/
+   pywifes-reduce my_raw_data
    ```
-3. Run `reduce_data.py`, giving the raw data directory path as an input parameter from `/Users/.../my_directory/`. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
-    ```sh
-   python3 reduce_data.py my_raw_data
-   ```
-
 
 
 **DATA REDUCED:**
