@@ -2,7 +2,6 @@ Data Classifier
 ===============
 
 
-
 .. automodule:: pywifes.data_classifier
-   :members: classify
+   :members: classify, get_obs_metadata
 
