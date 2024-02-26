@@ -868,8 +868,8 @@ def main():
     # AUTOMATIC SPECTRA EXTRACTION
 
     # Extraction of the spectra
-    blue_cube_path = glob.glob(project_dir + '/reduc_blue/*.p11.fits')[0]
-    red_cube_path = glob.glob(project_dir + '/reduc_red/*.p11.fits')[0]
+    blue_cube_path = glob.glob(working_dir + '/reduc_blue/*.p11.fits')[0]
+    red_cube_path = glob.glob(working_dir + '/reduc_red/*.p11.fits')[0]
         
     # (will no subtract an annular sky region on nod and shuffle data)
     if pywifes.is_nodshuffle(blue_cube_path) or pywifes.is_nodshuffle(red_cube_path):
@@ -891,12 +891,12 @@ def main():
     # Splice spectra 
     # We check for all (up to 3) sources detected
 
-    blue_specs = glob.glob(project_dir + '/reduc_blue/*.p12.fits')
-    red_specs = glob.glob(project_dir + '/reduc_red/*.p12.fits')
+    blue_specs = glob.glob(working_dir + '/reduc_blue/*.p12.fits')
+    red_specs = glob.glob(working_dir + '/reduc_red/*.p12.fits')
 
     for index, (blue_spec, red_spec) in enumerate(zip(blue_specs,red_specs)):
         ap_index = index + 1
-        output = os.path.join(project_dir, "splice.ap%s.fits" % ap_index)
+        output = os.path.join(working_dir, "splice.ap%s.fits" % ap_index)
         splice(blue_spec, red_spec, output)
 
     #------------------------------------------------------------------------
