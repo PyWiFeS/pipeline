@@ -129,7 +129,7 @@ def joinSpectra(blueSpec, redSpec):
     return flux, fluxVar
 
 
-def splice(blue_spec_path, red_spec_path, output):
+def splice_spectra(blue_spec_path, red_spec_path, output):
     """
     The main routine
     """
