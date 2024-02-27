@@ -870,29 +870,38 @@ def main():
     # Extraction of the spectra
     blue_cube_path = glob.glob(working_dir + '/reduc_blue/*.p11.fits')[0]
     red_cube_path = glob.glob(working_dir + '/reduc_red/*.p11.fits')[0]
-        
-    # (will no subtract an annular sky region on nod and shuffle data)
-    if pywifes.is_nodshuffle(blue_cube_path) or pywifes.is_nodshuffle(red_cube_path):
-        sky_sub = False
-    else:
-        sky_sub = True
 
-
-    # We set the radius for circular aperture to extract the espectra as 2"
     pixel_scale_x = 1 # arcsec/pix . We introduce this variable to be able to set the pixel scale from the header instead of from  by hand
     pixel_scale_y = 1 # arcsec/pix . We introduce this variable to be able to set the pixel scale from the header instead of from  by hand
-    r_arcsec = 2 # 
+
+
+    # Read extraction parameter from the extraction parameters JSON file 
+    file_path = os.path.join(reduction_scripts_dir, f'params_extract_{obs_mode}.json')
+
+    with open(file_path, 'r') as f:
+        ext_params = json.load(f)
+        
+    border_width = ext_params["border_width"]  
+    r_arcsec = ext_params["r_arcsec"]
+    sky_sub = ext_params["sky_sub"] 
+    check_plot = ext_params["check_plot"]
+
     a = r_arcsec / pixel_scale_x
     b = r_arcsec / pixel_scale_y
 
     # Extraction routine
-    auto_extract(blue_cube_path, red_cube_path, a=a, b=b, border_width= 3, sky_sub=sky_sub, check_plot=True)
+    auto_extract(blue_cube_path, red_cube_path, a=a, b=b, border_width=border_width, sky_sub=sky_sub, check_plot=check_plot)
+
+
+
 
     # Splice spectra 
     # We check for all (up to 3) sources detected
-
+    # TODO check if there are tow arms for triggeirng the splice
     blue_specs = glob.glob(working_dir + '/reduc_blue/*.p12.fits')
     red_specs = glob.glob(working_dir + '/reduc_red/*.p12.fits')
+
+
 
     for index, (blue_spec, red_spec) in enumerate(zip(blue_specs,red_specs)):
         ap_index = index + 1
