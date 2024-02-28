@@ -109,7 +109,8 @@
                 "doalphapfit": true,
                 "doplot": false,
                 "dlam_cut_start": 5.0,
-                "multithread": false
+                "multithread": false,
+                "max_processes": -1,
             }
         },
         {
@@ -132,7 +133,8 @@
             "suffix": "04",
             "args": {
                 "ns": false,
-                "multithread": false
+                "multithread": false,
+                "max_processes": -1
             }
         },
         {
@@ -163,6 +165,7 @@
             "suffix": "08",
             "args": {
                 "multithread": false,
+                "max_processes": -1,
                 "adr": true,
                 "wmin_set": 3500.0,
                 "wmax_set": 5700.0
@@ -315,7 +318,8 @@
                 "shift_method": "xcorr_all",
                 "find_method": "mpfit",
                 "dlam_cut_start": 5.0,
-                "multithread": false
+                "multithread": false,
+                "max_processes": -1,
             }
         },
         {
@@ -338,7 +342,8 @@
             "suffix": "04",
             "args": {
                 "ns": false,
-                "multithread": false
+                "multithread": false,
+                "max_processes": -1
             }
         },
         {
@@ -369,6 +374,7 @@
             "suffix": "08",
             "args": {
                 "multithread": false,
+                "max_processes": -1,
                 "adr": true,
                 "wmin_set": 5400.0,
                 "wmax_set": 7000.0
