@@ -14,7 +14,7 @@ from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
-
+from astropy.io import fits 
 def main():
     #------------------------------------------------------------------------
     start_time = datetime.datetime.now()
