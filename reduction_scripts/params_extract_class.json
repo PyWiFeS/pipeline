@@ -1,7 +1,13 @@
 
 {
-    "sky_sub": true,
-    "check_plot": true,
-    "border_width": 3,
-    "r_arcsec": 2
+    "step": "extract_spectra",
+    "run": true,
+    "suffix": "12",
+    "prev_suffix": "11",
+    "args": {
+        "sky_sub": true,
+        "check_plot": false,
+        "border_width": 3,
+        "r_arcsec": 2
+    }
 }

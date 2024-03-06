@@ -218,11 +218,14 @@ def plot_apertures(data_cube, source_aps, sky_aps=None, border_width=0):
 def auto_extract(
     blue_cube_path=None,
     red_cube_path=None,
-    a=1,
-    b=1,
-    border_width=3,
+    out_blue_path=None,
+    out_red_path=None,
+    pixel_scale_x=1,
+    pixel_scale_y=1,
     sky_sub=False,
     check_plot=False,
+    border_width=3,
+    r_arcsec=2,
 ):
     # Load in the data
 
@@ -270,10 +273,13 @@ def auto_extract(
     # Detected sources positions
     positions = np.transpose((detection["x_peak"], detection["y_peak"]))
 
+    # Set the annulus
+    a = r_arcsec / pixel_scale_x
+    b = r_arcsec / pixel_scale_y
+    
     # Creates source apertures in the detected positions
     source_aps = EllipticalAperture(positions, a=a, b=b)
 
-    # Set the annulus
     if sky_sub:
         a_in = a * 3
         a_out = a * 4
@@ -304,15 +310,13 @@ def auto_extract(
             )
 
             # Write out the results
-            blue_output = blue_cube_path.replace("p11.fits", "ap%s.p12.fits" % ap_index)
-            writeFITS(blue_flux, blue_var, b_sci_hdr, b_var_hdr, blue_output)
+            writeFITS(blue_flux, blue_var, b_sci_hdr, b_var_hdr, out_blue_path)
 
         if red_cube_path is not None:
             # Extraction
             red_flux, red_var = spect_extract(red_sci, r_var, source_ap, sky_ap=sky_ap)
             # Write out the results
-            red_output = red_cube_path.replace("p11.fits", "ap%s.p12.fits" % ap_index)
-            writeFITS(red_flux, red_var, r_sci_hdr, r_var_hdr, red_output)
+            writeFITS(red_flux, red_var, r_sci_hdr, r_var_hdr, out_red_path)
 
     if check_plot:
         plt.close("all")
