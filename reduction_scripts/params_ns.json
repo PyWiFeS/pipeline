@@ -200,7 +200,7 @@
         {
             "step": "save_3dcube",
             "run": true,
-            "suffix": "11",
+            "suffix": "cube",
             "args": {}
         }
     ],
@@ -428,7 +428,7 @@
         {
             "step": "save_3dcube",
             "run": true,
-            "suffix": "11",
+            "suffix": "cube",
             "args": {}
         }
     ]
