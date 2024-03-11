@@ -882,13 +882,16 @@ def main():
     # Classify all raw data (red and blue arm)
     obs_metadatas = classify(data_dir, naxis2_to_process)
 
+
+    # Set paths
+    reduction_scripts_dir = os.path.dirname(__file__)
+    working_dir = os.getcwd()
+
     for arm in obs_metadatas.keys():
         # ------------------------------------------------------------------------
         #      LOAD JSON FILE WITH USER REDUCTION SETUP
         # ------------------------------------------------------------------------
         obs_metadata = obs_metadatas[arm]
-        reduction_scripts_dir = os.path.dirname(__file__)
-        working_dir = os.getcwd()
 
         # Check observing mode
         sci_filename = obs_metadatas[arm]["sci"][0]["sci"][0] + ".fits"
@@ -962,18 +965,23 @@ def main():
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
 
-    destination_dir = "./data_products/"
+
+             
+
+
+    destination_dir = os.path.join(working_dir, "data_products")
 
     # Red
-    red_cubes_path = glob.glob("./data_products/intermediate/red/*.cube.fits")
-    for red_cube_path in red_cubes_path:
-        shutil.move(red_cube_path, destination_dir)
+    red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
+    red_cubes = glob.glob(red_cubes_path + "*.cube.fits")
+    for red_cube in red_cubes:
+        shutil.move(red_cube, destination_dir)
 
-    # Blue
-    blue_cubes_path = glob.glob("./data_products/intermediate/blue/*.cube.fits")
-    for blue_cube_path in blue_cubes_path:
-        shutil.move(blue_cube_path, destination_dir)
-
+   # Blue
+    blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
+    blue_cubes = glob.glob(blue_cubes_path + "*.cube.fits")
+    for blue_cube in blue_cubes:
+        shutil.move(blue_cube, destination_dir)
     # ----------------------------------------------------------
 
     # Print total running time
