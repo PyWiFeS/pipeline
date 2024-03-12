@@ -992,11 +992,11 @@ def main():
     # cube_matcher returns a list with the cubes matched based on the DATE-OBS in their header
     matched_list = cube_matcher(reduced_cubes)  
     
+    # Automatic extraction
     # Loop over match. If match has two elements, extraction and splice is trigger. If is only 1 element, only extaction si trigger
     for match_cubes in matched_list:
         # That means that there are one cube each arm in the list
         if len(match_cubes) == 2:  
-            # Automatic extraction
             # Cubes paths
             blue_cubes_path = match_cubes['Blue']
             red_cubes_path = match_cubes['Red']
@@ -1039,17 +1039,26 @@ def main():
             print("Saving extracted spectra")
       
 
+        # Now run splice only in when two arms cubes are present
+        for match_cubes in matched_list:
+            if match_cubes['Blue'] is not None and match_cubes['Red'] is not None:
+                # Cubes paths
+                blue_cubes_path = match_cubes['Blue']
+                red_cubes_path = match_cubes['Red']
 
+                # Splice Cubes
+                spliced_cube_path = blue_cubes_path.replace('Blue','Splice')
+                splice_cubes(blue_cubes_path, red_cubes_path, spliced_cube_path)
 
+                # Splice spectra
+                # We check for all (up to 3) sources detected
+                blue_specs = glob.glob(blue_cubes_path.replace('cube',"spec.ap*.fits"))
+                red_specs = glob.glob(red_cubes_path.replace('cube',"spec.ap*.fits"))
 
-
-
-        if len(match_cubes) == 1:
-            print(1)
-
-
-
-
+                for blue_spec, red_spec in zip(blue_specs, red_specs):
+                    spliced_spectrum_path = blue_spec.replace('Blue','Splice')
+                    output = os.path.join(working_dir, spliced_spectrum_path)
+                    splice_spectra(blue_spec, red_spec, output)
 
 
 
