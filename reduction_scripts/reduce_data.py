@@ -964,104 +964,98 @@ def main():
 
 
 
-
-
-
-
-
-
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
     destination_dir = os.path.join(working_dir, "data_products")
 
     # Red
     red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
-    red_cubes = glob.glob(red_cubes_path + "*.cube.fits")
-    for red_cube in red_cubes:
-        shutil.move(red_cube, destination_dir)
-
-   # Blue
+    # Blue
     blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
-    blue_cubes = glob.glob(blue_cubes_path + "*.cube.fits")
-    for blue_cube in blue_cubes:
-        shutil.move(blue_cube, destination_dir)
+
+    # Move reduced cubes to the data_products directory
+    for cubes_path in [red_cubes_path, blue_cubes_path]:
+        cubes = glob.glob(os.path.join(cubes_path, "*.cube.fits"))
+        for cube in cubes:
+            shutil.move(cube, destination_dir)
+
     # ----------------------------------------------------------
-    # Read the list of all reduced cubes
-    reduced_cubes = glob.glob(destination_dir + "/*.cube.fits")
+    # Find all reduced cubes in the destination directory
+    reduced_cubes_paths = glob.glob(os.path.join(destination_dir, "*.cube.fits"))
 
-    # cube_matcher returns a list with the cubes matched based on the DATE-OBS in their header
-    matched_list = cube_matcher(reduced_cubes)  
+    # ----------------------------------------------------------
+    # Match cubes based on DATE-OBS in their headers
+    matched_list = cube_matcher(reduced_cubes_paths)
     
-    # Automatic extraction
-    # Loop over match. If match has two elements, extraction and splice is trigger. If is only 1 element, only extaction si trigger
+    # ----------------------------------------------------------
+    # Read extraction parameters from JSON file
+
+    # Read the JSON file and define parameters
+    file_path = os.path.join(reduction_scripts_dir, f"params_extract_{obs_mode}.json")
+
+    with open(file_path, "r") as f:
+        extract_params = json.load(f)
+
+    sky_sub = extract_params["sky_sub"]
+    check_plot = extract_params["check_plot"]
+    border_width = extract_params["border_width"]
+    r_arcsec = extract_params["r_arcsec"]
+
+    # ----------------------------------------------------------
+    # Loop over matched cubes list
     for match_cubes in matched_list:
-        # That means that there are one cube each arm in the list
-        if len(match_cubes) == 2:  
-            # Cubes paths
-            blue_cubes_path = match_cubes['Blue']
-            red_cubes_path = match_cubes['Red']
+        # ----------
+        # Extraction
+        # ----------
+        blue_cube_path = match_cubes['Blue']
+        red_cube_path = match_cubes['Red']
 
-            # Read the JSON file and define parameters
-            file_path = os.path.join(reduction_scripts_dir, f"params_extract_{obs_mode}.json")
+        # Extract parameters
+        sky_sub = extract_params.get("sky_sub", False)
+        check_plot = extract_params.get("check_plot", False)
+        border_width = extract_params.get("border_width", 10)
+        r_arcsec = extract_params.get("r_arcsec", 1.0)
 
-            with open(file_path, "r") as f:
-                extract_params = json.load(f)
+        # Determine pixel scale from the header
+        try:
+            header = pyfits.getheader(blue_cube_path, ext=0)
+        except FileNotFoundError:
+            header = pyfits.getheader(red_cube_path, ext=0)
+        binning_y = header.get("CCDSUM", [None, None, ""])[2]
+        pixel_scale_x = 1  # arcsec/pix
+        pixel_scale_y = 1 / 2 * int(binning_y)  # arcsec/pix
 
-            sky_sub = extract_params["sky_sub"]
-            check_plot = extract_params["check_plot"]
-            border_width = extract_params["border_width"]
-            r_arcsec = extract_params["r_arcsec"]
+        # Run auto-extraction
+        auto_extract(
+            blue_cube_path, red_cube_path, destination_dir,
+            pixel_scale_x=pixel_scale_x, pixel_scale_y=pixel_scale_y,
+            r_arcsec=r_arcsec, border_width=border_width,
+            sky_sub=sky_sub, check_plot=check_plot
+        )
 
+        print("Saving extracted spectra")
 
-            # Define the pixel scale from the header (blue or red)
-            try:
-                binning_y = pyfits.getheader(blue_cubes_path,ext=0)["CCDSUM"][2]
-            except:
-                binning_y = pyfits.getheader(red_cubes_path,ext=0)["CCDSUM"][2]
+        # ------------------------------------
+        # Splice only paired cubes and spectra
+        # ------------------------------------
+        if match_cubes['Blue'] is not None and match_cubes['Red'] is not None:
+            # Splice cubes
+            blue_cube_name = os.path.basename(match_cubes['Blue'])
+            spliced_cube_name = blue_cube_name.replace('Blue', 'Splice')
+            spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
+            splice_cubes(match_cubes['Blue'], match_cubes['Red'], spliced_cube_path)
 
-            pixel_scale_x = 1  # arcsec/pix
-            pixel_scale_y = 1 / 2 * int(binning_y)  # arcsec/pix
+            # Splice spectra
+            pattern_blue = os.path.join(destination_dir, blue_cube_name.replace('cube', 'spec.ap*'))
+            pattern_red = os.path.join(destination_dir, os.path.basename(match_cubes['Red']).replace('cube', 'spec.ap*'))
 
-            # Extraction routine
-            auto_extract(
-                blue_cube_path=blue_cubes_path,
-                red_cube_path=red_cubes_path,
-                output_dir=destination_dir,
-                pixel_scale_x=pixel_scale_x,
-                pixel_scale_y=pixel_scale_y,
-                r_arcsec=r_arcsec,
-                border_width=border_width,
-                sky_sub=sky_sub,
-                check_plot=check_plot,
-            )
+            blue_specs = glob.glob(pattern_blue)
+            red_specs = glob.glob(pattern_red)
 
-
-            print("Saving extracted spectra")
-      
-
-        # Now run splice only in when two arms cubes are present
-        for match_cubes in matched_list:
-            if match_cubes['Blue'] is not None and match_cubes['Red'] is not None:
-                # Cubes paths
-                blue_cubes_path = match_cubes['Blue']
-                red_cubes_path = match_cubes['Red']
-
-                # Splice Cubes
-                spliced_cube_path = blue_cubes_path.replace('Blue','Splice')
-                splice_cubes(blue_cubes_path, red_cubes_path, spliced_cube_path)
-
-                # Splice spectra
-                # We check for all (up to 3) sources detected
-                blue_specs = glob.glob(blue_cubes_path.replace('cube',"spec.ap*.fits"))
-                red_specs = glob.glob(red_cubes_path.replace('cube',"spec.ap*.fits"))
-
-                for blue_spec, red_spec in zip(blue_specs, red_specs):
-                    spliced_spectrum_path = blue_spec.replace('Blue','Splice')
-                    output = os.path.join(working_dir, spliced_spectrum_path)
-                    splice_spectra(blue_spec, red_spec, output)
-
-
-
+            for blue_spec, red_spec in zip(blue_specs, red_specs):
+                spliced_spectrum_name = os.path.basename(blue_spec).replace('Blue', 'Splice')
+                output = os.path.join(working_dir, destination_dir, spliced_spectrum_name)
+                splice_spectra(blue_spec, red_spec, output)
 
 
     # ----------------------------------------------------------

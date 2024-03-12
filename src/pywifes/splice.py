@@ -149,16 +149,16 @@ def splice_spectra(blue_spec_path, red_spec_path, output):
     hdulist[0].header["CRPIX1"] = blueSpec.header["CRPIX1"]
     hdulist[0].header["CRVAL1"] = blueSpec.header["CRVAL1"]
     hdulist[0].header["CDELT1"] = blueSpec.header["CDELT1"]
-    hdulist[0].header["CTYPE1"] = "wavelength"
-    hdulist[0].header["CUNIT1"] = "angstrom"
+    hdulist[0].header["CTYPE1"] = "WAVE"
+    hdulist[0].header["CUNIT1"] = "Angstrom"
 
     hdr_fluxvar = fits.Header()
     hdr_fluxvar["EXTNAME"] = "VARIANCE"
     hdr_fluxvar["CRPIX1"] = blueSpec.header["CRPIX1"]
     hdr_fluxvar["CRVAL1"] = blueSpec.header["CRVAL1"]
     hdr_fluxvar["CDELT1"] = blueSpec.header["CDELT1"]
-    hdr_fluxvar["CTYPE1"] = "wavelength"
-    hdr_fluxvar["CUNIT1"] = "angstrom"
+    hdr_fluxvar["CTYPE1"] = "WAVE"
+    hdr_fluxvar["CUNIT1"] = "Angstrom"
     hdr_fluxvar["BUNIT"] = "(count / Angstrom)^2"
 
     hdu_fluxvar = fits.ImageHDU(data=fluxVar, header=hdr_fluxvar)
