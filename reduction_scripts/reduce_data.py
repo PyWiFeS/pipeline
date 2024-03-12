@@ -8,15 +8,15 @@ import gc
 import datetime
 import numpy as np
 import json
-
-from pywifes.data_classifier import classify
+from pywifes.data_classifier import classify, cube_matcher
+from pywifes.extract_spec import auto_extract
+from pywifes.splice import splice_spectra, splice_cubes
 from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
 import shutil
 import glob
-
 
 def main():
     # ------------------------------------------------------------------------
@@ -962,13 +962,16 @@ def main():
             else:
                 pass
 
+
+
+
+
+
+
+
+
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
-
-
-             
-
-
     destination_dir = os.path.join(working_dir, "data_products")
 
     # Red
@@ -983,11 +986,79 @@ def main():
     for blue_cube in blue_cubes:
         shutil.move(blue_cube, destination_dir)
     # ----------------------------------------------------------
+    # Read the list of all reduced cubes
+    reduced_cubes = glob.glob(destination_dir + "/*.cube.fits")
 
+    # cube_matcher returns a list with the cubes matched based on the DATE-OBS in their header
+    matched_list = cube_matcher(reduced_cubes)  
+    
+    # Loop over match. If match has two elements, extraction and splice is trigger. If is only 1 element, only extaction si trigger
+    for match_cubes in matched_list:
+        # That means that there are one cube each arm in the list
+        if len(match_cubes) == 2:  
+            # Automatic extraction
+            # Cubes paths
+            blue_cubes_path = match_cubes['Blue']
+            red_cubes_path = match_cubes['Red']
+
+            # Read the JSON file and define parameters
+            file_path = os.path.join(reduction_scripts_dir, f"params_extract_{obs_mode}.json")
+
+            with open(file_path, "r") as f:
+                extract_params = json.load(f)
+
+            sky_sub = extract_params["sky_sub"]
+            check_plot = extract_params["check_plot"]
+            border_width = extract_params["border_width"]
+            r_arcsec = extract_params["r_arcsec"]
+
+
+            # Define the pixel scale from the header (blue or red)
+            try:
+                binning_y = pyfits.getheader(blue_cubes_path,ext=0)["CCDSUM"][2]
+            except:
+                binning_y = pyfits.getheader(red_cubes_path,ext=0)["CCDSUM"][2]
+
+            pixel_scale_x = 1  # arcsec/pix
+            pixel_scale_y = 1 / 2 * int(binning_y)  # arcsec/pix
+
+            # Extraction routine
+            auto_extract(
+                blue_cube_path=blue_cubes_path,
+                red_cube_path=red_cubes_path,
+                output_dir=destination_dir,
+                pixel_scale_x=pixel_scale_x,
+                pixel_scale_y=pixel_scale_y,
+                r_arcsec=r_arcsec,
+                border_width=border_width,
+                sky_sub=sky_sub,
+                check_plot=check_plot,
+            )
+
+
+            print("Saving extracted spectra")
+      
+
+
+
+
+
+
+        if len(match_cubes) == 1:
+            print(1)
+
+
+
+
+
+
+
+
+
+    # ----------------------------------------------------------
     # Print total running time
     duration = datetime.datetime.now() - start_time
     print("All done in %.01f seconds." % duration.total_seconds())
-
 
 if __name__ == "__main__":
     main()

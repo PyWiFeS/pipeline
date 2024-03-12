@@ -1,9 +1,8 @@
 import sys
 import os
-from astropy.io import fits as pyfits
-
+from astropy.io import fits
 from . import wifes_calib
-
+import pandas as pd
 
 def get_obs_metadata(filenames,data_dir):
     stdstar_list = wifes_calib.ref_fname_lookup.keys()
@@ -21,7 +20,7 @@ def get_obs_metadata(filenames,data_dir):
     for filename in filenames:        
         basename = filename.replace('.fits', '')
 
-        f = pyfits.open(data_dir + filename)
+        f = fits.open(data_dir + filename)
         imagetype = f[0].header['IMAGETYP'].upper()
         obj_name = f[0].header['OBJECT']
         f.close()
@@ -119,7 +118,7 @@ def classify(data_dir, naxis2_to_process = 0):
 
     for filename in filenames:
         try:
-            f = pyfits.open(data_dir+filename)
+            f = fits.open(data_dir+filename)
             camera = f[0].header['CAMERA']
             naxis2 = f[0].header['NAXIS2']
             f.close()
@@ -142,3 +141,28 @@ def classify(data_dir, naxis2_to_process = 0):
     red_obs_metadata = get_obs_metadata(red_filenames, data_dir)
 
     return {"blue": blue_obs_metadata, "red": red_obs_metadata}
+
+
+def cube_matcher(paths_list):
+    date_obs_list = []
+    for path in paths_list:
+        date_obs_list.append(fits.getheader(path)['DATE-OBS'])
+
+    df = pd.DataFrame({'path': paths_list, 'date_obs': date_obs_list})
+    
+    matched_paths = df.groupby('date_obs')['path'].apply(list).tolist()
+
+    matched_dicts = []
+    
+    for paths in matched_paths:
+            matched_dict = {'Blue': None, 'Red': None}
+            for path in paths:
+                arm = fits.getheader(path)['ARM']
+                matched_dict[arm] = path
+            matched_dicts.append(matched_dict)
+     
+    return matched_dicts
+
+
+
+
