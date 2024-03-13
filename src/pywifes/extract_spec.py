@@ -170,6 +170,71 @@ def writeFITS(sci_cube, var_cube, sci_header, var_header, output):
     return
 
 
+def write_1D_spec_fits(sci_data, var_data, sci_cube_header, var_cube_header, output):
+    # Blank hdulist for the 1D spectrum
+    hdulist = fits.HDUList(fits.PrimaryHDU())
+
+
+    # Updateing WCS headers to match 1D spectrum header
+    headers = [sci_cube_header, var_cube_header]
+
+    for header in headers:
+        # Copy the values of the thirs axis (CTYPE 3 WAVE), which is the one with the wavelenght solution 
+        cdelt1  = header['CDELT3']
+        crpix1  = header['CRPIX3']
+        crval1  = header['CRVAL3']
+        cunit1  = 'Angstrom'
+        ctype1  = header['CTYPE3']
+        naxis1 = header['NAXIS3']
+        naxis = 1
+
+        # Update axis 1 values
+        header['CDELT1'] = cdelt1  
+        header['CRPIX1'] = crpix1   
+        header['CRVAL1'] = crval1  
+        header['CUNIT1'] = cunit1 
+        header['CTYPE1'] = ctype1  
+        header['NAXIS'] = naxis 
+        header['NAXIS1'] = naxis1 
+        
+        # Remove all the spacial wcs key 
+        keys_to_remove = [
+            "NAXIS2",
+            "NAXIS3",
+            "CRVAL2",        
+            "CRVAL3",     
+            "CTYPE2",                
+            "CTYPE3",                
+            "CDELT2",                   
+            "CDELT3", 
+            "CRPIX2",                  
+            "CRPIX3",                   
+            "PC1_1",                            
+            "PC1_2",                           
+            "PC2_1",                                   
+            "PC2_2",                                   
+                ]
+        for key in keys_to_remove:
+            header.remove(key)
+
+    # Set data and headers in the blank hdulist
+    # Science extension            
+    hdulist[0].data = sci_data
+    hdulist[0].header = sci_cube_header
+
+    # Variance
+    hdu_fluxvar = fits.ImageHDU(data=var_data, header=var_cube_header)
+    hdulist.append(hdu_fluxvar)
+
+    # Write new fits with the 1D spect
+    hdulist.writeto(output, overwrite=True)
+    hdulist.close()
+
+    return
+
+
+
+
 def plot_apertures(data_cube, source_aps, sky_aps=None, border_width=0):
     # Collapse cube in the waevelenght dimesion for obtaing a median image
     collapsed_cube = collapse_cube(data_cube)
@@ -313,7 +378,7 @@ def auto_extract(
             base_blue = os.path.basename(blue_cube_path)
             base_blue_ouput = base_blue.replace("cube.fits", "spec.ap%s.fits" % ap_index)
             blue_output = os.path.join(output_dir,base_blue_ouput)
-            writeFITS(blue_flux, blue_var, b_sci_hdr, b_var_hdr, blue_output)
+            write_1D_spec_fits(blue_flux, blue_var, b_sci_hdr, b_var_hdr, blue_output)
 
         if red_cube_path is not None:
             # Extraction
@@ -322,7 +387,7 @@ def auto_extract(
             base_red = os.path.basename(red_cube_path)
             base_red_ouput = base_red.replace("cube.fits", "spec.ap%s.fits" % ap_index)
             red_output = os.path.join(output_dir,base_red_ouput)
-            writeFITS(red_flux, red_var, r_sci_hdr, r_var_hdr, red_output)
+            write_1D_spec_fits(red_flux, red_var, r_sci_hdr, r_var_hdr, red_output)
 
     if check_plot:
         plt.close("all")
