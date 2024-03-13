@@ -3046,8 +3046,6 @@ def generate_wifes_cube_multithread(
     # First interpolation : Wavelength + y (=wire & ADR)
     if verbose:
         print(' -> Step 1: interpolating along lambda and y (2D interp.) MULTITHREAD\r')
-        sys.stdout.write('\r 0%')
-        sys.stdout.flush()
 
     tasks = []
     for i in range(1,nslits+1):
@@ -3129,6 +3127,8 @@ def generate_wifes_cube_multithread(
         out_x = numpy.arange(nslits, dtype='d')
         if verbose:
             print(' -> Step 2: interpolating along x (1D interp.)')
+            sys.stdout.write('\r 0%')
+            sys.stdout.flush()
         for i in range(0,nlam) :
             adr = adr_x_y(numpy.array([out_lambda[i]]),
                           secz,ha,dec,lat, teltemp = 0.0, 
