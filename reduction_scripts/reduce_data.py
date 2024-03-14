@@ -18,6 +18,7 @@ from pywifes import wifes_calib
 import shutil
 import glob
 
+
 def main():
     # ------------------------------------------------------------------------
     start_time = datetime.datetime.now()
@@ -882,7 +883,6 @@ def main():
     # Classify all raw data (red and blue arm)
     obs_metadatas = classify(data_dir, naxis2_to_process)
 
-
     # Set paths
     reduction_scripts_dir = os.path.dirname(__file__)
     working_dir = os.getcwd()
@@ -962,8 +962,6 @@ def main():
             else:
                 pass
 
-
-
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
     destination_dir = os.path.join(working_dir, "data_products")
@@ -986,7 +984,7 @@ def main():
     # ----------------------------------------------------------
     # Match cubes based on DATE-OBS in their headers
     matched_list = cube_matcher(reduced_cubes_paths)
-    
+
     # ----------------------------------------------------------
     # Read extraction parameters from JSON file
 
@@ -1007,8 +1005,8 @@ def main():
         # ----------
         # Extraction
         # ----------
-        blue_cube_path = match_cubes['Blue']
-        red_cube_path = match_cubes['Red']
+        blue_cube_path = match_cubes["Blue"]
+        red_cube_path = match_cubes["Red"]
 
         # Extract parameters
         sky_sub = extract_params.get("sky_sub", False)
@@ -1027,10 +1025,15 @@ def main():
 
         # Run auto-extraction
         auto_extract(
-            blue_cube_path, red_cube_path, destination_dir,
-            pixel_scale_x=pixel_scale_x, pixel_scale_y=pixel_scale_y,
-            r_arcsec=r_arcsec, border_width=border_width,
-            sky_sub=sky_sub, check_plot=check_plot
+            blue_cube_path,
+            red_cube_path,
+            destination_dir,
+            pixel_scale_x=pixel_scale_x,
+            pixel_scale_y=pixel_scale_y,
+            r_arcsec=r_arcsec,
+            border_width=border_width,
+            sky_sub=sky_sub,
+            check_plot=check_plot,
         )
 
         print("Saving extracted spectra")
@@ -1038,30 +1041,39 @@ def main():
         # ------------------------------------
         # Splice only paired cubes and spectra
         # ------------------------------------
-        if match_cubes['Blue'] is not None and match_cubes['Red'] is not None:
+        if match_cubes["Blue"] is not None and match_cubes["Red"] is not None:
             # Splice cubes
-            blue_cube_name = os.path.basename(match_cubes['Blue'])
-            spliced_cube_name = blue_cube_name.replace('Blue', 'Splice')
+            blue_cube_name = os.path.basename(match_cubes["Blue"])
+            spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
             spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
-            splice_cubes(match_cubes['Blue'], match_cubes['Red'], spliced_cube_path)
+            splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path)
 
             # Splice spectra
-            pattern_blue = os.path.join(destination_dir, blue_cube_name.replace('cube', 'spec.ap*'))
-            pattern_red = os.path.join(destination_dir, os.path.basename(match_cubes['Red']).replace('cube', 'spec.ap*'))
+            pattern_blue = os.path.join(
+                destination_dir, blue_cube_name.replace("cube", "spec.ap*")
+            )
+            pattern_red = os.path.join(
+                destination_dir,
+                os.path.basename(match_cubes["Red"]).replace("cube", "spec.ap*"),
+            )
 
             blue_specs = glob.glob(pattern_blue)
             red_specs = glob.glob(pattern_red)
 
             for blue_spec, red_spec in zip(blue_specs, red_specs):
-                spliced_spectrum_name = os.path.basename(blue_spec).replace('Blue', 'Splice')
-                output = os.path.join(working_dir, destination_dir, spliced_spectrum_name)
+                spliced_spectrum_name = os.path.basename(blue_spec).replace(
+                    "Blue", "Splice"
+                )
+                output = os.path.join(
+                    working_dir, destination_dir, spliced_spectrum_name
+                )
                 splice_spectra(blue_spec, red_spec, output)
-
 
     # ----------------------------------------------------------
     # Print total running time
     duration = datetime.datetime.now() - start_time
     print("All done in %.01f seconds." % duration.total_seconds())
+
 
 if __name__ == "__main__":
     main()
