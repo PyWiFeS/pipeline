@@ -168,7 +168,6 @@ def writeFITS(sci_cube, var_cube, sci_header, var_header, output):
     hdulist.writeto(output, overwrite=True)
     hdulist.close()
 
-    return
 
 
 def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
@@ -192,7 +191,8 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
     Returns
     -------
     None
-
+        This function does not return any value. It writes the corresponding fits.
+    
     """
 
     # Create a blank HDUList for the 1D spectrum
@@ -243,10 +243,34 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
     hdulist.writeto(output, overwrite=True)
     hdulist.close()
 
-    return
 
 
 def plot_apertures(data_cube, source_aps, sky_aps=None, border_width=0):
+    """
+    Plot apertures on a collapsed data cube image.
+
+    Parameters
+    ----------
+    data_cube : numpy.ndarray
+        The 3D data cube containing the image data.
+
+    source_aps : list of photutils.aperture objects
+        List of source apertures to plot on the image.
+
+    sky_aps : list of photutils.aperture objects, optional
+        List of sky apertures to plot on the image. Default is None.
+
+    border_width : int, optional
+        Width of the border to exclude from the image when calculating the image contrast.
+        Default is 0.
+
+    Returns
+    -------
+    None
+        This function does not return any value. It plots the apertures on the image.
+
+    """
+
     # Collapse cube in the waevelenght dimesion for obtaing a median image
     collapsed_cube = collapse_cube(data_cube)
 
@@ -267,7 +291,7 @@ def plot_apertures(data_cube, source_aps, sky_aps=None, border_width=0):
         mask = source_ap.to_mask(method="center").to_image(np.shape(collapsed_cube))
         mask[mask == 0] = np.nan
         plt.imshow(mask, alpha=alpha, cmap=cmap)
-        # Plot theoretical aperture contourn
+        # Plot theoretical aperture contourngit
         source_ap.plot(color="white", lw=0.8, ls="--")
         # Plot the aperture number
         plt.text(
@@ -291,24 +315,24 @@ def plot_apertures(data_cube, source_aps, sky_aps=None, border_width=0):
             sky_ap.plot(color="white", lw=0.8, ls="--")
 
 
+
 def auto_extract(
     blue_cube_path=None,
     red_cube_path=None,
     output_dir=None,
-    pixel_scale_x=1,
-    pixel_scale_y=1,
     r_arcsec=2,
     border_width=3,
     sky_sub=False,
     check_plot=False,
 ):
     # Load in the data
-
+    
     # Blue arm
     if blue_cube_path is not None:
         blue_sci, b_sci_hdr = fits.getdata(blue_cube_path, 0, header=True)
         b_var, b_var_hdr = fits.getdata(blue_cube_path, 1, header=True)
         blue_wcs = WCS(b_sci_hdr).celestial
+        binning_x, binning_y = np.int_(fits.getheader(blue_cube_path, 0)['CCDSUM'].split())
 
     else:
         blue_sci = None
@@ -319,10 +343,16 @@ def auto_extract(
         red_sci, r_sci_hdr = fits.getdata(red_cube_path, 0, header=True)
         r_var, r_var_hdr = fits.getdata(red_cube_path, 1, header=True)
         red_wcs = WCS(r_sci_hdr).celestial
+        binning_x, binning_y = np.int_(fits.getheader(red_cube_path, 0)['CCDSUM'].split())
+
     else:
         red_sci = None
         red_wcs = None
 
+    # Calculate pixel scale from binning
+    pixel_scale_x = binning_x  # arcsec/pix
+    pixel_scale_y = 1 / 2 * binning_y  # arcsec/pix
+      
     # Average all the data for detecting the source
     collapsed_cube = collapse_cube(blue_sci, red_sci)
 
@@ -403,7 +433,6 @@ def auto_extract(
 
     if check_plot:
         plt.close("all")
-
         # Plot Red
         ax1 = plt.subplot(1, 2, 2, projection=red_wcs)
         plt.title("Red arm")
@@ -457,3 +486,5 @@ def auto_extract(
         fig_output = os.path.join(output_dir + "/detected_apertures_plot.pdf")
 
         plt.savefig(fig_output, bbox_inches="tight", dpi=300)
+
+

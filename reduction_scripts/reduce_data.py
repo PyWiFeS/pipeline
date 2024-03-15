@@ -132,6 +132,7 @@ def main():
 
     # ------------------------------------------------------
     # repair bad pixels!
+    # ------------------------------------------------------
     def run_bpm_repair(metadata, prev_suffix, curr_suffix):
         full_obs_list = get_full_obs_list(metadata)
         for basename in full_obs_list:
@@ -153,6 +154,7 @@ def main():
 
     # ------------------------------------------------------
     # Generate super-bias
+    # ------------------------------------------------------
     def run_superbias(metadata, prev_suffix, curr_suffix, method="row_med", **args):
         bias_list = [
             os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
@@ -213,6 +215,7 @@ def main():
 
     # ----------------------------------------------------
     # Subtract bias
+    # ----------------------------------------------------
     def run_bias_sub(metadata, prev_suffix, curr_suffix, method="sub", **args):
         full_obs_list = get_full_obs_list(metadata)
         sci_obs_list = get_sci_obs_list(metadata)
@@ -247,6 +250,7 @@ def main():
 
     # ------------------------------------------------------
     # Generate super-flat
+    # ------------------------------------------------------
     def run_superflat(
         metadata, prev_suffix, curr_suffix, source, scale=None, method="median"
     ):
@@ -272,6 +276,7 @@ def main():
 
     # ------------------------------------------------------
     # Fred's flat cleanup
+    # ------------------------------------------------------
     def run_flat_cleanup(
         metadata,
         prev_suffix,
@@ -309,6 +314,7 @@ def main():
 
     # ------------------------------------------------------
     # Fit slitlet profiles
+    # ------------------------------------------------------
     def run_slitlet_profile(metadata, prev_suffix, curr_suffix, **args):
         if os.path.isfile(super_dflat_fn):
             flatfield_fn = super_dflat_fn
@@ -322,6 +328,7 @@ def main():
 
     # ------------------------------------------------------
     # Create MEF files
+    # ------------------------------------------------------
     def run_superflat_mef(metadata, prev_suffix, curr_suffix, source):
         if source == "dome":
             if os.path.isfile(super_dflat_fn):
@@ -386,6 +393,7 @@ def main():
 
     # ------------------------------------------------------
     # Wavelength solution
+    # ------------------------------------------------------
     def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
         # First, generate the master arc solution, based on generic arcs
         wsol_in_fn = os.path.join(
@@ -423,6 +431,7 @@ def main():
 
     # ------------------------------------------------------
     # Wire solution
+    # ------------------------------------------------------
     def run_wire_soln(metadata, prev_suffix, curr_suffix):
         # Global wire solution
         wire_in_fn = os.path.join(
@@ -453,6 +462,7 @@ def main():
 
     # ------------------------------------------------------
     # Cosmic Rays
+    # ------------------------------------------------------
     def run_cosmic_rays(
         metadata, prev_suffix, curr_suffix, ns=False, multithread=False
     ):
@@ -530,7 +540,8 @@ def main():
         return
 
     # ------------------------------------------------------
-    # Sky subtraction!
+    # Sky subtraction
+    # ------------------------------------------------------
     def run_sky_sub_ns(metadata, prev_suffix, curr_suffix):
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
@@ -586,6 +597,7 @@ def main():
 
     # ------------------------------------------------------
     # Image coaddition for science and standards!
+    # ------------------------------------------------------
     def run_obs_coadd(metadata, prev_suffix, curr_suffix, method="sum", scale=None):
         for obs in metadata["sci"] + metadata["std"]:
             # if just one, then copy it
@@ -611,7 +623,8 @@ def main():
         return
 
     # ------------------------------------------------------
-    # Flatfield Response
+    # Flatfield: Response
+    # ------------------------------------------------------
     def run_flat_response(metadata, prev_suffix, curr_suffix, mode="all"):
         # now fit the desired style of response function
         print("Generating flatfield response function")
@@ -628,7 +641,8 @@ def main():
         return
 
     # ------------------------------------------------------
-    # Flatfield Division
+    # Flatfield: Division
+    # ------------------------------------------------------
     def run_flatfield(metadata, prev_suffix, curr_suffix):
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
@@ -643,6 +657,7 @@ def main():
 
     # ------------------------------------------------------
     # Data Cube Generation
+    # ------------------------------------------------------
     def run_cube_gen(metadata, prev_suffix, curr_suffix, **args):
         # now generate cubes
         sci_obs_list = get_primary_sci_obs_list(metadata)
@@ -780,6 +795,7 @@ def main():
 
     # ------------------------------------------------------
     # Standard star extraction
+    # ------------------------------------------------------
     def run_extract_stars(metadata, prev_suffix, curr_suffix, type="all", **args):
         # for each std, extract spectrum as desired
         std_obs_list = get_primary_std_obs_list(metadata, type=type)
@@ -824,6 +840,7 @@ def main():
 
     # ------------------------------------------------------
     # Telluric - derive
+    # ------------------------------------------------------
     def run_derive_telluric(metadata, prev_suffix, curr_suffix, **args):
         std_obs_list = get_primary_std_obs_list(metadata, "telluric")
         std_cube_list = [
@@ -852,7 +869,6 @@ def main():
             wifes_calib.apply_wifes_telluric(in_fn, out_fn, tellcorr_fn)
         return
 
-    # ------------------------- Fred's update -----------------
     # Save final cube in suitable fits format
     def run_save_3dcube(metadata, prev_suffix, curr_suffix, **args):
         # now generate cubes
@@ -924,6 +940,8 @@ def main():
 
         # ------------------------------------------------------------------------
         # NAMES FOR MASTER CALIBRATION FILES!!!
+        # ------------------------------------------------------------------------
+        
         superbias_fn = "%s_superbias.fits" % calib_prefix
         superbias_fit_fn = "%s_superbias_fit.fits" % calib_prefix
         super_dflat_raw = "%s_super_domeflat_raw.fits" % calib_prefix
@@ -940,8 +958,8 @@ def main():
         tellcorr_fn = "%s_tellcorr.pkl" % calib_prefix
 
         # ------------------------------------------------------------------------
-        # ------------------------------------------------------------------------
         # RUN THE PROCESSING STEPS
+        # ------------------------------------------------------------------------
         prev_suffix = None
         for step in proc_steps[arm]:
             step_name = step["step"]
@@ -964,6 +982,8 @@ def main():
 
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
+    # ----------------------------------------------------------
+            
     destination_dir = os.path.join(working_dir, "data_products")
 
     # Red
@@ -978,15 +998,20 @@ def main():
             shutil.move(cube, destination_dir)
 
     # ----------------------------------------------------------
-    # Find all reduced cubes in the destination directory
+    # Find and list all reduced cubes in the destination directory
+    # ----------------------------------------------------------
+
     reduced_cubes_paths = glob.glob(os.path.join(destination_dir, "*.cube.fits"))
 
     # ----------------------------------------------------------
-    # Match cubes based on DATE-OBS in their headers
+    # Match cubes from the same observation based on DATE-OBS 
+    # ----------------------------------------------------------
+
     matched_list = cube_matcher(reduced_cubes_paths)
 
     # ----------------------------------------------------------
     # Read extraction parameters from JSON file
+    # ----------------------------------------------------------
 
     # Read the JSON file and define parameters
     file_path = os.path.join(reduction_scripts_dir, f"params_extract_{obs_mode}.json")
@@ -1001,6 +1026,8 @@ def main():
 
     # ----------------------------------------------------------
     # Loop over matched cubes list
+    # ----------------------------------------------------------
+
     for match_cubes in matched_list:
         # ----------
         # Extraction
@@ -1014,22 +1041,11 @@ def main():
         border_width = extract_params.get("border_width", 10)
         r_arcsec = extract_params.get("r_arcsec", 1.0)
 
-        # Determine pixel scale from the header
-        try:
-            header = pyfits.getheader(blue_cube_path, ext=0)
-        except FileNotFoundError:
-            header = pyfits.getheader(red_cube_path, ext=0)
-        binning_y = header.get("CCDSUM", [None, None, ""])[2]
-        pixel_scale_x = 1  # arcsec/pix
-        pixel_scale_y = 1 / 2 * int(binning_y)  # arcsec/pix
-
         # Run auto-extraction
         auto_extract(
             blue_cube_path,
             red_cube_path,
             destination_dir,
-            pixel_scale_x=pixel_scale_x,
-            pixel_scale_y=pixel_scale_y,
             r_arcsec=r_arcsec,
             border_width=border_width,
             sky_sub=sky_sub,
@@ -1071,6 +1087,7 @@ def main():
 
     # ----------------------------------------------------------
     # Print total running time
+    # ----------------------------------------------------------
     duration = datetime.datetime.now() - start_time
     print("All done in %.01f seconds." % duration.total_seconds())
 
