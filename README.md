@@ -48,26 +48,40 @@ The Python data reduction pipeline for WiFeS
     2. Or run the command manually before 'Running the Pipeline'.
     3. Alternatively, if `PYWIFES_DIR` is not set, the pipeline searches the program's *install* directory.
     For this approach to work, you would instead need to install with `pip install -e .`
+4.  Set up an alias for the main reduction routine: 
+    ```sh
+    alias pywifes-reduce='/Users/.../pipeline/reduction_scripts/reduce_data.py'
+    ```    
 
 ## Running the Pipeline
 1. Put all raw data and calibration files in the same directory: `/Users/.../my_directory/my_raw_data`
-2. Copy the reduce data script and `.json` files to the above-mentioned directory:
+2. Run the main reduction routine, giving the raw data directory path as an input parameter. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
     ```sh
-   cp /Users/.../pipeline/reduction_scripts/reduce_data.py /Users/.../my_directory/
-   cp /Users/.../pipeline/reduction_scripts/*.json /Users/.../my_directory/
+   pywifes-reduce my_raw_data
    ```
-3. Run `reduce_data.py`, giving the raw data directory path as an input parameter from `/Users/.../my_directory/`. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
-    ```sh
-   python3 reduce_data.py my_raw_data
-   ```
-
 
 
 **DATA REDUCED:**
-The pipeline will automatically generate two directories for the reduced data: `/Users/.../my_directory/reduc_red` and `/Users/.../my_directory/reduc_blue` containing: 
-- Master calibration files
-- The intermediate files generated during the data reduction named as `file_name.p00.fits, file_name.p01.fits, ..., file_name.p10.fits`  
-- Final data cubes named as `file_name.p11.fits`  
+The pipeline will automatically generate the following directory structure containing the reduced data within our working directory `/Users/.../my_directory`: 
+
+- data_products
+    - `red_file_name.cube.fits`
+    - `blue_file_name.cube.fits`
+    - intermediate
+        - blue
+            - `blue_master_calibration_files.fits`
+            - `blue_file_name.p00.fits`
+            - `blue_file_name.p01.fits`
+            - ...
+            - `blue_file_name.p10.fits`
+        - red
+            - `master_calibration_files.fits`
+            - `red_file_name.p00.fits`
+            - `red_file_name.p01.fits`
+            - ...
+            - `red_file_name.p10.fits`
+
+The main diretory contains a subfolder for intermediate files generated during the data reduction process that are saved separately for each red and blue arm. Those intermediate files are master calibration files (e.g., master bias, master flats) and other calibration files generated during the data reduction named as `file_name.p00.fits, file_name.p01.fits, ..., file_name.p10.fits`. Initially, the final data cubes (`file_name.cube.fits`) are saved in these intermediate directories. Once the data reduction finishses its job succesfully, the data cubes are moved to `\data_products`.
 
 
 ### TO DO

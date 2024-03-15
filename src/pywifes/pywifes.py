@@ -81,6 +81,12 @@ def is_nodshuffle(inimg, data_hdu=0):
     f.close()
     return ns == 'NodAndShuffle'
 
+def is_subnodshuffle(inimg, data_hdu=0):
+    f = pyfits.open(inimg)
+    sns = f[data_hdu].header['WIFESOBS']
+    f.close()
+    return sns == 'SubNodAndShuffle'
+
 
 #------------------------------------------------------------------------
 def imcombine(inimg_list, outimg,
