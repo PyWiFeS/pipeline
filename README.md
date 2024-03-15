@@ -21,7 +21,7 @@ The Python data reduction pipeline for WiFeS
 - **Multiprocessing**
     - **Update Mar 2024**: Multiprocessing can be enabled by so the pipeline *may* do the job faster. To enable the multithreading option, please follow these steps:
         1. Ensure you are using Python 3.10 or later. Below Python 3.10, you may encounter warnings or errors.
-        2. In your working directory, open the `.json` file that corresponds to the observing mode of your data. That is, `params_class.json` for classic mode, or `params_ns.json` for nod-and-shuffle. The `.json` files should have been previously copied to your working directory in step 2 in "Running the Pipeline".
+        2. Open the `.json` file that corresponds to the observing mode of your data. That is, `reduction_scripts/params_class.json` for classic mode, or `reduction_scripts/params_ns.json` for nod-and-shuffle.
         3. Set `"multithread": true` in all the cases. There should be a total of 6 `"multithread"`, 3 for each of the blue and red arms in the following steps: `"step": "wave_soln"`, `"step": "cosmic_rays"`, and `"step": "cube_gen"`.
         4. [Optional] Set `max_processes` to the *maximum* number of sub-processes you would like to launch for `"step": "cosmic_rays"`, and `"step": "cube_gen"`. If `-1`, the pipeline will use as many processes as there are hardware & logical cores on your device, which maybe be larger than the number of *available* cores, e.g. for Slurm users. Limiting the number of sub-processes can improve efficiency and availability of your device.
         5. Run the pipeline following the instructions below.
