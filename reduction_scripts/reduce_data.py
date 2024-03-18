@@ -1051,9 +1051,7 @@ def main():
             sky_sub=sky_sub,
             check_plot=check_plot,
         )
-
-        print("Saving extracted spectra")
-
+        
         # ------------------------------------
         # Splice only paired cubes and spectra
         # ------------------------------------

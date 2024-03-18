@@ -13,6 +13,7 @@ setup(
         "scipy",
         "numpy",
         "matplotlib",
+        "photutils==1.8.0",
     ],
     description="A Python package for optical data reduction pipeline.",
 )

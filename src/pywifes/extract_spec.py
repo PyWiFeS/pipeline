@@ -370,7 +370,7 @@ def auto_extract(
     )
 
     if detection is None:
-        raise ValueError("No source detected.")
+        print("No source detected.")
 
     # Sort detections as brighter peaks first
     detection.sort("peak_value", reverse=True)
@@ -419,8 +419,10 @@ def auto_extract(
             base_blue_ouput = base_blue.replace(
                 "cube.fits", "spec.ap%s.fits" % ap_index
             )
+            print("Saving blue extracted spectra")
             blue_output = os.path.join(output_dir, base_blue_ouput)
             write_1D_spec(blue_flux, blue_var, b_sci_hdr, b_var_hdr, blue_output)
+
 
         if red_cube_path is not None:
             # Extraction
@@ -428,6 +430,7 @@ def auto_extract(
             # Write out the results
             base_red = os.path.basename(red_cube_path)
             base_red_ouput = base_red.replace("cube.fits", "spec.ap%s.fits" % ap_index)
+            print("Saving red extracted spectra")
             red_output = os.path.join(output_dir, base_red_ouput)
             write_1D_spec(red_flux, red_var, r_sci_hdr, r_var_hdr, red_output)
 
