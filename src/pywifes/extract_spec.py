@@ -372,122 +372,123 @@ def auto_extract(
     if detection is None:
         print("No source detected.")
 
-    # Sort detections as brighter peaks first
-    detection.sort("peak_value", reverse=True)
-
-    # Detected sources positions
-    positions = np.transpose((detection["x_peak"], detection["y_peak"]))
-
-    # Set the annulus
-    a = r_arcsec / pixel_scale_x
-    b = r_arcsec / pixel_scale_y
-
-    # Creates source apertures in the detected positions
-    source_aps = EllipticalAperture(positions, a=a, b=b)
-
-    if sky_sub:
-        a_in = a * 3
-        a_out = a * 4
-
-        b_in = b * 3
-        b_out = b * 4
-
-        sky_aps = EllipticalAnnulus(
-            positions, a_in=a_in, a_out=a_out, b_out=b_out, b_in=b_in
-        )
-
     else:
-        sky_aps = None
+        # Sort detections as brighter peaks first
+        detection.sort("peak_value", reverse=True)
 
-    # Flux extraction for the aperture at all the wavelenghts
-    for index, source_ap in enumerate(source_aps):
-        if sky_aps is not None:
-            sky_ap = sky_aps[index]
+        # Detected sources positions
+        positions = np.transpose((detection["x_peak"], detection["y_peak"]))
+
+        # Set the annulus
+        a = r_arcsec / pixel_scale_x
+        b = r_arcsec / pixel_scale_y
+
+        # Creates source apertures in the detected positions
+        source_aps = EllipticalAperture(positions, a=a, b=b)
+
+        if sky_sub:
+            a_in = a * 3
+            a_out = a * 4
+
+            b_in = b * 3
+            b_out = b * 4
+
+            sky_aps = EllipticalAnnulus(
+                positions, a_in=a_in, a_out=a_out, b_out=b_out, b_in=b_in
+            )
 
         else:
-            sky_ap = None
-        ap_index = index + 1
+            sky_aps = None
 
-        if blue_cube_path is not None:
-            # Extraction
-            blue_flux, blue_var = spect_extract(
-                blue_sci, b_var, source_ap, sky_ap=sky_ap
-            )
+        # Flux extraction for the aperture at all the wavelenghts
+        for index, source_ap in enumerate(source_aps):
+            if sky_aps is not None:
+                sky_ap = sky_aps[index]
 
-            # Write out the results
-            base_blue = os.path.basename(blue_cube_path)
-            base_blue_ouput = base_blue.replace(
-                "cube.fits", "spec.ap%s.fits" % ap_index
-            )
-            print("Saving blue extracted spectra")
-            blue_output = os.path.join(output_dir, base_blue_ouput)
-            write_1D_spec(blue_flux, blue_var, b_sci_hdr, b_var_hdr, blue_output)
+            else:
+                sky_ap = None
+            ap_index = index + 1
+
+            if blue_cube_path is not None:
+                # Extraction
+                blue_flux, blue_var = spect_extract(
+                    blue_sci, b_var, source_ap, sky_ap=sky_ap
+                )
+
+                # Write out the results
+                base_blue = os.path.basename(blue_cube_path)
+                base_blue_ouput = base_blue.replace(
+                    "cube.fits", "spec.ap%s.fits" % ap_index
+                )
+                print("Saving blue extracted spectra")
+                blue_output = os.path.join(output_dir, base_blue_ouput)
+                write_1D_spec(blue_flux, blue_var, b_sci_hdr, b_var_hdr, blue_output)
 
 
-        if red_cube_path is not None:
-            # Extraction
-            red_flux, red_var = spect_extract(red_sci, r_var, source_ap, sky_ap=sky_ap)
-            # Write out the results
-            base_red = os.path.basename(red_cube_path)
-            base_red_ouput = base_red.replace("cube.fits", "spec.ap%s.fits" % ap_index)
-            print("Saving red extracted spectra")
-            red_output = os.path.join(output_dir, base_red_ouput)
-            write_1D_spec(red_flux, red_var, r_sci_hdr, r_var_hdr, red_output)
+            if red_cube_path is not None:
+                # Extraction
+                red_flux, red_var = spect_extract(red_sci, r_var, source_ap, sky_ap=sky_ap)
+                # Write out the results
+                base_red = os.path.basename(red_cube_path)
+                base_red_ouput = base_red.replace("cube.fits", "spec.ap%s.fits" % ap_index)
+                print("Saving red extracted spectra")
+                red_output = os.path.join(output_dir, base_red_ouput)
+                write_1D_spec(red_flux, red_var, r_sci_hdr, r_var_hdr, red_output)
 
-    if check_plot:
-        plt.close("all")
-        # Plot Red
-        ax1 = plt.subplot(1, 2, 2, projection=red_wcs)
-        plt.title("Red arm")
-        if red_cube_path is not None:
-            plot_apertures(
-                red_sci, source_aps, sky_aps=sky_aps, border_width=border_width
-            )
-            #  Axis labels
-            plt.xlabel("Right Ascension")
-            plt.ylabel("Declination ")
+        if check_plot:
+            plt.close("all")
+            # Plot Red
+            ax1 = plt.subplot(1, 2, 2, projection=red_wcs)
+            plt.title("Red arm")
+            if red_cube_path is not None:
+                plot_apertures(
+                    red_sci, source_aps, sky_aps=sky_aps, border_width=border_width
+                )
+                #  Axis labels
+                plt.xlabel("Right Ascension")
+                plt.ylabel("Declination ")
 
-        else:
-            plt.xlim(0, 1)
-            plt.ylim(0, 1)
-            # Add text to the center of the figure
-            text = "No red arm data"
-            plt.text(
-                0.5, 0.5, text, ha="center", va="center", fontsize=12, color="black"
-            )
+            else:
+                plt.xlim(0, 1)
+                plt.ylim(0, 1)
+                # Add text to the center of the figure
+                text = "No red arm data"
+                plt.text(
+                    0.5, 0.5, text, ha="center", va="center", fontsize=12, color="black"
+                )
 
-            # Hide ticks and labels on both axes
-            ax1.set_xticks([])
-            ax1.set_yticks([])
-            ax1.axis("off")
+                # Hide ticks and labels on both axes
+                ax1.set_xticks([])
+                ax1.set_yticks([])
+                ax1.axis("off")
 
-        # Plot Blue
-        ax0 = plt.subplot(1, 2, 1, projection=blue_wcs)
-        plt.title("Blue arm")
-        if blue_cube_path is not None:
-            plot_apertures(
-                blue_sci, source_aps, sky_aps=sky_aps, border_width=border_width
-            )
-            plt.xlabel("Right Ascension")
-            plt.ylabel("Declination ")
+            # Plot Blue
+            ax0 = plt.subplot(1, 2, 1, projection=blue_wcs)
+            plt.title("Blue arm")
+            if blue_cube_path is not None:
+                plot_apertures(
+                    blue_sci, source_aps, sky_aps=sky_aps, border_width=border_width
+                )
+                plt.xlabel("Right Ascension")
+                plt.ylabel("Declination ")
 
-        else:
-            plt.xlim(0, 1)
-            plt.ylim(0, 1)
-            # Add text to the center of the figure
-            text = "No blue arm data"
-            plt.text(
-                0.5, 0.5, text, ha="center", va="center", fontsize=12, color="black"
-            )
+            else:
+                plt.xlim(0, 1)
+                plt.ylim(0, 1)
+                # Add text to the center of the figure
+                text = "No blue arm data"
+                plt.text(
+                    0.5, 0.5, text, ha="center", va="center", fontsize=12, color="black"
+                )
 
-            # Hide ticks and labels on both axes
-            ax0.set_xticks([])
-            ax0.set_yticks([])
-            ax0.axis("off")
+                # Hide ticks and labels on both axes
+                ax0.set_xticks([])
+                ax0.set_yticks([])
+                ax0.axis("off")
 
-        plt.tight_layout()
-        fig_output = os.path.join(output_dir + "/detected_apertures_plot.pdf")
+            plt.tight_layout()
+            fig_output = os.path.join(output_dir + "/detected_apertures_plot.pdf")
 
-        plt.savefig(fig_output, bbox_inches="tight", dpi=300)
+            plt.savefig(fig_output, bbox_inches="tight", dpi=300)
 
 
