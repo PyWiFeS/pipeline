@@ -464,7 +464,12 @@ def main():
     # Cosmic Rays
     # ------------------------------------------------------
     def run_cosmic_rays(
-        metadata, prev_suffix, curr_suffix, ns=False, multithread=False
+        metadata,
+        prev_suffix,
+        curr_suffix,
+        ns=False,
+        multithread=False,
+        max_processes=-1,
     ):
         # now run ONLY ON SCIENCE TARGETS AND STANDARDS
         sci_obs_list = get_sci_obs_list(metadata)
@@ -487,7 +492,8 @@ def main():
                 sig_clip=10.0,
                 obj_lim=10.0,
                 sig_frac=0.2,
-                multithread=multithread,
+                is_multithread=multithread,
+                max_processes=max_processes,
             )
             if ns:
                 in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
@@ -501,7 +507,8 @@ def main():
                     sig_clip=10.0,
                     obj_lim=10.0,
                     sig_frac=0.2,
-                    multithread=multithread,
+                    is_multithread=multithread,
+                    max_processes=max_processes,
                 )
             gc.collect()
         for fn in std_obs_list:
@@ -519,7 +526,8 @@ def main():
                 sig_clip=10.0,
                 obj_lim=10.0,
                 sig_frac=0.2,
-                multithread=multithread,
+                is_multithread=multithread,
+                max_processes=max_processes,
             )
             if ns:
                 in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
@@ -534,7 +542,8 @@ def main():
                     sig_clip=10.0,
                     obj_lim=10.0,
                     sig_frac=0.2,
-                    multithread=multithread,
+                    is_multithread=multithread,
+                    max_processes=max_processes,
                 )
             gc.collect()
         return
@@ -986,12 +995,13 @@ def main():
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
     # ----------------------------------------------------------
-            
+
     destination_dir = os.path.join(working_dir, "data_products")
 
     # Red
     red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
-    # Blue
+
+   # Blue
     blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
 
     # Move reduced cubes to the data_products directory
@@ -1022,7 +1032,8 @@ def main():
 
     with open(file_path, "r") as f:
         extract_params = json.load(f)
-
+    
+    # Extract parameters
     sky_sub = extract_params["sky_sub"]
     check_plot = extract_params["check_plot"]
     border_width = extract_params["border_width"]
@@ -1038,12 +1049,6 @@ def main():
         # ----------
         blue_cube_path = match_cubes["Blue"]
         red_cube_path = match_cubes["Red"]
-
-        # Extract parameters
-        sky_sub = extract_params.get("sky_sub")
-        check_plot = extract_params.get("check_plot")
-        border_width = extract_params.get("border_width")
-        r_arcsec = extract_params.get("r_arcsec")
 
         # Run auto-extraction
         auto_extract(

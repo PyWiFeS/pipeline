@@ -18,13 +18,12 @@ The Python data reduction pipeline for WiFeS
 
 
 #### Known Problems
-- **Multiprocessing** not always works properly.
-    - **Update Dec 2023**: Multiprocessing can be enabled by **Linux users ONLY** so the pipeline *may* do the job faster. To enable the multithreading option, please follow these steps:
-        1. In your working directory, open the `.json` file that corresponds to the observing mode of your data. That is, `params_class.json` for classic mode, or `params_ns.json` for nod-and-shuffle. The `.json` files should have been previously copied to your working directory in step 2 in "Running the Pipeline".
+- **Multiprocessing**
+    - **Update Mar 2024**: Multiprocessing can be enabled by so the pipeline *may* do the job faster. To enable the multithreading option, please follow these steps:
+        1. Open the `.json` file that corresponds to the observing mode of your data. That is, `reduction_scripts/params_class.json` for classic mode, or `reduction_scripts/params_ns.json` for nod-and-shuffle.
         2. Set `"multithread": true` in all the cases. There should be a total of 6 `"multithread"`, 3 for each of the blue and red arms in the following steps: `"step": "wave_soln"`, `"step": "cosmic_rays"`, and `"step": "cube_gen"`.
-        3. Run the pipeline following the instructions below.
-    
-    Please note that this option is **NOT available for MacOS or Windows** users. We are currently working on it. 
+        3. [Optional] Set `max_processes` to the *maximum* number of sub-processes you would like to launch for `"step": "cosmic_rays"`, and `"step": "cube_gen"`. If `-1`, the pipeline will use as many processes as there are hardware & logical cores on your device, which maybe be larger than the number of *available* cores, e.g. for Slurm users. Limiting the number of sub-processes can improve efficiency and availability of your device.
+        4. Run the pipeline following the instructions below.
 
 - **Skip steps**: not all the steps in the data reduction process can be skipped (i.e., `"run": false` in the `.json` files). For example, the wavelength solution is always required for a succesfull data reduction. Other steps such as the flux calibration, the extraction of the standar star, or the telliric correction can be skipped in case of missing calibration files. 
 
@@ -62,10 +61,26 @@ The Python data reduction pipeline for WiFeS
 
 
 **DATA REDUCED:**
-The pipeline will automatically generate two directories for the reduced data: `/Users/.../my_directory/reduc_red` and `/Users/.../my_directory/reduc_blue` containing: 
-- Master calibration files
-- The intermediate files generated during the data reduction named as `file_name.p00.fits, file_name.p01.fits, ..., file_name.p10.fits`  
-- Final data cubes named as `file_name.p11.fits`  
+The pipeline will automatically generate the following directory structure containing the reduced data within our working directory `/Users/.../my_directory`: 
+
+- data_products
+    - `red_file_name.cube.fits`
+    - `blue_file_name.cube.fits`
+    - intermediate
+        - blue
+            - `blue_master_calibration_files.fits`
+            - `blue_file_name.p00.fits`
+            - `blue_file_name.p01.fits`
+            - ...
+            - `blue_file_name.p10.fits`
+        - red
+            - `master_calibration_files.fits`
+            - `red_file_name.p00.fits`
+            - `red_file_name.p01.fits`
+            - ...
+            - `red_file_name.p10.fits`
+
+The main diretory contains a subfolder for intermediate files generated during the data reduction process that are saved separately for each red and blue arm. Those intermediate files are master calibration files (e.g., master bias, master flats) and other calibration files generated during the data reduction named as `file_name.p00.fits, file_name.p01.fits, ..., file_name.p10.fits`. Initially, the final data cubes (`file_name.cube.fits`) are saved in these intermediate directories. Once the data reduction finishses its job succesfully, the data cubes are moved to `\data_products`.
 
 
 ### TO DO
