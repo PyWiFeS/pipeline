@@ -108,25 +108,26 @@ def joinSpectra(blueSpec, redSpec):
     redOnly = np.where(wl >= blueSpec.maxWL - buffer)
 
     if redSpec.minWL > blueSpec.maxWL:
-        print("WARNING: No spectral overlap")
+        return None, None
 
-    # Average the two taking into account the buffer region and weighting
+    else:
+        # Average the two taking into account the buffer region and weighting
 
-    flux = np.zeros(len(flux_B), float)
-    fluxVar = np.zeros(len(flux_B), float)
+        flux = np.zeros(len(flux_B), float)
+        fluxVar = np.zeros(len(flux_B), float)
 
-    flux[blueOnly] = flux_B[blueOnly]
-    fluxVar[blueOnly] = fluxvar_B[blueOnly]
+        flux[blueOnly] = flux_B[blueOnly]
+        fluxVar[blueOnly] = fluxvar_B[blueOnly]
 
-    fluxVar[overlap] = 1.0 / (1.0 / fluxvar_B[overlap] + 1.0 / fluxvar_R[overlap])
-    flux[overlap] = (
-        flux_B[overlap] / fluxvar_B[overlap] + flux_R[overlap] / fluxvar_R[overlap]
-    ) * fluxVar[overlap]
+        fluxVar[overlap] = 1.0 / (1.0 / fluxvar_B[overlap] + 1.0 / fluxvar_R[overlap])
+        flux[overlap] = (
+            flux_B[overlap] / fluxvar_B[overlap] + flux_R[overlap] / fluxvar_R[overlap]
+        ) * fluxVar[overlap]
 
-    flux[redOnly] = flux_R[redOnly]
-    fluxVar[redOnly] = fluxvar_R[redOnly]
+        flux[redOnly] = flux_R[redOnly]
+        fluxVar[redOnly] = fluxvar_R[redOnly]
 
-    return flux, fluxVar
+        return flux, fluxVar
 
 
 def splice_spectra(blue_spec_path, red_spec_path, output):
@@ -140,34 +141,38 @@ def splice_spectra(blue_spec_path, red_spec_path, output):
     # Join the spectra
     flux, fluxVar = joinSpectra(blueSpec, redSpec)
 
-    # Write out the results
-    # Use the header in red arm to start with
-    # Add additional blue CCD keywords as required - pending
-    hdulist = fits.HDUList(fits.PrimaryHDU())
-    hdulist[0].data = flux
-    hdulist[0].header = redSpec.header
-    hdulist[0].header["CRPIX1"] = blueSpec.header["CRPIX1"]
-    hdulist[0].header["CRVAL1"] = blueSpec.header["CRVAL1"]
-    hdulist[0].header["CDELT1"] = blueSpec.header["CDELT1"]
-    hdulist[0].header["CTYPE1"] = "WAVE"
-    hdulist[0].header["CUNIT1"] = "Angstrom"
+    if flux == None:
+        print("No spectral overlap")
 
-    hdr_fluxvar = fits.Header()
-    hdr_fluxvar["EXTNAME"] = "VARIANCE"
-    hdr_fluxvar["CRPIX1"] = blueSpec.header["CRPIX1"]
-    hdr_fluxvar["CRVAL1"] = blueSpec.header["CRVAL1"]
-    hdr_fluxvar["CDELT1"] = blueSpec.header["CDELT1"]
-    hdr_fluxvar["CTYPE1"] = "WAVE"
-    hdr_fluxvar["CUNIT1"] = "Angstrom"
-    hdr_fluxvar["BUNIT"] = "(count / Angstrom)^2"
+    else:
+        # Write out the results
+        # Use the header in red arm to start with
+        # Add additional blue CCD keywords as required - pending
+        hdulist = fits.HDUList(fits.PrimaryHDU())
+        hdulist[0].data = flux
+        hdulist[0].header = redSpec.header
+        hdulist[0].header["CRPIX1"] = blueSpec.header["CRPIX1"]
+        hdulist[0].header["CRVAL1"] = blueSpec.header["CRVAL1"]
+        hdulist[0].header["CDELT1"] = blueSpec.header["CDELT1"]
+        hdulist[0].header["CTYPE1"] = "WAVE"
+        hdulist[0].header["CUNIT1"] = "Angstrom"
 
-    hdu_fluxvar = fits.ImageHDU(data=fluxVar, header=hdr_fluxvar)
-    hdulist.append(hdu_fluxvar)
+        hdr_fluxvar = fits.Header()
+        hdr_fluxvar["EXTNAME"] = "VARIANCE"
+        hdr_fluxvar["CRPIX1"] = blueSpec.header["CRPIX1"]
+        hdr_fluxvar["CRVAL1"] = blueSpec.header["CRVAL1"]
+        hdr_fluxvar["CDELT1"] = blueSpec.header["CDELT1"]
+        hdr_fluxvar["CTYPE1"] = "WAVE"
+        hdr_fluxvar["CUNIT1"] = "Angstrom"
+        hdr_fluxvar["BUNIT"] = "(count / Angstrom)^2"
 
-    hdulist.writeto(output, overwrite=True)
-    hdulist.close()
+        hdu_fluxvar = fits.ImageHDU(data=fluxVar, header=hdr_fluxvar)
+        hdulist.append(hdu_fluxvar)
 
-    return
+        print("Saving spliced spectra")
+        hdulist.writeto(output, overwrite=True)
+        hdulist.close()
+
 
 
 
@@ -208,9 +213,6 @@ def join_cubes(blue_path, red_path):
     AR = _A_lanczos(red_wl, wl, 3).tocsr()
     
 
-    flux_spliced_list = []
-    fluxvar_spliced_list = []
-
     wave_dim, y_dim, x_dim  = np.shape(red_flux_cube)
     wave_dim = len(wl)
 
@@ -248,37 +250,27 @@ def join_cubes(blue_path, red_path):
             redOnly = np.where(wl >= blue_maxWL - buffer)
 
             if red_minWL > blue_maxWL:
-                print("WARNING: No spectral overlap")
+                
+                return None, None
 
+            else:
+                # Average the two taking into account the buffer region and weighting
+                flux = np.zeros(len(flux_B), float)
+                fluxVar = np.zeros(len(flux_B), float)
 
-            # Average the two taking into account the buffer region and weighting
+                flux[blueOnly] = flux_B[blueOnly]
+                fluxVar[blueOnly] = fluxvar_B[blueOnly]
 
-            flux = np.zeros(len(flux_B), float)
-            fluxVar = np.zeros(len(flux_B), float)
+                fluxVar[overlap] = 1.0 / (1.0 / fluxvar_B[overlap] + 1.0 / fluxvar_R[overlap])
+                flux[overlap] = (
+                    flux_B[overlap] / fluxvar_B[overlap] + flux_R[overlap] / fluxvar_R[overlap]
+                ) * fluxVar[overlap]
 
-            flux[blueOnly] = flux_B[blueOnly]
-            fluxVar[blueOnly] = fluxvar_B[blueOnly]
+                flux[redOnly] = flux_R[redOnly]
+                fluxVar[redOnly] = fluxvar_R[redOnly]
+                flux_cube[:,i,j] = flux
+                fluxvar_cube[:,i,j] = fluxVar
 
-            fluxVar[overlap] = 1.0 / (1.0 / fluxvar_B[overlap] + 1.0 / fluxvar_R[overlap])
-            flux[overlap] = (
-                flux_B[overlap] / fluxvar_B[overlap] + flux_R[overlap] / fluxvar_R[overlap]
-            ) * fluxVar[overlap]
-
-            flux[redOnly] = flux_R[redOnly]
-            fluxVar[redOnly] = fluxvar_R[redOnly]
-            flux_cube[:,i,j] = flux
-            fluxvar_cube[:,i,j] = fluxVar
-
-
-    #         flux_spliced_list.append(flux)
-    #         fluxvar_spliced_list.append(fluxVar)            
-
-    # # Stack the flux vectors to form a cube
-    # flux_cube = np.stack(flux_spliced_list)
-    # fluxvar_cube = np.stack(fluxvar_spliced_list)
-
-
-    
 
     # Reshape the cube to the corresponding shape
     wave_dim = len(flux)
@@ -301,31 +293,36 @@ def splice_cubes(blue_path, red_path, output):
     # Join the spectra
     flux, fluxVar = join_cubes(blue_path, red_path)
 
-    # Write out the results
-    # Use the header in red arm to start with
-    # Add additional blue CCD keywords as required - pending
-    hdulist = fits.HDUList(fits.PrimaryHDU())
-    hdulist[0].data = flux
-    hdulist[0].header = red_header
-    hdulist[0].header["CRPIX3"] = blue_header["CRPIX3"]
-    hdulist[0].header["CRVAL3"] = blue_header["CRVAL3"]
-    hdulist[0].header["CDELT3"] = blue_header["CDELT3"]
-    hdulist[0].header["CTYPE3"] = "wavelength"
-    hdulist[0].header["CUNIT3"] = "angstrom"
+    if flux is None:
+        print("No spectral overlap")
 
-    hdr_fluxvar = fits.Header()
-    hdr_fluxvar["EXTNAME"] = "VARIANCE"
-    hdr_fluxvar["CRPIX3"] = blue_header["CRPIX3"]
-    hdr_fluxvar["CRVAL3"] = blue_header["CRVAL3"]
-    hdr_fluxvar["CDELT3"] = blue_header["CDELT3"]
-    hdr_fluxvar["CTYPE3"] = "wavelength"
-    hdr_fluxvar["CUNIT3"] = "angstrom"
-    hdr_fluxvar["BUNIT"] = "(count / Angstrom)^2"
+    else:
 
-    hdu_fluxvar = fits.ImageHDU(data=fluxVar, header=hdr_fluxvar)
-    hdulist.append(hdu_fluxvar)
+        # Write out the results
+        # Use the header in red arm to start with
+        # Add additional blue CCD keywords as required - pending
+        hdulist = fits.HDUList(fits.PrimaryHDU())
+        hdulist[0].data = flux
+        hdulist[0].header = red_header
+        hdulist[0].header["CRPIX3"] = blue_header["CRPIX3"]
+        hdulist[0].header["CRVAL3"] = blue_header["CRVAL3"]
+        hdulist[0].header["CDELT3"] = blue_header["CDELT3"]
+        hdulist[0].header["CTYPE3"] = "wavelength"
+        hdulist[0].header["CUNIT3"] = "angstrom"
 
-    hdulist.writeto(output, overwrite=True)
-    hdulist.close()
+        hdr_fluxvar = fits.Header()
+        hdr_fluxvar["EXTNAME"] = "VARIANCE"
+        hdr_fluxvar["CRPIX3"] = blue_header["CRPIX3"]
+        hdr_fluxvar["CRVAL3"] = blue_header["CRVAL3"]
+        hdr_fluxvar["CDELT3"] = blue_header["CDELT3"]
+        hdr_fluxvar["CTYPE3"] = "wavelength"
+        hdr_fluxvar["CUNIT3"] = "angstrom"
+        hdr_fluxvar["BUNIT"] = "(count / Angstrom)^2"
 
-    return
+        hdu_fluxvar = fits.ImageHDU(data=fluxVar, header=hdr_fluxvar)
+        hdulist.append(hdu_fluxvar)
+        
+        print("Saving spliced cube")
+        hdulist.writeto(output, overwrite=True)
+        hdulist.close()
+
