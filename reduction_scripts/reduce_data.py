@@ -453,7 +453,12 @@ def main():
     # ------------------------------------------------------
     # Cosmic Rays
     def run_cosmic_rays(
-        metadata, prev_suffix, curr_suffix, ns=False, multithread=False
+        metadata,
+        prev_suffix,
+        curr_suffix,
+        ns=False,
+        multithread=False,
+        max_processes=-1,
     ):
         # now run ONLY ON SCIENCE TARGETS AND STANDARDS
         sci_obs_list = get_sci_obs_list(metadata)
@@ -476,7 +481,8 @@ def main():
                 sig_clip=10.0,
                 obj_lim=10.0,
                 sig_frac=0.2,
-                multithread=multithread,
+                is_multithread=multithread,
+                max_processes=max_processes,
             )
             if ns:
                 in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
@@ -490,7 +496,8 @@ def main():
                     sig_clip=10.0,
                     obj_lim=10.0,
                     sig_frac=0.2,
-                    multithread=multithread,
+                    is_multithread=multithread,
+                    max_processes=max_processes,
                 )
             gc.collect()
         for fn in std_obs_list:
@@ -508,7 +515,8 @@ def main():
                 sig_clip=10.0,
                 obj_lim=10.0,
                 sig_frac=0.2,
-                multithread=multithread,
+                is_multithread=multithread,
+                max_processes=max_processes,
             )
             if ns:
                 in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
@@ -523,7 +531,8 @@ def main():
                     sig_clip=10.0,
                     obj_lim=10.0,
                     sig_frac=0.2,
-                    multithread=multithread,
+                    is_multithread=multithread,
+                    max_processes=max_processes,
                 )
             gc.collect()
         return
@@ -882,7 +891,6 @@ def main():
     # Classify all raw data (red and blue arm)
     obs_metadatas = classify(data_dir, naxis2_to_process)
 
-
     # Set paths
     reduction_scripts_dir = os.path.dirname(__file__)
     working_dir = os.getcwd()
@@ -965,10 +973,6 @@ def main():
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
 
-
-             
-
-
     destination_dir = os.path.join(working_dir, "data_products")
 
     # Red
@@ -977,7 +981,7 @@ def main():
     for red_cube in red_cubes:
         shutil.move(red_cube, destination_dir)
 
-   # Blue
+    # Blue
     blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
     blue_cubes = glob.glob(blue_cubes_path + "*.cube.fits")
     for blue_cube in blue_cubes:
