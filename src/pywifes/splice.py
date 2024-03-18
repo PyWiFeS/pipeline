@@ -68,7 +68,7 @@ class SingleSpec(object):
         return
 
 
-def joinSpectra(blueSpec, redSpec):
+def join_spectra(blueSpec, redSpec):
     # Generate the resampling matrices
     blueCRVAL1 = blueSpec.header["CRVAL1"]
     blueCDELT1 = blueSpec.header["CDELT1"]
@@ -139,9 +139,10 @@ def splice_spectra(blue_spec_path, red_spec_path, output):
     redSpec = SingleSpec(red_spec_path)
 
     # Join the spectra
-    flux, fluxVar = joinSpectra(blueSpec, redSpec)
+    print("Splicing spectra")
+    flux, fluxVar = join_spectra(blueSpec, redSpec)
 
-    if flux == None:
+    if len(flux) == 1 :
         print("No spectral overlap")
 
     else:
@@ -290,10 +291,11 @@ def splice_cubes(blue_path, red_path, output):
     blue_header = fits.getheader(blue_path, 0)
 
 
-    # Join the spectra
+    # Join the cubes
+    print("Splicing cubes")
     flux, fluxVar = join_cubes(blue_path, red_path)
 
-    if flux is None:
+    if len(flux) == 1 :
         print("No spectral overlap")
 
     else:

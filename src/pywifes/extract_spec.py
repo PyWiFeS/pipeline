@@ -11,6 +11,13 @@ from matplotlib.patheffects import withStroke
 from astropy.wcs import WCS
 import os
 
+# Suppress the NoDetectionsWarning as we have set a warning for no detection
+import warnings
+from photutils.utils.exceptions import NoDetectionsWarning
+warnings.filterwarnings("ignore", category=NoDetectionsWarning)
+
+
+
 
 def collapse_cube(*data_cubes):
     """
@@ -358,7 +365,9 @@ def auto_extract(
 
     # Automatic source detection in the collapsed cubes (red + blue)
     npeaks = 3  # Number of peaks to be detected
-    mean, median, std = sigma_clipped_stats(collapsed_cube, sigma=5.0)
+    # We use avoid the edges of size border_width also for the statistics
+    collapsed_cube_no_edge = collapsed_cube[border_width:-border_width, border_width:-border_width] 
+    mean, median, std = sigma_clipped_stats(collapsed_cube_no_edge, sigma=5.0)
     threshold = median + (3 * std)
 
     detection = find_peaks(

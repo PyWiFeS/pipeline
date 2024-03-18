@@ -904,81 +904,84 @@ def main():
     working_dir = os.getcwd()
 
     for arm in obs_metadatas.keys():
-        # ------------------------------------------------------------------------
-        #      LOAD JSON FILE WITH USER REDUCTION SETUP
-        # ------------------------------------------------------------------------
-        obs_metadata = obs_metadatas[arm]
+        try:
+            # ------------------------------------------------------------------------
+            #      LOAD JSON FILE WITH USER REDUCTION SETUP
+            # ------------------------------------------------------------------------
+            obs_metadata = obs_metadatas[arm]
 
-        # Check observing mode
-        sci_filename = obs_metadatas[arm]["sci"][0]["sci"][0] + ".fits"
-        if pywifes.is_nodshuffle(data_dir + sci_filename):
-            obs_mode = "ns"
-        elif pywifes.is_subnodshuffle(data_dir + sci_filename):
-            obs_mode = "ns"
-        else:
-            obs_mode = "class"
-
-        # Read the JSON file
-        file_path = os.path.join(reduction_scripts_dir, f"params_{obs_mode}.json")
-
-        with open(file_path, "r") as f:
-            proc_steps = json.load(f)
-
-        # Create data products directory structure
-        out_dir = os.path.join(working_dir, f"data_products/intermediate/{arm}")
-
-        os.makedirs(out_dir, exist_ok=True)
-
-        calib_prefix = os.path.join(out_dir, f"wifes_{arm}")
-
-        # Some WiFeS specific things
-        my_data_hdu = 0
-
-        # SET SKIP ALREADY DONE FILES ?
-        skip_done = False
-        # skip_done=True
-
-        # ------------------------------------------------------------------------
-        # NAMES FOR MASTER CALIBRATION FILES!!!
-        # ------------------------------------------------------------------------
-        
-        superbias_fn = "%s_superbias.fits" % calib_prefix
-        superbias_fit_fn = "%s_superbias_fit.fits" % calib_prefix
-        super_dflat_raw = "%s_super_domeflat_raw.fits" % calib_prefix
-        super_dflat_fn = "%s_super_domeflat.fits" % calib_prefix
-        super_dflat_mef = "%s_super_domeflat_mef.fits" % calib_prefix
-        super_tflat_raw = "%s_super_twiflat_raw.fits" % calib_prefix
-        super_tflat_fn = "%s_super_twiflat.fits" % calib_prefix
-        super_tflat_mef = "%s_super_twiflat_mef.fits" % calib_prefix
-        slitlet_def_fn = "%s_slitlet_defs.pkl" % calib_prefix
-        wsol_out_fn = "%s_wave_soln.fits" % calib_prefix
-        wire_out_fn = "%s_wire_soln.fits" % calib_prefix
-        flat_resp_fn = "%s_resp_mef.fits" % calib_prefix
-        calib_fn = "%s_calib.pkl" % calib_prefix
-        tellcorr_fn = "%s_tellcorr.pkl" % calib_prefix
-
-        # ------------------------------------------------------------------------
-        # RUN THE PROCESSING STEPS
-        # ------------------------------------------------------------------------
-        prev_suffix = None
-        for step in proc_steps[arm]:
-            step_name = step["step"]
-            step_run = step["run"]
-            step_suffix = step["suffix"]
-            step_args = step["args"]
-            func_name = "run_" + step_name
-            func = locals()[func_name]
-            if step_run:
-                func(
-                    obs_metadata,
-                    prev_suffix=prev_suffix,
-                    curr_suffix=step_suffix,
-                    **step_args,
-                )
-                if step_suffix != None:
-                    prev_suffix = step_suffix
+            # Check observing mode
+            sci_filename = obs_metadatas[arm]["sci"][0]["sci"][0] + ".fits"
+            if pywifes.is_nodshuffle(data_dir + sci_filename):
+                obs_mode = "ns"
+            elif pywifes.is_subnodshuffle(data_dir + sci_filename):
+                obs_mode = "ns"
             else:
-                pass
+                obs_mode = "class"
+
+            # Read the JSON file
+            file_path = os.path.join(reduction_scripts_dir, f"params_{obs_mode}.json")
+
+            with open(file_path, "r") as f:
+                proc_steps = json.load(f)
+
+            # Create data products directory structure
+            out_dir = os.path.join(working_dir, f"data_products/intermediate/{arm}")
+
+            os.makedirs(out_dir, exist_ok=True)
+
+            calib_prefix = os.path.join(out_dir, f"wifes_{arm}")
+
+            # Some WiFeS specific things
+            my_data_hdu = 0
+
+            # SET SKIP ALREADY DONE FILES ?
+            skip_done = False
+            # skip_done=True
+
+            # ------------------------------------------------------------------------
+            # NAMES FOR MASTER CALIBRATION FILES!!!
+            # ------------------------------------------------------------------------
+            
+            superbias_fn = "%s_superbias.fits" % calib_prefix
+            superbias_fit_fn = "%s_superbias_fit.fits" % calib_prefix
+            super_dflat_raw = "%s_super_domeflat_raw.fits" % calib_prefix
+            super_dflat_fn = "%s_super_domeflat.fits" % calib_prefix
+            super_dflat_mef = "%s_super_domeflat_mef.fits" % calib_prefix
+            super_tflat_raw = "%s_super_twiflat_raw.fits" % calib_prefix
+            super_tflat_fn = "%s_super_twiflat.fits" % calib_prefix
+            super_tflat_mef = "%s_super_twiflat_mef.fits" % calib_prefix
+            slitlet_def_fn = "%s_slitlet_defs.pkl" % calib_prefix
+            wsol_out_fn = "%s_wave_soln.fits" % calib_prefix
+            wire_out_fn = "%s_wire_soln.fits" % calib_prefix
+            flat_resp_fn = "%s_resp_mef.fits" % calib_prefix
+            calib_fn = "%s_calib.pkl" % calib_prefix
+            tellcorr_fn = "%s_tellcorr.pkl" % calib_prefix
+
+            # ------------------------------------------------------------------------
+            # RUN THE PROCESSING STEPS
+            # ------------------------------------------------------------------------
+            prev_suffix = None
+            for step in proc_steps[arm]:
+                step_name = step["step"]
+                step_run = step["run"]
+                step_suffix = step["suffix"]
+                step_args = step["args"]
+                func_name = "run_" + step_name
+                func = locals()[func_name]
+                if step_run:
+                    func(
+                        obs_metadata,
+                        prev_suffix=prev_suffix,
+                        curr_suffix=step_suffix,
+                        **step_args,
+                    )
+                    if step_suffix != None:
+                        prev_suffix = step_suffix
+                else:
+                    pass
+        except:
+            print("%s skipped" % arm)
 
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
@@ -995,7 +998,8 @@ def main():
     for cubes_path in [red_cubes_path, blue_cubes_path]:
         cubes = glob.glob(os.path.join(cubes_path, "*.cube.fits"))
         for cube in cubes:
-            shutil.move(cube, destination_dir)
+            file = os.path.basename(cube)
+            shutil.move(cube, os.path.join(destination_dir,file))
 
     # ----------------------------------------------------------
     # Find and list all reduced cubes in the destination directory
@@ -1036,10 +1040,10 @@ def main():
         red_cube_path = match_cubes["Red"]
 
         # Extract parameters
-        sky_sub = extract_params.get("sky_sub", False)
-        check_plot = extract_params.get("check_plot", False)
-        border_width = extract_params.get("border_width", 10)
-        r_arcsec = extract_params.get("r_arcsec", 1.0)
+        sky_sub = extract_params.get("sky_sub")
+        check_plot = extract_params.get("check_plot")
+        border_width = extract_params.get("border_width")
+        r_arcsec = extract_params.get("r_arcsec")
 
         # Run auto-extraction
         auto_extract(
