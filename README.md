@@ -53,7 +53,7 @@ The Python data reduction pipeline for WiFeS
     ```    
 
 ## Running the Pipeline
-1. Put all raw data and calibration files in the same directory: `/Users/.../my_directory/my_raw_data`
+1. Put all raw data and calibration files in a dedicated directory, e.g. `/Users/.../working_directory/my_raw_data`
 2. Run the main reduction routine, giving the raw data directory path as an input parameter. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
     ```sh
    pywifes-reduce my_raw_data
@@ -61,31 +61,37 @@ The Python data reduction pipeline for WiFeS
 
 
 **DATA REDUCED:**
-The pipeline will automatically generate the following directory structure containing the reduced data within our working directory `/Users/.../my_directory`: 
+The pipeline will generate the `data_products` directory within the working directory 
+`/Users/.../working_directory` containing the reduced data and following the structure above: 
 
 - data_products
-    - `red_file_name.cube.fits`
-    - `blue_file_name.cube.fits`
+    - `xxx-Blue-UTxxx.cube.fits`
+    - `xxx-Red--UTxxx.cube.fits`
+    - `xxx-Splice-UTxxx.cube.fits`
+    - `UTxxx_detected_apertures_plot.pdf` 
+    - ... 
+    - `xxx-Blue-UTxxx.spec.apx.fits`
+    - `xxx-Red--UTxxx.spec.apx.fits`
+    - `xxx-Splice-UTxxx.spec.apx.fits`
+    -
     - intermediate
         - blue
-            - `blue_master_calibration_files.fits`
-            - `blue_file_name.p00.fits`
-            - `blue_file_name.p01.fits`
+            - `wifes_blue_<master_calibration>_files.fits`
+            - `xxx-Blue-UTxxx.p00.fits`
+            - `xxx-Blue-UTxxx.p01.fits`
             - ...
             - `blue_file_name.p10.fits`
         - red
-            - `master_calibration_files.fits`
-            - `red_file_name.p00.fits`
-            - `red_file_name.p01.fits`
+            - `wifes_red_<master_calibration>_files.fits`
+            - `xxx-Red--UTxxx.p00.fits`
+            - `xxx-Red--UTxxx.p01.fits`
             - ...
-            - `red_file_name.p10.fits`
+            - `xxx-Red--UTxxx.p10.fits`
 
-The main diretory contains a subfolder for intermediate files generated during the data reduction process that are saved separately for each red and blue arm. Those intermediate files are master calibration files (e.g., master bias, master flats) and other calibration files generated during the data reduction named as `file_name.p00.fits, file_name.p01.fits, ..., file_name.p10.fits`. Initially, the final data cubes (`file_name.cube.fits`) are saved in these intermediate directories. Once the data reduction finishses its job succesfully, the data cubes are moved to `\data_products`.
+`data_products` also contains the `intermediate` directory with the files generated during the data reduction process that are saved separately for each red and blue arm. Those intermediate files are master calibration files (e.g., master bias, master flats, ...) and other calibration files generated during the data reduction named as `xxx-Blue/Red-UTxxx.p00.fits, xxx-Blue/Red-UTxxx.p01.fits, ..., xxx-Blue/Red-UTxxx.p10.fits`. 
 
 
 ### TO DO
-- Extract spectra from the data cubes
-- Splice blue and red spectra
 
 ## Reporting Issues or Suggestions
 If you encounter any issues or have suggestions for improving the pipeline, please [**open a new issue**](https://github.com/PyWiFeS/pipeline/issues) in the `issues` tab and fill out the provided template. Your feedback is very valuable!
