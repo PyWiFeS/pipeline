@@ -80,7 +80,7 @@ The pipeline will generate the `data_products` directory within the working dire
             - `xxx-Blue-UTxxx.p00.fits`
             - `xxx-Blue-UTxxx.p01.fits`
             - ...
-            - `blue_file_name.p10.fits`
+            - `xxx-Blue-UTxxx.p10.fits`
         - red
             - `wifes_red_<master_calibration>_files.fits`
             - `xxx-Red--UTxxx.p00.fits`
