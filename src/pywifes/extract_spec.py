@@ -331,6 +331,7 @@ def auto_extract(
     border_width=3,
     sky_sub=False,
     check_plot=False,
+    plot_output = 'detected_apertures_plot.pdf',
 ):
     # Load in the data
     
@@ -496,7 +497,7 @@ def auto_extract(
                 ax0.axis("off")
 
             plt.tight_layout()
-            fig_output = os.path.join(output_dir + "/detected_apertures_plot.pdf")
+            fig_output = os.path.join(output_dir, plot_output)
 
             plt.savefig(fig_output, bbox_inches="tight", dpi=300)
 

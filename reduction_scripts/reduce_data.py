@@ -114,7 +114,6 @@ def main():
         return std_obs_list
 
     # ------------------------------------------------------------------------
-    # ------------------------------------------------------------------------
     # DEFINE THE PROCESSING STEPS
     # ------------------------------------------------------------------------
     # Subtract overscan
@@ -945,7 +944,7 @@ def main():
             my_data_hdu = 0
 
             # SET SKIP ALREADY DONE FILES ?
-            skip_done = False
+            skip_done = True
             # skip_done=True
 
             # ------------------------------------------------------------------------
@@ -1049,6 +1048,7 @@ def main():
         # ----------
         blue_cube_path = match_cubes["Blue"]
         red_cube_path = match_cubes["Red"]
+        plot_output = match_cubes['file_name'] + '_detected_apertures_plot.pdf'
 
         # Run auto-extraction
         auto_extract(
@@ -1059,6 +1059,7 @@ def main():
             border_width=border_width,
             sky_sub=sky_sub,
             check_plot=check_plot,
+            plot_output=plot_output
         )
         
         # ------------------------------------

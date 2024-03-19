@@ -3,6 +3,7 @@ import os
 from astropy.io import fits
 from . import wifes_calib
 import pandas as pd
+import re
 
 def get_obs_metadata(filenames,data_dir):
     stdstar_list = wifes_calib.ref_fname_lookup.keys()
@@ -143,6 +144,28 @@ def classify(data_dir, naxis2_to_process = 0):
     return {"blue": blue_obs_metadata, "red": red_obs_metadata}
 
 
+
+
+
+
+
+def extract_ut_part(path):
+    if path == None:
+        return None
+    
+    # Define the pattern to match
+    pattern = r'UT.*?(?=\..*?\.fits)'
+
+    # Use re.search() to find the first occurrence of the pattern in the string
+    match = re.search(pattern, path)
+
+    # If a match is found, extract the matched substring
+    if match:
+        ut_part = match.group(0)
+        return ut_part
+    else:
+        return None
+
 def cube_matcher(paths_list):
     date_obs_list = []
     for path in paths_list:
@@ -155,13 +178,16 @@ def cube_matcher(paths_list):
     matched_dicts = []
     
     for paths in matched_paths:
-            matched_dict = {'Blue': None, 'Red': None}
+            matched_dict = {'Blue': None, 'Red': None, 'file_name': None}
             for path in paths:
                 arm = fits.getheader(path)['ARM']
                 matched_dict[arm] = path
+                matched_dict['file_name'] = extract_ut_part(path)
             matched_dicts.append(matched_dict)
      
     return matched_dicts
+
+
 
 
 
