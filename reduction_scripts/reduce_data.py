@@ -19,6 +19,20 @@ import shutil
 import glob
 
 
+# ------------------------------------------------------------------------
+# Function definicios
+# ------------------------------------------------------------------------
+
+def move_files(src_dir_path, destination_dir_path, glob):
+    filepaths = glob.glob(os.path.join(src_dir_path, "*.cube.fits"))
+    for filepath in filepaths:
+        filename = os.path.basename(filepath)
+        shutil.move(filepath, os.path.join(destination_dir_path, filename))
+
+# ------------------------------------------------------------------------
+
+
+
 def main():
     # ------------------------------------------------------------------------
     start_time = datetime.datetime.now()
@@ -944,8 +958,7 @@ def main():
             my_data_hdu = 0
 
             # SET SKIP ALREADY DONE FILES ?
-            skip_done = True
-            # skip_done=True
+            skip_done = False
 
             # ------------------------------------------------------------------------
             # NAMES FOR MASTER CALIBRATION FILES!!!
@@ -988,8 +1001,8 @@ def main():
                         prev_suffix = step_suffix
                 else:
                     pass
-        except:
-            print("%s skipped" % arm)
+        except Exception as exc:
+            print("{arm} skipped, as an error occurred during processing: '{exc}'")
 
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
@@ -1005,11 +1018,7 @@ def main():
 
     # Move reduced cubes to the data_products directory
     for cubes_path in [red_cubes_path, blue_cubes_path]:
-        cubes = glob.glob(os.path.join(cubes_path, "*.cube.fits"))
-        for cube in cubes:
-            file = os.path.basename(cube)
-            shutil.move(cube, os.path.join(destination_dir,file))
-
+        move_files(cubes_path, destination_dir, "*.cube.fits")
     # ----------------------------------------------------------
     # Find and list all reduced cubes in the destination directory
     # ----------------------------------------------------------
