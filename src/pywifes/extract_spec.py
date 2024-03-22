@@ -14,9 +14,41 @@ import os
 # Suppress the NoDetectionsWarning as we have set a warning for no detection
 import warnings
 from photutils.utils.exceptions import NoDetectionsWarning
+
 warnings.filterwarnings("ignore", category=NoDetectionsWarning)
 
 
+def extract_and_save(
+    cube_path, sci, var, source_ap, ap_index, sky_ap, output_dir, sci_hdr, var_hdr
+):
+    if cube_path is not None:
+        # Extraction
+        flux, var = spect_extract(sci, var, source_ap, sky_ap=sky_ap)
+
+        # Write out the results
+        base = os.path.basename(cube_path)
+        base_output = base.replace("cube.fits", f"spec.ap{ap_index}.fits")
+        print(f"Saving extracted spectra for {base}")
+        output_path = os.path.join(output_dir, base_output)
+        write_1D_spec(flux, var, sci_hdr, var_hdr, output_path)
+
+
+def plot_arm(ax, cube_path, sci, title, source_apertures, sky_aps, border_width):
+    ax.set_title(title)
+    if cube_path is not None:
+        plot_apertures(
+            sci, source_apertures, sky_aps=sky_aps, border_width=border_width
+        )
+        ax.set_xlabel("Right Ascension")
+        ax.set_ylabel("Declination ")
+    else:
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        text = f"No {title.lower()} arm data"
+        ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=12, color="black")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.axis("off")
 
 
 def collapse_cube(*data_cubes):
@@ -83,7 +115,7 @@ def sec_image(ap, image):
     return sec_data
 
 
-def spect_extract(sci_cube, var_cube, source_ap, sky_ap):
+def spect_extract(sci_cube, var_cube, source_ap, sky_ap=None):
     """
     Extract and calculate spectral flux and variance within the given aperture for each layer or wavelenght step.
 
@@ -117,8 +149,7 @@ def spect_extract(sci_cube, var_cube, source_ap, sky_ap):
     it calculates and subtracts the corresponding sky values.
 
     """
-
-    #  Extract the pixels inside the apertur for all the wavelengh
+    # Extract the pixels inside the aperture for all the wavelentghs
     fl = []
     var = []
 
@@ -132,7 +163,7 @@ def spect_extract(sci_cube, var_cube, source_ap, sky_ap):
             weights=np.reciprocal(var_section),
         )
 
-        err = np.reciprocal(np.sum(np.reciprocal(var_section)))
+        error = np.reciprocal(np.sum(np.reciprocal(var_section)))
 
         if sky_ap is not None:
             sky_section = sec_image(sky_ap, sci_cube[layer])
@@ -143,38 +174,16 @@ def spect_extract(sci_cube, var_cube, source_ap, sky_ap):
                 weights=np.reciprocal(sky_var_section),
             )
 
-            sky_err = np.reciprocal(np.sum(np.reciprocal(sky_var_section)))
+            sky_error = np.reciprocal(np.sum(np.reciprocal(sky_var_section)))
 
             fl.append((average - sky_average) * area)
-            var.append((err + sky_err) * area)
+            var.append((error + sky_error) * area)
 
         else:
             fl.append(average * area)
-            var.append(err * area)
+            var.append(error * area)
 
     return np.array(fl), np.array(var)
-
-
-def writeFITS(sci_cube, var_cube, sci_header, var_header, output):
-    hdulist = fits.HDUList(fits.PrimaryHDU())
-    hdulist[0].data = sci_cube
-    hdulist[0].header = sci_header
-    hdulist[0].header["CRPIX1"] = 1.0
-    hdulist[0].header["CRVAL1"] = hdulist[0].header["CRVAL3"]
-    hdulist[0].header["CDELT1"] = hdulist[0].header["CDELT3"]
-
-    hdr_fluxvar = fits.Header()
-    hdr_fluxvar = var_header
-    hdr_fluxvar["CRPIX1"] = 1.0
-    hdr_fluxvar["CRVAL1"] = hdr_fluxvar["CRVAL3"]
-    hdr_fluxvar["CDELT1"] = hdr_fluxvar["CDELT3"]
-
-    hdu_fluxvar = fits.ImageHDU(data=var_cube, header=var_header)
-    hdulist.append(hdu_fluxvar)
-
-    hdulist.writeto(output, overwrite=True)
-    hdulist.close()
-
 
 
 def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
@@ -199,7 +208,7 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
     -------
     None
         This function does not return any value. It writes the corresponding fits.
-    
+
     """
 
     # Create a blank HDUList for the 1D spectrum
@@ -251,8 +260,7 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
     hdulist.close()
 
 
-
-def plot_apertures(data_cube, source_aps, sky_aps=None, border_width=0):
+def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0):
     """
     Plot apertures on a collapsed data cube image.
 
@@ -261,7 +269,7 @@ def plot_apertures(data_cube, source_aps, sky_aps=None, border_width=0):
     data_cube : numpy.ndarray
         The 3D data cube containing the image data.
 
-    source_aps : list of photutils.aperture objects
+    source_apertures : list of photutils.aperture objects
         List of source apertures to plot on the image.
 
     sky_aps : list of photutils.aperture objects, optional
@@ -292,7 +300,7 @@ def plot_apertures(data_cube, source_aps, sky_aps=None, border_width=0):
     cmap = mcolors.ListedColormap(["white"])
     alpha = 0.5
 
-    for index, source_ap in enumerate(source_aps):
+    for index, source_ap in enumerate(source_apertures):
         ap_index = index + 1
         # Plot a overlaped transparent area
         mask = source_ap.to_mask(method="center").to_image(np.shape(collapsed_cube))
@@ -322,8 +330,34 @@ def plot_apertures(data_cube, source_aps, sky_aps=None, border_width=0):
             sky_ap.plot(color="white", lw=0.8, ls="--")
 
 
+def read_cube_data(cube_path):
+    cube_data = {
+        "sci": None,
+        "sci_hdr": None,
+        "var": None,
+        "var_hdr": None,
+        "wcs": None,
+        "binning_x": None,
+        "binning_y": None,
+    }
 
-def auto_extract(
+    if cube_path is not None:
+        sci, hdr = fits.getdata(cube_path, 0, header=True)
+        var, var_hdr = fits.getdata(cube_path, 1, header=True)
+        wcs = WCS(hdr).celestial
+        binning_x, binning_y = np.int_(fits.getheader(cube_path, 0)["CCDSUM"].split())
+        cube_data["sci"] = sci
+        cube_data["sci_hdr"] = hdr
+        cube_data["var"] = var
+        cube_data["var_hdr"] = var_hdr
+        cube_data["wcs"] = wcs
+        cube_data["binning_x"] = binning_x
+        cube_data["binning_y"] = binning_y
+
+    return cube_data
+
+
+def auto_extract_and_save(
     blue_cube_path=None,
     red_cube_path=None,
     output_dir=None,
@@ -331,43 +365,44 @@ def auto_extract(
     border_width=3,
     sky_sub=False,
     check_plot=False,
-    plot_output = 'detected_apertures_plot.pdf',
+    plot_output="detected_apertures_plot.pdf",
 ):
-    # Load in the data
-    
+    # reading the data from cubes
     # Blue arm
-    if blue_cube_path is not None:
-        blue_sci, b_sci_hdr = fits.getdata(blue_cube_path, 0, header=True)
-        b_var, b_var_hdr = fits.getdata(blue_cube_path, 1, header=True)
-        blue_wcs = WCS(b_sci_hdr).celestial
-        binning_x, binning_y = np.int_(fits.getheader(blue_cube_path, 0)['CCDSUM'].split())
-
-    else:
-        blue_sci = None
-        blue_wcs = None
+    blue_cube_data = read_cube_data(blue_cube_path)
+    blue_sci = blue_cube_data["sci"]
+    blue_sci_hdr = blue_cube_data["sci_hdr"]
+    blue_var = blue_cube_data["var"]
+    blue_var_hdr = blue_cube_data["var_hdr"]
+    blue_wcs = blue_cube_data["wcs"]
+    if blue_cube_data["sci"] is not None:
+        binning_x = blue_cube_data["binning_x"]
+        binning_y = blue_cube_data["binning_y"]
 
     # Red arm
-    if red_cube_path is not None:
-        red_sci, r_sci_hdr = fits.getdata(red_cube_path, 0, header=True)
-        r_var, r_var_hdr = fits.getdata(red_cube_path, 1, header=True)
-        red_wcs = WCS(r_sci_hdr).celestial
-        binning_x, binning_y = np.int_(fits.getheader(red_cube_path, 0)['CCDSUM'].split())
-
-    else:
-        red_sci = None
-        red_wcs = None
+    red_cube_data = read_cube_data(red_cube_path)
+    red_sci = red_cube_data["sci"]
+    red_sci_hdr = red_cube_data["sci_hdr"]
+    red_var = red_cube_data["var"]
+    red_var_hdr = red_cube_data["var_hdr"]
+    red_wcs = red_cube_data["wcs"]
+    if red_cube_data["sci"] is not None:
+        binning_x = red_cube_data["binning_x"]
+        binning_y = red_cube_data["binning_y"]
 
     # Calculate pixel scale from binning
     pixel_scale_x = binning_x  # arcsec/pix
-    pixel_scale_y = 1 / 2 * binning_y  # arcsec/pix
-      
+    pixel_scale_y = binning_y / 2  # arcsec/pix
+
     # Average all the data for detecting the source
     collapsed_cube = collapse_cube(blue_sci, red_sci)
 
     # Automatic source detection in the collapsed cubes (red + blue)
     npeaks = 3  # Number of peaks to be detected
-    # We use avoid the edges of size border_width also for the statistics
-    collapsed_cube_no_edge = collapsed_cube[border_width:-border_width, border_width:-border_width] 
+    # Avoid the edges of size border_width on the statistics
+    collapsed_cube_no_edge = collapsed_cube[
+        border_width:-border_width, border_width:-border_width
+    ]
     mean, median, std = sigma_clipped_stats(collapsed_cube_no_edge, sigma=5.0)
     threshold = median + (3 * std)
 
@@ -394,7 +429,7 @@ def auto_extract(
         b = r_arcsec / pixel_scale_y
 
         # Creates source apertures in the detected positions
-        source_aps = EllipticalAperture(positions, a=a, b=b)
+        source_apertures = EllipticalAperture(positions, a=a, b=b)
 
         if sky_sub:
             a_in = a * 3
@@ -404,14 +439,18 @@ def auto_extract(
             b_out = b * 4
 
             sky_aps = EllipticalAnnulus(
-                positions, a_in=a_in, a_out=a_out, b_out=b_out, b_in=b_in
+                positions,
+                a_in=a_in,
+                a_out=a_out,
+                b_in=b_in,
+                b_out=b_out,
             )
 
         else:
             sky_aps = None
 
         # Flux extraction for the aperture at all the wavelenghts
-        for index, source_ap in enumerate(source_aps):
+        for index, source_ap in enumerate(source_apertures):
             if sky_aps is not None:
                 sky_ap = sky_aps[index]
 
@@ -419,86 +458,57 @@ def auto_extract(
                 sky_ap = None
             ap_index = index + 1
 
-            if blue_cube_path is not None:
-                # Extraction
-                blue_flux, blue_var = spect_extract(
-                    blue_sci, b_var, source_ap, sky_ap=sky_ap
-                )
+            # Extracting blue cube
+            extract_and_save(
+                blue_cube_path,
+                blue_sci,
+                blue_var,
+                source_ap,
+                ap_index,
+                sky_ap,
+                output_dir,
+                blue_sci_hdr,
+                blue_var_hdr,
+            )
 
-                # Write out the results
-                base_blue = os.path.basename(blue_cube_path)
-                base_blue_ouput = base_blue.replace(
-                    "cube.fits", "spec.ap%s.fits" % ap_index
-                )
-                print("Saving blue extracted spectra")
-                blue_output = os.path.join(output_dir, base_blue_ouput)
-                write_1D_spec(blue_flux, blue_var, b_sci_hdr, b_var_hdr, blue_output)
-
-
-            if red_cube_path is not None:
-                # Extraction
-                red_flux, red_var = spect_extract(red_sci, r_var, source_ap, sky_ap=sky_ap)
-                # Write out the results
-                base_red = os.path.basename(red_cube_path)
-                base_red_ouput = base_red.replace("cube.fits", "spec.ap%s.fits" % ap_index)
-                print("Saving red extracted spectra")
-                red_output = os.path.join(output_dir, base_red_ouput)
-                write_1D_spec(red_flux, red_var, r_sci_hdr, r_var_hdr, red_output)
+            # Extracting red cube
+            extract_and_save(
+                red_cube_path,
+                red_sci,
+                red_var,
+                source_ap,
+                ap_index,
+                sky_ap,
+                output_dir,
+                red_sci_hdr,
+                red_var_hdr,
+            )
 
         if check_plot:
-            plt.close("all")
             # Plot Red
             ax1 = plt.subplot(1, 2, 2, projection=red_wcs)
-            plt.title("Red arm")
-            if red_cube_path is not None:
-                plot_apertures(
-                    red_sci, source_aps, sky_aps=sky_aps, border_width=border_width
-                )
-                #  Axis labels
-                plt.xlabel("Right Ascension")
-                plt.ylabel("Declination ")
-
-            else:
-                plt.xlim(0, 1)
-                plt.ylim(0, 1)
-                # Add text to the center of the figure
-                text = "No red arm data"
-                plt.text(
-                    0.5, 0.5, text, ha="center", va="center", fontsize=12, color="black"
-                )
-
-                # Hide ticks and labels on both axes
-                ax1.set_xticks([])
-                ax1.set_yticks([])
-                ax1.axis("off")
+            plot_arm(
+                ax1,
+                red_cube_path,
+                red_sci,
+                "Red arm",
+                source_apertures,
+                sky_aps,
+                border_width,
+            )
 
             # Plot Blue
             ax0 = plt.subplot(1, 2, 1, projection=blue_wcs)
-            plt.title("Blue arm")
-            if blue_cube_path is not None:
-                plot_apertures(
-                    blue_sci, source_aps, sky_aps=sky_aps, border_width=border_width
-                )
-                plt.xlabel("Right Ascension")
-                plt.ylabel("Declination ")
-
-            else:
-                plt.xlim(0, 1)
-                plt.ylim(0, 1)
-                # Add text to the center of the figure
-                text = "No blue arm data"
-                plt.text(
-                    0.5, 0.5, text, ha="center", va="center", fontsize=12, color="black"
-                )
-
-                # Hide ticks and labels on both axes
-                ax0.set_xticks([])
-                ax0.set_yticks([])
-                ax0.axis("off")
+            plot_arm(
+                ax0,
+                blue_cube_path,
+                blue_sci,
+                "Blue arm",
+                source_apertures,
+                sky_aps,
+                border_width,
+            )
 
             plt.tight_layout()
             fig_output = os.path.join(output_dir, plot_output)
-
             plt.savefig(fig_output, bbox_inches="tight", dpi=300)
-
-

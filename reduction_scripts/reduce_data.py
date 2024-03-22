@@ -9,7 +9,7 @@ import datetime
 import numpy as np
 import json
 from pywifes.data_classifier import classify, cube_matcher
-from pywifes.extract_spec import auto_extract
+from pywifes.extract_spec import auto_extract_and_save
 from pywifes.splice import splice_spectra, splice_cubes
 from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
@@ -23,14 +23,24 @@ import glob
 # Function definicios
 # ------------------------------------------------------------------------
 
-def move_files(src_dir_path, destination_dir_path, glob):
-    filepaths = glob.glob(os.path.join(src_dir_path, "*.cube.fits"))
+
+def move_files(src_dir_path, destination_dir_path, glob_pattern):
+    filepaths = glob.glob(os.path.join(src_dir_path, glob_pattern))
     for filepath in filepaths:
         filename = os.path.basename(filepath)
         shutil.move(filepath, os.path.join(destination_dir_path, filename))
 
-# ------------------------------------------------------------------------
 
+def load_config_file(filename):
+    # Read the JSON file
+    reduction_scripts_dir = os.path.dirname(__file__)
+    file_path = os.path.join(reduction_scripts_dir, filename)
+
+    with open(file_path, "r") as f:
+        return json.load(f)
+
+
+# ------------------------------------------------------------------------
 
 
 def main():
@@ -942,10 +952,7 @@ def main():
                 obs_mode = "class"
 
             # Read the JSON file
-            file_path = os.path.join(reduction_scripts_dir, f"params_{obs_mode}.json")
-
-            with open(file_path, "r") as f:
-                proc_steps = json.load(f)
+            proc_steps = load_config_file(f"params_{obs_mode}.json")
 
             # Create data products directory structure
             out_dir = os.path.join(working_dir, f"data_products/intermediate/{arm}")
@@ -963,7 +970,7 @@ def main():
             # ------------------------------------------------------------------------
             # NAMES FOR MASTER CALIBRATION FILES!!!
             # ------------------------------------------------------------------------
-            
+
             superbias_fn = "%s_superbias.fits" % calib_prefix
             superbias_fit_fn = "%s_superbias_fit.fits" % calib_prefix
             super_dflat_raw = "%s_super_domeflat_raw.fits" % calib_prefix
@@ -1013,7 +1020,7 @@ def main():
     # Red
     red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
 
-   # Blue
+    # Blue
     blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
 
     # Move reduced cubes to the data_products directory
@@ -1026,74 +1033,72 @@ def main():
     reduced_cubes_paths = glob.glob(os.path.join(destination_dir, "*.cube.fits"))
 
     # ----------------------------------------------------------
-    # Match cubes from the same observation based on DATE-OBS 
+    # Match cubes from the same observation based on DATE-OBS
     # ----------------------------------------------------------
 
-    matched_list = cube_matcher(reduced_cubes_paths)
+    matched_cubes = cube_matcher(reduced_cubes_paths)
 
     # ----------------------------------------------------------
     # Read extraction parameters from JSON file
     # ----------------------------------------------------------
 
-    # Read the JSON file and define parameters
-    file_path = os.path.join(reduction_scripts_dir, f"params_extract_{obs_mode}.json")
-
-    with open(file_path, "r") as f:
-        extract_params = json.load(f)
-    
-    # Extract parameters
-    sky_sub = extract_params["sky_sub"]
-    check_plot = extract_params["check_plot"]
-    border_width = extract_params["border_width"]
-    r_arcsec = extract_params["r_arcsec"]
+    # Read the JSON file
+    extract_params = load_config_file(f"params_extract_{obs_mode}.json")
 
     # ----------------------------------------------------------
     # Loop over matched cubes list
     # ----------------------------------------------------------
 
-    for match_cubes in matched_list:
+    for match_cubes in matched_cubes:
         # ----------
         # Extraction
         # ----------
         blue_cube_path = match_cubes["Blue"]
         red_cube_path = match_cubes["Red"]
-        plot_output = match_cubes['file_name'] + '_detected_apertures_plot.pdf'
+        plot_output = match_cubes["file_name"].replace(".cube", "_detection_plot.pdf")
 
         # Run auto-extraction
-        auto_extract(
+        auto_extract_and_save(
             blue_cube_path,
             red_cube_path,
             destination_dir,
-            r_arcsec=r_arcsec,
-            border_width=border_width,
-            sky_sub=sky_sub,
-            check_plot=check_plot,
-            plot_output=plot_output
+            r_arcsec=extract_params["r_arcsec"],
+            border_width=extract_params["border_width"],
+            sky_sub=extract_params["sky_sub"],
+            check_plot=extract_params["check_plot"],
+            plot_output=plot_output,
         )
-        
+
         # ------------------------------------
         # Splice only paired cubes and spectra
         # ------------------------------------
         if match_cubes["Blue"] is not None and match_cubes["Red"] is not None:
-            # Splice cubes
             blue_cube_name = os.path.basename(match_cubes["Blue"])
+            red_cube_name = os.path.basename(match_cubes["Red"])
+
+            # Get filename of form `xxx-Splice-UTxxx.cube.fits`
             spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
             spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
+
+            # Splice cubes
             splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path)
 
-            # Splice spectra
+
+            # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.ap*'
             pattern_blue = os.path.join(
                 destination_dir, blue_cube_name.replace("cube", "spec.ap*")
             )
-            pattern_red = os.path.join(
-                destination_dir,
-                os.path.basename(match_cubes["Red"]).replace("cube", "spec.ap*"),
-            )
-
             blue_specs = glob.glob(pattern_blue)
+
+            # Find red spectra files matching the pattern 'xxx-Red-UTxxx.spec.ap*'
+            pattern_red = os.path.join(
+                destination_dir, red_cube_name.replace("cube", "spec.ap*")
+            )
             red_specs = glob.glob(pattern_red)
 
+            # Splice spectra
             for blue_spec, red_spec in zip(blue_specs, red_specs):
+                # Generate filename for spliced spectrum 'xxx-Splice-UTxxx.spec.apx.fits'
                 spliced_spectrum_name = os.path.basename(blue_spec).replace(
                     "Blue", "Splice"
                 )

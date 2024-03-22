@@ -142,7 +142,7 @@ def splice_spectra(blue_spec_path, red_spec_path, output):
     print("Splicing spectra")
     flux, fluxVar = join_spectra(blueSpec, redSpec)
 
-    if len(flux) == 1 :
+    if len(flux) == 1:
         print("No spectral overlap")
 
     else:
@@ -175,8 +175,6 @@ def splice_spectra(blue_spec_path, red_spec_path, output):
         hdulist.close()
 
 
-
-
 def join_cubes(blue_path, red_path):
 
     # Read red data and metadata
@@ -202,8 +200,6 @@ def join_cubes(blue_path, red_path):
     blue_minWL = min(blue_wl)
     blue_maxWL = max(blue_wl)
 
-
-
     nwl = int((redCRVAL1 + redCDELT1 * redNAXIS1 - blueCRVAL1) / blueCDELT1)
     wl = (np.arange(nwl) - blueCRPIX1 + 1) * blueCDELT1 + blueCRVAL1
 
@@ -212,32 +208,31 @@ def join_cubes(blue_path, red_path):
 
     AB = _A_lanczos(blue_wl, wl, 3).tocsr()
     AR = _A_lanczos(red_wl, wl, 3).tocsr()
-    
 
-    wave_dim, y_dim, x_dim  = np.shape(red_flux_cube)
+    wave_dim, y_dim, x_dim = np.shape(red_flux_cube)
     wave_dim = len(wl)
 
     flux_cube = np.zeros((wave_dim, y_dim, x_dim))
     fluxvar_cube = np.zeros((wave_dim, y_dim, x_dim))
 
-
-
     # Run over every point (i,j) in the spatial plane
     for i in range(y_dim):
         for j in range(x_dim):
 
-            red_flux =  red_flux_cube[:, i, j]
-            red_fluxvar =  red_fluxvar_cube[:, i, j]
+            red_flux = red_flux_cube[:, i, j]
+            red_fluxvar = red_fluxvar_cube[:, i, j]
 
-            blue_flux =  blue_flux_cube[:, i, j]
-            blue_fluxvar =  blue_fluxvar_cube[:, i, j]
+            blue_flux = blue_flux_cube[:, i, j]
+            blue_fluxvar = blue_fluxvar_cube[:, i, j]
 
             flux_R = np.array(AR * red_flux).ravel()
             flux_B = np.array(AB * blue_flux).ravel()
 
             # Two sparse diagonal matrices
             diag_R = sp.dia_matrix(([red_fluxvar], [0]), shape=[redNAXIS1, redNAXIS1])
-            diag_B = sp.dia_matrix(([blue_fluxvar], [0]), shape=[blueNAXIS1, blueNAXIS1])
+            diag_B = sp.dia_matrix(
+                ([blue_fluxvar], [0]), shape=[blueNAXIS1, blueNAXIS1]
+            )
 
             fluxvar_B = np.array((AB * diag_B * AB.T).sum(axis=1)).ravel()
             fluxvar_R = np.array((AR * diag_R * AR.T).sum(axis=1)).ravel()
@@ -251,7 +246,7 @@ def join_cubes(blue_path, red_path):
             redOnly = np.where(wl >= blue_maxWL - buffer)
 
             if red_minWL > blue_maxWL:
-                
+
                 return None, None
 
             else:
@@ -262,16 +257,18 @@ def join_cubes(blue_path, red_path):
                 flux[blueOnly] = flux_B[blueOnly]
                 fluxVar[blueOnly] = fluxvar_B[blueOnly]
 
-                fluxVar[overlap] = 1.0 / (1.0 / fluxvar_B[overlap] + 1.0 / fluxvar_R[overlap])
+                fluxVar[overlap] = 1.0 / (
+                    1.0 / fluxvar_B[overlap] + 1.0 / fluxvar_R[overlap]
+                )
                 flux[overlap] = (
-                    flux_B[overlap] / fluxvar_B[overlap] + flux_R[overlap] / fluxvar_R[overlap]
+                    flux_B[overlap] / fluxvar_B[overlap]
+                    + flux_R[overlap] / fluxvar_R[overlap]
                 ) * fluxVar[overlap]
 
                 flux[redOnly] = flux_R[redOnly]
                 fluxVar[redOnly] = fluxvar_R[redOnly]
-                flux_cube[:,i,j] = flux
-                fluxvar_cube[:,i,j] = fluxVar
-
+                flux_cube[:, i, j] = flux
+                fluxvar_cube[:, i, j] = fluxVar
 
     # Reshape the cube to the corresponding shape
     wave_dim = len(flux)
@@ -279,7 +276,6 @@ def join_cubes(blue_path, red_path):
     fluxvar_cube = fluxvar_cube.reshape(wave_dim, y_dim, x_dim)
 
     return flux_cube, fluxvar_cube
-
 
 
 def splice_cubes(blue_path, red_path, output):
@@ -290,12 +286,11 @@ def splice_cubes(blue_path, red_path, output):
     red_header = fits.getheader(red_path, 0)
     blue_header = fits.getheader(blue_path, 0)
 
-
     # Join the cubes
     print("Splicing cubes")
     flux, fluxVar = join_cubes(blue_path, red_path)
 
-    if len(flux) == 1 :
+    if len(flux) == 1:
         print("No spectral overlap")
 
     else:
@@ -323,8 +318,7 @@ def splice_cubes(blue_path, red_path, output):
 
         hdu_fluxvar = fits.ImageHDU(data=fluxVar, header=hdr_fluxvar)
         hdulist.append(hdu_fluxvar)
-        
+
         print("Saving spliced cube")
         hdulist.writeto(output, overwrite=True)
         hdulist.close()
-
