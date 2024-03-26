@@ -9,7 +9,7 @@ import datetime
 import numpy as np
 import json
 from pywifes.data_classifier import classify, cube_matcher
-from pywifes.extract_spec import auto_extract_and_save
+from pywifes.extract_spec import detect_extract_and_save
 from pywifes.splice import splice_spectra, splice_cubes
 from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
@@ -1026,18 +1026,21 @@ def main():
     # Move reduced cubes to the data_products directory
     for cubes_path in [red_cubes_path, blue_cubes_path]:
         move_files(cubes_path, destination_dir, "*.cube.fits")
+        
     # ----------------------------------------------------------
     # Find and list all reduced cubes in the destination directory
     # ----------------------------------------------------------
 
     reduced_cubes_paths = glob.glob(os.path.join(destination_dir, "*.cube.fits"))
-
+    print('REDUCED CUBES ====>',reduced_cubes_paths)
     # ----------------------------------------------------------
     # Match cubes from the same observation based on DATE-OBS
     # ----------------------------------------------------------
 
     matched_cubes = cube_matcher(reduced_cubes_paths)
 
+
+    print('MATCHED CUBES ====>', matched_cubes)
     # ----------------------------------------------------------
     # Read extraction parameters from JSON file
     # ----------------------------------------------------------
@@ -1058,7 +1061,7 @@ def main():
         plot_output = match_cubes["file_name"].replace(".cube", "_detection_plot.pdf")
 
         # Run auto-extraction
-        auto_extract_and_save(
+        detect_extract_and_save(
             blue_cube_path,
             red_cube_path,
             destination_dir,

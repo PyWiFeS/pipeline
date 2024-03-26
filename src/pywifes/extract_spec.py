@@ -215,7 +215,9 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
     hdulist = fits.HDUList(fits.PrimaryHDU())
 
     # Update WCS headers to match the 1D spectrum header
-    headers = [sci_cube_header, var_cube_header]
+    sci_cube_header_copy = sci_cube_header.copy()
+    var_cube_header_copy = var_cube_header.copy()
+    headers = [sci_cube_header_copy, var_cube_header_copy]
 
     for header in headers:
         # Update axis 1 WCS information to match wavelength solution (axis 3)
@@ -249,10 +251,10 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
 
     # Set science data and headers in the blank HDUList
     hdulist[0].data = sci_data
-    hdulist[0].header = sci_cube_header
+    hdulist[0].header = sci_cube_header_copy
 
     # Add variance data as an additional HDU
-    hdu_fluxvar = fits.ImageHDU(data=var_data, header=var_cube_header)
+    hdu_fluxvar = fits.ImageHDU(data=var_data, header=var_cube_header_copy)
     hdulist.append(hdu_fluxvar)
 
     # Write the FITS file containing the 1D spectrum
@@ -342,12 +344,12 @@ def read_cube_data(cube_path):
     }
 
     if cube_path is not None:
-        sci, hdr = fits.getdata(cube_path, 0, header=True)
+        sci, sci_hdr = fits.getdata(cube_path, 0, header=True)
         var, var_hdr = fits.getdata(cube_path, 1, header=True)
-        wcs = WCS(hdr).celestial
+        wcs = WCS(sci_hdr).celestial
         binning_x, binning_y = np.int_(fits.getheader(cube_path, 0)["CCDSUM"].split())
         cube_data["sci"] = sci
-        cube_data["sci_hdr"] = hdr
+        cube_data["sci_hdr"] = sci_hdr
         cube_data["var"] = var
         cube_data["var_hdr"] = var_hdr
         cube_data["wcs"] = wcs
@@ -357,7 +359,7 @@ def read_cube_data(cube_path):
     return cube_data
 
 
-def auto_extract_and_save(
+def detect_extract_and_save(
     blue_cube_path=None,
     red_cube_path=None,
     output_dir=None,
