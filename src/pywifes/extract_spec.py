@@ -347,7 +347,7 @@ def read_cube_data(cube_path):
         sci, sci_hdr = fits.getdata(cube_path, 0, header=True)
         var, var_hdr = fits.getdata(cube_path, 1, header=True)
         wcs = WCS(sci_hdr).celestial
-        binning_x, binning_y = np.int_(fits.getheader(cube_path, 0)["CCDSUM"].split())
+        binning_x, binning_y = np.int_(sci_hdr["CCDSUM"].split())
         cube_data["sci"] = sci
         cube_data["sci_hdr"] = sci_hdr
         cube_data["var"] = var

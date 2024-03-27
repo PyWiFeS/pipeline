@@ -1009,7 +1009,7 @@ def main():
                 else:
                     pass
         except Exception as exc:
-            print("{arm} skipped, as an error occurred during processing: '{exc}'")
+            print(f"{arm} skipped, as an error occurred during processing: '{exc}'.")
 
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory

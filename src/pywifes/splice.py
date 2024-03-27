@@ -210,22 +210,22 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path):
 def join_cubes(blue_path, red_path):
 
     # Read red data and metadata
-    red_flux_cube, blue_header = fits.getdata(red_path, 0, header=True)
+    red_flux_cube, red_header = fits.getdata(red_path, 0, header=True)
     red_fluxvar_cube = fits.getdata(red_path, 1, header=False)
-    red_CRVAL1 = blue_header["CRVAL3"]
-    red_CDELT1 = blue_header["CDELT3"]
-    red_CRPIX1 = blue_header["CRPIX3"]
-    red_NAXIS1 = blue_header["NAXIS3"]
+    red_CRVAL1 = red_header["CRVAL3"]
+    red_CDELT1 = red_header["CDELT3"]
+    red_CRPIX1 = red_header["CRPIX3"]
+    red_NAXIS1 = red_header["NAXIS3"]
     red_wavelength = (np.arange(red_NAXIS1) - red_CRPIX1 + 1) * red_CDELT1 + red_CRVAL1
     red_min_wavelength = min(red_wavelength)
 
     # Read blue data and metadata
-    blue_flux_cube, red_header = fits.getdata(blue_path, 0, header=True)
+    blue_flux_cube, blue_header = fits.getdata(blue_path, 0, header=True)
     blue_fluxvar_cube = fits.getdata(blue_path, 1, header=False)
-    blue_CRVAL1 = red_header["CRVAL3"]
-    blue_CDELT1 = red_header["CDELT3"]
-    blue_CRPIX1 = red_header["CRPIX3"]
-    blue_NAXIS1 = red_header["NAXIS3"]
+    blue_CRVAL1 = blue_header["CRVAL3"]
+    blue_CDELT1 = blue_header["CDELT3"]
+    blue_CRPIX1 = blue_header["CRPIX3"]
+    blue_NAXIS1 = blue_header["NAXIS3"]
     blue_wavelength = (
         np.arange(blue_NAXIS1) - blue_CRPIX1 + 1
     ) * blue_CDELT1 + blue_CRVAL1
@@ -236,82 +236,78 @@ def join_cubes(blue_path, red_path):
         return None, None
 
     # Cubes overlap in wavelength
-    else:
-        wl = calculate_wavelength_array(
-            blue_CRVAL1, blue_CDELT1, blue_CRPIX1, red_CRVAL1, red_CDELT1, red_NAXIS1
-        )
+    wl = calculate_wavelength_array(
+        blue_CRVAL1, blue_CDELT1, blue_CRPIX1, red_CRVAL1, red_CDELT1, red_NAXIS1
+    )
 
-        # One does not need to interplolate the blue spectra if the waveelength is
-        # set to the blue spectrum. However the code is robust to this.
+    # One does not need to interplolate the blue spectra if the waveelength is
+    # set to the blue spectrum. However the code is robust to this.
 
-        AB = a_lanczos(blue_wavelength, wl, 3).tocsr()
-        AR = a_lanczos(red_wavelength, wl, 3).tocsr()
+    AB = a_lanczos(blue_wavelength, wl, 3).tocsr()
+    AR = a_lanczos(red_wavelength, wl, 3).tocsr()
 
-        wave_dim, y_dim, x_dim = np.shape(red_flux_cube)
-        wave_dim = len(wl)
+    wave_dim, y_dim, x_dim = np.shape(red_flux_cube)
+    wave_dim = len(wl)
 
-        flux_cube = np.zeros((wave_dim, y_dim, x_dim))
-        fluxvar_cube = np.zeros((wave_dim, y_dim, x_dim))
+    flux_cube = np.zeros((wave_dim, y_dim, x_dim))
+    fluxvar_cube = np.zeros((wave_dim, y_dim, x_dim))
 
-        # Run over every point (i,j) in the spatial plane
-        for i in range(y_dim):
-            for j in range(x_dim):
-                # Red
-                red_flux = red_flux_cube[:, i, j]
-                flux_R = np.array(AR * red_flux).ravel()
+    # Run over every point (i,j) in the spatial plane
+    for i in range(y_dim):
+        for j in range(x_dim):
+            # Red
+            red_flux = red_flux_cube[:, i, j]
+            flux_R = np.array(AR * red_flux).ravel()
 
-                red_fluxvar = red_fluxvar_cube[:, i, j]
-                diag_R = sp.dia_matrix(
-                    ([red_fluxvar], [0]), shape=[red_NAXIS1, red_NAXIS1]
-                )
-                fluxvar_R = np.array((AR * diag_R * AR.T).sum(axis=1)).ravel()
+            red_fluxvar = red_fluxvar_cube[:, i, j]
+            diag_R = sp.dia_matrix(([red_fluxvar], [0]), shape=[red_NAXIS1, red_NAXIS1])
+            fluxvar_R = np.array((AR * diag_R * AR.T).sum(axis=1)).ravel()
 
-                # Blue
-                blue_flux = blue_flux_cube[:, i, j]
-                flux_B = np.array(AB * blue_flux).ravel()
+            # Blue
+            blue_flux = blue_flux_cube[:, i, j]
+            flux_B = np.array(AB * blue_flux).ravel()
 
-                blue_fluxvar = blue_fluxvar_cube[:, i, j]
-                diag_B = sp.dia_matrix(
-                    ([blue_fluxvar], [0]), shape=[blue_NAXIS1, blue_NAXIS1]
-                )
-                fluxvar_B = np.array((AB * diag_B * AB.T).sum(axis=1)).ravel()
+            blue_fluxvar = blue_fluxvar_cube[:, i, j]
+            diag_B = sp.dia_matrix(
+                ([blue_fluxvar], [0]), shape=[blue_NAXIS1, blue_NAXIS1]
+            )
+            fluxvar_B = np.array((AB * diag_B * AB.T).sum(axis=1)).ravel()
 
-                BUFFER = 10.0
+            BUFFER = 10.0
 
-                # Check for wavelength overlap
-                blue_only = np.where(wl <= red_min_wavelength + BUFFER)
-                overlap = np.where(
-                    (wl < blue_max_wavelength - BUFFER)
-                    & (wl > red_min_wavelength + BUFFER)
-                )
-                red_only = np.where(wl >= blue_max_wavelength - BUFFER)
+            # Check for wavelength overlap
+            blue_only = np.where(wl <= red_min_wavelength + BUFFER)
+            overlap = np.where(
+                (wl < blue_max_wavelength - BUFFER) & (wl > red_min_wavelength + BUFFER)
+            )
+            red_only = np.where(wl >= blue_max_wavelength - BUFFER)
 
-                # Average the two taking into account the buffer region and weighting
-                flux = np.zeros(len(flux_B), float)
-                fluxVar = np.zeros(len(flux_B), float)
+            # Average the two taking into account the buffer region and weighting
+            flux = np.zeros(len(flux_B), float)
+            fluxVar = np.zeros(len(flux_B), float)
 
-                flux[blue_only] = flux_B[blue_only]
-                fluxVar[blue_only] = fluxvar_B[blue_only]
+            flux[blue_only] = flux_B[blue_only]
+            fluxVar[blue_only] = fluxvar_B[blue_only]
 
-                fluxVar[overlap] = 1.0 / (
-                    1.0 / fluxvar_B[overlap] + 1.0 / fluxvar_R[overlap]
-                )
-                flux[overlap] = (
-                    flux_B[overlap] / fluxvar_B[overlap]
-                    + flux_R[overlap] / fluxvar_R[overlap]
-                ) * fluxVar[overlap]
+            fluxVar[overlap] = 1.0 / (
+                1.0 / fluxvar_B[overlap] + 1.0 / fluxvar_R[overlap]
+            )
+            flux[overlap] = (
+                flux_B[overlap] / fluxvar_B[overlap]
+                + flux_R[overlap] / fluxvar_R[overlap]
+            ) * fluxVar[overlap]
 
-                flux[red_only] = flux_R[red_only]
-                fluxVar[red_only] = fluxvar_R[red_only]
-                flux_cube[:, i, j] = flux
-                fluxvar_cube[:, i, j] = fluxVar
+            flux[red_only] = flux_R[red_only]
+            fluxVar[red_only] = fluxvar_R[red_only]
+            flux_cube[:, i, j] = flux
+            fluxvar_cube[:, i, j] = fluxVar
 
-        # Reshape the cube to the corresponding shape
-        wave_dim = len(flux)
-        flux_cube = flux_cube.reshape(wave_dim, y_dim, x_dim)
-        fluxvar_cube = fluxvar_cube.reshape(wave_dim, y_dim, x_dim)
+    # Reshape the cube to the corresponding shape
+    wave_dim = len(flux)
+    flux_cube = flux_cube.reshape(wave_dim, y_dim, x_dim)
+    fluxvar_cube = fluxvar_cube.reshape(wave_dim, y_dim, x_dim)
 
-        return flux_cube, fluxvar_cube
+    return flux_cube, fluxvar_cube
 
 
 def splice_cubes(blue_path, red_path, output_path):
@@ -331,9 +327,7 @@ def splice_cubes(blue_path, red_path, output_path):
 
     else:
 
-        # Write out the results
-        # Use the header in red arm to start with
-        # Add additional blue CCD keywords as required
+        # Write out the results. Use the header in red arm to start with then add additional blue CCD keywords as required
         hdulist = fits.HDUList(fits.PrimaryHDU())
         hdulist[0].data = flux
         hdulist[0].header = red_header
