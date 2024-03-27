@@ -1026,21 +1026,17 @@ def main():
     # Move reduced cubes to the data_products directory
     for cubes_path in [red_cubes_path, blue_cubes_path]:
         move_files(cubes_path, destination_dir, "*.cube.fits")
-        
+
     # ----------------------------------------------------------
     # Find and list all reduced cubes in the destination directory
     # ----------------------------------------------------------
-
     reduced_cubes_paths = glob.glob(os.path.join(destination_dir, "*.cube.fits"))
-    print('REDUCED CUBES ====>',reduced_cubes_paths)
+
     # ----------------------------------------------------------
     # Match cubes from the same observation based on DATE-OBS
     # ----------------------------------------------------------
-
     matched_cubes = cube_matcher(reduced_cubes_paths)
 
-
-    print('MATCHED CUBES ====>', matched_cubes)
     # ----------------------------------------------------------
     # Read extraction parameters from JSON file
     # ----------------------------------------------------------
@@ -1085,7 +1081,6 @@ def main():
 
             # Splice cubes
             splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path)
-
 
             # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.ap*'
             pattern_blue = os.path.join(

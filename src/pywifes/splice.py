@@ -58,12 +58,6 @@ def a_lanczos(x_original, x, a=2, missing=np.nan):
     # Write down the matrix for Lanczos interpolation
     epsilon = np.finfo(np.double).eps
 
-    print("=========================>")
-    print("=========================>")
-    print("          HERE")
-    print("=========================>")
-    print("=========================>")
-
     # The following line of code results in a deprecation waring
     # A sparce matrix in link list format
     A = sp.lil_matrix((len(x), len(x_original)))
@@ -221,7 +215,7 @@ def join_cubes(blue_path, red_path):
     red_CRVAL1 = blue_header["CRVAL3"]
     red_CDELT1 = blue_header["CDELT3"]
     red_CRPIX1 = blue_header["CRPIX3"]
-    red_NAXIS1 = blue_header(red_path)["NAXIS3"]
+    red_NAXIS1 = blue_header["NAXIS3"]
     red_wavelength = (np.arange(red_NAXIS1) - red_CRPIX1 + 1) * red_CDELT1 + red_CRVAL1
     red_min_wavelength = min(red_wavelength)
 
