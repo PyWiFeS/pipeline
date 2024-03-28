@@ -3272,10 +3272,10 @@ def generate_wifes_3dcube(inimg, outimg):
     pc3_3 = 1.0
 
     # Equiv. to 1 pixel width in each axis' units
-    binning2 = int(f[0].header['CCDSUM'][2])
+    binning_2 = int(f[0].header['CCDSUM'][2])
     arsec_deg = 0.00027777777777778   # 1 arcsecond in degrees
     cdelt1 = -arsec_deg   
-    cdelt2 = arsec_deg/2*binning2  
+    cdelt2 = arsec_deg/2*binning_2  
     cdelt3 = dlam
 
     # Central pixel: defined in the centre of the central pixel   
