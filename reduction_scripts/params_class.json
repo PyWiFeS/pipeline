@@ -132,7 +132,8 @@
             "suffix": "04",
             "args": {
                 "ns": false,
-                "multithread": false
+                "multithread": false,
+                "max_processes": -1
             }
         },
         {
@@ -163,6 +164,7 @@
             "suffix": "08",
             "args": {
                 "multithread": false,
+                "max_processes": -1,
                 "adr": true,
                 "wmin_set": 3500.0,
                 "wmax_set": 5700.0
@@ -200,7 +202,7 @@
         {
             "step": "save_3dcube",
             "run": true,
-            "suffix": "11",
+            "suffix": "cube",
             "args": {}
         }
     ],
@@ -338,7 +340,8 @@
             "suffix": "04",
             "args": {
                 "ns": false,
-                "multithread": false
+                "multithread": false,
+                "max_processes": -1
             }
         },
         {
@@ -369,6 +372,7 @@
             "suffix": "08",
             "args": {
                 "multithread": false,
+                "max_processes": -1,
                 "adr": true,
                 "wmin_set": 5400.0,
                 "wmax_set": 7000.0
@@ -428,7 +432,7 @@
         {
             "step": "save_3dcube",
             "run": true,
-            "suffix": "11",
+            "suffix": "cube",
             "args": {}
         }
     ]
