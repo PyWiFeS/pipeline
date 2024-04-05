@@ -17,7 +17,7 @@ from pywifes import wifes_wsol
 from pywifes import wifes_calib
 import shutil
 import glob
-
+import argparse
 
 # ------------------------------------------------------------------------
 # Function definicios
@@ -916,24 +916,82 @@ def main():
     # INICIATE THE SCRIPT
     # --------------------------------------------
 
-    # Parse command line arguments
-    if len(sys.argv) < 2:
-        print("Error: Please enter a raw data directory.")
-        sys.exit(1)
+    # Initialize ArgumentParser with a description
+    parser = argparse.ArgumentParser(
+        description="The Python data reduction pipeline for WiFeS."
+    )
 
-    # Read the raw data directory from command line
-    data_dir = os.path.abspath(sys.argv[1]) + "/"
+    # The raw data directory is a required positional argument
+    parser.add_argument("data_dir", type=str, help="Path to the raw data directory.")
 
-    naxis2_to_process = 0
-    if len(sys.argv) == 3:
-        naxis2_to_process = int(sys.argv[2])
+    # Option for specifying the path to the red parameters JSON file
+    parser.add_argument(
+        "--red-params",
+        type=str,
+        help="Optional: Path to the configuration JSON file containing parameters for reducing the blue arm.",
+    )
+
+    # Option for specifying the path to the blue parameters JSON file
+    parser.add_argument(
+        "--blue-params",
+        type=str,
+        help="Optional: Path to the configuration JSON file containing parameters for reducing the blue arm.",
+    )
+
+    args = parser.parse_args()
+
+    # Validate and process the data_dir
+    data_dir = os.path.abspath(args.data_dir)
+    if not data_dir.endswith("/"):
+        data_dir += "/"
+    print(f"Processing data in directory: {data_dir}")
+
+    # Handling redcution parameters.
+
+    params_path = {
+        "blue": None,
+        "red": None,
+    }
+
+    # Red
+    if args.red_params:
+        params_path["red"] = os.path.abspath(args.red_params)
+        print(f"Using red parameters from: {params_path['red']}")
+
+    # Blue
+    if args.blue_params:
+        params_path["blue"] = os.path.abspath(args.blue_params)
+        print(f"Using blue parameters from: {params_path['blue']}")
 
     # Classify all raw data (red and blue arm)
+    naxis2_to_process = 0  # TODO is this used in half frame (stellar mode)? Check that and include it as a parameter in the json files if needed.
     obs_metadatas = classify(data_dir, naxis2_to_process)
 
     # Set paths
     reduction_scripts_dir = os.path.dirname(__file__)
     working_dir = os.getcwd()
+
+    # Check grism and observing mode in the first science image of each arm
+    sci_filename_red = obs_metadatas["red"]["sci"][0]["sci"][0] + ".fits"
+    sci_filename_blue = obs_metadatas["blue"]["sci"][0]["sci"][0] + ".fits"
+
+    # Grism: grating are expected to be diferent on each arm. Read them into a dictionary.
+    grism = {
+        "blue": pyfits.getheader(data_dir + sci_filename_blue)["GRATINGB"],
+        "red": pyfits.getheader(data_dir + sci_filename_red)["GRATINGR"],
+    }
+
+    # Observing mode: should be the same in both arm
+    if pywifes.is_nodshuffle(data_dir + sci_filename_red) and pywifes.is_nodshuffle(
+        data_dir + sci_filename_blue
+    ):
+        obs_mode = "ns"
+    elif not pywifes.is_nodshuffle(
+        data_dir + sci_filename_red
+    ) and not pywifes.is_nodshuffle(data_dir + sci_filename_blue):
+        obs_mode = "class"
+    else:
+        print("Inconsistent observation mode beetween arms !")
 
     for arm in obs_metadatas.keys():
         try:
@@ -942,17 +1000,15 @@ def main():
             # ------------------------------------------------------------------------
             obs_metadata = obs_metadatas[arm]
 
-            # Check observing mode
-            sci_filename = obs_metadatas[arm]["sci"][0]["sci"][0] + ".fits"
-            if pywifes.is_nodshuffle(data_dir + sci_filename):
-                obs_mode = "ns"
-            elif pywifes.is_subnodshuffle(data_dir + sci_filename):
-                obs_mode = "ns"
-            else:
-                obs_mode = "class"
-
             # Read the JSON file
-            proc_steps = load_config_file(f"params_{obs_mode}.json")
+            if params_path[arm] is None:
+                json_path = (
+                    f"./pipeline_params/{arm}/params_{obs_mode}_{grism[arm]}.json"
+                )
+            else:
+                json_path = params_path[arm]
+
+            proc_steps = load_config_file(json_path)
 
             # Create data products directory structure
             out_dir = os.path.join(working_dir, f"data_products/intermediate/{arm}")
@@ -1042,7 +1098,9 @@ def main():
     # ----------------------------------------------------------
 
     # Read the JSON file
-    extract_params = load_config_file(f"params_extract_{obs_mode}.json")
+    extract_params = load_config_file(
+        f"./pipeline_params/params_extract_{obs_mode}.json"
+    )
 
     # ----------------------------------------------------------
     # Loop over matched cubes list
