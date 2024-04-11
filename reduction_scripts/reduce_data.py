@@ -24,11 +24,20 @@ import argparse
 # ------------------------------------------------------------------------
 
 
-def move_files(src_dir_path, destination_dir_path, glob_pattern):
+def move_files(src_dir_path, destination_dir_path, filenames):
+    for file in filenames:
+        shutil.move(
+            os.path.join(src_dir_path, file), os.path.join(destination_dir_path, file)
+        )
+
+
+def get_reduced_cube_name(src_dir_path, glob_pattern):
     filepaths = glob.glob(os.path.join(src_dir_path, glob_pattern))
+    cube_names = []
     for filepath in filepaths:
         filename = os.path.basename(filepath)
-        shutil.move(filepath, os.path.join(destination_dir_path, filename))
+        cube_names.append(filename)
+    return cube_names
 
 
 def load_config_file(filename):
@@ -1070,18 +1079,22 @@ def main():
 
     # Red
     red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
+    red_cubes_file_name = get_reduced_cube_name(red_cubes_path, "*.cube.fits")
+    # Move reduced cubes to the data_product
+    move_files(red_cubes_path, destination_dir, red_cubes_file_name)
 
     # Blue
     blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
-
-    # Move reduced cubes to the data_products directory
-    for cubes_path in [red_cubes_path, blue_cubes_path]:
-        move_files(cubes_path, destination_dir, "*.cube.fits")
+    blue_cubes_file_name = get_reduced_cube_name(blue_cubes_path, "*.cube.fits")
+    # Move reduced cubes to the data_product
+    move_files(blue_cubes_path, destination_dir, blue_cubes_file_name)
 
     # ----------------------------------------------------------
     # Find and list all reduced cubes in the destination directory
     # ----------------------------------------------------------
-    reduced_cubes_paths = glob.glob(os.path.join(destination_dir, "*.cube.fits"))
+    reduced_cubes_paths = [
+        os.path.join(destination_dir, file_name) for file_name in blue_cubes_file_name
+    ] + [os.path.join(destination_dir, file_name) for file_name in red_cubes_file_name]
 
     # ----------------------------------------------------------
     # Match cubes from the same observation based on DATE-OBS
