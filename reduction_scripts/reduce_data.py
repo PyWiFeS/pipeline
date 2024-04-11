@@ -20,7 +20,7 @@ import glob
 import argparse
 
 # ------------------------------------------------------------------------
-# Function definicios
+# Function definition
 # ------------------------------------------------------------------------
 
 
@@ -946,8 +946,7 @@ def main():
         data_dir += "/"
     print(f"Processing data in directory: {data_dir}")
 
-    # Handling redcution parameters.
-
+    # Handling reduction parameters.
     params_path = {
         "blue": None,
         "red": None,
@@ -971,27 +970,11 @@ def main():
     reduction_scripts_dir = os.path.dirname(__file__)
     working_dir = os.getcwd()
 
-    # Check grism and observing mode in the first science image of each arm
-    sci_filename_red = obs_metadatas["red"]["sci"][0]["sci"][0] + ".fits"
-    sci_filename_blue = obs_metadatas["blue"]["sci"][0]["sci"][0] + ".fits"
-
-    # Grism: grating are expected to be diferent on each arm. Read them into a dictionary.
-    grism = {
-        "blue": pyfits.getheader(data_dir + sci_filename_blue)["GRATINGB"],
-        "red": pyfits.getheader(data_dir + sci_filename_red)["GRATINGR"],
+    # Set grism_key dictionary due to different keyword names for red and blue arms.
+    grism_key = {
+        "blue": "GRATINGB",
+        "red": "GRATINGR",
     }
-
-    # Observing mode: should be the same in both arm
-    if pywifes.is_nodshuffle(data_dir + sci_filename_red) and pywifes.is_nodshuffle(
-        data_dir + sci_filename_blue
-    ):
-        obs_mode = "ns"
-    elif not pywifes.is_nodshuffle(
-        data_dir + sci_filename_red
-    ) and not pywifes.is_nodshuffle(data_dir + sci_filename_blue):
-        obs_mode = "class"
-    else:
-        print("Inconsistent observation mode beetween arms !")
 
     for arm in obs_metadatas.keys():
         try:
@@ -1000,11 +983,23 @@ def main():
             # ------------------------------------------------------------------------
             obs_metadata = obs_metadatas[arm]
 
+            # Check grism and observing mode in the first science image of each arm
+            sci_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
+
+            # Check observing mode
+            if pywifes.is_nodshuffle(data_dir + sci_filename):
+                obs_mode = "ns"
+            elif pywifes.is_subnodshuffle(data_dir + sci_filename):
+                obs_mode = "ns"
+            else:
+                obs_mode = "class"
+
+            # Grism
+            grism = pyfits.getheader(data_dir + sci_filename)[grism_key[arm]]
+
             # Read the JSON file
             if params_path[arm] is None:
-                json_path = (
-                    f"./pipeline_params/{arm}/params_{obs_mode}_{grism[arm]}.json"
-                )
+                json_path = f"./pipeline_params/{arm}/params_{obs_mode}_{grism}.json"
             else:
                 json_path = params_path[arm]
 

@@ -91,6 +91,12 @@ The pipeline will generate the `data_products` directory within the working dire
 `data_products` also contains the `intermediate` directory with the files generated during the data reduction process that are saved separately for each red and blue arm. Those intermediate files are master calibration files (e.g., master bias, master flats, ...) and other calibration files generated during the data reduction named as `xxx-Blue/Red-UTxxx.p00.fits, xxx-Blue/Red-UTxxx.p01.fits, ..., xxx-Blue/Red-UTxxx.p10.fits`. 
 
 
+
+**User-Defined Reduction Parameters:**
+
+To specify the reduction steps for blue and red data, users can provide the paths to the respective JSON files using the `--red-params` and `--blue-params` flags.
+
+
 ### TO DO
 
 ## Reporting Issues or Suggestions
