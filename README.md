@@ -97,9 +97,9 @@ The pipeline will generate the `data_products` directory within the working dire
 **User-Defined Reduction Parameters:**
 
 To specify the reduction steps for blue and red data, users can provide the paths to the respective JSON files using the `--red-params` and `--blue-params` flags as follows:
-    ```sh
-   pywifes-reduce my_raw_data --red-params /Users/.../user_red_param_file.json --blue-params /Users/.../user_blue_param_file.json
-   ```
+   
+
+    pywifes-reduce my_raw_data --red-params /Users/.../user_red_param_file.json --blue-params /Users/.../user_blue_param_file.json
 
 ### TO DO
 
