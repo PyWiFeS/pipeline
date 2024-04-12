@@ -17,18 +17,27 @@ from pywifes import wifes_wsol
 from pywifes import wifes_calib
 import shutil
 import glob
-
+import argparse
 
 # ------------------------------------------------------------------------
-# Function definicion
+# Function definition
 # ------------------------------------------------------------------------
 
 
-def move_files(src_dir_path, destination_dir_path, glob_pattern):
+def move_files(src_dir_path, destination_dir_path, filenames):
+    for file in filenames:
+        shutil.move(
+            os.path.join(src_dir_path, file), os.path.join(destination_dir_path, file)
+        )
+
+
+def get_reduced_cube_name(src_dir_path, glob_pattern):
     filepaths = glob.glob(os.path.join(src_dir_path, glob_pattern))
+    cube_names = []
     for filepath in filepaths:
         filename = os.path.basename(filepath)
-        shutil.move(filepath, os.path.join(destination_dir_path, filename))
+        cube_names.append(filename)
+    return cube_names
 
 
 def load_config_file(filename):
@@ -916,24 +925,65 @@ def main():
     # INICIATE THE SCRIPT
     # --------------------------------------------
 
-    # Parse command line arguments
-    if len(sys.argv) < 2:
-        print("Error: Please enter a raw data directory.")
-        sys.exit(1)
+    # Initialize ArgumentParser with a description
+    parser = argparse.ArgumentParser(
+        description="The Python data reduction pipeline for WiFeS."
+    )
 
-    # Read the raw data directory from command line
-    data_dir = os.path.abspath(sys.argv[1]) + "/"
+    # The raw data directory is a required positional argument
+    parser.add_argument("data_dir", type=str, help="Path to the raw data directory.")
 
-    naxis2_to_process = 0
-    if len(sys.argv) == 3:
-        naxis2_to_process = int(sys.argv[2])
+    # Option for specifying the path to the red parameters JSON file
+    parser.add_argument(
+        "--red-params",
+        type=str,
+        help="Optional: Path to the configuration JSON file containing parameters for reducing the blue arm.",
+    )
+
+    # Option for specifying the path to the blue parameters JSON file
+    parser.add_argument(
+        "--blue-params",
+        type=str,
+        help="Optional: Path to the configuration JSON file containing parameters for reducing the blue arm.",
+    )
+
+    args = parser.parse_args()
+
+    # Validate and process the data_dir
+    data_dir = os.path.abspath(args.data_dir)
+    if not data_dir.endswith("/"):
+        data_dir += "/"
+    print(f"Processing data in directory: {data_dir}")
+
+    # Handling reduction parameters.
+    params_path = {
+        "blue": None,
+        "red": None,
+    }
+
+    # Red
+    if args.red_params:
+        params_path["red"] = os.path.abspath(args.red_params)
+        print(f"Using red parameters from: {params_path['red']}")
+
+    # Blue
+    if args.blue_params:
+        params_path["blue"] = os.path.abspath(args.blue_params)
+        print(f"Using blue parameters from: {params_path['blue']}")
 
     # Classify all raw data (red and blue arm)
+    naxis2_to_process = 0  # TODO is this used in half frame (stellar mode)? Check that and include it as a parameter in the json files if needed.
     obs_metadatas = classify(data_dir, naxis2_to_process)
 
     # Set paths
     reduction_scripts_dir = os.path.dirname(__file__)
     working_dir = os.getcwd()
+
+    # Set grism_key dictionary due to different keyword names for red and blue arms.
+    grism_key = {
+        "blue": "GRATINGB",
+        "red": "GRATINGR",
+    }
 
     for arm in obs_metadatas.keys():
         try:
@@ -942,8 +992,10 @@ def main():
             # ------------------------------------------------------------------------
             obs_metadata = obs_metadatas[arm]
 
+            # Check grism and observing mode in the first science image of each arm
+            sci_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
+
             # Check observing mode
-            sci_filename = obs_metadatas[arm]["sci"][0]["sci"][0] + ".fits"
             if pywifes.is_nodshuffle(data_dir + sci_filename):
                 obs_mode = "ns"
             elif pywifes.is_subnodshuffle(data_dir + sci_filename):
@@ -951,8 +1003,16 @@ def main():
             else:
                 obs_mode = "class"
 
+            # Grism
+            grism = pyfits.getheader(data_dir + sci_filename)[grism_key[arm]]
+
             # Read the JSON file
-            proc_steps = load_config_file(f"params_{obs_mode}.json")
+            if params_path[arm] is None:
+                json_path = f"./pipeline_params/{arm}/params_{obs_mode}_{grism}.json"
+            else:
+                json_path = params_path[arm]
+
+            proc_steps = load_config_file(json_path)
 
             # Create data products directory structure
             out_dir = os.path.join(working_dir, f"data_products/intermediate/{arm}")
@@ -1019,18 +1079,22 @@ def main():
 
     # Red
     red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
+    red_cubes_file_name = get_reduced_cube_name(red_cubes_path, "*.cube.fits")
+    # Move reduced cubes to the data_product
+    move_files(red_cubes_path, destination_dir, red_cubes_file_name)
 
     # Blue
     blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
-
-    # Move reduced cubes to the data_products directory
-    for cubes_path in [red_cubes_path, blue_cubes_path]:
-        move_files(cubes_path, destination_dir, "*.cube.fits")
+    blue_cubes_file_name = get_reduced_cube_name(blue_cubes_path, "*.cube.fits")
+    # Move reduced cubes to the data_product
+    move_files(blue_cubes_path, destination_dir, blue_cubes_file_name)
 
     # ----------------------------------------------------------
     # Find and list all reduced cubes in the destination directory
     # ----------------------------------------------------------
-    reduced_cubes_paths = glob.glob(os.path.join(destination_dir, "*.cube.fits"))
+    reduced_cubes_paths = [
+        os.path.join(destination_dir, file_name) for file_name in blue_cubes_file_name
+    ] + [os.path.join(destination_dir, file_name) for file_name in red_cubes_file_name]
 
     # ----------------------------------------------------------
     # Match cubes from the same observation based on DATE-OBS
@@ -1042,7 +1106,9 @@ def main():
     # ----------------------------------------------------------
 
     # Read the JSON file
-    extract_params = load_config_file(f"params_extract_{obs_mode}.json")
+    extract_params = load_config_file(
+        f"./pipeline_params/params_extract_{obs_mode}.json"
+    )
 
     # ----------------------------------------------------------
     # Loop over matched cubes list
