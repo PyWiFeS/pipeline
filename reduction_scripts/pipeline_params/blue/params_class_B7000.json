@@ -109,7 +109,8 @@
                 "doalphapfit": true,
                 "doplot": false,
                 "dlam_cut_start": 5.0,
-                "multithread": false
+                "multithread": false,
+                "max_processes": -1
             }
         },
         {
