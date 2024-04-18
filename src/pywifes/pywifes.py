@@ -5,8 +5,6 @@ from astropy.coordinates import SkyCoord
 import numpy
 import pickle
 import scipy.interpolate
-import multiprocessing
-import subprocess
 import gc
 import sys
 import os
@@ -82,6 +80,12 @@ def is_nodshuffle(inimg, data_hdu=0):
     ns = f[data_hdu].header['WIFESOBS']
     f.close()
     return ns == 'NodAndShuffle'
+
+def is_subnodshuffle(inimg, data_hdu=0):
+    f = pyfits.open(inimg)
+    sns = f[data_hdu].header['WIFESOBS']
+    f.close()
+    return sns == 'SubNodAndShuffle'
 
 
 #------------------------------------------------------------------------
@@ -3048,8 +3052,6 @@ def generate_wifes_cube_multithread(
     # First interpolation : Wavelength + y (=wire & ADR)
     if verbose:
         print(' -> Step 1: interpolating along lambda and y (2D interp.) MULTITHREAD\r')
-        sys.stdout.write('\r 0%')
-        sys.stdout.flush()
 
     tasks = []
     for i in range(1,nslits+1):
@@ -3131,6 +3133,8 @@ def generate_wifes_cube_multithread(
         out_x = numpy.arange(nslits, dtype='d')
         if verbose:
             print(' -> Step 2: interpolating along x (1D interp.)')
+            sys.stdout.write('\r 0%')
+            sys.stdout.flush()
         for i in range(0,nlam) :
             adr = adr_x_y(numpy.array([out_lambda[i]]),
                           secz,ha,dec,lat, teltemp = 0.0, 
@@ -3268,10 +3272,10 @@ def generate_wifes_3dcube(inimg, outimg):
     pc3_3 = 1.0
 
     # Equiv. to 1 pixel width in each axis' units
-    binning2 = int(f[0].header['CCDSUM'][2])
+    binning_2 = int(f[0].header['CCDSUM'][2])
     arsec_deg = 0.00027777777777778   # 1 arcsecond in degrees
     cdelt1 = -arsec_deg   
-    cdelt2 = arsec_deg/2*binning2  
+    cdelt2 = arsec_deg/2*binning_2  
     cdelt3 = dlam
 
     # Central pixel: defined in the centre of the central pixel   
