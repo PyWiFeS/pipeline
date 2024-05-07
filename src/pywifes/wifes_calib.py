@@ -77,7 +77,7 @@ def is_halfframe(inimg, data_hdu=0):
     detsec = f[data_hdu].header['DETSEC']
     f.close()
     ystart = int(float(detsec.split(',')[1].split(':')[0]))
-    if ystart == 2049:
+    if ystart == 1029:
         return True
     else:
         return False

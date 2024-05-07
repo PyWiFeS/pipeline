@@ -35,7 +35,7 @@ def is_halfframe(inimg, data_hdu=0):
     detsec = f[data_hdu].header['DETSEC']
     f.close()
     ystart = int(float(detsec.split(',')[1].split(':')[0]))
-    if ystart == 2049:
+    if ystart == 1029:
         return True
     else:
         return False
@@ -493,15 +493,15 @@ def find_lines_and_guess_refs(slitlet_data,
         print(' Slitlet', chosen_slitlet)
         print('  ... detecting arc lines with',find_method,'...')
         start = datetime.datetime.now()
-
+    print('******************')
     # Fred's update (wsol)
     # Avoid running mpfit where it is unuseful.
     # Run it once for all detected line in the middle of the slice ...
     # then for all other slices, just re-fit the lines that are real.
     # Do this, and you reduce the total time by 50% for this step !
     if find_method == 'mpfit':
-        mid_slit = int(nrows/2./bin_y)
-        #~ print('SLITLET_DATA', mid_slit, slitlet_data[mid_slit,:]) # MZ
+        mid_slit = nrows // (2 * bin_y) 
+        print('SLITLET_DATA', mid_slit, slitlet_data[mid_slit,:]) # MZ
         mid_fit_centers = quick_arcline_fit(slitlet_data[mid_slit,:],
                                             find_method = find_method,
                                             flux_threshold = flux_threshold,
@@ -510,7 +510,6 @@ def find_lines_and_guess_refs(slitlet_data,
                                             multithread=multithread)
     else :
         mid_fit_centers = None # don't do it for the loggauss method ...
-
     #!!! MJI If we cared, this is the part here that should be parallelised.
     for i in range(8//bin_y, nrows-8//bin_y):
         test_z = slitlet_data[i,:]
@@ -1142,7 +1141,7 @@ def derive_wifes_polynomial_wave_solution(inimg,
         f1.close()
     # fit each slitlet
     for i in range(1,26):
-        if halfframe and i>12:
+        if halfframe and i<7 and i>19:
             wave_data = numpy.zeros(numpy.shape(a[i].data), dtype='d')
         else:
             new_y, new_x, new_ref, xpoly, ypoly = slitlet_wsol(
@@ -1575,51 +1574,58 @@ def derive_wifes_optical_wave_solution(inimg,
   found_s_lists = []
   found_r_lists = []
   yrange = []
-  for i in range(1,26):
-      # and the yrange...
-      detsec = f[i].header['DETSEC']
-      y0 = int(detsec.split(',')[1].split(':')[0])
-      y1 = int(detsec.split(',')[1].split(':')[1].split(']')[0])
-      # Make the values work nicely with the range() command
-      if (y0 > y1):
-          ystop = y0 + 1
-          ystart = y1
-      else:
-          ystop = y1 + 1
-          ystart = y0
-      # Plot them or not ?
-      if doplot == True or ((doplot != False) and ('step1' in doplot)):
-          step1plot = True
-      else:
-          step1plot = False
-      if doplot == True or (doplot != False) and (('step2' in doplot)):
-          step2plot = True
-      else:
-          step2plot = False    
 
-      # guess the reference wavelengths
-      new_x, new_y, new_r = find_lines_and_guess_refs(
-          f[i].data,
-          i,
-          grating,
-          arc_name,
-          find_method=find_method,
-          shift_method=shift_method,
-          ref_arclines=ref_arclines,
-          dlam_cut_start=dlam_cut_start,
-          bin_x=bin_x, bin_y=bin_y,
-          yzp=ystart,
-          verbose=verbose,
-          flux_threshold_nsig=flux_threshold_nsig,
-          deriv_threshold_nsig=1.0,
-          multithread=multithread,
-          plot=step1plot)
-      nl = len(new_x)
-      found_x_lists.append(new_x)
-      found_r_lists.append(new_r)
-      found_s_lists.append(i*numpy.ones(nl))
-      yrange.append((ystart,ystop))
-      found_y_lists.append(new_y+ystart)
+  # check if halfframe
+  halfframe = is_halfframe(inimg)
+  for i in range(7, 19):
+      #if halfframe and i>12:
+        #continue
+      #else:
+        # and the yrange...
+        detsec = f[i].header['DETSEC']
+        y0 = int(detsec.split(',')[1].split(':')[0])
+        y1 = int(detsec.split(',')[1].split(':')[1].split(']')[0])
+        # Make the values work nicely with the range() command
+        if (y0 > y1):
+            ystop = y0 + 1
+            ystart = y1
+        else:
+            ystop = y1 + 1
+            ystart = y0
+        # Plot them or not ?
+        if doplot == True or ((doplot != False) and ('step1' in doplot)):
+            step1plot = True
+        else:
+            step1plot = False
+        if doplot == True or (doplot != False) and (('step2' in doplot)):
+            step2plot = True
+        else:
+            step2plot = False    
+
+        # guess the reference wavelengths
+        print('arc name ....', arc_name)
+        new_x, new_y, new_r = find_lines_and_guess_refs(
+            f[i].data,
+            i,
+            grating,
+            arc_name,
+            find_method=find_method,
+            shift_method=shift_method,
+            ref_arclines=ref_arclines,
+            dlam_cut_start=dlam_cut_start,
+            bin_x=bin_x, bin_y=bin_y,
+            yzp=ystart,
+            verbose=verbose,
+            flux_threshold_nsig=flux_threshold_nsig,
+            deriv_threshold_nsig=1.0,
+            multithread=multithread,
+            plot=step1plot)
+        nl = len(new_x)
+        found_x_lists.append(new_x)
+        found_r_lists.append(new_r)
+        found_s_lists.append(i*numpy.ones(nl))
+        yrange.append((ystart,ystop))
+        found_y_lists.append(new_y+ystart)
   f.close()
   all_x = numpy.concatenate(found_x_lists)
   all_y = numpy.concatenate(found_y_lists)

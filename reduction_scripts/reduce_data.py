@@ -353,6 +353,7 @@ def main():
         else:
             flatfield_fn = super_dflat_raw
         output_fn = slitlet_def_fn
+        
         pywifes.derive_slitlet_profiles(
             flatfield_fn, output_fn, data_hdu=my_data_hdu, **args
         )
@@ -459,6 +460,7 @@ def main():
                     wifes_wsol.derive_wifes_wave_solution(
                         local_arc_fn, local_wsol_out_fn, **args
                     )
+        print('WAVE_SOLN DONE!')
         return
 
     # ------------------------------------------------------
@@ -668,7 +670,8 @@ def main():
     # ------------------------------------------------------
     def run_flat_response(metadata, prev_suffix, curr_suffix, mode="all"):
         # now fit the desired style of response function
-        print("Generating flatfield response function")
+        print("Generating flatfield response function") 
+        print("Using %s_flat" % mode)
         if mode == "all":
             pywifes.wifes_2dim_response(
                 super_dflat_mef, super_tflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
@@ -679,6 +682,7 @@ def main():
             )
         else:
             raise ValueError("Requested response mode not recognized")
+        print('FLAT_RESPONSE DONE!')
         return
 
     # ------------------------------------------------------

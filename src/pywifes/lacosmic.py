@@ -12,7 +12,7 @@ from .wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
 def _is_halfframe(hdus, data_hdu=0):
     detsec = hdus[data_hdu].header['DETSEC']
     ystart = int(float(detsec.split(',')[1].split(':')[0]))
-    return ystart == 2049
+    return ystart == 1029
 
 #-----------------------------------------------------------------------------
 laplace_kernel = numpy.array(

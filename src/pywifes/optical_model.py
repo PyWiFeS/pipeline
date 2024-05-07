@@ -55,7 +55,7 @@ def saveResamplingData(fname, yrange, grating, bin_x, bin_y, pl):
   pri = pf.PrimaryHDU(header=None, data=None)
   f = pf.HDUList([pri])
 
-  for s in range(25):
+  for s in range(12):
     y0,y1 = yrange[s]
     xout = -1*np.ones((abs(y1-y0),xlen))
     #yout = np.zeros((y1-y0+1,xlen))
