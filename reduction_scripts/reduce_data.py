@@ -56,7 +56,6 @@ def main():
     # ------------------------------------------------------------------------
     start_time = datetime.datetime.now()
     # ------------------------------------------------------------------------
-
     # ------------------------------------------------------------------------
     # METADATA WRANGLING FUNCTIONS
     # ------------------------------------------------------------------------
@@ -189,6 +188,7 @@ def main():
     def run_superbias(metadata, prev_suffix, curr_suffix, method="row_med", **args):
         # Super-bias is not generated if master calibrations are used.
         if from_master is None:
+            print('Pasaba por aquí...')
             bias_list = [
                 os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
                 for x in metadata["bias"]
@@ -196,6 +196,7 @@ def main():
             print("Calculating Global Superbias")
             pywifes.imcombine(bias_list, superbias_fn, data_hdu=my_data_hdu)
             # decide what bias model you will actually subtract - could be just data
+        
         if method == "fit" or method == "row_med":
             # Fit a smart surface to the bias or take the median
             # A bit experimental so far ... but you know what you are doing, right ?
@@ -969,8 +970,12 @@ def main():
     parser.add_argument(
         "--from-master",
         type=str,
-        help="Optional: Path to the master calibrations directory.",
+        const="./data_products/master_calib",
+        nargs='?',
+        help="Optional: Path to the master calibrations directory. If not provided, the default path will be used: .",
     )
+
+
 
     # Option for specifying to skip already completed steps
     parser.add_argument(
@@ -1024,6 +1029,18 @@ def main():
     # SET SKIP ALREADY DONE FILES ?
     skip_done = args.skip_done
 
+
+    # Set master calibration files direcctory (default ./data_products/master_calib/)
+    if from_master:
+        master_dir = os.path.abspath(from_master)
+
+    else:
+        # Master calibration files firectory    
+        master_dir = os.path.join(working_dir, "data_products/master_calib/")
+        os.makedirs(master_dir, exist_ok=True)
+
+
+
     for arm in obs_metadatas.keys():
         try:
             # ------------------------------------------------------------------------
@@ -1067,59 +1084,29 @@ def main():
             # ------------------------------------------------------------------------
             # NAMES FOR MASTER CALIBRATION FILES!!!
             # ------------------------------------------------------------------------
-
             # Set path of calibrations 
-            if from_master:
-
-                master_path = os.path.abspath(from_master)
+            # Bias Master Files
+            superbias_fn = os.path.join(master_dir , "%s_superbias.fits" % calib_prefix)
+            superbias_fit_fn = os.path.join(master_dir , "%s_superbias_fit.fits" % calib_prefix)
             
-                print(f"Using blue parameters from: {master_path}")
-
-                # Bias Master Files
-                superbias_fn = os.path.join(master_path , "%s_superbias.fits" % calib_prefix)
-                
-                # Flat Master Files 
-                # Dome   
-                super_dflat_mef = os.path.join(master_path , "%s_super_domeflat_mef.fits" % calib_prefix)
-                # Twilight
-                super_tflat_mef = os.path.join(master_path , "%s_super_twiflat_mef.fits" % calib_prefix)
+            # Flat Master Files 
+            # Dome   
+            super_dflat_raw = os.path.join(master_dir , "%s_super_domeflat_raw.fits" % calib_prefix)
+            super_dflat_fn = os.path.join(master_dir , "%s_super_domeflat.fits" % calib_prefix)
+            super_dflat_mef = os.path.join(master_dir , "%s_super_domeflat_mef.fits" % calib_prefix)
+            # Twilight
+            super_tflat_raw = os.path.join(master_dir , "%s_super_twiflat_raw.fits" % calib_prefix)
+            super_tflat_fn = os.path.join(master_dir , "%s_super_twiflat.fits" % calib_prefix)
+            super_tflat_mef = os.path.join(master_dir , "%s_super_twiflat_mef.fits" % calib_prefix)
+        
+            # Slitlet definition
+            slitlet_def_fn = os.path.join(master_dir , "%s_slitlet_defs.pkl" % calib_prefix)
             
-                # Slitlet definition
-                slitlet_def_fn = os.path.join(master_path , "%s_slitlet_defs.pkl" % calib_prefix)
-                wsol_out_fn = os.path.join(master_path , "%s_wave_soln.fits" % calib_prefix)
-
-                wire_out_fn = os.path.join(master_path , "%s_wire_soln.fits" % calib_prefix)
-                flat_resp_fn = os.path.join(master_path , "%s_resp_mef.fits" % calib_prefix)
-
-
-                tellcorr_fn = os.path.join(out_dir , "%s_tellcorr.pkl" % calib_prefix)
-                calib_fn = os.path.join(out_dir , "%s_calib.pkl" % calib_prefix)
-                superbias_fit_fn = os.path.join(out_dir , "%s_superbias_fit.fits" % calib_prefix)
-
-
-            else:
-                # Bias Master Files
-                superbias_fn = os.path.join(out_dir , "%s_superbias.fits" % calib_prefix)
-                superbias_fit_fn = os.path.join(out_dir , "%s_superbias_fit.fits" % calib_prefix)
-                
-                # Flat Master Files 
-                # Dome   
-                super_dflat_raw = os.path.join(out_dir , "%s_super_domeflat_raw.fits" % calib_prefix)
-                super_dflat_fn = os.path.join(out_dir , "%s_super_domeflat.fits" % calib_prefix)
-                super_dflat_mef = os.path.join(out_dir , "%s_super_domeflat_mef.fits" % calib_prefix)
-                # Twilight
-                super_tflat_raw = os.path.join(out_dir , "%s_super_twiflat_raw.fits" % calib_prefix)
-                super_tflat_fn = os.path.join(out_dir , "%s_super_twiflat.fits" % calib_prefix)
-                super_tflat_mef = os.path.join(out_dir , "%s_super_twiflat_mef.fits" % calib_prefix)
-            
-                # Slitlet definition
-                slitlet_def_fn = os.path.join(out_dir , "%s_slitlet_defs.pkl" % calib_prefix)
-               
-                wsol_out_fn = os.path.join(out_dir , "%s_wave_soln.fits" % calib_prefix)
-                wire_out_fn = os.path.join(out_dir , "%s_wire_soln.fits" % calib_prefix)
-                flat_resp_fn = os.path.join(out_dir , "%s_resp_mef.fits" % calib_prefix)
-                calib_fn = os.path.join(out_dir , "%s_calib.pkl" % calib_prefix)
-                tellcorr_fn = os.path.join(out_dir , "%s_tellcorr.pkl" % calib_prefix)
+            wsol_out_fn = os.path.join(master_dir , "%s_wave_soln.fits" % calib_prefix)
+            wire_out_fn = os.path.join(master_dir , "%s_wire_soln.fits" % calib_prefix)
+            flat_resp_fn = os.path.join(master_dir , "%s_resp_mef.fits" % calib_prefix)
+            calib_fn = os.path.join(master_dir , "%s_calib.pkl" % calib_prefix)
+            tellcorr_fn = os.path.join(master_dir , "%s_tellcorr.pkl" % calib_prefix)
 
             # ------------------------------------------------------------------------
             # RUN THE PROCESSING STEPS
@@ -1132,6 +1119,7 @@ def main():
                 step_args = step["args"]
                 func_name = "run_" + step_name
                 func = locals()[func_name]
+
                 if step_run:
                     func(
                         obs_metadata,
