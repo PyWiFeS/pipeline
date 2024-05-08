@@ -12,8 +12,9 @@ from pywifes.data_classifier import classify, cube_matcher
 from pywifes.extract_spec import detect_extract_and_save
 from pywifes.splice import splice_spectra, splice_cubes
 from pywifes.lacosmic import lacos_wifes
-#from pywifes.multiprocessing_utils import get_task, map_tasks, run_tasks_singlethreaded
 import multiprocessing
+from pywifes.multiprocessing_utils import _get_num_processes as get_num_proc
+import contextlib
 
 from pywifes import pywifes
 from pywifes import wifes_wsol
@@ -446,22 +447,22 @@ def main():
         else:
             slitlet_fn = None
 
-        manager = multiprocessing.Manager()
-        jobs = []
-        for fn in full_obs_list:
-            use_ns = (ns and fn in ns_proc_list)
-            p = multiprocessing.Process(target=run_slitlet_mef_indiv,args=(fn,gargs,prev_suffix,curr_suffix,slitlet_fn,use_ns))
-            jobs.append(p)
-            p.start()
+        nworkers = get_num_proc()
+        nobs = len(full_obs_list)
+        for worker in range(0,nobs,nworkers):
+            nmax = worker + nworkers
+            if nmax > nobs:
+                nmax = nobs
+            jobs = []
+            for fidx in range(worker,nmax): 
+                fn = full_obs_list[fidx]
+                use_ns = (ns and fn in ns_proc_list)
+                p = multiprocessing.Process(target=run_slitlet_mef_indiv,args=(fn,gargs,prev_suffix,curr_suffix,slitlet_fn,use_ns))
+                jobs.append(p)
+                p.start()
 
-        for proc in jobs:
-            proc.join()
-#       tasks = []
-#       for fn in full_obs_list:
-#           use_ns = (ns and fn in ns_proc_list)
-#           task = get_task(run_slitlet_mef_indiv,(fn,gargs,prev_suffix,curr_suffix,slitlet_fn,use_ns))
-
-#       results = map_tasks(tasks)
+            for proc in jobs:
+                proc.join()
         return
 
     # ------------------------------------------------------
@@ -711,23 +712,22 @@ def main():
 
     @wifes_recipe
     def run_obs_coadd(metadata, gargs, prev_suffix, curr_suffix, method="sum", scale=None):
-        manager = multiprocessing.Manager()
-        jobs = []
-        for obs in (metadata['sci']+metadata['std']):
-            p = multiprocessing.Process(target=run_obs_coadd_indiv,args=(obs,gargs,prev_suffix,curr_suffix,method,scale))
-            jobs.append(p)
-            p.start()
+        nworkers = get_num_proc()
+        obslist = metadata['sci']+metadata['std']
+        nobs = len(obslist)
+        for worker in range(0,nobs,nworkers):
+            nmax = worker + nworkers
+            if nmax > nobs:
+                nmax = nobs
+            jobs = []
+            for fidx in range(worker,nmax): 
+                obs = obslist[fidx]
+                p = multiprocessing.Process(target=run_obs_coadd_indiv,args=(obs,gargs,prev_suffix,curr_suffix,method,scale))
+                jobs.append(p)
+                p.start()
 
-        for proc in jobs:
-            proc.join()
-
-#       does not work; not pickleable
-#       tasks = []
-#       for obs in metadata["sci"] + metadata["std"]:
-#           task = get_task(run_obs_coadd_indiv,(obs,gargs,prev_suffix,curr_suffix,method,scale))
-#           tasks.append(task)
-
-#       results = map_tasks(tasks)
+            for proc in jobs:
+                proc.join()
         return
 
     # ------------------------------------------------------
@@ -1032,7 +1032,7 @@ def main():
             else:
                 json_path = params_path[arm]
 
-            print ("Reading in JSON settings from file {}".format(json_path))
+            # print ("Reading in JSON settings from file {}".format(json_path))
             proc_steps = load_config_file(json_path)
 
             # Create data products directory structure
@@ -1071,27 +1071,44 @@ def main():
             # RUN THE PROCESSING STEPS
             # ------------------------------------------------------------------------
             prev_suffix = None
-            for step in proc_steps[arm]:
-                step_name = step["step"]
-                step_run = step["run"]
-                step_suffix = step["suffix"]
-                step_args = step["args"]
-                func_name = "run_" + step_name
-                func = loc[func_name]
-                if step_run:
-                    func(
-                        obs_metadata,
-                        gargs,
-                        prev_suffix=prev_suffix,
-                        curr_suffix=step_suffix,
-                        **step_args,
-                    )
-                    if step_suffix != None:
-                        prev_suffix = step_suffix
-                else:
-                    pass
+            # keep a reference to current stdout so we can use it to print progress
+            old_stdout = sys.stdout
+
+            # get the current time to track how long each arm's reductions take
+            start_time = datetime.datetime.now()
+            # open a log file to direct all recipe stdout/stderr to
+            with open(os.path.join(gargs['out_dir'],f"{arm}.log"),'w') as flog:
+                # keep old stdout so we can update progress
+                with contextlib.redirect_stdout(flog),contextlib.redirect_stderr(flog):
+                    counter = 1
+                    nsteps = len(proc_steps[arm])
+                    for step in proc_steps[arm]:
+                        step_name = step["step"]
+                        step_run = step["run"]
+                        step_suffix = step["suffix"]
+                        step_args = step["args"]
+                        func_name = "run_" + step_name
+                        print (f"Running {arm}/{func_name} ({counter}/{nsteps})",file=old_stdout)
+                        func = loc[func_name]
+                        if step_run:
+                            func(
+                                obs_metadata,
+                                gargs,
+                                prev_suffix=prev_suffix,
+                                curr_suffix=step_suffix,
+                                **step_args,
+                            )
+                            if step_suffix != None:
+                                prev_suffix = step_suffix
+                        else:
+                            pass
+                        counter = counter+1
+                    duration = datetime.datetime.now() - start_time
+                    # this print goes to the log file, since we don't specify file=old_stdout
+                    print (f"WiFeS {arm} arm reductions took a total of {duration.total_seconds()} seconds.")
         except Exception as exc:
             print(f"{arm} skipped, as an error occurred during processing: '{exc}'.")
+            raise RuntimeError(f"Pipeline reductions failed for {arm} arm. Aborting.")
         return_dict.update(gargs)
 
 
