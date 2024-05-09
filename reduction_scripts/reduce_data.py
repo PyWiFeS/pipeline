@@ -55,6 +55,7 @@ def load_config_file(filename):
 def main():
     # ------------------------------------------------------------------------
     start_time = datetime.datetime.now()
+
     # ------------------------------------------------------------------------
     # ------------------------------------------------------------------------
     # METADATA WRANGLING FUNCTIONS
@@ -186,17 +187,14 @@ def main():
     # Generate super-bias
     # ------------------------------------------------------
     def run_superbias(metadata, prev_suffix, curr_suffix, method="row_med", **args):
-        # Super-bias is not generated if master calibrations are used.
-        if from_master is None:
-            print('Pasaba por aquí...')
-            bias_list = [
-                os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
-                for x in metadata["bias"]
-            ]
-            print("Calculating Global Superbias")
-            pywifes.imcombine(bias_list, superbias_fn, data_hdu=my_data_hdu)
-            # decide what bias model you will actually subtract - could be just data
-        
+        bias_list = [
+            os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
+            for x in metadata["bias"]
+        ]
+        print("Calculating Global Superbias")
+        pywifes.imcombine(bias_list, superbias_fn, data_hdu=my_data_hdu)
+        # decide what bias model you will actually subtract - could be just data
+
         if method == "fit" or method == "row_med":
             # Fit a smart surface to the bias or take the median
             # A bit experimental so far ... but you know what you are doing, right ?
@@ -290,26 +288,24 @@ def main():
     def run_superflat(
         metadata, prev_suffix, curr_suffix, source, scale=None, method="median"
     ):
-        # Super-flat is not generated if master calibrations are used.
-        if from_master is None:
-            if source == "dome":
-                flat_list = [
-                    os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
-                    for x in metadata["domeflat"]
-                ]
-                out_fn = super_dflat_raw
-            elif source == "twi":
-                flat_list = [
-                    os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
-                    for x in metadata["twiflat"]
-                ]
-                out_fn = super_tflat_raw
-            else:
-                raise ValueError("Flatfield type not recognized")
-            print("Generating co-add %sflat" % source)
-            pywifes.imcombine(
-                flat_list, out_fn, data_hdu=my_data_hdu, scale=scale, method=method
-            )
+        if source == "dome":
+            flat_list = [
+                os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
+                for x in metadata["domeflat"]
+            ]
+            out_fn = super_dflat_raw
+        elif source == "twi":
+            flat_list = [
+                os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
+                for x in metadata["twiflat"]
+            ]
+            out_fn = super_tflat_raw
+        else:
+            raise ValueError("Flatfield type not recognized")
+        print("Generating co-add %sflat" % source)
+        pywifes.imcombine(
+            flat_list, out_fn, data_hdu=my_data_hdu, scale=scale, method=method
+        )
         return
 
     # ------------------------------------------------------
@@ -323,84 +319,78 @@ def main():
         offsets=[0.0, 0.0],
         **args,
     ):
-        
-        # Ony run cleanup if no master calibrations are used.
-        if from_master is None:
-            # check the slitlet definition file
-            if os.path.isfile(slitlet_def_fn):
-                slitlet_fn = slitlet_def_fn
-            else:
-                slitlet_fn = None
-            if "dome" in type:
-                print("Correcting master domeflat", super_dflat_fn.split("/")[-1])
-                pywifes.interslice_cleanup(
-                    super_dflat_raw,
-                    super_dflat_fn,
-                    slitlet_fn,
-                    offset=offsets[type.index("dome")],
-                    method="2D",
-                    **args,
-                )
-            if "twi" in type:
-                print("Correcting master twilight flat", super_tflat_fn.split("/")[-1])
-                pywifes.interslice_cleanup(
-                    super_tflat_raw,
-                    super_tflat_fn,
-                    slitlet_fn,
-                    offset=offsets[type.index("twi")],
-                    method="2D",
-                    **args,
-                )
+
+        # check the slitlet definition file
+        if os.path.isfile(slitlet_def_fn):
+            slitlet_fn = slitlet_def_fn
+        else:
+            slitlet_fn = None
+        if "dome" in type:
+            print("Correcting master domeflat", super_dflat_fn.split("/")[-1])
+            pywifes.interslice_cleanup(
+                super_dflat_raw,
+                super_dflat_fn,
+                slitlet_fn,
+                offset=offsets[type.index("dome")],
+                method="2D",
+                **args,
+            )
+        if "twi" in type:
+            print("Correcting master twilight flat", super_tflat_fn.split("/")[-1])
+            pywifes.interslice_cleanup(
+                super_tflat_raw,
+                super_tflat_fn,
+                slitlet_fn,
+                offset=offsets[type.index("twi")],
+                method="2D",
+                **args,
+            )
         return
 
     # ------------------------------------------------------
     # Fit slitlet profiles
     # ------------------------------------------------------
     def run_slitlet_profile(metadata, prev_suffix, curr_suffix, **args):
-        # Only run if no master calibrations are used.
-        if from_master is None:
-            if os.path.isfile(super_dflat_fn):
-                flatfield_fn = super_dflat_fn
-            else:
-                flatfield_fn = super_dflat_raw
-            output_fn = slitlet_def_fn
-            pywifes.derive_slitlet_profiles(
-                flatfield_fn, output_fn, data_hdu=my_data_hdu, **args
-            )
+        if os.path.isfile(super_dflat_fn):
+            flatfield_fn = super_dflat_fn
+        else:
+            flatfield_fn = super_dflat_raw
+        output_fn = slitlet_def_fn
+        pywifes.derive_slitlet_profiles(
+            flatfield_fn, output_fn, data_hdu=my_data_hdu, **args
+        )
         return
 
     # ------------------------------------------------------
     # Create MEF files
     # ------------------------------------------------------
     def run_superflat_mef(metadata, prev_suffix, curr_suffix, source):
-        # Only run if no master calibrations are used.
-        if from_master is None:
-            if source == "dome":
-                if os.path.isfile(super_dflat_fn):
-                    in_fn = super_dflat_fn
-                else:
-                    in_fn = super_dflat_raw
-                out_fn = super_dflat_mef
-
-            elif source == "twi":
-                if os.path.isfile(super_tflat_fn):
-                    in_fn = super_tflat_fn
-                else:
-                    in_fn = super_tflat_raw
-                out_fn = super_tflat_mef
-
+        if source == "dome":
+            if os.path.isfile(super_dflat_fn):
+                in_fn = super_dflat_fn
             else:
-                raise ValueError("Flatfield type not recognized")
-            # check the slitlet definition file
-            if os.path.isfile(slitlet_def_fn):
-                slitlet_fn = slitlet_def_fn
+                in_fn = super_dflat_raw
+            out_fn = super_dflat_mef
+
+        elif source == "twi":
+            if os.path.isfile(super_tflat_fn):
+                in_fn = super_tflat_fn
             else:
-                slitlet_fn = None
-            # run it!
-            print("Generating MEF %sflat" % source)
-            pywifes.wifes_slitlet_mef(
-                in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
-            )
+                in_fn = super_tflat_raw
+            out_fn = super_tflat_mef
+
+        else:
+            raise ValueError("Flatfield type not recognized")
+        # check the slitlet definition file
+        if os.path.isfile(slitlet_def_fn):
+            slitlet_fn = slitlet_def_fn
+        else:
+            slitlet_fn = None
+        # run it!
+        print("Generating MEF %sflat" % source)
+        pywifes.wifes_slitlet_mef(
+            in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
+        )
         return
 
     def run_slitlet_mef(metadata, prev_suffix, curr_suffix, ns=False):
@@ -440,73 +430,69 @@ def main():
     # Wavelength solution
     # ------------------------------------------------------
     def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
-        # Only run if no master calibrations are used.
-        if from_master is None:
-            # First, generate the master arc solution, based on generic arcs
-            wsol_in_fn = os.path.join(
-                out_dir, "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
-            )
-            print("Deriving master wavelength solution from %s" % wsol_in_fn.split("/")[-1])
-            wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, **args)
-            # local wave solutions for science or standards
-            sci_obs_list = get_sci_obs_list(metadata)
-            std_obs_list = get_std_obs_list(metadata)
-            for fn in sci_obs_list + std_obs_list:
-                # Check if the file has a dedicated arc associated with it ...
-                # Only for Science and Std stars for now (sky not required at this stage)
-                # (less critical for the rest anyway ...)
-                # As per Mike I. pull request: if two arcs are present, find a solution
-                # for both to later interpolate between them.
-                # Restrict it to the first two arcs in the list (in case the feature is
-                # being unknowingly used, avoid too much lost time).
-                local_arcs = get_associated_calib(metadata, fn, "arc")
-                if local_arcs:
-                    for i in range(np.min([2, np.size(local_arcs)])):
-                        local_arc_fn = os.path.join(
-                            out_dir, "%s.p%s.fits" % (local_arcs[i], prev_suffix)
-                        )
-                        local_wsol_out_fn = os.path.join(
-                            out_dir, "%s.wsol.fits" % (local_arcs[i])
-                        )
-                        if os.path.isfile(local_wsol_out_fn):
-                            continue
-                        print("Deriving local wavelength solution for %s" % local_arcs[i])
-                        wifes_wsol.derive_wifes_wave_solution(
-                            local_arc_fn, local_wsol_out_fn, **args
-                        )
+        # First, generate the master arc solution, based on generic arcs
+        wsol_in_fn = os.path.join(
+            out_dir, "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
+        )
+        print("Deriving master wavelength solution from %s" % wsol_in_fn.split("/")[-1])
+        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, **args)
+        # local wave solutions for science or standards
+        sci_obs_list = get_sci_obs_list(metadata)
+        std_obs_list = get_std_obs_list(metadata)
+        for fn in sci_obs_list + std_obs_list:
+            # Check if the file has a dedicated arc associated with it ...
+            # Only for Science and Std stars for now (sky not required at this stage)
+            # (less critical for the rest anyway ...)
+            # As per Mike I. pull request: if two arcs are present, find a solution
+            # for both to later interpolate between them.
+            # Restrict it to the first two arcs in the list (in case the feature is
+            # being unknowingly used, avoid too much lost time).
+            local_arcs = get_associated_calib(metadata, fn, "arc")
+            if local_arcs:
+                for i in range(np.min([2, np.size(local_arcs)])):
+                    local_arc_fn = os.path.join(
+                        out_dir, "%s.p%s.fits" % (local_arcs[i], prev_suffix)
+                    )
+                    local_wsol_out_fn = os.path.join(
+                        out_dir, "%s.wsol.fits" % (local_arcs[i])
+                    )
+                    if os.path.isfile(local_wsol_out_fn):
+                        continue
+                    print("Deriving local wavelength solution for %s" % local_arcs[i])
+                    wifes_wsol.derive_wifes_wave_solution(
+                        local_arc_fn, local_wsol_out_fn, **args
+                    )
         return
 
     # ------------------------------------------------------
     # Wire solution
     # ------------------------------------------------------
     def run_wire_soln(metadata, prev_suffix, curr_suffix):
-        # Only run if no master calibrations are used.
-        if from_master is None:
-            # Global wire solution
-            wire_in_fn = os.path.join(
-                out_dir, "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
-            )
-            print("Deriving global wire solution from %s" % wire_in_fn.split("/")[-1])
-            pywifes.derive_wifes_wire_solution(wire_in_fn, wire_out_fn)
-            # Wire solutions for any specific obsevations
-            sci_obs_list = get_sci_obs_list(metadata)
-            std_obs_list = get_std_obs_list(metadata)
-            for fn in sci_obs_list + std_obs_list:
-                # Check if the file has a dedicated wire associated with it ...
-                # Only for Science and Std stars for now (sky not required at this stage)
-                # (less critical for the rest anyway ...)
-                local_wires = get_associated_calib(metadata, fn, "wire")
-                if local_wires:
-                    local_wire_fn = os.path.join(
-                        out_dir, "%s.p%s.fits" % (local_wires[0], prev_suffix)
-                    )
-                    local_wire_out_fn = os.path.join(
-                        out_dir, "%s.wire.fits" % (out_dir, local_wires[0])
-                    )
-                    if os.path.isfile(local_wire_out_fn):
-                        continue
-                    print("Deriving local wire solution for %s" % local_wires[0])
-                    pywifes.derive_wifes_wire_solution(local_wire_fn, local_wire_out_fn)
+        # Global wire solution
+        wire_in_fn = os.path.join(
+            out_dir, "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
+        )
+        print("Deriving global wire solution from %s" % wire_in_fn.split("/")[-1])
+        pywifes.derive_wifes_wire_solution(wire_in_fn, wire_out_fn)
+        # Wire solutions for any specific obsevations
+        sci_obs_list = get_sci_obs_list(metadata)
+        std_obs_list = get_std_obs_list(metadata)
+        for fn in sci_obs_list + std_obs_list:
+            # Check if the file has a dedicated wire associated with it ...
+            # Only for Science and Std stars for now (sky not required at this stage)
+            # (less critical for the rest anyway ...)
+            local_wires = get_associated_calib(metadata, fn, "wire")
+            if local_wires:
+                local_wire_fn = os.path.join(
+                    out_dir, "%s.p%s.fits" % (local_wires[0], prev_suffix)
+                )
+                local_wire_out_fn = os.path.join(
+                    out_dir, "%s.wire.fits" % (out_dir, local_wires[0])
+                )
+                if os.path.isfile(local_wire_out_fn):
+                    continue
+                print("Deriving local wire solution for %s" % local_wires[0])
+                pywifes.derive_wifes_wire_solution(local_wire_fn, local_wire_out_fn)
         return
 
     # ------------------------------------------------------
@@ -684,20 +670,18 @@ def main():
     # Flatfield: Response
     # ------------------------------------------------------
     def run_flat_response(metadata, prev_suffix, curr_suffix, mode="all"):
-        # Only run if no master calibrations are used.
-        if from_master is None:
-            # now fit the desired style of response function
-            print("Generating flatfield response function")
-            if mode == "all":
-                pywifes.wifes_2dim_response(
-                    super_dflat_mef, super_tflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
-                )
-            elif mode == "dome":
-                pywifes.wifes_response_poly(
-                    super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
-                )
-            else:
-                raise ValueError("Requested response mode not recognized")
+        # now fit the desired style of response function
+        print("Generating flatfield response function")
+        if mode == "all":
+            pywifes.wifes_2dim_response(
+                super_dflat_mef, super_tflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
+            )
+        elif mode == "dome":
+            pywifes.wifes_response_poly(
+                super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
+            )
+        else:
+            raise ValueError("Requested response mode not recognized")
         return
 
     # ------------------------------------------------------
@@ -933,7 +917,8 @@ def main():
     def run_save_3dcube(metadata, prev_suffix, curr_suffix, **args):
         # now generate cubes
         sci_obs_list = get_primary_sci_obs_list(metadata)
-        for fn in sci_obs_list:
+        std_obs_list = get_primary_std_obs_list(metadata)
+        for fn in sci_obs_list + std_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.%s.fits" % (fn, curr_suffix))
             print("Saving 3D Data Cube for %s" % in_fn.split("/")[-1])
@@ -971,11 +956,9 @@ def main():
         "--from-master",
         type=str,
         const="./data_products/master_calib",
-        nargs='?',
+        nargs="?",
         help="Optional: Path to the master calibrations directory. If not provided, the default path will be used: .",
     )
-
-
 
     # Option for specifying to skip already completed steps
     parser.add_argument(
@@ -1011,7 +994,6 @@ def main():
     # Reduction from master calibration frames
     from_master = args.from_master
 
-    
     # Classify all raw data (red and blue arm)
     naxis2_to_process = 0  # TODO is this used in half frame (stellar mode)? Check that and include it as a parameter in the json files if needed.
     obs_metadatas = classify(data_dir, naxis2_to_process)
@@ -1029,17 +1011,28 @@ def main():
     # SET SKIP ALREADY DONE FILES ?
     skip_done = args.skip_done
 
-
-    # Set master calibration files direcctory (default ./data_products/master_calib/)
+    # Set the directory for master calibration files (default is ./data_products/master_calib/)
+    # Define a list of steps to skip if the reduction is being performed using master calibration files
     if from_master:
         master_dir = os.path.abspath(from_master)
+        skip_steps = [
+            "superbias",
+            "superflat",
+            "slitlet_profile",
+            "flat_cleanup",
+            "superflat_mef",
+            "wave_soln",
+            "wire_soln",
+            "flat_response",
+            "derive_calib",
+        ]
 
     else:
-        # Master calibration files firectory    
+        # Master calibration files firectory
         master_dir = os.path.join(working_dir, "data_products/master_calib/")
         os.makedirs(master_dir, exist_ok=True)
 
-
+    print(f"Processing using master calibrations from: '{master_dir}'.")
 
     for arm in obs_metadatas.keys():
         try:
@@ -1048,19 +1041,33 @@ def main():
             # ------------------------------------------------------------------------
             obs_metadata = obs_metadatas[arm]
 
-            # Check grism and observing mode in the first science image of each arm
-            sci_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
+            # Determine the grism and observing mode used in the first image of science, standard, or arc of the respective arm.
+            # Limit the reductions steps if no objects no standar star observations are present.
+
+            if obs_metadata["sci"]:
+                reference_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
+                last_step = None
+
+            elif obs_metadata["std"]:
+                reference_filename = obs_metadata["std"][0]["sci"][0] + ".fits"
+                last_step = None
+
+            elif obs_metadata["arc"]:
+                reference_filename = obs_metadata["arc"][0] + ".fits"
+                last_step = "cube_gen"
 
             # Check observing mode
-            if pywifes.is_nodshuffle(data_dir + sci_filename):
+            if pywifes.is_nodshuffle(data_dir + reference_filename):
                 obs_mode = "ns"
-            elif pywifes.is_subnodshuffle(data_dir + sci_filename):
+
+            elif pywifes.is_subnodshuffle(data_dir + reference_filename):
                 obs_mode = "ns"
+
             else:
                 obs_mode = "class"
 
             # Grism
-            grism = pyfits.getheader(data_dir + sci_filename)[grism_key[arm]]
+            grism = pyfits.getheader(data_dir + reference_filename)[grism_key[arm]]
 
             # Read the JSON file
             if params_path[arm] is None:
@@ -1077,36 +1084,50 @@ def main():
 
             calib_prefix = f"wifes_{arm}"
 
-
             # Some WiFeS specific things
             my_data_hdu = 0
 
             # ------------------------------------------------------------------------
-            # NAMES FOR MASTER CALIBRATION FILES!!!
+            # Define names for master calibration files and set their path.
             # ------------------------------------------------------------------------
-            # Set path of calibrations 
             # Bias Master Files
-            superbias_fn = os.path.join(master_dir , "%s_superbias.fits" % calib_prefix)
-            superbias_fit_fn = os.path.join(master_dir , "%s_superbias_fit.fits" % calib_prefix)
-            
-            # Flat Master Files 
-            # Dome   
-            super_dflat_raw = os.path.join(master_dir , "%s_super_domeflat_raw.fits" % calib_prefix)
-            super_dflat_fn = os.path.join(master_dir , "%s_super_domeflat.fits" % calib_prefix)
-            super_dflat_mef = os.path.join(master_dir , "%s_super_domeflat_mef.fits" % calib_prefix)
+            superbias_fn = os.path.join(master_dir, "%s_superbias.fits" % calib_prefix)
+            superbias_fit_fn = os.path.join(
+                master_dir, "%s_superbias_fit.fits" % calib_prefix
+            )
+
+            # Flat Master Files
+            # Dome
+            super_dflat_raw = os.path.join(
+                master_dir, "%s_super_domeflat_raw.fits" % calib_prefix
+            )
+            super_dflat_fn = os.path.join(
+                master_dir, "%s_super_domeflat.fits" % calib_prefix
+            )
+            super_dflat_mef = os.path.join(
+                master_dir, "%s_super_domeflat_mef.fits" % calib_prefix
+            )
             # Twilight
-            super_tflat_raw = os.path.join(master_dir , "%s_super_twiflat_raw.fits" % calib_prefix)
-            super_tflat_fn = os.path.join(master_dir , "%s_super_twiflat.fits" % calib_prefix)
-            super_tflat_mef = os.path.join(master_dir , "%s_super_twiflat_mef.fits" % calib_prefix)
-        
+            super_tflat_raw = os.path.join(
+                master_dir, "%s_super_twiflat_raw.fits" % calib_prefix
+            )
+            super_tflat_fn = os.path.join(
+                master_dir, "%s_super_twiflat.fits" % calib_prefix
+            )
+            super_tflat_mef = os.path.join(
+                master_dir, "%s_super_twiflat_mef.fits" % calib_prefix
+            )
+
             # Slitlet definition
-            slitlet_def_fn = os.path.join(master_dir , "%s_slitlet_defs.pkl" % calib_prefix)
-            
-            wsol_out_fn = os.path.join(master_dir , "%s_wave_soln.fits" % calib_prefix)
-            wire_out_fn = os.path.join(master_dir , "%s_wire_soln.fits" % calib_prefix)
-            flat_resp_fn = os.path.join(master_dir , "%s_resp_mef.fits" % calib_prefix)
-            calib_fn = os.path.join(master_dir , "%s_calib.pkl" % calib_prefix)
-            tellcorr_fn = os.path.join(master_dir , "%s_tellcorr.pkl" % calib_prefix)
+            slitlet_def_fn = os.path.join(
+                master_dir, "%s_slitlet_defs.pkl" % calib_prefix
+            )
+
+            wsol_out_fn = os.path.join(master_dir, "%s_wave_soln.fits" % calib_prefix)
+            wire_out_fn = os.path.join(master_dir, "%s_wire_soln.fits" % calib_prefix)
+            flat_resp_fn = os.path.join(master_dir, "%s_resp_mef.fits" % calib_prefix)
+            calib_fn = os.path.join(master_dir, "%s_calib.pkl" % calib_prefix)
+            tellcorr_fn = os.path.join(master_dir, "%s_tellcorr.pkl" % calib_prefix)
 
             # ------------------------------------------------------------------------
             # RUN THE PROCESSING STEPS
@@ -1120,6 +1141,10 @@ def main():
                 func_name = "run_" + step_name
                 func = locals()[func_name]
 
+                # When master calibrations are in use, the steps listed in skip_steps will be skipped.
+                if from_master and (step_name in skip_steps):
+                    continue
+
                 if step_run:
                     func(
                         obs_metadata,
@@ -1131,6 +1156,18 @@ def main():
                         prev_suffix = step_suffix
                 else:
                     pass
+
+                # If there are no object or standard star observations, data reduction stop at step 08 ('cube_gen').
+                if step_name == last_step:
+                    print(
+                        f"No science or standard star observations found. Only master calibration files were produced for the {arm} arm."
+                    )
+
+                    if arm == "blue":
+                        break
+                    if arm == "red":
+                        sys.exit()
+
         except Exception as exc:
             print(f"{arm} skipped, as an error occurred during processing: '{exc}'.")
 
