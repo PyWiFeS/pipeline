@@ -1015,7 +1015,7 @@ def main():
     # Define a list of steps to skip if the reduction is being performed using master calibration files
     if from_master:
         master_dir = os.path.abspath(from_master)
-        skip_steps = [
+        extra_skip_steps = [
             "superbias",
             "superflat",
             "slitlet_profile",
@@ -1024,13 +1024,14 @@ def main():
             "wave_soln",
             "wire_soln",
             "flat_response",
-            "derive_calib",
         ]
 
     else:
         # Master calibration files firectory
         master_dir = os.path.join(working_dir, "data_products/master_calib/")
         os.makedirs(master_dir, exist_ok=True)
+        # No extra skiped steps in principal.
+        extra_skip_steps = []
 
     print(f"Processing using master calibrations from: '{master_dir}'.")
 
@@ -1042,19 +1043,25 @@ def main():
             obs_metadata = obs_metadatas[arm]
 
             # Determine the grism and observing mode used in the first image of science, standard, or arc of the respective arm.
-            # Limit the reductions steps if no objects no standar star observations are present.
+            # Skip reductions steps if no objects no standar star observations are present.
 
             if obs_metadata["sci"]:
                 reference_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
-                last_step = None
+
+                if not(obs_metadata["std"]):
+                    print(f"No standard star observations found. Standar calibrations skiped for the {arm} arm.")
+                    extra_skip_steps = extra_skip_steps + ['derive_telluric','telluric_corr','derive_calib', 'flux_calib']
 
             elif obs_metadata["std"]:
                 reference_filename = obs_metadata["std"][0]["sci"][0] + ".fits"
-                last_step = None
 
             elif obs_metadata["arc"]:
                 reference_filename = obs_metadata["arc"][0] + ".fits"
-                last_step = "cube_gen"
+
+                print(f"No science or standard star observations found. Only master calibration files will produced for the {arm} arm.")
+
+                extra_skip_steps = extra_skip_steps + ['derive_telluric','telluric_corr','derive_calib','flux_calib','save_3dcube']
+
 
             # Check observing mode
             if pywifes.is_nodshuffle(data_dir + reference_filename):
@@ -1129,8 +1136,14 @@ def main():
             calib_fn = os.path.join(master_dir, "%s_calib.pkl" % calib_prefix)
             tellcorr_fn = os.path.join(master_dir, "%s_tellcorr.pkl" % calib_prefix)
 
+            # When reducing from master calibration files, if the tellic_correction file is already among the master calibrations, skip its generation.
+            if from_master and os.path.exists(tellcorr_fn):
+                extra_skip_steps.append("derive_calib")
+
+
+
             # ------------------------------------------------------------------------
-            # RUN THE PROCESSING STEPS
+            # Run proccessing steps
             # ------------------------------------------------------------------------
             prev_suffix = None
             for step in proc_steps[arm]:
@@ -1142,7 +1155,7 @@ def main():
                 func = locals()[func_name]
 
                 # When master calibrations are in use, the steps listed in skip_steps will be skipped.
-                if from_master and (step_name in skip_steps):
+                if step_name in extra_skip_steps:
                     continue
 
                 if step_run:
@@ -1156,17 +1169,6 @@ def main():
                         prev_suffix = step_suffix
                 else:
                     pass
-
-                # If there are no object or standard star observations, data reduction stop at step 08 ('cube_gen').
-                if step_name == last_step:
-                    print(
-                        f"No science or standard star observations found. Only master calibration files were produced for the {arm} arm."
-                    )
-
-                    if arm == "blue":
-                        break
-                    if arm == "red":
-                        sys.exit()
 
         except Exception as exc:
             print(f"{arm} skipped, as an error occurred during processing: '{exc}'.")

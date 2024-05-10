@@ -702,7 +702,6 @@ def calibrate_wifes_cube(inimg, outimg,
     # calculate the flux calibration array
     if mode == 'pywifes':
         f1 = open(calib_fn, 'rb')
-        print('open rb')
         calib_info = pickle.load(f1)
         f1.close()
         sort_order = calib_info['wave'].argsort()
