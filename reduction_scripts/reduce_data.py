@@ -1002,14 +1002,14 @@ def main():
     reduction_scripts_dir = os.path.dirname(__file__)
     working_dir = os.getcwd()
 
+    # Set to skip already done files
+    skip_done = args.skip_done
+
     # Set grism_key dictionary due to different keyword names for red and blue arms.
     grism_key = {
         "blue": "GRATINGB",
         "red": "GRATINGR",
     }
-
-    # SET SKIP ALREADY DONE FILES ?
-    skip_done = args.skip_done
 
     # Set the directory for master calibration files (default is ./data_products/master_calib/)
     # Define a list of steps to skip if the reduction is being performed using master calibration files
@@ -1048,9 +1048,16 @@ def main():
             if obs_metadata["sci"]:
                 reference_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
 
-                if not(obs_metadata["std"]):
-                    print(f"No standard star observations found. Standar calibrations skiped for the {arm} arm.")
-                    extra_skip_steps = extra_skip_steps + ['derive_telluric','telluric_corr','derive_calib', 'flux_calib']
+                if not (obs_metadata["std"]):
+                    print(
+                        f"No standard star observations found. Standar calibrations skiped for the {arm} arm."
+                    )
+                    extra_skip_steps = extra_skip_steps + [
+                        "derive_telluric",
+                        "telluric_corr",
+                        "derive_calib",
+                        "flux_calib",
+                    ]
 
             elif obs_metadata["std"]:
                 reference_filename = obs_metadata["std"][0]["sci"][0] + ".fits"
@@ -1058,10 +1065,17 @@ def main():
             elif obs_metadata["arc"]:
                 reference_filename = obs_metadata["arc"][0] + ".fits"
 
-                print(f"No science or standard star observations found. Only master calibration files will produced for the {arm} arm.")
+                print(
+                    f"No science or standard star observations found. Only master calibration files will produced for the {arm} arm."
+                )
 
-                extra_skip_steps = extra_skip_steps + ['derive_telluric','telluric_corr','derive_calib','flux_calib','save_3dcube']
-
+                extra_skip_steps = extra_skip_steps + [
+                    "derive_telluric",
+                    "telluric_corr",
+                    "derive_calib",
+                    "flux_calib",
+                    "save_3dcube",
+                ]
 
             # Check observing mode
             if pywifes.is_nodshuffle(data_dir + reference_filename):
@@ -1139,8 +1153,6 @@ def main():
             # When reducing from master calibration files, if the tellic_correction file is already among the master calibrations, skip its generation.
             if from_master and os.path.exists(tellcorr_fn):
                 extra_skip_steps.append("derive_calib")
-
-
 
             # ------------------------------------------------------------------------
             # Run proccessing steps
