@@ -61,7 +61,7 @@
             "suffix": null,
             "args": {
                 "type": [
-                    "dome"
+                    "dome", "twi"
                 ],
                 "verbose": true,
                 "plot": false,

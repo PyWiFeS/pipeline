@@ -5,7 +5,7 @@ setup(
     version="0.7.4",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    python_requires=">=3.10",
+    python_requires="==3.10.*",
     install_requires=[
         "wheel",
         "setuptools",
