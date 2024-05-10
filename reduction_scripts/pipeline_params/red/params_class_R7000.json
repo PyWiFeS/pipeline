@@ -115,7 +115,7 @@
         },
         {
             "step": "wire_soln",
-            "run": false,
+            "run": true,
             "suffix": null,
             "args": {}
         },
