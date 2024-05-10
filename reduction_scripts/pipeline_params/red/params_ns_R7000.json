@@ -42,7 +42,7 @@
         },
         {
             "step": "superflat",
-            "run": false,
+            "run": true,
             "suffix": null,
             "args": {
                 "source": "twi",
@@ -61,7 +61,7 @@
             "suffix": null,
             "args": {
                 "type": [
-                    "dome"
+                    "dome", "twi"
                 ],
                 "verbose": true,
                 "plot": false,
@@ -84,7 +84,7 @@
         },
         {
             "step": "superflat_mef",
-            "run": false,
+            "run": true,
             "suffix": null,
             "args": {
                 "source": "twi"
@@ -115,7 +115,7 @@
         },
         {
             "step": "wire_soln",
-            "run": false,
+            "run": true,
             "suffix": null,
             "args": {}
         },
