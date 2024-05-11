@@ -12,12 +12,31 @@ from pywifes.data_classifier import classify, cube_matcher
 from pywifes.extract_spec import detect_extract_and_save
 from pywifes.splice import splice_spectra, splice_cubes
 from pywifes.lacosmic import lacos_wifes
+import multiprocessing
+from pywifes.multiprocessing_utils import _get_num_processes as get_num_proc
+import contextlib
+
 from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
 import shutil
 import glob
 import argparse
+
+# -----------------------------------------------------------------------
+# Decorator to print name and execution time of each recipe step
+# -----------------------------------------------------------------------
+def wifes_recipe(func):
+    def wrapper(*args, **kwargs):
+        start_time = datetime.datetime.now()
+        print ("# -------------------------------------------------------")
+        print("Start of WiFeS Recipe {}.".format(func.__name__))
+        result = func(*args,**kwargs)
+        duration = datetime.datetime.now() - start_time
+        print ("End of WiFeS Recipe {}: took {} seconds.".format(func.__name__,duration.total_seconds()))
+        print ("# -------------------------------------------------------")
+        return result
+    return wrapper
 
 # ------------------------------------------------------------------------
 # Function definition
@@ -142,71 +161,75 @@ def main():
                 if obs["sci"][0] not in std_obs_list and (type in obs["type"]):
                     std_obs_list.append(obs["sci"][0])
         else:
-            print("Standard star type not understood !")
-            print("I will crash now ...")
+            raise RuntimeError("Standard star type not understood")
+            # print("Standard star type not understood !")
+            # print("I will crash now ...")
         return std_obs_list
 
     # ------------------------------------------------------------------------
     # DEFINE THE PROCESSING STEPS
     # ------------------------------------------------------------------------
     # Subtract overscan
-    def run_overscan_sub(metadata, prev_suffix, curr_suffix):
+    @wifes_recipe
+    def run_overscan_sub(metadata, gargs, prev_suffix, curr_suffix):
         full_obs_list = get_full_obs_list(metadata)
         # this is the only time I hard code that this step should happen first
         for fn in full_obs_list:
-            in_fn = os.path.join(data_dir, "%s.fits" % fn)
-            out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
-            if skip_done and os.path.isfile(out_fn):
+            in_fn = os.path.join(gargs['data_dir'], "%s.fits" % fn)
+            out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+            if gargs['skip_done'] and os.path.isfile(out_fn):
                 continue
             print("Subtracting Overscan for %s" % in_fn.split("/")[-1])
-            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu)
+            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=gargs['my_data_hdu'])
         return
 
     # ------------------------------------------------------
     # repair bad pixels!
     # ------------------------------------------------------
-    def run_bpm_repair(metadata, prev_suffix, curr_suffix):
+    @wifes_recipe
+    def run_bpm_repair(metadata, gargs, prev_suffix, curr_suffix):
         full_obs_list = get_full_obs_list(metadata)
         for basename in full_obs_list:
             input_filename = f"{basename}.p{prev_suffix}.fits"
             output_filename = f"{basename}.p{curr_suffix}.fits"
-            input_filepath = os.path.join(out_dir, input_filename)
-            output_filepath = os.path.join(out_dir, output_filename)
-            if skip_done and os.path.isfile(output_filepath):
+            input_filepath = os.path.join(gargs['out_dir'], input_filename)
+            output_filepath = os.path.join(gargs['out_dir'], output_filename)
+            if gargs['skip_done'] and os.path.isfile(output_filepath):
                 continue
             print(f"Repairing {arm} bad pixels for {input_filename}")
             if arm == "red":
                 pywifes.repair_red_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu
+                    input_filepath, output_filepath, data_hdu=gargs['my_data_hdu']
                 )
             if arm == "blue":
                 pywifes.repair_blue_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu
+                    input_filepath, output_filepath, data_hdu=gargs['my_data_hdu']
                 )
 
     # ------------------------------------------------------
     # Generate super-bias
     # ------------------------------------------------------
-    def run_superbias(metadata, prev_suffix, curr_suffix, method="row_med", **args):
+    @wifes_recipe
+    def run_superbias(metadata, gargs, prev_suffix, curr_suffix, method="row_med", **args):
         bias_list = [
-            os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
+            os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))
             for x in metadata["bias"]
         ]
         print("Calculating Global Superbias")
-        pywifes.imcombine(bias_list, superbias_fn, data_hdu=my_data_hdu)
+        pywifes.imcombine(bias_list, gargs['superbias_fn'], data_hdu=gargs['my_data_hdu'])
         # decide what bias model you will actually subtract - could be just data
         if method == "fit" or method == "row_med":
             # Fit a smart surface to the bias or take the median
             # A bit experimental so far ... but you know what you are doing, right ?
             pywifes.generate_wifes_bias_fit(
-                superbias_fn,
-                superbias_fit_fn,
-                data_hdu=my_data_hdu,
+                gargs['superbias_fn'],
+                gargs['superbias_fit_fn'],
+                data_hdu=gargs['my_data_hdu'],
                 method=method,
                 **args,
             )
         else:
-            pywifes.imcopy(superbias_fn, superbias_fit_fn)
+            pywifes.imcopy(gargs['superbias_fn'], gargs['superbias_fit_fn'])
         # generate local superbiases for any science frames
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
@@ -217,27 +240,27 @@ def main():
                 local_bias_fn = get_associated_calib(metadata, fn, "bias")[0]
                 print("Calculating Local Superbias for %s" % local_bias_fn)
                 local_superbias = os.path.join(
-                    out_dir, "%s.fits" % (local_bias_fn + ".lsb")
+                    gargs['out_dir'], "%s.fits" % (local_bias_fn + ".lsb")
                 )
                 local_superbias_fit = os.path.join(
-                    out_dir, "%s.fits" % (local_bias_fn + ".lsb_fit")
+                    gargs['out_dir'], "%s.fits" % (local_bias_fn + ".lsb_fit")
                 )
                 if os.path.isfile(local_superbias_fit):
                     continue
                 # step 1 - coadd biases
                 local_biases_filename = [
-                    os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
+                    os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))
                     for x in local_biases
                 ]
                 pywifes.imcombine(
-                    local_biases_filename, local_superbias, data_hdu=my_data_hdu
+                    local_biases_filename, local_superbias, data_hdu=gargs['my_data_hdu']
                 )
                 # step 2 - generate fit!
                 if method == "fit" or method == "row_med":
                     pywifes.generate_wifes_bias_fit(
                         local_superbias,
                         local_superbias_fit,
-                        data_hdu=my_data_hdu,
+                        data_hdu=gargs['my_data_hdu'],
                         method=method,
                         **args,
                     )
@@ -248,69 +271,73 @@ def main():
     # ----------------------------------------------------
     # Subtract bias
     # ----------------------------------------------------
-    def run_bias_sub(metadata, prev_suffix, curr_suffix, method="sub", **args):
+    @wifes_recipe
+    def run_bias_sub(metadata, gargs, prev_suffix, curr_suffix, method="sub", **args):
         full_obs_list = get_full_obs_list(metadata)
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
         sky_obs_list = get_sky_obs_list(metadata)
         for fn in full_obs_list:
-            in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
-            if skip_done and os.path.isfile(out_fn):
+            in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+            if gargs['skip_done'] and os.path.isfile(out_fn):
                 continue
             # figure out which bias to subtract
             local_biases = get_associated_calib(metadata, fn, "bias")
             if local_biases:
                 local_bias_fn = get_associated_calib(metadata, fn, "bias")[0]
                 local_superbias = os.path.join(
-                    out_dir, "%s.fits" % (local_bias_fn + ".lsb")
+                    gargs['out_dir'], "%s.fits" % (local_bias_fn + ".lsb")
                 )
                 bias_fit_fn = os.path.join(
-                    out_dir, "%s.fits" % (local_bias_fn + ".lsb_fit")
+                    gargs['out_dir'], "%s.fits" % (local_bias_fn + ".lsb_fit")
                 )
                 bias_type = "local"
             else:
-                bias_fit_fn = superbias_fit_fn
+                bias_fit_fn =gargs['superbias_fit_fn']
                 bias_type = "global"
             # subtract it!
             print("Subtracting %s superbias for %s" % (bias_type, in_fn.split("/")[-1]))
             if method == "copy":
                 pywifes.imcopy(in_fn, out_fn)
             else:
-                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=my_data_hdu)
+                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=gargs['my_data_hdu'])
         return
 
     # ------------------------------------------------------
     # Generate super-flat
     # ------------------------------------------------------
+    @wifes_recipe
     def run_superflat(
-        metadata, prev_suffix, curr_suffix, source, scale=None, method="median"
+        metadata, gargs, prev_suffix, curr_suffix, source, scale=None, method="median"
     ):
         if source == "dome":
             flat_list = [
-                os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
+                os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))
                 for x in metadata["domeflat"]
             ]
-            out_fn = super_dflat_raw
+            out_fn = gargs['super_dflat_raw']
         elif source == "twi":
             flat_list = [
-                os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
+                os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))
                 for x in metadata["twiflat"]
             ]
-            out_fn = super_tflat_raw
+            out_fn = gargs['super_tflat_raw']
         else:
             raise ValueError("Flatfield type not recognized")
         print("Generating co-add %sflat" % source)
         pywifes.imcombine(
-            flat_list, out_fn, data_hdu=my_data_hdu, scale=scale, method=method
+            flat_list, out_fn, data_hdu=gargs['my_data_hdu'], scale=scale, method=method
         )
         return
 
     # ------------------------------------------------------
     # Fred's flat cleanup
     # ------------------------------------------------------
+    @wifes_recipe
     def run_flat_cleanup(
         metadata,
+        gargs,
         prev_suffix,
         curr_suffix,
         type=["dome", "twi"],
@@ -318,25 +345,25 @@ def main():
         **args,
     ):
         # check the slitlet definition file
-        if os.path.isfile(slitlet_def_fn):
-            slitlet_fn = slitlet_def_fn
+        if os.path.isfile(gargs['slitlet_def_fn']):
+            slitlet_fn = gargs['slitlet_def_fn']
         else:
             slitlet_fn = None
         if "dome" in type:
-            print("Correcting master domeflat", super_dflat_fn.split("/")[-1])
+            print("Correcting master domeflat", gargs['super_dflat_fn'].split("/")[-1])
             pywifes.interslice_cleanup(
-                super_dflat_raw,
-                super_dflat_fn,
+                gargs['super_dflat_raw'],
+                gargs['super_dflat_fn'],
                 slitlet_fn,
                 offset=offsets[type.index("dome")],
                 method="2D",
                 **args,
             )
         if "twi" in type:
-            print("Correcting master twilight flat", super_tflat_fn.split("/")[-1])
+            print("Correcting master twilight flat", gargs['super_tflat_fn'].split("/")[-1])
             pywifes.interslice_cleanup(
-                super_tflat_raw,
-                super_tflat_fn,
+                gargs['super_tflat_raw'],
+                gargs['super_tflat_fn'],
                 slitlet_fn,
                 offset=offsets[type.index("twi")],
                 method="2D",
@@ -347,92 +374,108 @@ def main():
     # ------------------------------------------------------
     # Fit slitlet profiles
     # ------------------------------------------------------
-    def run_slitlet_profile(metadata, prev_suffix, curr_suffix, **args):
-        if os.path.isfile(super_dflat_fn):
-            flatfield_fn = super_dflat_fn
+    @wifes_recipe
+    def run_slitlet_profile(metadata, gargs, prev_suffix, curr_suffix, **args):
+        if os.path.isfile(gargs['super_dflat_fn']):
+            flatfield_fn = gargs['super_dflat_fn']
         else:
-            flatfield_fn = super_dflat_raw
-        output_fn = slitlet_def_fn
+            flatfield_fn = gargs['super_dflat_raw']
+        output_fn = gargs['slitlet_def_fn']
         pywifes.derive_slitlet_profiles(
-            flatfield_fn, output_fn, data_hdu=my_data_hdu, **args
+            flatfield_fn, output_fn, data_hdu=gargs['my_data_hdu'], **args
         )
         return
 
     # ------------------------------------------------------
     # Create MEF files
     # ------------------------------------------------------
-    def run_superflat_mef(metadata, prev_suffix, curr_suffix, source):
+    @wifes_recipe
+    def run_superflat_mef(metadata, gargs, prev_suffix, curr_suffix, source):
         if source == "dome":
-            if os.path.isfile(super_dflat_fn):
-                in_fn = super_dflat_fn
+            if os.path.isfile(gargs['super_dflat_fn']):
+                in_fn = gargs['super_dflat_fn']
             else:
-                in_fn = super_dflat_raw
-            out_fn = super_dflat_mef
+                in_fn = gargs['super_dflat_raw']
+            out_fn = gargs['super_dflat_mef']
 
         elif source == "twi":
-            if os.path.isfile(super_tflat_fn):
-                in_fn = super_tflat_fn
+            if os.path.isfile(gargs['super_tflat_fn']):
+                in_fn = gargs['super_tflat_fn']
             else:
-                in_fn = super_tflat_raw
-            out_fn = super_tflat_mef
+                in_fn = gargs['super_tflat_raw']
+            out_fn = gargs['super_tflat_mef']
 
         else:
             raise ValueError("Flatfield type not recognized")
         # check the slitlet definition file
-        if os.path.isfile(slitlet_def_fn):
-            slitlet_fn = slitlet_def_fn
+        if os.path.isfile(gargs['slitlet_def_fn']):
+            slitlet_fn = gargs['slitlet_def_fn']
         else:
             slitlet_fn = None
         # run it!
         print("Generating MEF %sflat" % source)
         pywifes.wifes_slitlet_mef(
-            in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
+            in_fn, out_fn, data_hdu=gargs['my_data_hdu'], slitlet_def_file=slitlet_fn
         )
         return
 
-    def run_slitlet_mef(metadata, prev_suffix, curr_suffix, ns=False):
+    def run_slitlet_mef_indiv(fn, gargs,prev_suffix,curr_suffix,slitlet_fn,use_ns):
+        in_fn  = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, prev_suffix))
+        out_fn = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, curr_suffix))
+        if gargs['skip_done'] and os.path.isfile(out_fn):
+            return
+        print('Creating MEF file for %s' % in_fn.split('/')[-1])
+        if use_ns:
+            sky_fn = os.path.join(gargs['out_dir'], '%s.s%s.fits' % (fn, curr_suffix))
+            pywifes.wifes_slitlet_mef_ns(in_fn, out_fn, sky_fn,
+                                        data_hdu=gargs['my_data_hdu'],
+                                        slitlet_def_file=slitlet_fn)
+        else:
+            pywifes.wifes_slitlet_mef(in_fn, out_fn, data_hdu=gargs['my_data_hdu'],
+                                       slitlet_def_file=slitlet_fn)
+        gc.collect()
+
+    @wifes_recipe
+    def run_slitlet_mef(metadata, gargs, prev_suffix, curr_suffix, ns=False):
         full_obs_list = get_full_obs_list(metadata)
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
-        sky_obs_list = get_sky_obs_list(metadata)
         ns_proc_list = sci_obs_list + std_obs_list
         # check the slitlet definition file
-        if os.path.isfile(slitlet_def_fn):
-            slitlet_fn = slitlet_def_fn
+        if os.path.isfile(gargs['slitlet_def_fn']):
+            slitlet_fn = gargs['slitlet_def_fn']
         else:
             slitlet_fn = None
-        for fn in full_obs_list:
-            in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
-            if skip_done and os.path.isfile(out_fn):
-                continue
-            print("Creating MEF file for %s" % in_fn.split("/")[-1])
-            if ns and fn in ns_proc_list:
-                sky_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, curr_suffix))
-                pywifes.wifes_slitlet_mef_ns(
-                    in_fn,
-                    out_fn,
-                    sky_fn,
-                    data_hdu=my_data_hdu,
-                    slitlet_def_file=slitlet_fn,
-                )
-            else:
-                pywifes.wifes_slitlet_mef(
-                    in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
-                )
-            gc.collect()
+
+        nworkers = get_num_proc()
+        nobs = len(full_obs_list)
+        for worker in range(0,nobs,nworkers):
+            nmax = worker + nworkers
+            if nmax > nobs:
+                nmax = nobs
+            jobs = []
+            for fidx in range(worker,nmax): 
+                fn = full_obs_list[fidx]
+                use_ns = (ns and fn in ns_proc_list)
+                p = multiprocessing.Process(target=run_slitlet_mef_indiv,args=(fn,gargs,prev_suffix,curr_suffix,slitlet_fn,use_ns))
+                jobs.append(p)
+                p.start()
+
+            for proc in jobs:
+                proc.join()
         return
 
     # ------------------------------------------------------
     # Wavelength solution
     # ------------------------------------------------------
-    def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
+    @wifes_recipe
+    def run_wave_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
         # First, generate the master arc solution, based on generic arcs
         wsol_in_fn = os.path.join(
-            out_dir, "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
+            gargs['out_dir'], "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
         )
         print("Deriving master wavelength solution from %s" % wsol_in_fn.split("/")[-1])
-        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, **args)
+        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn,  gargs['wsol_out_fn'], **args)
         # local wave solutions for science or standards
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
@@ -448,10 +491,10 @@ def main():
             if local_arcs:
                 for i in range(np.min([2, np.size(local_arcs)])):
                     local_arc_fn = os.path.join(
-                        out_dir, "%s.p%s.fits" % (local_arcs[i], prev_suffix)
+                         gargs['out_dir'], "%s.p%s.fits" % (local_arcs[i], prev_suffix)
                     )
                     local_wsol_out_fn = os.path.join(
-                        out_dir, "%s.wsol.fits" % (local_arcs[i])
+                         gargs['out_dir'], "%s.wsol.fits" % (local_arcs[i])
                     )
                     if os.path.isfile(local_wsol_out_fn):
                         continue
@@ -464,13 +507,14 @@ def main():
     # ------------------------------------------------------
     # Wire solution
     # ------------------------------------------------------
-    def run_wire_soln(metadata, prev_suffix, curr_suffix):
+    @wifes_recipe
+    def run_wire_soln(metadata, gargs, prev_suffix, curr_suffix):
         # Global wire solution
         wire_in_fn = os.path.join(
-            out_dir, "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
+             gargs['out_dir'], "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
         )
         print("Deriving global wire solution from %s" % wire_in_fn.split("/")[-1])
-        pywifes.derive_wifes_wire_solution(wire_in_fn, wire_out_fn)
+        pywifes.derive_wifes_wire_solution(wire_in_fn, gargs['wire_out_fn'])
         # Wire solutions for any specific obsevations
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
@@ -481,12 +525,12 @@ def main():
             local_wires = get_associated_calib(metadata, fn, "wire")
             if local_wires:
                 local_wire_fn = os.path.join(
-                    out_dir, "%s.p%s.fits" % (local_wires[0], prev_suffix)
+                    gargs['out_dir'], "%s.p%s.fits" % (local_wires[0], prev_suffix)
                 )
                 local_wire_out_fn = os.path.join(
-                    out_dir, "%s.wire.fits" % (out_dir, local_wires[0])
+                    gargs['out_dir'], "%s.wire.fits" % (gargs['out_dir'], local_wires[0])
                 )
-                if os.path.isfile(local_wire_out_fn):
+                if gargs['skip_done'] and os.path.isfile(local_wire_out_fn):
                     continue
                 print("Deriving local wire solution for %s" % local_wires[0])
                 pywifes.derive_wifes_wire_solution(local_wire_fn, local_wire_out_fn)
@@ -495,8 +539,10 @@ def main():
     # ------------------------------------------------------
     # Cosmic Rays
     # ------------------------------------------------------
+    @wifes_recipe
     def run_cosmic_rays(
         metadata,
+        gargs,
         prev_suffix,
         curr_suffix,
         ns=False,
@@ -508,18 +554,18 @@ def main():
         sky_obs_list = get_sky_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
         for fn in sci_obs_list + sky_obs_list:
-            in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
+            in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
             print("Cleaning cosmics in %s" % in_fn.split("/")[-1])
             # skip files which are already done
             # if os.path.isfile(out_fn):
             #    continue
-            if skip_done and os.path.isfile(out_fn):
+            if gargs['skip_done'] and os.path.isfile(out_fn):
                 continue
             lacos_wifes(
                 in_fn,
                 out_fn,
-                wsol_fn=wsol_out_fn,
+                wsol_fn=gargs['wsol_out_fn'],
                 niter=3,
                 sig_clip=10.0,
                 obj_lim=10.0,
@@ -528,13 +574,13 @@ def main():
                 max_processes=max_processes,
             )
             if ns:
-                in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
-                out_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, curr_suffix))
+                in_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
+                out_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, curr_suffix))
                 print("Cleaning cosmics in %s" % in_fn.split("/")[-1])
                 lacos_wifes(
                     in_fn,
                     out_fn,
-                    wsol_fn=wsol_out_fn,
+                    wsol_fn=gargs['wsol_out_fn'],
                     niter=3,
                     sig_clip=10.0,
                     obj_lim=10.0,
@@ -544,16 +590,16 @@ def main():
                 )
             gc.collect()
         for fn in std_obs_list:
-            in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
-            if skip_done and os.path.isfile(out_fn):
+            in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+            if gargs['skip_done'] and os.path.isfile(out_fn):
                 continue
             print("Cleaning cosmics in %s" % in_fn.split("/")[-1])
             # lacos_wifes(in_fn, out_fn, niter=1, sig_frac=2.0)
             lacos_wifes(
                 in_fn,
                 out_fn,
-                wsol_fn=wsol_out_fn,
+                wsol_fn=gargs['wsol_out_fn'],
                 niter=3,
                 sig_clip=10.0,
                 obj_lim=10.0,
@@ -562,14 +608,14 @@ def main():
                 max_processes=max_processes,
             )
             if ns:
-                in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
-                out_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, curr_suffix))
+                in_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
+                out_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, curr_suffix))
                 print("Cleaning cosmics in %s" % in_fn.split("/")[-1])
                 # lacos_wifes(in_fn, out_fn, niter=1, sig_frac=2.0)
                 lacos_wifes(
                     in_fn,
                     out_fn,
-                    wsol_fn=wsol_out_fn,
+                    wsol_fn=gargs['wsol_out_fn'],
                     niter=3,
                     sig_clip=10.0,
                     obj_lim=10.0,
@@ -583,33 +629,37 @@ def main():
     # ------------------------------------------------------
     # Sky subtraction
     # ------------------------------------------------------
-    def run_sky_sub_ns(metadata, prev_suffix, curr_suffix):
+    # since run_sky_sub_ns is called from run_sky_sub, 
+    # no need to have decorator here
+    # @wifes_recipe
+    def run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix):
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
         ns_proc_list = sci_obs_list + std_obs_list
         for fn in ns_proc_list:
-            in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
-            sky_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
+            in_fn  = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+            sky_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
             print("Subtracting N+S sky frame for %s" % in_fn.split("/")[-1])
             pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime")
         return
 
-    def run_sky_sub(metadata, prev_suffix, curr_suffix, ns=False):
+    @wifes_recipe
+    def run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, ns=False):
         if ns:
-            run_sky_sub_ns(metadata, prev_suffix, curr_suffix)
+            run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix)
         else:
             # subtract sky frames from science objects
             for obs in metadata["sci"]:
                 if len(obs["sky"]) > 0:
                     sky_fn = obs["sky"][0]
                     sky_proc_fn = os.path.join(
-                        out_dir, "%s.p%s.fits" % (sky_fn, prev_suffix)
+                        gargs['out_dir'], "%s.p%s.fits" % (sky_fn, prev_suffix)
                     )
                     for fn in obs["sci"]:
-                        in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
+                        in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
                         out_fn = os.path.join(
-                            out_dir, "%s.p%s.fits" % (fn, curr_suffix)
+                            gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix)
                         )
                         print("Subtracting sky frame for %s" % in_fn.split("/")[-1])
                         # subtract scaled sky frame!
@@ -618,9 +668,9 @@ def main():
                         )
                 else:
                     for fn in obs["sci"]:
-                        in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
+                        in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
                         out_fn = os.path.join(
-                            out_dir, "%s.p%s.fits" % (fn, curr_suffix)
+                            gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix)
                         )
                         print("Copying image %s" % in_fn.split("/")[-1])
                         # subtract scaled sky frame!
@@ -628,9 +678,9 @@ def main():
             # copy stdstar frames
             std_obs_list = get_std_obs_list(metadata)
             for fn in std_obs_list:
-                in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-                out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
-                if skip_done and os.path.isfile(out_fn):
+                in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+                out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+                if gargs['skip_done'] and os.path.isfile(out_fn):
                     continue
                 print("Copying standard star image %s" % in_fn.split("/")[-1])
                 pywifes.imcopy(in_fn, out_fn)
@@ -639,43 +689,61 @@ def main():
     # ------------------------------------------------------
     # Image coaddition for science and standards!
     # ------------------------------------------------------
-    def run_obs_coadd(metadata, prev_suffix, curr_suffix, method="sum", scale=None):
-        for obs in metadata["sci"] + metadata["std"]:
-            # if just one, then copy it
-            if len(obs["sci"]) == 1:
-                fn = obs["sci"][0]
-                in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-                out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
-                if skip_done and os.path.isfile(out_fn):
-                    continue
-                print("Copying image %s" % in_fn.split("/")[-1])
-                pywifes.imcopy(in_fn, out_fn)
-            # coadd sci frames!
-            else:
-                in_fn_list = [
-                    os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-                    for fn in obs["sci"]
-                ]
-                out_fn = os.path.join(
-                    out_dir, "%s.p%s.fits" % (obs["sci"][0], curr_suffix)
-                )
-                print("Coadding images for %s" % in_fn_list[0].split("/")[-1])
-                pywifes.imcombine_mef(in_fn_list, out_fn, scale=scale, method=method)
+
+    def run_obs_coadd_indiv(obs, gargs, prev_suffix,curr_suffix,method,scale, **args):
+        # if just one, then copy it
+        if len(obs['sci']) == 1:
+            fn = obs['sci'][0]
+            in_fn  = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, curr_suffix))
+            if gargs['skip_done'] and os.path.isfile(out_fn):
+                return
+            print('Copying image %s' % in_fn.split('/')[-1])
+            pywifes.imcopy(in_fn, out_fn)            
+        # coadd sci frames!
+        else:
+            in_fn_list = [os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, prev_suffix))
+                        for fn in obs['sci']]
+            out_fn = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (obs['sci'][0], curr_suffix))
+            print('Coadding images for %s' % in_fn_list[0].split('/')[-1])
+            pywifes.imcombine_mef(in_fn_list, out_fn,
+                                scale=scale,
+                                method=method)
+
+    @wifes_recipe
+    def run_obs_coadd(metadata, gargs, prev_suffix, curr_suffix, method="sum", scale=None):
+        nworkers = get_num_proc()
+        obslist = metadata['sci']+metadata['std']
+        nobs = len(obslist)
+        for worker in range(0,nobs,nworkers):
+            nmax = worker + nworkers
+            if nmax > nobs:
+                nmax = nobs
+            jobs = []
+            for fidx in range(worker,nmax): 
+                obs = obslist[fidx]
+                p = multiprocessing.Process(target=run_obs_coadd_indiv,args=(obs,gargs,prev_suffix,curr_suffix,method,scale))
+                jobs.append(p)
+                p.start()
+
+            for proc in jobs:
+                proc.join()
         return
 
     # ------------------------------------------------------
     # Flatfield: Response
     # ------------------------------------------------------
-    def run_flat_response(metadata, prev_suffix, curr_suffix, mode="all"):
+    @wifes_recipe
+    def run_flat_response(metadata, gargs, prev_suffix, curr_suffix, mode="all"):
         # now fit the desired style of response function
         print("Generating flatfield response function")
         if mode == "all":
             pywifes.wifes_2dim_response(
-                super_dflat_mef, super_tflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
+                gargs['super_dflat_mef'], gargs['super_tflat_mef'], gargs['flat_resp_fn'], wsol_fn=gargs['wsol_out_fn']
             )
         elif mode == "dome":
             pywifes.wifes_response_poly(
-                super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
+                gargs['super_dflat_mef'], gargs['flat_resp_fn'], wsol_fn=gargs['wsol_out_fn']
             )
         else:
             raise ValueError("Requested response mode not recognized")
@@ -684,38 +752,40 @@ def main():
     # ------------------------------------------------------
     # Flatfield: Division
     # ------------------------------------------------------
-    def run_flatfield(metadata, prev_suffix, curr_suffix):
+    @wifes_recipe
+    def run_flatfield(metadata, gargs, prev_suffix, curr_suffix):
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
         for fn in sci_obs_list + std_obs_list:
-            in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
-            if skip_done and os.path.isfile(out_fn):
+            in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+            if gargs['skip_done'] and os.path.isfile(out_fn):
                 continue
             print("Flat-fielding image %s" % in_fn.split("/")[-1])
-            pywifes.imarith_mef(in_fn, "/", flat_resp_fn, out_fn)
+            pywifes.imarith_mef(in_fn, "/", gargs['flat_resp_fn'], out_fn)
         return
 
     # ------------------------------------------------------
     # Data Cube Generation
     # ------------------------------------------------------
-    def run_cube_gen(metadata, prev_suffix, curr_suffix, **args):
+    @wifes_recipe
+    def run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
         # now generate cubes
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
         for fn in sci_obs_list + std_obs_list:
-            in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
-            if skip_done and os.path.isfile(out_fn):
+            in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
+            if gargs['skip_done'] and os.path.isfile(out_fn):
                 continue
             print("Generating Data Cube for %s" % in_fn.split("/")[-1])
             # decide whether to use global or local wsol and wire files
             local_wires = get_associated_calib(metadata, fn, "wire")
             if local_wires:
-                wire_fn = os.path.join(out_dir, "%s.wire.fits" % (local_wires[0]))
+                wire_fn = os.path.join(gargs['out_dir'], "%s.wire.fits" % (local_wires[0]))
                 print("(Note: using %s as wire file)" % wire_fn.split("/")[-1])
             else:
-                wire_fn = wire_out_fn
+                wire_fn = gargs['wire_out_fn']
             local_arcs = get_associated_calib(metadata, fn, "arc")
             if local_arcs:
                 # Do I have two arcs ? Do they surround the Science file ?
@@ -730,7 +800,7 @@ def main():
                     for i in range(2):
                         # Fetch the arc time from the "extra" pkl file
                         local_wsol_out_fn_extra = os.path.join(
-                            out_dir, "%s.wsol.fits_extra.pkl" % (local_arcs[i])
+                            gargs['out_dir'], "%s.wsol.fits_extra.pkl" % (local_arcs[i])
                         )
                         f = open(local_wsol_out_fn_extra, "rb")
                         try:
@@ -780,15 +850,15 @@ def main():
                             w2 = ds1 / (ds1 + ds2)
 
                         # Open the arc solution files
-                        fn0 = os.path.join(out_dir, "%s.wsol.fits" % (local_arcs[0]))
-                        fn1 = os.path.join(out_dir, "%s.wsol.fits" % (local_arcs[1]))
+                        fn0 = os.path.join(gargs['out_dir'], "%s.wsol.fits" % (local_arcs[0]))
+                        fn1 = os.path.join(gargs['out_dir'], "%s.wsol.fits" % (local_arcs[1]))
                         fits0 = pyfits.open(fn0)
                         fits1 = pyfits.open(fn1)
 
                         for i in range(1, len(fits0)):
                             fits0[i].data = w1 * fits0[i].data + w2 * fits1[i].data
 
-                        wsol_fn = os.path.join(out_dir, "%s.wsol.fits" % (fn))
+                        wsol_fn = os.path.join(gargs['out_dir'], "%s.wsol.fits" % (fn))
                         fits0.writeto(wsol_fn, overwrite=True)
 
                         print("(2 arcs found)")
@@ -806,7 +876,7 @@ def main():
                         # Arcs do not surround the Science frame
                         # Revert to using the first one instead
                         wsol_fn = os.path.join(
-                            out_dir, "%s.wsol.fits" % (local_arcs[0])
+                            gargs['out_dir'], "%s.wsol.fits" % (local_arcs[0])
                         )
                         print(
                             "(2 arcs found, but they do not bracket the Science frame!)"
@@ -815,11 +885,11 @@ def main():
 
                 else:
                     # Either 1 or more than two arcs present ... only use the first one !
-                    wsol_fn = os.path.join(out_dir, "%s.wsol.fits" % (local_arcs[0]))
+                    wsol_fn = os.path.join(gargs['out_dir'], "%s.wsol.fits" % (local_arcs[0]))
                     print("(Note: using %s as wsol file)" % wsol_fn.split("/")[-1])
 
             else:
-                wsol_fn = wsol_out_fn
+                wsol_fn = gargs['wsol_out_fn']
 
             # All done, let's generate the cube
             pywifes.generate_wifes_cube(
@@ -837,13 +907,14 @@ def main():
     # ------------------------------------------------------
     # Standard star extraction
     # ------------------------------------------------------
-    def run_extract_stars(metadata, prev_suffix, curr_suffix, type="all", **args):
+    @wifes_recipe
+    def run_extract_stars(metadata, gargs, prev_suffix, curr_suffix, type="all", **args):
         # for each std, extract spectrum as desired
         std_obs_list = get_primary_std_obs_list(metadata, type=type)
         # print std_obs_list
         for fn in std_obs_list:
-            in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, "%s.x%s.dat" % (fn, prev_suffix))
+            in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir'], "%s.x%s.dat" % (fn, prev_suffix))
             print("Extract %s standard star from %s" % (type, in_fn.split("/")[-1]))
             wifes_calib.extract_wifes_stdstar(
                 in_fn, save_fn=out_fn, save_mode="ascii", **args
@@ -851,78 +922,198 @@ def main():
         return
 
     # Sensitivity Function fit
-    def run_derive_calib(metadata, prev_suffix, curr_suffix, method="poly", **args):
+    @wifes_recipe
+    def run_derive_calib(metadata, gargs, prev_suffix, curr_suffix, method="poly", **args):
         std_obs_list = get_primary_std_obs_list(metadata, type="flux")
         std_cube_list = [
-            os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
+            os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
             for fn in std_obs_list
         ]
         extract_list = [
-            os.path.join(out_dir, "%s.x%s.dat" % (fn, prev_suffix))
+            os.path.join(gargs['out_dir'], "%s.x%s.dat" % (fn, prev_suffix))
             for fn in std_obs_list
         ]
         print("Deriving sensitivity function")
         best_calib = wifes_calib.derive_wifes_calibration(
-            std_cube_list, calib_fn, extract_in_list=extract_list, method=method, **args
+            std_cube_list, gargs['calib_fn'], extract_in_list=extract_list, method=method, **args
         )
         return
 
     # Applying Flux Calibration
-    def run_flux_calib(metadata, prev_suffix, curr_suffix, mode="pywifes", **args):
+    @wifes_recipe
+    def run_flux_calib(metadata, gargs, prev_suffix, curr_suffix, mode="pywifes", **args):
         # calibrate all sci and std obs
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
         for fn in sci_obs_list + std_obs_list:
-            in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
+            in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
             print("Flux-calibrating cube %s" % in_fn.split("/")[-1])
-            wifes_calib.calibrate_wifes_cube(in_fn, out_fn, calib_fn, mode)
+            wifes_calib.calibrate_wifes_cube(in_fn, out_fn, gargs['calib_fn'], mode)
         return
 
     # ------------------------------------------------------
     # Telluric - derive
     # ------------------------------------------------------
-    def run_derive_telluric(metadata, prev_suffix, curr_suffix, **args):
+    @wifes_recipe
+    def run_derive_telluric(metadata, gargs, prev_suffix, curr_suffix, **args):
         std_obs_list = get_primary_std_obs_list(metadata, "telluric")
         std_cube_list = [
-            os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
+            os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
             for fn in std_obs_list
         ]
         extract_list = [
-            os.path.join(out_dir, "%s.x%s.dat" % (fn, prev_suffix))
+            os.path.join(gargs['out_dir'], "%s.x%s.dat" % (fn, prev_suffix))
             for fn in std_obs_list
         ]
         print("Deriving telluric correction")
         wifes_calib.derive_wifes_telluric(
-            std_cube_list, tellcorr_fn, extract_in_list=extract_list, **args
+            std_cube_list, gargs['tellcorr_fn'], extract_in_list=extract_list, **args
         )
         return
 
     # Telluric - apply
-    def run_telluric_corr(metadata, prev_suffix, curr_suffix, **args):
+    @wifes_recipe
+    def run_telluric_corr(metadata, gargs, prev_suffix, curr_suffix, **args):
         # calibrate all sci and std obs
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
         for fn in sci_obs_list + std_obs_list:
-            in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
+            in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
             print("Correcting telluric in %s" % in_fn.split("/")[-1])
-            wifes_calib.apply_wifes_telluric(in_fn, out_fn, tellcorr_fn)
+            wifes_calib.apply_wifes_telluric(in_fn, out_fn, gargs['tellcorr_fn'])
         return
 
     # Save final cube in suitable fits format
-    def run_save_3dcube(metadata, prev_suffix, curr_suffix, **args):
+    @wifes_recipe
+    def run_save_3dcube(metadata, gargs, prev_suffix, curr_suffix, **args):
         # now generate cubes
         sci_obs_list = get_primary_sci_obs_list(metadata)
         for fn in sci_obs_list:
-            in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
-            out_fn = os.path.join(out_dir, "%s.%s.fits" % (fn, curr_suffix))
+            in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
+            out_fn = os.path.join(gargs['out_dir'], "%s.%s.fits" % (fn, curr_suffix))
             print("Saving 3D Data Cube for %s" % in_fn.split("/")[-1])
             pywifes.generate_wifes_3dcube(in_fn, out_fn, **args)
         return
+    
+    def run_arm_indiv(data_dir,obs_metadatas,loc,arm,return_dict):
+        """
+        Reduces the data for an individual arm.
+        """
+
+        try:
+            # ------------------------------------------------------------------------
+            #      LOAD JSON FILE WITH USER REDUCTION SETUP
+            # ------------------------------------------------------------------------
+            obs_metadata = obs_metadatas[arm]
+            
+            # global args to keep filenames and other global info
+            gargs = {}
+            gargs['data_dir'] = data_dir
+
+            # Check grism and observing mode in the first science image of each arm
+            sci_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
+
+            # Check observing mode
+            if pywifes.is_nodshuffle(data_dir + sci_filename):
+                gargs['obs_mode'] = "ns"
+            elif pywifes.is_subnodshuffle(data_dir + sci_filename):
+                gargs['obs_mode'] = "ns"
+            else:
+                gargs['obs_mode'] = "class"
+
+            # Grism
+            grism = pyfits.getheader(data_dir + sci_filename)[grism_key[arm]]
+
+            # Read the JSON file
+            if params_path[arm] is None:
+                json_path = f"./pipeline_params/{arm}/params_{gargs['obs_mode']}_{grism}.json"
+            else:
+                json_path = params_path[arm]
+
+            # print ("Reading in JSON settings from file {}".format(json_path))
+            proc_steps = load_config_file(json_path)
+
+            # Create data products directory structure
+            gargs['out_dir'] = os.path.join(working_dir, f"data_products/intermediate/{arm}")
+
+            os.makedirs(gargs['out_dir'], exist_ok=True)
+
+            calib_prefix = os.path.join(gargs['out_dir'], f"wifes_{arm}")
+
+            # Some WiFeS specific things
+            gargs['my_data_hdu'] = 0
+
+            # SET SKIP ALREADY DONE FILES ?
+            gargs['skip_done'] = True
+
+            # ------------------------------------------------------------------------
+            # NAMES FOR MASTER CALIBRATION FILES!!!
+            # ------------------------------------------------------------------------
+
+            gargs['superbias_fn'] = "%s_superbias.fits" % calib_prefix
+            gargs['superbias_fit_fn'] = "%s_superbias_fit.fits" % calib_prefix
+            gargs['super_dflat_raw'] = "%s_super_domeflat_raw.fits" % calib_prefix
+            gargs['super_dflat_fn'] = "%s_super_domeflat.fits" % calib_prefix
+            gargs['super_dflat_mef'] = "%s_super_domeflat_mef.fits" % calib_prefix
+            gargs['super_tflat_raw'] = "%s_super_twiflat_raw.fits" % calib_prefix
+            gargs['super_tflat_fn']= "%s_super_twiflat.fits" % calib_prefix
+            gargs['super_tflat_mef'] = "%s_super_twiflat_mef.fits" % calib_prefix
+            gargs['slitlet_def_fn'] = "%s_slitlet_defs.pkl" % calib_prefix
+            gargs['wsol_out_fn'] = "%s_wave_soln.fits" % calib_prefix
+            gargs['wire_out_fn'] = "%s_wire_soln.fits" % calib_prefix
+            gargs['flat_resp_fn'] = "%s_resp_mef.fits" % calib_prefix
+            gargs['calib_fn'] = "%s_calib.pkl" % calib_prefix
+            gargs['tellcorr_fn']= "%s_tellcorr.pkl" % calib_prefix
+
+            # ------------------------------------------------------------------------
+            # RUN THE PROCESSING STEPS
+            # ------------------------------------------------------------------------
+            prev_suffix = None
+            # keep a reference to current stdout so we can use it to print progress
+            old_stdout = sys.stdout
+
+            # get the current time to track how long each arm's reductions take
+            start_time = datetime.datetime.now()
+            # open a log file to direct all recipe stdout/stderr to
+            with open(os.path.join(gargs['out_dir'],f"{arm}.log"),'w') as flog:
+                # keep old stdout so we can update progress
+                with contextlib.redirect_stdout(flog),contextlib.redirect_stderr(flog):
+                    counter = 1
+                    nsteps = len(proc_steps[arm])
+                    for step in proc_steps[arm]:
+                        step_name = step["step"]
+                        step_run = step["run"]
+                        step_suffix = step["suffix"]
+                        step_args = step["args"]
+                        func_name = "run_" + step_name
+                        print (f"Running {arm}/{func_name} ({counter}/{nsteps})",file=old_stdout)
+                        func = loc[func_name]
+                        if step_run:
+                            func(
+                                obs_metadata,
+                                gargs,
+                                prev_suffix=prev_suffix,
+                                curr_suffix=step_suffix,
+                                **step_args,
+                            )
+                            if step_suffix != None:
+                                prev_suffix = step_suffix
+                        else:
+                            pass
+                        counter = counter+1
+                    duration = datetime.datetime.now() - start_time
+                    # this print goes to the log file, since we don't specify file=old_stdout
+                    print (f"WiFeS {arm} arm reductions took a total of {duration.total_seconds()} seconds.")
+        except Exception as exc:
+            print(f"{arm} skipped, as an error occurred during processing: '{exc}'.")
+            raise RuntimeError(f"Pipeline reductions failed for {arm} arm. Aborting.")
+        return_dict.update(gargs)
+
 
     # --------------------------------------------
-    # INICIATE THE SCRIPT
+    # INITIATE THE SCRIPT
     # --------------------------------------------
 
     # Initialize ArgumentParser with a description
@@ -946,6 +1137,14 @@ def main():
         type=str,
         help="Optional: Path to the configuration JSON file containing parameters for reducing the blue arm.",
     )
+
+    # Option to reduce both blue and red arms simultaneously
+    parser.add_argument(
+        "--reduce-both",
+        action="store_true",
+        help="Optional: Reduce Red and Blue data simultaneously using multiprocessing.",
+    )
+
 
     args = parser.parse_args()
 
@@ -985,91 +1184,40 @@ def main():
         "red": "GRATINGR",
     }
 
-    for arm in obs_metadatas.keys():
-        try:
-            # ------------------------------------------------------------------------
-            #      LOAD JSON FILE WITH USER REDUCTION SETUP
-            # ------------------------------------------------------------------------
-            obs_metadata = obs_metadatas[arm]
+    loc = locals()
 
-            # Check grism and observing mode in the first science image of each arm
-            sci_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
+    manager = multiprocessing.Manager()
+    return_dict = manager.dict()
+    jobs = []
+    if args.reduce_both:
+        # Try and reduce both arms at the same time
+        for arm in obs_metadatas.keys():
+            p = multiprocessing.Process(target=run_arm_indiv,args=(data_dir,obs_metadatas,loc,arm,return_dict))
+            jobs.append(p)
+            p.start()
 
-            # Check observing mode
-            if pywifes.is_nodshuffle(data_dir + sci_filename):
-                obs_mode = "ns"
-            elif pywifes.is_subnodshuffle(data_dir + sci_filename):
-                obs_mode = "ns"
-            else:
-                obs_mode = "class"
+        for proc in jobs:
+            proc.join()
+    else:
+        # Otherwise reduce them sequentially 
+        for arm in obs_metadatas.keys():
+            p = multiprocessing.Process(target=run_arm_indiv,args=(data_dir,obs_metadatas,loc,arm,return_dict))
+            jobs.append(p)
+            p.start()
 
-            # Grism
-            grism = pyfits.getheader(data_dir + sci_filename)[grism_key[arm]]
+            for proc in jobs:
+                proc.join()
+    
+    # this doesn't work since run_arm_indiv is not pickleable
+#   tasks = []
+#   for arm in obs_metadatas.keys():
+#       task = get_task(run_arm_indiv,(data_dir,obs_metadatas,loc,arm))
+#       tasks.append(task)
 
-            # Read the JSON file
-            if params_path[arm] is None:
-                json_path = f"./pipeline_params/{arm}/params_{obs_mode}_{grism}.json"
-            else:
-                json_path = params_path[arm]
-
-            proc_steps = load_config_file(json_path)
-
-            # Create data products directory structure
-            out_dir = os.path.join(working_dir, f"data_products/intermediate/{arm}")
-
-            os.makedirs(out_dir, exist_ok=True)
-
-            calib_prefix = os.path.join(out_dir, f"wifes_{arm}")
-
-            # Some WiFeS specific things
-            my_data_hdu = 0
-
-            # SET SKIP ALREADY DONE FILES ?
-            skip_done = False
-
-            # ------------------------------------------------------------------------
-            # NAMES FOR MASTER CALIBRATION FILES!!!
-            # ------------------------------------------------------------------------
-
-            superbias_fn = "%s_superbias.fits" % calib_prefix
-            superbias_fit_fn = "%s_superbias_fit.fits" % calib_prefix
-            super_dflat_raw = "%s_super_domeflat_raw.fits" % calib_prefix
-            super_dflat_fn = "%s_super_domeflat.fits" % calib_prefix
-            super_dflat_mef = "%s_super_domeflat_mef.fits" % calib_prefix
-            super_tflat_raw = "%s_super_twiflat_raw.fits" % calib_prefix
-            super_tflat_fn = "%s_super_twiflat.fits" % calib_prefix
-            super_tflat_mef = "%s_super_twiflat_mef.fits" % calib_prefix
-            slitlet_def_fn = "%s_slitlet_defs.pkl" % calib_prefix
-            wsol_out_fn = "%s_wave_soln.fits" % calib_prefix
-            wire_out_fn = "%s_wire_soln.fits" % calib_prefix
-            flat_resp_fn = "%s_resp_mef.fits" % calib_prefix
-            calib_fn = "%s_calib.pkl" % calib_prefix
-            tellcorr_fn = "%s_tellcorr.pkl" % calib_prefix
-
-            # ------------------------------------------------------------------------
-            # RUN THE PROCESSING STEPS
-            # ------------------------------------------------------------------------
-            prev_suffix = None
-            for step in proc_steps[arm]:
-                step_name = step["step"]
-                step_run = step["run"]
-                step_suffix = step["suffix"]
-                step_args = step["args"]
-                func_name = "run_" + step_name
-                func = locals()[func_name]
-                if step_run:
-                    func(
-                        obs_metadata,
-                        prev_suffix=prev_suffix,
-                        curr_suffix=step_suffix,
-                        **step_args,
-                    )
-                    if step_suffix != None:
-                        prev_suffix = step_suffix
-                else:
-                    pass
-        except Exception as exc:
-            print(f"{arm} skipped, as an error occurred during processing: '{exc}'.")
+#   if args.reduce_both:
+#       map_tasks(tasks)
+#   else:
+#       run_tasks_singlethreaded(tasks)
 
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
@@ -1107,7 +1255,7 @@ def main():
 
     # Read the JSON file
     extract_params = load_config_file(
-        f"./pipeline_params/params_extract_{obs_mode}.json"
+        f"./pipeline_params/params_extract_{return_dict['obs_mode']}.json"
     )
 
     # ----------------------------------------------------------

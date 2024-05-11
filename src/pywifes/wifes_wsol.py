@@ -1511,6 +1511,112 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
   print("Final RMSE",rmse)
   return (allx, ally, alls, allarcs, pl)
 
+def run_slice(packaged_args): 
+  """
+  A function to be used by multiprocessing in derive_wifes_optical_wave_solution to derive the wifes optical wave solution for each slice `s`.
+  """
+  (s,inimg,arc_name,ref_arclines,ref_arcline_file,dlam_cut_start,flux_threshold_nsig,find_method,shift_method,exclude_from,exclude,epsilon,doalphapfit,automatic,verbose,decimate,sigma,alphapfile,doplot,savefigs,save_prefix) = packaged_args
+
+  # a dict to hold the results of this function
+  return_dict = {}
+  # since we are using multiprocessing over each slice, no need to use multiprocessing for each call to find_lines_and_guess_refs
+  multithread=False
+  max_processes=1
+  # step 1 - gather metadata from header
+  f = pyfits.open(inimg, ignore_missing_end=True) # MZ: added ignore_missing_end=True, but this is supposed to work only for python 2 but not 3.
+  camera = f[1].header['CAMERA']
+  if camera == 'WiFeSRed':
+      grating = f[1].header['GRATINGR']
+  else:
+      grating = f[1].header['GRATINGB']
+  ccdsum = f[1].header['CCDSUM']
+  bin_x = int(float(ccdsum.split()[0]))
+  bin_y = int(float(ccdsum.split()[1]))
+
+  # Get some optional meta-data
+  dateobs = f[1].header.get('DATE-OBS')
+  tdk = f[1].header.get('TDK')
+  pmb = f[1].header.get('PMB')
+  rh = f[1].header.get('RH')
+  rma = f[1].header.get('ROTSKYPA') # Dumb name for rotator mechanical angle
+
+  # save some metadata to the return_dict. since this is always from the f[1] extension, a key without the slice `s` is sufficient
+  return_dict['grating'] = grating
+  return_dict['bin_x'] = bin_x
+  return_dict['bin_y'] = bin_y
+  return_dict['dateobs'] = dateobs
+  return_dict['tdk'] = tdk 
+  return_dict['pmb'] = pmb 
+  return_dict['rh'] = rh
+  return_dict['rma'] = rma
+
+  if arc_name == None:
+      init_arc_name = f[1].header['LAMP']
+      next_arc_name = re.sub('-', '', init_arc_name)
+      again_arc_name = re.sub(' ', '', next_arc_name)
+      arc_name = re.sub('_', '', again_arc_name)
+  # set the arc linelist!
+  if ref_arcline_file != None:
+      f1 = open(ref_arcline_file, 'r')
+      ref_arclines = numpy.array([float(line.split()[0])
+                                  for line in f1.readlines()])
+      f1.close()
+  # step 2 - find lines!
+  detsec = f[s].header['DETSEC']
+  y0 = int(detsec.split(',')[1].split(':')[0])
+  y1 = int(detsec.split(',')[1].split(':')[1].split(']')[0])
+  # Make the values work nicely with the range() command
+  if (y0 > y1):
+      ystop = y0 + 1
+      ystart = y1
+  else:
+      ystop = y1 + 1
+      ystart = y0
+  # Plot them or not ?
+  if doplot == True or ((doplot != False) and ('step1' in doplot)):
+      step1plot = True
+  else:
+      step1plot = False
+  if doplot == True or (doplot != False) and (('step2' in doplot)):
+      step2plot = True
+      return_dict['step2plot'] = step2plot
+  else:
+      step2plot = False    
+      return_dict['step2plot'] = step2plot
+
+  # guess the reference wavelengths
+  new_x, new_y, new_r = find_lines_and_guess_refs(
+      f[s].data,
+      s,
+      grating,
+      arc_name,
+      find_method=find_method,
+      shift_method=shift_method,
+      ref_arclines=ref_arclines,
+      dlam_cut_start=dlam_cut_start,
+      bin_x=bin_x, bin_y=bin_y,
+      yzp=ystart,
+      verbose=verbose,
+      flux_threshold_nsig=flux_threshold_nsig,
+      deriv_threshold_nsig=1.0,
+      multithread=multithread,
+      max_processes=max_processes,
+      plot=step1plot)
+  # store the results in return_dict with keys that indicate the slice number `s`
+  nl = len(new_x)
+  xk = 'x_lists_{}'.format(s) 
+  return_dict[xk] = new_x
+  rk = 'r_lists_{}'.format(s) 
+  return_dict[rk] = new_r
+  sk = 's_lists_{}'.format(s) 
+  return_dict[sk] = s*numpy.ones(nl)
+  yrk = 'yrange_{}'.format(s) 
+  return_dict[yrk] = (ystart,ystop)
+  yk = 'y_lists_{}'.format(s) 
+  return_dict[yk] = new_y+ystart
+  f.close()
+  return return_dict
+
 def derive_wifes_optical_wave_solution(inimg,
                                        outfn,
                                        # line finding parameters
@@ -1538,90 +1644,48 @@ def derive_wifes_optical_wave_solution(inimg,
                                        multithread=True,
                                        max_processes=-1):
   """ The main user-callable function that performs the fit"""
-  #------------------------------------------------------
-  # *** Mike's edits: operate on PyWiFeS MEF files ***
-  #------------------------------------------------------
-  # step 1 - gather metadata from header
-  f = pyfits.open(inimg, ignore_missing_end=True) # MZ: added ignore_missing_end=True, but this is supposed to work only for python 2 but not 3.
-  camera = f[1].header['CAMERA']
-  if camera == 'WiFeSRed':
-      grating = f[1].header['GRATINGR']
-  else:
-      grating = f[1].header['GRATINGB']
-  ccdsum = f[1].header['CCDSUM']
-  bin_x = int(float(ccdsum.split()[0]))
-  bin_y = int(float(ccdsum.split()[1]))
 
-  # Get some optional meta-data
-  dateobs = f[1].header.get('DATE-OBS')
-  tdk = f[1].header.get('TDK')
-  pmb = f[1].header.get('PMB')
-  rh = f[1].header.get('RH')
-  rma = f[1].header.get('ROTSKYPA') # Dumb name for rotator mechanical angle
-  if arc_name == None:
-      init_arc_name = f[1].header['LAMP']
-      next_arc_name = re.sub('-', '', init_arc_name)
-      again_arc_name = re.sub(' ', '', next_arc_name)
-      arc_name = re.sub('_', '', again_arc_name)
-  # set the arc linelist!
-  if ref_arcline_file != None:
-      f1 = open(ref_arcline_file, 'r')
-      ref_arclines = numpy.array([float(line.split()[0])
-                                  for line in f1.readlines()])
-      f1.close()
-  # step 2 - find lines!
+  tasks = []
+  nslices = 25 
+  for s in range(1,nslices+1):
+    task = get_task(run_slice,(s,inimg,arc_name,ref_arclines,ref_arcline_file,dlam_cut_start,flux_threshold_nsig,find_method,shift_method,exclude_from,exclude,epsilon,doalphapfit,automatic,verbose,decimate,sigma,alphapfile,doplot,savefigs,save_prefix))
+    tasks.append(task)
+
+  if multithread:
+    results = map_tasks(tasks, max_processes=max_processes)
+  else :
+    results = run_tasks_singlethreaded(tasks)
+
   found_x_lists = []
   found_y_lists = []
   found_s_lists = []
   found_r_lists = []
   yrange = []
-  for i in range(1,26):
-      # and the yrange...
-      detsec = f[i].header['DETSEC']
-      y0 = int(detsec.split(',')[1].split(':')[0])
-      y1 = int(detsec.split(',')[1].split(':')[1].split(']')[0])
-      # Make the values work nicely with the range() command
-      if (y0 > y1):
-          ystop = y0 + 1
-          ystart = y1
-      else:
-          ystop = y1 + 1
-          ystart = y0
-      # Plot them or not ?
-      if doplot == True or ((doplot != False) and ('step1' in doplot)):
-          step1plot = True
-      else:
-          step1plot = False
-      if doplot == True or (doplot != False) and (('step2' in doplot)):
-          step2plot = True
-      else:
-          step2plot = False    
+  #first get some globals out
+  return_dict = results[0]
+  grating = return_dict['grating'] 
+  bin_x   = return_dict['bin_x']   
+  bin_y   = return_dict['bin_y']   
+  dateobs = return_dict['dateobs'] 
+  tdk     = return_dict['tdk']     
+  pmb     = return_dict['pmb']     
+  rh      = return_dict['rh']      
+  rma     = return_dict['rma']     
+  step2plot = return_dict['step2plot'] 
+  grating =  grating.lower()
 
-      # guess the reference wavelengths
-      new_x, new_y, new_r = find_lines_and_guess_refs(
-          f[i].data,
-          i,
-          grating,
-          arc_name,
-          find_method=find_method,
-          shift_method=shift_method,
-          ref_arclines=ref_arclines,
-          dlam_cut_start=dlam_cut_start,
-          bin_x=bin_x, bin_y=bin_y,
-          yzp=ystart,
-          verbose=verbose,
-          flux_threshold_nsig=flux_threshold_nsig,
-          deriv_threshold_nsig=1.0,
-          multithread=multithread,
-          max_processes=max_processes,
-          plot=step1plot)
-      nl = len(new_x)
-      found_x_lists.append(new_x)
-      found_r_lists.append(new_r)
-      found_s_lists.append(i*numpy.ones(nl))
-      yrange.append((ystart,ystop))
-      found_y_lists.append(new_y+ystart)
-  f.close()
+  for return_dict in results:
+      for k in return_dict.keys():
+          if 'x_lists' in k:
+              found_x_lists.append(return_dict[k])
+          if 's_lists' in k:
+              found_s_lists.append(return_dict[k])
+          if 'y_lists' in k:
+              found_y_lists.append(return_dict[k])
+          if 'r_lists' in k:
+              found_r_lists.append(return_dict[k])
+          if 'yrange' in k:
+              yrange.append(return_dict[k])
   all_x = numpy.concatenate(found_x_lists)
   all_y = numpy.concatenate(found_y_lists)
   all_s = numpy.concatenate(found_s_lists)
@@ -1630,7 +1694,6 @@ def derive_wifes_optical_wave_solution(inimg,
       print('Line finding complete')
   # NEED TO (FOR NOW) HAVE COMPLIANCE WITH NIELSEN 'LINES' TEMPLATE
   lines = numpy.column_stack((all_s, all_y, all_x, all_r))
-  grating = grating.lower()
   alls, ally, allx, allarcs = om.extractArrays(lines, grating, bin_x, bin_y)
   #------------------------------------------------------
   # NOTE: THIS CODE BELOW IS DEPRECATED
