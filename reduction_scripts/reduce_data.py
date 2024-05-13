@@ -673,6 +673,7 @@ def main():
         # now fit the desired style of response function
         print("Generating flatfield response function")
         if mode == "all":
+
             pywifes.wifes_2dim_response(
                 super_dflat_mef, super_tflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
             )
@@ -967,6 +968,13 @@ def main():
         help="Optional: Skip already completed steps.",
     )
 
+    parser.add_argument(
+        "-just-calib",
+        action="store_true",
+        help="Optional: Only basics master calibration files will produced.",
+    )
+
+
     args = parser.parse_args()
 
     # Validate and process the data_dir
@@ -993,6 +1001,10 @@ def main():
 
     # Reduction from master calibration frames
     from_master = args.from_master
+
+    # Only basics master calibration.
+    just_calib = args.just_calib
+
 
     # Classify all raw data (red and blue arm)
     naxis2_to_process = 0  # TODO is this used in half frame (stellar mode)? Check that and include it as a parameter in the json files if needed.
@@ -1048,34 +1060,12 @@ def main():
             if obs_metadata["sci"]:
                 reference_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
 
-                if not (obs_metadata["std"]):
-                    print(
-                        f"No standard star observations found. Standar calibrations skiped for the {arm} arm."
-                    )
-                    extra_skip_steps = extra_skip_steps + [
-                        "derive_telluric",
-                        "telluric_corr",
-                        "derive_calib",
-                        "flux_calib",
-                    ]
-
             elif obs_metadata["std"]:
                 reference_filename = obs_metadata["std"][0]["sci"][0] + ".fits"
 
             elif obs_metadata["arc"]:
                 reference_filename = obs_metadata["arc"][0] + ".fits"
 
-                print(
-                    f"No science or standard star observations found. Only master calibration files will produced for the {arm} arm."
-                )
-
-                extra_skip_steps = extra_skip_steps + [
-                    "derive_telluric",
-                    "telluric_corr",
-                    "derive_calib",
-                    "flux_calib",
-                    "save_3dcube",
-                ]
 
             # Check observing mode
             if pywifes.is_nodshuffle(data_dir + reference_filename):
@@ -1090,12 +1080,15 @@ def main():
             # Grism
             grism = pyfits.getheader(data_dir + reference_filename)[grism_key[arm]]
 
-            # Read the JSON file
-            if params_path[arm] is None:
+            # Set the JSON file path and read it.
+            if just_calib and (params_path[arm] is None):
+                json_path = f"./pipeline_params/just-calib/{arm}/params_{obs_mode}_{grism}.json"
+            elif params_path[arm] is None:
                 json_path = f"./pipeline_params/{arm}/params_{obs_mode}_{grism}.json"
             else:
                 json_path = params_path[arm]
 
+    
             proc_steps = load_config_file(json_path)
 
             # Create data products directory structure
@@ -1113,37 +1106,19 @@ def main():
             # ------------------------------------------------------------------------
             # Bias Master Files
             superbias_fn = os.path.join(master_dir, "%s_superbias.fits" % calib_prefix)
-            superbias_fit_fn = os.path.join(
-                master_dir, "%s_superbias_fit.fits" % calib_prefix
-            )
+            superbias_fit_fn = os.path.join(master_dir, "%s_superbias_fit.fits" % calib_prefix)
 
             # Flat Master Files
             # Dome
-            super_dflat_raw = os.path.join(
-                master_dir, "%s_super_domeflat_raw.fits" % calib_prefix
-            )
-            super_dflat_fn = os.path.join(
-                master_dir, "%s_super_domeflat.fits" % calib_prefix
-            )
-            super_dflat_mef = os.path.join(
-                master_dir, "%s_super_domeflat_mef.fits" % calib_prefix
-            )
+            super_dflat_raw = os.path.join(master_dir, "%s_super_domeflat_raw.fits" % calib_prefix)
+            super_dflat_fn = os.path.join(master_dir, "%s_super_domeflat.fits" % calib_prefix)
+            super_dflat_mef = os.path.join(master_dir, "%s_super_domeflat_mef.fits" % calib_prefix)
             # Twilight
-            super_tflat_raw = os.path.join(
-                master_dir, "%s_super_twiflat_raw.fits" % calib_prefix
-            )
-            super_tflat_fn = os.path.join(
-                master_dir, "%s_super_twiflat.fits" % calib_prefix
-            )
-            super_tflat_mef = os.path.join(
-                master_dir, "%s_super_twiflat_mef.fits" % calib_prefix
-            )
-
+            super_tflat_raw = os.path.join(master_dir, "%s_super_twiflat_raw.fits" % calib_prefix)
+            super_tflat_fn = os.path.join(master_dir, "%s_super_twiflat.fits" % calib_prefix)
+            super_tflat_mef = os.path.join(master_dir, "%s_super_twiflat_mef.fits" % calib_prefix)
             # Slitlet definition
-            slitlet_def_fn = os.path.join(
-                master_dir, "%s_slitlet_defs.pkl" % calib_prefix
-            )
-
+            slitlet_def_fn = os.path.join(master_dir, "%s_slitlet_defs.pkl" % calib_prefix)
             wsol_out_fn = os.path.join(master_dir, "%s_wave_soln.fits" % calib_prefix)
             wire_out_fn = os.path.join(master_dir, "%s_wire_soln.fits" % calib_prefix)
             flat_resp_fn = os.path.join(master_dir, "%s_resp_mef.fits" % calib_prefix)
@@ -1179,8 +1154,10 @@ def main():
                     )
                     if step_suffix != None:
                         prev_suffix = step_suffix
+    
                 else:
                     pass
+
 
         except Exception as exc:
             print(f"{arm} skipped, as an error occurred during processing: '{exc}'.")
@@ -1188,102 +1165,105 @@ def main():
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
     # ----------------------------------------------------------
+    if just_calib:
+        print("Only basics master calibration files have been produced.")
 
-    destination_dir = os.path.join(working_dir, "data_products")
+    else:
+        destination_dir = os.path.join(working_dir, "data_products")
 
-    # Red
-    red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
-    red_cubes_file_name = get_reduced_cube_name(red_cubes_path, "*.cube.fits")
-    # Move reduced cubes to the data_product
-    move_files(red_cubes_path, destination_dir, red_cubes_file_name)
+        # Red
+        red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
+        red_cubes_file_name = get_reduced_cube_name(red_cubes_path, "*.cube.fits")
+        # Move reduced cubes to the data_product
+        move_files(red_cubes_path, destination_dir, red_cubes_file_name)
 
-    # Blue
-    blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
-    blue_cubes_file_name = get_reduced_cube_name(blue_cubes_path, "*.cube.fits")
-    # Move reduced cubes to the data_product
-    move_files(blue_cubes_path, destination_dir, blue_cubes_file_name)
+        # Blue
+        blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
+        blue_cubes_file_name = get_reduced_cube_name(blue_cubes_path, "*.cube.fits")
+        # Move reduced cubes to the data_product
+        move_files(blue_cubes_path, destination_dir, blue_cubes_file_name)
 
-    # ----------------------------------------------------------
-    # Find and list all reduced cubes in the destination directory
-    # ----------------------------------------------------------
-    reduced_cubes_paths = [
-        os.path.join(destination_dir, file_name) for file_name in blue_cubes_file_name
-    ] + [os.path.join(destination_dir, file_name) for file_name in red_cubes_file_name]
+        # ----------------------------------------------------------
+        # Find and list all reduced cubes in the destination directory
+        # ----------------------------------------------------------
+        reduced_cubes_paths = [
+            os.path.join(destination_dir, file_name) for file_name in blue_cubes_file_name
+        ] + [os.path.join(destination_dir, file_name) for file_name in red_cubes_file_name]
 
-    # ----------------------------------------------------------
-    # Match cubes from the same observation based on DATE-OBS
-    # ----------------------------------------------------------
-    matched_cubes = cube_matcher(reduced_cubes_paths)
+        # ----------------------------------------------------------
+        # Match cubes from the same observation based on DATE-OBS
+        # ----------------------------------------------------------
+        matched_cubes = cube_matcher(reduced_cubes_paths)
 
-    # ----------------------------------------------------------
-    # Read extraction parameters from JSON file
-    # ----------------------------------------------------------
+        # ----------------------------------------------------------
+        # Read extraction parameters from JSON file
+        # ----------------------------------------------------------
 
-    # Read the JSON file
-    extract_params = load_config_file(
-        f"./pipeline_params/params_extract_{obs_mode}.json"
-    )
-
-    # ----------------------------------------------------------
-    # Loop over matched cubes list
-    # ----------------------------------------------------------
-
-    for match_cubes in matched_cubes:
-        # ----------
-        # Extraction
-        # ----------
-        blue_cube_path = match_cubes["Blue"]
-        red_cube_path = match_cubes["Red"]
-        plot_output = match_cubes["file_name"].replace(".cube", "_detection_plot.pdf")
-
-        # Run auto-extraction
-        detect_extract_and_save(
-            blue_cube_path,
-            red_cube_path,
-            destination_dir,
-            r_arcsec=extract_params["r_arcsec"],
-            border_width=extract_params["border_width"],
-            sky_sub=extract_params["sky_sub"],
-            check_plot=extract_params["check_plot"],
-            plot_output=plot_output,
+        # Read the JSON file
+        extract_params = load_config_file(
+            f"./pipeline_params/params_extract_{obs_mode}.json"
         )
 
-        # ------------------------------------
-        # Splice only paired cubes and spectra
-        # ------------------------------------
-        if match_cubes["Blue"] is not None and match_cubes["Red"] is not None:
-            blue_cube_name = os.path.basename(match_cubes["Blue"])
-            red_cube_name = os.path.basename(match_cubes["Red"])
+        # ----------------------------------------------------------
+        # Loop over matched cubes list
+        # ----------------------------------------------------------
 
-            # Get filename of form `xxx-Splice-UTxxx.cube.fits`
-            spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
-            spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
+        for match_cubes in matched_cubes:
+            # ----------
+            # Extraction
+            # ----------
+            blue_cube_path = match_cubes["Blue"]
+            red_cube_path = match_cubes["Red"]
+            plot_output = match_cubes["file_name"].replace(".cube", "_detection_plot.pdf")
 
-            # Splice cubes
-            splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path)
-
-            # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.ap*'
-            pattern_blue = os.path.join(
-                destination_dir, blue_cube_name.replace("cube", "spec.ap*")
+            # Run auto-extraction
+            detect_extract_and_save(
+                blue_cube_path,
+                red_cube_path,
+                destination_dir,
+                r_arcsec=extract_params["r_arcsec"],
+                border_width=extract_params["border_width"],
+                sky_sub=extract_params["sky_sub"],
+                check_plot=extract_params["check_plot"],
+                plot_output=plot_output,
             )
-            blue_specs = glob.glob(pattern_blue)
 
-            # Find red spectra files matching the pattern 'xxx-Red-UTxxx.spec.ap*'
-            pattern_red = os.path.join(
-                destination_dir, red_cube_name.replace("cube", "spec.ap*")
-            )
-            red_specs = glob.glob(pattern_red)
+            # ------------------------------------
+            # Splice only paired cubes and spectra
+            # ------------------------------------
+            if match_cubes["Blue"] is not None and match_cubes["Red"] is not None:
+                blue_cube_name = os.path.basename(match_cubes["Blue"])
+                red_cube_name = os.path.basename(match_cubes["Red"])
 
-            # Splice spectra
-            for blue_spec, red_spec in zip(blue_specs, red_specs):
-                # Generate filename for spliced spectrum 'xxx-Splice-UTxxx.spec.apx.fits'
-                spliced_spectrum_name = os.path.basename(blue_spec).replace(
-                    "Blue", "Splice"
+                # Get filename of form `xxx-Splice-UTxxx.cube.fits`
+                spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
+                spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
+
+                # Splice cubes
+                splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path)
+
+                # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.ap*'
+                pattern_blue = os.path.join(
+                    destination_dir, blue_cube_name.replace("cube", "spec.ap*")
                 )
-                output = os.path.join(
-                    working_dir, destination_dir, spliced_spectrum_name
+                blue_specs = glob.glob(pattern_blue)
+
+                # Find red spectra files matching the pattern 'xxx-Red-UTxxx.spec.ap*'
+                pattern_red = os.path.join(
+                    destination_dir, red_cube_name.replace("cube", "spec.ap*")
                 )
-                splice_spectra(blue_spec, red_spec, output)
+                red_specs = glob.glob(pattern_red)
+
+                # Splice spectra
+                for blue_spec, red_spec in zip(blue_specs, red_specs):
+                    # Generate filename for spliced spectrum 'xxx-Splice-UTxxx.spec.apx.fits'
+                    spliced_spectrum_name = os.path.basename(blue_spec).replace(
+                        "Blue", "Splice"
+                    )
+                    output = os.path.join(
+                        working_dir, destination_dir, spliced_spectrum_name
+                    )
+                    splice_spectra(blue_spec, red_spec, output)
 
     # ----------------------------------------------------------
     # Print total running time

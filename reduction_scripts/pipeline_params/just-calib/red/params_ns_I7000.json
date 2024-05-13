@@ -1,0 +1,141 @@
+{
+    "red": [
+        {
+            "step": "overscan_sub",
+            "run": true,
+            "suffix": "00",
+            "args": {}
+        },
+        {
+            "step": "bpm_repair",
+            "run": true,
+            "suffix": "01",
+            "args": {}
+        },
+        {
+            "step": "superbias",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "method": "row_med",
+                "plot": false,
+                "verbose": false
+            }
+        },
+        {
+            "step": "bias_sub",
+            "run": true,
+            "suffix": "02",
+            "args": {
+                "method": "subtract",
+                "plot": false,
+                "verbose": false
+            }
+        },
+        {
+            "step": "superflat",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "dome"
+            }
+        },
+        {
+            "step": "superflat",
+            "run": false,
+            "suffix": null,
+            "args": {
+                "source": "twi",
+                "scale": "median_nonzero"
+            }
+        },
+        {
+            "step": "slitlet_profile",
+            "run": true,
+            "suffix": null,
+            "args": {}
+        },
+        {
+            "step": "flat_cleanup",
+            "run": false,
+            "suffix": null,
+            "args": {
+                "type": [
+                    "dome"
+                ],
+                "verbose": true,
+                "plot": false,
+                "buffer": 4,
+                "offsets": [
+                    0.4,
+                    0.4
+                ],
+                "radius": 10.0,
+                "nsig_lim": 3.0
+            }
+        },
+        {
+            "step": "superflat_mef",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "dome"
+            }
+        },
+        {
+            "step": "superflat_mef",
+            "run": false,
+            "suffix": null,
+            "args": {
+                "source": "twi"
+            }
+        },
+        {
+            "step": "slitlet_mef",
+            "run": true,
+            "suffix": "03",
+            "args": {
+                "ns": true
+            }
+        },
+        {
+            "step": "wave_soln",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "verbose": true,
+                "method": "optical",
+                "doalphapfit": true,
+                "doplot": false,
+                "shift_method": "xcorr_all",
+                "find_method": "mpfit",
+                "dlam_cut_start": 5.0,
+                "multithread": false
+            }
+        },
+        {
+            "step": "wire_soln",
+            "run": true,
+            "suffix": null,
+            "args": {}
+        },
+        {
+            "step": "flat_response",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "mode": "dome"
+            }
+        },
+        {
+            "step": "cosmic_rays",
+            "run": true,
+            "suffix": "04",
+            "args": {
+                "ns": true,
+                "multithread": false,
+                "max_processes": -1
+            }
+        }
+    ]
+}
