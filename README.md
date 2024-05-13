@@ -117,6 +117,7 @@ To perform data reduction using master calibration files from previous reduction
 
 `-skip-done`: Skip already completed steps. 
 
+`-just-calib`: Triggers the data reduction in absence of on-sky data (both science and calibration). It only produce basic calibration files.
 
 ### TO DO
 
