@@ -12,6 +12,7 @@ from pywifes.data_classifier import classify, cube_matcher
 from pywifes.extract_spec import detect_extract_and_save
 from pywifes.splice import splice_spectra, splice_cubes
 from pywifes.lacosmic import lacos_wifes
+from pywifes.logging import setup_logging
 from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
@@ -1021,6 +1022,9 @@ def main():
 
             calib_prefix = os.path.join(out_dir, f"wifes_{arm}")
 
+            # Add options for the logger.
+            log_file = os.path.join(out_dir, f"pywifes_logger{arm}.log")
+            logger = setup_logger(file=log_file)
             # Some WiFeS specific things
             my_data_hdu = 0
 
