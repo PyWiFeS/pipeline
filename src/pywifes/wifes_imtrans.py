@@ -29,7 +29,6 @@ def blkavg(arr, mx, my):
 def transform_data(data, wave,
                    return_lambda=False,
                    out_lambda=None):
-    print('TRANSFOR DATA ---------------')
     # get dimensions...
     ny, nx = numpy.shape(data)
     xarr = numpy.arange(nx)

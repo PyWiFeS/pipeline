@@ -159,7 +159,7 @@ def main():
             if skip_done and os.path.isfile(out_fn):
                 continue
             print("Subtracting Overscan for %s" % in_fn.split("/")[-1])
-            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu)
+            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu,halfframe=halfframe)
         return
 
     # ------------------------------------------------------
@@ -177,11 +177,11 @@ def main():
             print(f"Repairing {arm} bad pixels for {input_filename}")
             if arm == "red":
                 pywifes.repair_red_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu
+                    input_filepath, output_filepath, data_hdu=my_data_hdu,halfframe=halfframe
                 )
             if arm == "blue":
                 pywifes.repair_blue_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu
+                    input_filepath, output_filepath, data_hdu=my_data_hdu,halfframe=halfframe
                 )
 
     # ------------------------------------------------------
@@ -277,7 +277,7 @@ def main():
             if method == "copy":
                 pywifes.imcopy(in_fn, out_fn)
             else:
-                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=my_data_hdu)
+                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=my_data_hdu,halfframe=halfframe)
         return
 
     # ------------------------------------------------------
@@ -355,7 +355,7 @@ def main():
         output_fn = slitlet_def_fn
         
         pywifes.derive_slitlet_profiles(
-            flatfield_fn, output_fn, data_hdu=my_data_hdu, **args
+            flatfield_fn, output_fn, data_hdu=my_data_hdu, halfframe=halfframe, **args
         )
         return
 
@@ -387,7 +387,7 @@ def main():
         # run it!
         print("Generating MEF %sflat" % source)
         pywifes.wifes_slitlet_mef(
-            in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
+            in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn,halfframe=halfframe
         )
         return
 
@@ -416,10 +416,10 @@ def main():
                     sky_fn,
                     data_hdu=my_data_hdu,
                     slitlet_def_file=slitlet_fn,
-                )
+                )   
             else:
                 pywifes.wifes_slitlet_mef(
-                    in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
+                    in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn,halfframe=halfframe
                 )
             gc.collect()
         return
@@ -433,7 +433,7 @@ def main():
             out_dir, "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
         )
         print("Deriving master wavelength solution from %s" % wsol_in_fn.split("/")[-1])
-        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, **args)
+        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn,halfframe=halfframe, **args)
         # local wave solutions for science or standards
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
@@ -460,7 +460,6 @@ def main():
                     wifes_wsol.derive_wifes_wave_solution(
                         local_arc_fn, local_wsol_out_fn, **args
                     )
-        print('WAVE_SOLN DONE!')
         return
 
     # ------------------------------------------------------
@@ -472,7 +471,7 @@ def main():
             out_dir, "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
         )
         print("Deriving global wire solution from %s" % wire_in_fn.split("/")[-1])
-        pywifes.derive_wifes_wire_solution(wire_in_fn, wire_out_fn)
+        pywifes.derive_wifes_wire_solution(wire_in_fn, wire_out_fn,halfframe=halfframe)
         # Wire solutions for any specific obsevations
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
@@ -491,7 +490,7 @@ def main():
                 if os.path.isfile(local_wire_out_fn):
                     continue
                 print("Deriving local wire solution for %s" % local_wires[0])
-                pywifes.derive_wifes_wire_solution(local_wire_fn, local_wire_out_fn)
+                pywifes.derive_wifes_wire_solution(local_wire_fn, local_wire_out_fn,halfframe=halfframe)
         return
 
     # ------------------------------------------------------
@@ -509,13 +508,12 @@ def main():
         sci_obs_list = get_sci_obs_list(metadata)
         sky_obs_list = get_sky_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
+
         for fn in sci_obs_list + sky_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
             print("Cleaning cosmics in %s" % in_fn.split("/")[-1])
             # skip files which are already done
-            # if os.path.isfile(out_fn):
-            #    continue
             if skip_done and os.path.isfile(out_fn):
                 continue
             lacos_wifes(
@@ -528,6 +526,7 @@ def main():
                 sig_frac=0.2,
                 is_multithread=multithread,
                 max_processes=max_processes,
+                halfframe=halfframe,
             )
             if ns:
                 in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
@@ -545,13 +544,14 @@ def main():
                     max_processes=max_processes,
                 )
             gc.collect()
+
+        print('********************************************************')
         for fn in std_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
             if skip_done and os.path.isfile(out_fn):
                 continue
             print("Cleaning cosmics in %s" % in_fn.split("/")[-1])
-            # lacos_wifes(in_fn, out_fn, niter=1, sig_frac=2.0)
             lacos_wifes(
                 in_fn,
                 out_fn,
@@ -594,7 +594,7 @@ def main():
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
             sky_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
             print("Subtracting N+S sky frame for %s" % in_fn.split("/")[-1])
-            pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime")
+            pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime",halfframe=halfframe)
         return
 
     def run_sky_sub(metadata, prev_suffix, curr_suffix, ns=False):
@@ -616,7 +616,7 @@ def main():
                         print("Subtracting sky frame for %s" % in_fn.split("/")[-1])
                         # subtract scaled sky frame!
                         pywifes.scaled_imarith_mef(
-                            in_fn, "-", sky_proc_fn, out_fn, scale="exptime"
+                            in_fn, "-", sky_proc_fn, out_fn, scale="exptime",halfframe=halfframe
                         )
                 else:
                     for fn in obs["sci"]:
@@ -677,12 +677,9 @@ def main():
                 super_dflat_mef, super_tflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
             )
         elif mode == "dome":
-            pywifes.wifes_response_poly(
-                super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
-            )
+            pywifes.wifes_response_poly(super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn,halfframe=halfframe)
         else:
             raise ValueError("Requested response mode not recognized")
-        print('FLAT_RESPONSE DONE!')
         return
 
     # ------------------------------------------------------
@@ -697,7 +694,7 @@ def main():
             if skip_done and os.path.isfile(out_fn):
                 continue
             print("Flat-fielding image %s" % in_fn.split("/")[-1])
-            pywifes.imarith_mef(in_fn, "/", flat_resp_fn, out_fn)
+            pywifes.imarith_mef(in_fn, "/", flat_resp_fn, out_fn, halfframe=halfframe)
         return
 
     # ------------------------------------------------------
@@ -834,8 +831,8 @@ def main():
                 ny_orig=76,
                 offset_orig=2.0,
                 **args,
+                halfframe=halfframe,
             )
-            # print squirrel
         return
 
     # ------------------------------------------------------
@@ -922,7 +919,7 @@ def main():
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.%s.fits" % (fn, curr_suffix))
             print("Saving 3D Data Cube for %s" % in_fn.split("/")[-1])
-            pywifes.generate_wifes_3dcube(in_fn, out_fn, **args)
+            pywifes.generate_wifes_3dcube(in_fn, out_fn,halfframe=halfframe, **args)
         return
 
     # --------------------------------------------
@@ -996,6 +993,9 @@ def main():
             # ------------------------------------------------------------------------
             obs_metadata = obs_metadatas[arm]
 
+            # TODO Set this variable to be readed from data
+            halfframe = True
+
             # Check grism and observing mode in the first science image of each arm
             sci_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
 
@@ -1062,6 +1062,10 @@ def main():
                 func_name = "run_" + step_name
                 func = locals()[func_name]
                 if step_run:
+                    print("----------------------------")
+                    print(step_name)
+                    print("----------------------------")
+
                     func(
                         obs_metadata,
                         prev_suffix=prev_suffix,
@@ -1070,6 +1074,11 @@ def main():
                     )
                     if step_suffix != None:
                         prev_suffix = step_suffix
+
+                    print("----------------------------")
+                    print('=== DONE! ===')
+                    print("----------------------------")
+    
                 else:
                     pass
         except Exception as exc:

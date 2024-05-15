@@ -160,7 +160,7 @@ def lacos_spec_data(data,
 
 #-----------------------------------------------------------------------------
 # function for doing LA Cosmic on a wifes MEF file
-def lacos_wifes(inimg, outimg,
+def lacos_wifes(inimg, outimg,halfframe,
                 gain=1.0,       # assume data has been scaled by its gain 
                 rdnoise=5.0,
                 wsol_fn=None,
@@ -188,6 +188,7 @@ def lacos_wifes(inimg, outimg,
     else:
         lacos_wifes_oneproc(
             inimg, outimg,
+            halfframe=halfframe,
             gain=gain,
             rdnoise=rdnoise,
             wsol_filepath=wsol_fn,
@@ -204,7 +205,7 @@ def _get_slit_indexes(slit_index):
     dq_hdu_index = slit_hdu_index + 50
     return slit_hdu_index, dq_hdu_index
 
-def lacos_wifes_oneproc(in_img_filepath, out_filepath,
+def lacos_wifes_oneproc(in_img_filepath, out_filepath,halfframe,
                         gain=1.0,       # assume data has been scaled by its gain 
                         rdnoise=5.0,
                         wsol_filepath=None,
@@ -214,21 +215,35 @@ def lacos_wifes_oneproc(in_img_filepath, out_filepath,
                         niter = 4,
                         n_nx = 1,
                         n_ny = 5):
+    
     hdus = pyfits.open(in_img_filepath)
-    halfframe = _is_halfframe(hdus)
+    
     if halfframe:
         nslits = 12
+        first = 7
+        last = 19
     else:
         nslits = 25
-
+        first = 7
+        last = 19
+        
     outfits = pyfits.HDUList(hdus)
     if wsol_filepath:
         wsol_hdus = pyfits.open(wsol_filepath)
-    for i in range(nslits):
-        i_slit, i_dq_slit = _get_slit_indexes(i)
-        orig_data = hdus[i_slit].data
+
+    for i in range(first,last):
+
         if wsol_filepath:
-            wave = wsol_hdus[i+1].data
+            i_slit, i_dq_slit = _get_slit_indexes(i)
+            
+        orig_data = hdus[i_slit].data
+
+        if wsol_filepath:
+            if halfframe:
+                wave = wsol_hdus[i-6].data
+            else:
+                wave = wsol_hdus[i-1].data
+
         else:
             wave = None
         clean_data, global_bpm = lacos_spec_data(
@@ -255,7 +270,7 @@ def lacos_wifes_oneproc(in_img_filepath, out_filepath,
     return
 
 def lacos_wifes_multithread(
-    in_img_filepath, out_filepath,
+    in_img_filepath, out_filepath,halfframe,
     gain=1.0,       # assume data has been scaled by its gain 
     rdnoise=5.0,
     wsol_filepath=None,
@@ -267,7 +282,6 @@ def lacos_wifes_multithread(
     n_ny=5,
     max_processes=-1):
     hdus = pyfits.open(in_img_filepath)
-    halfframe = _is_halfframe(hdus)
     if halfframe:
         nslits = 12
     else:

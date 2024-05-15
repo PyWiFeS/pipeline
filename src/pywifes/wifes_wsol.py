@@ -493,7 +493,6 @@ def find_lines_and_guess_refs(slitlet_data,
         print(' Slitlet', chosen_slitlet)
         print('  ... detecting arc lines with',find_method,'...')
         start = datetime.datetime.now()
-    print('******************')
     # Fred's update (wsol)
     # Avoid running mpfit where it is unuseful.
     # Run it once for all detected line in the middle of the slice ...
@@ -1089,6 +1088,7 @@ def slitlet_wsol(slitlet_data,
 #------------------------------------------------------------------------
 def derive_wifes_polynomial_wave_solution(inimg,
                                           out_file,
+                                          halfframe,
                                           dlam_cut_start=7.0,
                                           dlam_cut=3.0,
                                           ref_arclines=None,
@@ -1100,8 +1100,6 @@ def derive_wifes_polynomial_wave_solution(inimg,
                                           flux_threshold_nsig=3.0,
                                           deriv_threshold_nsig=1.0,
                                           verbose=False):
-    # check if halfframe
-    halfframe = is_halfframe(inimg)
     # MUST HAVE MEF FILE AS INPUT
     a = pyfits.open(inimg)
     arc_hdr = a[0].header
@@ -1141,7 +1139,7 @@ def derive_wifes_polynomial_wave_solution(inimg,
         f1.close()
     # fit each slitlet
     for i in range(1,26):
-        if halfframe and i<7 and i>19:
+        if halfframe and (i<7 or i>19):
             wave_data = numpy.zeros(numpy.shape(a[i].data), dtype='d')
         else:
             new_y, new_x, new_ref, xpoly, ypoly = slitlet_wsol(
@@ -1174,6 +1172,7 @@ def derive_wifes_polynomial_wave_solution(inimg,
 
 def save_found_lines(inimg,
                      out_file,
+                     halfframe,
                      dlam_cut_start=7.0,
                      dlam_cut=3.0,
                      ref_arclines=None,
@@ -1185,8 +1184,6 @@ def save_found_lines(inimg,
                      flux_threshold_nsig=3.0,
                      deriv_threshold_nsig=1.0,
                      verbose=False):
-    # check if halfframe
-    halfframe = is_halfframe(inimg)
     # MUST HAVE MEF FILE AS INPUT
     a = pyfits.open(inimg)
     arc_hdr = a[0].header
@@ -1225,34 +1222,38 @@ def save_found_lines(inimg,
         f1.close()
     # fit each slitlet
     fitted_lines = []
-    for i in range(1,26):
-        if halfframe and i>12:
-            continue
-        else:
-            new_y, new_x, new_ref, xpoly, ypoly = slitlet_wsol(
-                a[i].data,
-                i,
-                grating,
-                arc_name,
-                ref_arclines=ref_arclines,
-                dlam_cut_start=dlam_cut_start,
-                dlam_cut=dlam_cut,
-                return_poly=True,
-                bin_x=bin_x,
-                bin_y=bin_y,
-                x_polydeg=x_polydeg,
-                y_polydeg=y_polydeg,
-                flux_threshold_nsig=flux_threshold_nsig,
-                deriv_threshold_nsig=deriv_threshold_nsig,
-                verbose=verbose)
-            new_dict = {
-                'slitlet_number' : i*numpy.ones(len(new_x)),
-                'found_x' : new_x,
-                'found_y' : new_y,
-                'found_ref' : new_ref,
-                'xpoly' : xpoly,
-                'ypoly' : ypoly}
-            fitted_lines.append(new_dict)
+    if halfframe:
+        first = 7
+        last = 19
+    else:
+        first = 1
+        last = 26
+        
+    for i in range(first,last):
+        new_y, new_x, new_ref, xpoly, ypoly = slitlet_wsol(
+            a[i].data,
+            i,
+            grating,
+            arc_name,
+            ref_arclines=ref_arclines,
+            dlam_cut_start=dlam_cut_start,
+            dlam_cut=dlam_cut,
+            return_poly=True,
+            bin_x=bin_x,
+            bin_y=bin_y,
+            x_polydeg=x_polydeg,
+            y_polydeg=y_polydeg,
+            flux_threshold_nsig=flux_threshold_nsig,
+            deriv_threshold_nsig=deriv_threshold_nsig,
+            verbose=verbose)
+        new_dict = {
+            'slitlet_number' : i*numpy.ones(len(new_x)),
+            'found_x' : new_x,
+            'found_y' : new_y,
+            'found_ref' : new_ref,
+            'xpoly' : xpoly,
+            'ypoly' : ypoly}
+        fitted_lines.append(new_dict)
     f = open(out_file, 'wb')
     pickle.dump(fitted_lines, f)
     f.close()
@@ -1513,6 +1514,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
 
 def derive_wifes_optical_wave_solution(inimg,
                                        outfn,
+                                       halfframe,
                                        # line finding parameters
                                        arc_name=None,
                                        ref_arclines=None,
@@ -1575,12 +1577,14 @@ def derive_wifes_optical_wave_solution(inimg,
   found_r_lists = []
   yrange = []
 
-  # check if halfframe
-  halfframe = is_halfframe(inimg)
-  for i in range(7, 19):
-      #if halfframe and i>12:
-        #continue
-      #else:
+  if halfframe:
+        first = 7
+        last = 19
+  else:
+        first = 1
+        last = 26
+
+  for i in range(first, last):
         # and the yrange...
         detsec = f[i].header['DETSEC']
         y0 = int(detsec.split(',')[1].split(':')[0])
