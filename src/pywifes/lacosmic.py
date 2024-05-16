@@ -160,7 +160,7 @@ def lacos_spec_data(data,
 
 #-----------------------------------------------------------------------------
 # function for doing LA Cosmic on a wifes MEF file
-def lacos_wifes(inimg, outimg,halfframe,
+def lacos_wifes(inimg, outimg,
                 gain=1.0,       # assume data has been scaled by its gain 
                 rdnoise=5.0,
                 wsol_fn=None,
@@ -188,7 +188,6 @@ def lacos_wifes(inimg, outimg,halfframe,
     else:
         lacos_wifes_oneproc(
             inimg, outimg,
-            halfframe=halfframe,
             gain=gain,
             rdnoise=rdnoise,
             wsol_filepath=wsol_fn,
@@ -205,7 +204,7 @@ def _get_slit_indexes(slit_index):
     dq_hdu_index = slit_hdu_index + 50
     return slit_hdu_index, dq_hdu_index
 
-def lacos_wifes_oneproc(in_img_filepath, out_filepath,halfframe,
+def lacos_wifes_oneproc(in_img_filepath, out_filepath,
                         gain=1.0,       # assume data has been scaled by its gain 
                         rdnoise=5.0,
                         wsol_filepath=None,
@@ -217,6 +216,7 @@ def lacos_wifes_oneproc(in_img_filepath, out_filepath,halfframe,
                         n_ny = 5):
     
     hdus = pyfits.open(in_img_filepath)
+    halfframe = _is_halfframe(hdus)
     
     if halfframe:
         nslits = 12
@@ -242,7 +242,7 @@ def lacos_wifes_oneproc(in_img_filepath, out_filepath,halfframe,
             if halfframe:
                 wave = wsol_hdus[i-6].data
             else:
-                wave = wsol_hdus[i-1].data
+                wave = wsol_hdus[i+1].data
 
         else:
             wave = None
@@ -270,7 +270,7 @@ def lacos_wifes_oneproc(in_img_filepath, out_filepath,halfframe,
     return
 
 def lacos_wifes_multithread(
-    in_img_filepath, out_filepath,halfframe,
+    in_img_filepath, out_filepath,
     gain=1.0,       # assume data has been scaled by its gain 
     rdnoise=5.0,
     wsol_filepath=None,
@@ -282,6 +282,7 @@ def lacos_wifes_multithread(
     n_ny=5,
     max_processes=-1):
     hdus = pyfits.open(in_img_filepath)
+    halfframe = _is_halfframe(hdus)
     if halfframe:
         nslits = 12
     else:

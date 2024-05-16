@@ -500,7 +500,6 @@ def find_lines_and_guess_refs(slitlet_data,
     # Do this, and you reduce the total time by 50% for this step !
     if find_method == 'mpfit':
         mid_slit = nrows // (2 * bin_y) 
-        print('SLITLET_DATA', mid_slit, slitlet_data[mid_slit,:]) # MZ
         mid_fit_centers = quick_arcline_fit(slitlet_data[mid_slit,:],
                                             find_method = find_method,
                                             flux_threshold = flux_threshold,
@@ -1088,7 +1087,6 @@ def slitlet_wsol(slitlet_data,
 #------------------------------------------------------------------------
 def derive_wifes_polynomial_wave_solution(inimg,
                                           out_file,
-                                          halfframe,
                                           dlam_cut_start=7.0,
                                           dlam_cut=3.0,
                                           ref_arclines=None,
@@ -1100,6 +1098,8 @@ def derive_wifes_polynomial_wave_solution(inimg,
                                           flux_threshold_nsig=3.0,
                                           deriv_threshold_nsig=1.0,
                                           verbose=False):
+    # check if halfframe
+    halfframe = is_halfframe(inimg)
     # MUST HAVE MEF FILE AS INPUT
     a = pyfits.open(inimg)
     arc_hdr = a[0].header
@@ -1172,7 +1172,6 @@ def derive_wifes_polynomial_wave_solution(inimg,
 
 def save_found_lines(inimg,
                      out_file,
-                     halfframe,
                      dlam_cut_start=7.0,
                      dlam_cut=3.0,
                      ref_arclines=None,
@@ -1184,6 +1183,8 @@ def save_found_lines(inimg,
                      flux_threshold_nsig=3.0,
                      deriv_threshold_nsig=1.0,
                      verbose=False):
+    # check if halfframe
+    halfframe = is_halfframe(inimg)
     # MUST HAVE MEF FILE AS INPUT
     a = pyfits.open(inimg)
     arc_hdr = a[0].header
@@ -1514,7 +1515,6 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
 
 def derive_wifes_optical_wave_solution(inimg,
                                        outfn,
-                                       halfframe,
                                        # line finding parameters
                                        arc_name=None,
                                        ref_arclines=None,
@@ -1544,23 +1544,34 @@ def derive_wifes_optical_wave_solution(inimg,
   #------------------------------------------------------
   # step 1 - gather metadata from header
   f = pyfits.open(inimg, ignore_missing_end=True) # MZ: added ignore_missing_end=True, but this is supposed to work only for python 2 but not 3.
-  camera = f[1].header['CAMERA']
-  if camera == 'WiFeSRed':
-      grating = f[1].header['GRATINGR']
+  
+    # check if halfframe
+  halfframe = is_halfframe(inimg)
+
+  if halfframe:
+        first = 7
+        last = 19
   else:
-      grating = f[1].header['GRATINGB']
-  ccdsum = f[1].header['CCDSUM']
+        first = 1
+        last = 26
+
+  camera = f[first].header['CAMERA']
+  if camera == 'WiFeSRed':
+      grating = f[first].header['GRATINGR']
+  else:
+      grating = f[first].header['GRATINGB']
+  ccdsum = f[first].header['CCDSUM']
   bin_x = int(float(ccdsum.split()[0]))
   bin_y = int(float(ccdsum.split()[1]))
 
   # Get some optional meta-data
-  dateobs = f[1].header.get('DATE-OBS')
-  tdk = f[1].header.get('TDK')
-  pmb = f[1].header.get('PMB')
-  rh = f[1].header.get('RH')
-  rma = f[1].header.get('ROTSKYPA') # Dumb name for rotator mechanical angle
+  dateobs = f[first].header.get('DATE-OBS')
+  tdk = f[first].header.get('TDK')
+  pmb = f[first].header.get('PMB')
+  rh = f[first].header.get('RH')
+  rma = f[first].header.get('ROTSKYPA') # Dumb name for rotator mechanical angle
   if arc_name == None:
-      init_arc_name = f[1].header['LAMP']
+      init_arc_name = f[first].header['LAMP']
       next_arc_name = re.sub('-', '', init_arc_name)
       again_arc_name = re.sub(' ', '', next_arc_name)
       arc_name = re.sub('_', '', again_arc_name)
@@ -1576,13 +1587,6 @@ def derive_wifes_optical_wave_solution(inimg,
   found_s_lists = []
   found_r_lists = []
   yrange = []
-
-  if halfframe:
-        first = 7
-        last = 19
-  else:
-        first = 1
-        last = 26
 
   for i in range(first, last):
         # and the yrange...

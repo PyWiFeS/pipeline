@@ -38,6 +38,40 @@ red_slitlet_defs = wifes_metadata['red_slitlet_defs']
 nslits = len(blue_slitlet_defs.keys())
 
 #------------------------------------------------------------------------
+# 
+def trim_fits_file(inimg_path, outimg_prefix="trim_"):
+    # Open the input FITS file
+    with pyfits.open(inimg_path) as hdul:
+        # Get the primary HDU (Header/Data Unit)
+        primary_hdu = hdul[0]
+        
+        # Extract the data and header
+        data = primary_hdu.data
+        header = primary_hdu.header
+
+        # Consider binning
+        ccdsum = header['CCDSUM']
+        bins = ccdsum.split()
+        bin_y = int(float(bins[1]))
+        
+        # Trim the data according to the specified sectionclear
+        trimmed_data = data[int(1028/bin_y):int(3084/bin_y), :]
+        
+        # Update the DETSEC in the header
+        header['DETSEC'] = '[1:4202,1029:3084]'
+        
+        # Create a new HDU with the trimmed data and the updated header
+        trimmed_hdu = pyfits.PrimaryHDU(data=trimmed_data, header=header)
+        
+        # Generate the output filename
+        outimg_path = outimg_prefix + inimg_path
+        
+        # Write the trimmed data to the new FITS file
+        trimmed_hdu.writeto(outimg_path, overwrite=True)
+        
+
+
+#------------------------------------------------------------------------
 # functions that operate on data rather than images
 def single_centroid_prof_fit(y,
                              x=None,
@@ -260,7 +294,9 @@ def imcombine_mef(inimg_list, outimg,
     return
 
 #------------------------------------------------------------------------
-def imarith_mef(inimg1, operator, inimg2, outimg,halfframe):
+def imarith_mef(inimg1, operator, inimg2, outimg):
+    # check if halfframe
+    halfframe = is_halfframe(inimg1)
     if halfframe:
         nslits = 12
         data_hdu_list = range(7,19)
@@ -335,8 +371,10 @@ def imarith_mef(inimg1, operator, inimg2, outimg,halfframe):
     gc.collect()
     return
 
-def scaled_imarith_mef(inimg1, operator, inimg2, outimg,halfframe,
+def scaled_imarith_mef(inimg1, operator, inimg2, outimg,
                        scale=None):
+    # check if halfframe
+    halfframe = is_halfframe(inimg1)
     if halfframe:
         nslits = 12
         data_hdu_list = range(7,19)
@@ -409,11 +447,13 @@ def scaled_imarith_mef(inimg1, operator, inimg2, outimg,halfframe,
     f2.close()
     return
 
-def imarith(inimg1, operator, inimg2, outimg, halfframe, data_hdu=0):
+def imarith(inimg1, operator, inimg2, outimg, data_hdu=0):
     f1 = pyfits.open(inimg1)
     f2 = pyfits.open(inimg2)
     outfits = pyfits.HDUList(f1)
     data1 = f1[data_hdu].data
+    # check if halfframe
+    halfframe = is_halfframe(inimg1)
     if halfframe:
         data2 = f2[data_hdu].data[:1028,:]
     else:
@@ -436,7 +476,9 @@ def imarith(inimg1, operator, inimg2, outimg, halfframe, data_hdu=0):
     f2.close()
     return
 
-def imarith_float_mef(inimg1, operator, scale, outimg,halfframe):
+def imarith_float_mef(inimg1, operator, scale, outimg):
+    # check if halfframe
+    halfframe = is_halfframe(inimg1)
     if halfframe:
         nslits = 12
         data_hdu_list = range(7,19)
@@ -649,7 +691,6 @@ def convert_ccd_to_bindata_pix(pix_defs, bin_x, bin_y):
     return mod_pix_defs
 
 def subtract_overscan(inimg, outimg,
-                      halfframe,
                       data_hdu = 0,
                       detector_regions=None,
                       overscan_regions=None,
@@ -694,6 +735,7 @@ def subtract_overscan(inimg, outimg,
     fmt_sci_reg = [[x[0],(x[1]+1),x[2],(x[3]+1)]
                    for x in science_regions]
     # (2) create data array - MUST QUERY FOR HALF-FRAME
+    halfframe = is_halfframe(inimg, data_hdu=data_hdu)
     if halfframe:
         ny = 2056//bin_y
         nx = 4096//bin_x
@@ -750,7 +792,7 @@ def subtract_overscan(inimg, outimg,
 
 #------------------------------------------------------------------------
 # NEW 2013-06-06
-def repair_blue_bad_pix(inimg, outimg,halfframe,
+def repair_blue_bad_pix(inimg, outimg,
                         data_hdu=0,
                         bin_x=1, bin_y=1):
     # first check it is the new blue detector, otherwise skip
@@ -770,6 +812,7 @@ def repair_blue_bad_pix(inimg, outimg,halfframe,
     bin_x = int(float(bins[0]))
     bin_y = int(float(bins[1]))
     # now interpolate
+    halfframe = is_halfframe(inimg)
     if halfframe:
         y_bad_min = 0
         y_bad_max = 2056//bin_y
@@ -786,7 +829,7 @@ def repair_blue_bad_pix(inimg, outimg,halfframe,
     outfits.writeto(outimg, overwrite=True)
     return
 
-def repair_red_bad_pix(inimg, outimg,halfframe,
+def repair_red_bad_pix(inimg, outimg,
                        data_hdu=0,
                        bin_x=1, bin_y=1):
     # first check it is the new blue detector, otherwise skip
@@ -806,6 +849,7 @@ def repair_red_bad_pix(inimg, outimg,halfframe,
     bin_x = int(float(bins[0]))
     bin_y = int(float(bins[1]))
     # now interpolate
+    halfframe = is_halfframe(inimg)
     if halfframe:
         y_bad_min = 0
         y_bad_max = 0
@@ -828,7 +872,7 @@ def repair_red_bad_pix(inimg, outimg,halfframe,
 #------------------------------------------------------------------------
 # NEW 2012-11-08
 # inter-slitlet bias subtraction method
-def fit_wifes_interslit_bias(inimg,halfframe,
+def fit_wifes_interslit_bias(inimg,
                              data_hdu=0,
                              slitlet_def_file=None,
                              method='row_med',
@@ -842,7 +886,8 @@ def fit_wifes_interslit_bias(inimg,halfframe,
     orig_data = f[data_hdu].data
     orig_hdr = f[data_hdu].header
     f.close()
-
+    # check if halfframe
+    halfframe = is_halfframe(inimg)
     # grab necessary info from header
     ccdsum = orig_hdr['CCDSUM']
     bins = ccdsum.split()
@@ -1245,7 +1290,6 @@ def generate_wifes_bias_fit(bias_img, outimg, data_hdu=0,
 # WIFES specific tasks
 def derive_slitlet_profiles(flatfield_fn,
                             output_fn,
-                            halfframe,
                             data_hdu=0,
                             verbose=False,
                             shift_global=True,
@@ -1259,7 +1303,8 @@ def derive_slitlet_profiles(flatfield_fn,
     flat_data = f[data_hdu].data
     orig_hdr = f[data_hdu].header
     f.close()
-
+    # check if halfframe
+    halfframe = is_halfframe(flatfield_fn)
     # check for binning, if not specified read from header
     try:
         bin_temp = orig_hdr['CCDSUM'].split()
@@ -1305,12 +1350,9 @@ def derive_slitlet_profiles(flatfield_fn,
         # fit for best new center!
         init_yprof = numpy.sum(expanded_data, axis=1)
 
-        print("init_yprof:", init_yprof)
-
         y_prof = (init_yprof - init_yprof.min())/(
             init_yprof.max()-init_yprof.min())
         
-        print("y_prof:", y_prof)
 
         # center = halfway between edges where it drops below 0.001
         bright_inds = numpy.nonzero(y_prof>0.1)[0]
@@ -1357,7 +1399,7 @@ def derive_slitlet_profiles(flatfield_fn,
     return
 
 # Fred's update (sag)
-def interslice_cleanup(input_fn, output_fn,halfframe,
+def interslice_cleanup(input_fn, output_fn,
                        slitlet_def_file=None,
                        bin_x=None, bin_y=None,
                        data_hdu=0,
@@ -1391,6 +1433,8 @@ def interslice_cleanup(input_fn, output_fn,halfframe,
     header = f[data_hdu].header
     data = f[data_hdu].data
     f.close()
+    # Check if half-frame
+    halfframe = is_halfframe(input_fn)
     # check which channel (blue / red) it is!!
     camera = header['CAMERA']
     
@@ -1596,7 +1640,7 @@ def interslice_cleanup(input_fn, output_fn,halfframe,
             pylab.show()
     return
 
-def wifes_slitlet_mef(inimg, outimg,halfframe, data_hdu=0,
+def wifes_slitlet_mef(inimg, outimg, data_hdu=0,
                       bin_x=None, bin_y=None,
                       slitlet_def_file=None):
     f = pyfits.open(inimg)
@@ -1604,6 +1648,8 @@ def wifes_slitlet_mef(inimg, outimg,halfframe, data_hdu=0,
     old_hdr = f[data_hdu].header
     full_data = f[data_hdu].data
     f.close()
+    # check if halfframe
+    halfframe = is_halfframe(inimg)
     # check which channel (blue / red) it is!!
     camera = old_hdr['CAMERA']
     rdnoise = old_hdr['RDNOISE']
@@ -2059,7 +2105,9 @@ def wifes_slitlet_mef_ns(inimg, outimg_obj, outimg_sky,
     return
 
 #------------------------------------------------------------------------
-def wifes_response_pixel(inimg, outimg, halfframe, wsol_fn = None):
+def wifes_response_pixel(inimg, outimg, wsol_fn = None):
+    # check if halfframe
+    halfframe = is_halfframe(inimg)
     if halfframe:
         nslits = 12
     else:
@@ -2104,25 +2152,33 @@ def wifes_response_pixel(inimg, outimg, halfframe, wsol_fn = None):
     f.close()
     return
 
-def wifes_response_poly(inimg, outimg,halfframe,
+def wifes_response_poly(inimg, outimg,
                         wsol_fn=None,
                         zero_var=True,
                         polydeg=7):
+    # check if halfframe
+    halfframe = is_halfframe(inimg)
     if halfframe:
-        nslits = 12
-        mid_slit_index = 12
+        first = 7
+        last = 19
     else:
-        mid_slit_index = 13
-        nslits = 25
+        first = 1
+        last = 26
+    
+    mid_slit = 13
+
     # now open and operate on data
     f = pyfits.open(inimg)
     outfits = pyfits.HDUList(f)
     #------------------------------------
     # fit a smooth polynomial to the middle slice
-    midslice_data = f[mid_slit_index].data
+
+    midslice_data = f[mid_slit].data
     if wsol_fn != None:
         f3 = pyfits.open(wsol_fn)
-        wave = f3[mid_slit_index].data    
+        # The middle wavelengh index is 7 if half frame and 13 if not.
+        mid_wl_index = mid_slit - first + 1
+        wave = f3[mid_wl_index].data    
         f3.close()
         rect_data, lam_array =  transform_data(
             midslice_data, wave, return_lambda=True)
@@ -2161,17 +2217,13 @@ def wifes_response_poly(inimg, outimg,halfframe,
     smooth_poly = numpy.polyfit(fit_x, fit_y, polydeg)
     #------------------------------------
     # divide rectified data by the smooth polynomial
-    for i in range(nslits):
-        if halfframe:
-            curr_hdu = i+7
-        else:
-            curr_hdu = i+1        
+    for i in range(first, last):
+        curr_hdu = i
         orig_data = f[curr_hdu].data
-        # NEW 2012-04-20
         # rectify data!
         if wsol_fn != None:
             f3 = pyfits.open(wsol_fn)
-            wave = f3[i+1].data
+            wave = f3[i - first + 1].data
             f3.close()
             print('Transforming data for Slitlet %d' % curr_hdu)
             rect_data, lam_array =  transform_data(
@@ -2182,14 +2234,13 @@ def wifes_response_poly(inimg, outimg,halfframe,
             normed_data = detransform_data(
                 init_normed_data, orig_data, wave)
         else:
-            print(' IM IN ELSE ')
             lam_array = numpy.arange(len(orig_data[0,:]),dtype='d')
             curr_norm_array = 10.0**(numpy.polyval(smooth_poly,
                                                 lam_array))
             normed_data = rect_data / curr_norm_array
         outfits[curr_hdu].data = normed_data
         if zero_var:
-            var_hdu = curr_hdu+25
+            var_hdu = curr_hdu + 25
             outfits[var_hdu].data *= 0.0
         # need to fit this for each slitlet
     outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
@@ -2200,7 +2251,6 @@ def wifes_response_poly(inimg, outimg,halfframe,
 def wifes_2dim_response(spec_inimg,
                         spatial_inimg,
                         outimg,
-                        halfframe,
                         wsol_fn=None,
                         zero_var=True,
                         plot=False,
@@ -2208,12 +2258,20 @@ def wifes_2dim_response(spec_inimg,
                         save_prefix='response_',
                         polydeg=7,
                         resp_min=1.0e-6):
+    # check if halfframe
+    halfframe = is_halfframe(spec_inimg)
     if halfframe:
         nslits = 12
         mid_slit = 6
+        first = 7
+        last = 19
     else:
         nslits = 25
-        mid_slit = 13
+        mid_slit = 7
+        first = 1
+        last = 26
+
+
     # open the two files!
     f1 = pyfits.open(spec_inimg)
     f2 = pyfits.open(spatial_inimg)
@@ -2226,7 +2284,11 @@ def wifes_2dim_response(spec_inimg,
     #------------------------------------
     # SPECTRAL FLAT
     # fit a smooth polynomial to the middle slice
+    #------------------------------------
+
     midslice_data = f1[mid_slit].data
+
+
     if wsol_fn != None:
         f3 = pyfits.open(wsol_fn)
         wave = f3[mid_slit].data
@@ -2234,15 +2296,17 @@ def wifes_2dim_response(spec_inimg,
         rect_data, mid_lam_array =  transform_data(
             midslice_data, wave, return_lambda=True)
     else:
+
         rect_data = midslice_data
         mid_lam_array = numpy.arange(len(rect_data[0,:]),dtype='d')
+    
     out_y_full, out_lambda_full = numpy.meshgrid(yarr, mid_lam_array)
     disp_ave = abs(numpy.mean(mid_lam_array[1:]-mid_lam_array[:-1]))
     # fit polynomial to median data
     curr_ff_rowwise_ave = numpy.median(rect_data, axis=0)
     curr_y = numpy.log10(curr_ff_rowwise_ave)
-    good_inds = numpy.nonzero((curr_y == curr_y)*
-                              (curr_ff_rowwise_ave > 0.0))[0]
+    good_inds = numpy.nonzero((curr_y == curr_y)*(curr_ff_rowwise_ave > 0.0))[0]
+
     # add points far away to force edge derivatives to be preserved
     if pyfits.getval(spec_inimg, 'CAMERA') == 'WiFeSRed':
         next_x = mid_lam_array[good_inds][500:-10]
@@ -2250,6 +2314,7 @@ def wifes_2dim_response(spec_inimg,
     else:
         next_x = mid_lam_array[good_inds][50:-100]
         next_y = curr_y[good_inds][50:-100]
+
     yderiv = (next_y[1:]-next_y[:-1])/(next_x[1:]-next_x[:-1])
     nave_lo = 50
     nave_hi = 100
@@ -2263,19 +2328,26 @@ def wifes_2dim_response(spec_inimg,
     dxhi = numpy.arange(1,nextend_hi+1,dtype='d')*(next_x[-1]-next_x[-2])
     new_xhi = next_x[-1] + dxhi
     new_yhi = next_y[-1] + dxhi*ydave_hi
+
     fit_x = numpy.concatenate((
         new_xlo,
         next_x,
         new_xhi))
+    
     fit_y = numpy.concatenate((
         new_ylo,
         next_y,
         new_yhi))
+    
     smooth_poly = numpy.polyfit(fit_x, fit_y, polydeg)
+    
     #------------------------------------
     # SPATIAL FLAT
     # get median spatial flat spectrum
+    #------------------------------------
+
     midslice_data = f2[mid_slit].data
+    
     if wsol_fn != None:
         f3 = pyfits.open(wsol_fn)
         wave = f3[mid_slit].data
@@ -2298,12 +2370,19 @@ def wifes_2dim_response(spec_inimg,
     #------------------------------------
     #------------------------------------
     illum = numpy.zeros([ndy, 25], dtype='d')
+    print('')
+    print('')
+    print('')
+    print('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
+    print("f1", len(f1))
+    print("f2", len(f2))
+
     # divide rectified data by the smooth polynomial
     for i in range(nslits):
         curr_hdu = i+1
         orig_spec_data = f1[curr_hdu].data
         orig_spat_data = f2[curr_hdu].data
-        # NEW 2012-04-20
+
         # rectify data!
         if wsol_fn != None:
             f3 = pyfits.open(wsol_fn)
@@ -2418,11 +2497,12 @@ def wifes_2dim_response(spec_inimg,
 
 def wifes_illumination(spatial_inimg,
                        outimg,
-                       halfframe,
                        wsol_fn=None,
                        zero_var=True,
                        polydeg=7,
                        resp_min=1.0e-6):
+    # check if halfframe
+    halfframe = is_halfframe(spatial_inimg)
     if halfframe:
         nslits = 12
         mid_slit = 6
@@ -2503,7 +2583,7 @@ def wifes_illumination(spatial_inimg,
 
 #------------------------------------------------------------------------
 # function to fit the wire solution!
-def derive_wifes_wire_solution(inimg, out_file,halfframe,
+def derive_wifes_wire_solution(inimg, out_file,
                                bin_x=None, bin_y=None,
                                #fit_zones=[10,30,45,65],
                                fit_zones=[16,26,54,70],
@@ -2528,6 +2608,8 @@ def derive_wifes_wire_solution(inimg, out_file,halfframe,
     init_fit_pmax_2 = fit_zones[3]
     #------------------------------------
     f = pyfits.open(inimg)
+    # check if it is halfframe
+    halfframe = is_halfframe(inimg)
     if halfframe:
         nslits = 12
     else:
@@ -2573,11 +2655,11 @@ def derive_wifes_wire_solution(inimg, out_file,halfframe,
     # number of groupings to do
     ng = nx//nave - 1
     for q in range(nslits):
-        print(q)
+
         if halfframe:
-            slit_ind = q+7
+            slit_ind = q + 7
         else:
-            slit_ind = q+1
+            slit_ind = q + 1
 
         test_data = f[slit_ind].data
         nr, junk = numpy.shape(test_data)
@@ -2639,7 +2721,6 @@ def derive_wifes_wire_solution(inimg, out_file,halfframe,
 def generate_wifes_cube(inimg, outimg,
                         wire_fn,
                         wsol_fn,
-                        halfframe,
                         wmin_set = None, wmax_set = None,dw_set = None,
                         bin_x=None, bin_y=None,
                         ny_orig=76,
@@ -2665,7 +2746,6 @@ def generate_wifes_cube(inimg, outimg,
             inimg, outimg,
             wire_fn,
             wsol_fn,
-            halfframe,
             wmin_set = wmin_set, wmax_set = wmax_set, dw_set = dw_set,
             bin_x=bin_x, bin_y=bin_y,
             ny_orig=ny_orig,
@@ -2688,7 +2768,6 @@ def generate_wifes_cube_oneproc(
     inimg, outimg,
     wire_fn,
     wsol_fn,
-    halfframe,
     wmin_set = None, wmax_set = None, dw_set = None,
     bin_x=None, bin_y=None,
     ny_orig=76,
@@ -2696,6 +2775,8 @@ def generate_wifes_cube_oneproc(
     verbose=True,
     adr=False):
     #---------------------------
+    # check if halfframe
+    halfframe = is_halfframe(inimg)
     if halfframe:
         nslits = 12
         first = 7
@@ -2979,7 +3060,6 @@ def generate_wifes_cube_multithread(
     inimg, outimg,
     wire_fn,
     wsol_fn,
-    halfframe,
     wmin_set = None, wmax_set = None, dw_set = None,
     bin_x=None, bin_y=None,
     ny_orig=76,
@@ -2988,6 +3068,8 @@ def generate_wifes_cube_multithread(
     verbose=True,
     adr=False):
     #---------------------------
+    # check if halfframe
+    halfframe = is_halfframe(inimg)
     if halfframe:
         nslits = 12
         first = 7
@@ -3242,7 +3324,7 @@ def generate_wifes_cube_multithread(
 
 
 #------------------------------------------------------------------------
-def generate_wifes_3dcube(inimg, outimg,halfframe,):
+def generate_wifes_3dcube(inimg, outimg):
     # load in data
     # assumes it is in pywifes format
     # otherwise why are you using this function
@@ -3251,6 +3333,7 @@ def generate_wifes_3dcube(inimg, outimg,halfframe,):
     if len(f) == 76:
             
             # get wavelength array
+            halfframe = True
 
             if halfframe:
                 ny,nlam = numpy.shape(f[7].data)

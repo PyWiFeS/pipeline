@@ -54,8 +54,8 @@ def saveResamplingData(fname, yrange, grating, bin_x, bin_y, pl):
   # The beginnings of a FITS file
   pri = pf.PrimaryHDU(header=None, data=None)
   f = pf.HDUList([pri])
-
-  for s in range(12):
+  
+  for s in range(25):
     y0,y1 = yrange[s]
     xout = -1*np.ones((abs(y1-y0),xlen))
     #yout = np.zeros((y1-y0+1,xlen))

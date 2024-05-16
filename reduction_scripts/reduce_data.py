@@ -159,7 +159,7 @@ def main():
             if skip_done and os.path.isfile(out_fn):
                 continue
             print("Subtracting Overscan for %s" % in_fn.split("/")[-1])
-            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu,halfframe=halfframe)
+            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu)
         return
 
     # ------------------------------------------------------
@@ -177,11 +177,11 @@ def main():
             print(f"Repairing {arm} bad pixels for {input_filename}")
             if arm == "red":
                 pywifes.repair_red_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu,halfframe=halfframe
+                    input_filepath, output_filepath, data_hdu=my_data_hdu
                 )
             if arm == "blue":
                 pywifes.repair_blue_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu,halfframe=halfframe
+                    input_filepath, output_filepath, data_hdu=my_data_hdu
                 )
 
     # ------------------------------------------------------
@@ -277,7 +277,7 @@ def main():
             if method == "copy":
                 pywifes.imcopy(in_fn, out_fn)
             else:
-                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=my_data_hdu,halfframe=halfframe)
+                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=my_data_hdu)
         return
 
     # ------------------------------------------------------
@@ -355,7 +355,7 @@ def main():
         output_fn = slitlet_def_fn
         
         pywifes.derive_slitlet_profiles(
-            flatfield_fn, output_fn, data_hdu=my_data_hdu, halfframe=halfframe, **args
+            flatfield_fn, output_fn, data_hdu=my_data_hdu, **args
         )
         return
 
@@ -387,7 +387,7 @@ def main():
         # run it!
         print("Generating MEF %sflat" % source)
         pywifes.wifes_slitlet_mef(
-            in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn,halfframe=halfframe
+            in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
         )
         return
 
@@ -416,10 +416,10 @@ def main():
                     sky_fn,
                     data_hdu=my_data_hdu,
                     slitlet_def_file=slitlet_fn,
-                )   
+                )
             else:
                 pywifes.wifes_slitlet_mef(
-                    in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn,halfframe=halfframe
+                    in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
                 )
             gc.collect()
         return
@@ -433,7 +433,7 @@ def main():
             out_dir, "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
         )
         print("Deriving master wavelength solution from %s" % wsol_in_fn.split("/")[-1])
-        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn,halfframe=halfframe, **args)
+        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, **args)
         # local wave solutions for science or standards
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
@@ -471,7 +471,7 @@ def main():
             out_dir, "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
         )
         print("Deriving global wire solution from %s" % wire_in_fn.split("/")[-1])
-        pywifes.derive_wifes_wire_solution(wire_in_fn, wire_out_fn,halfframe=halfframe)
+        pywifes.derive_wifes_wire_solution(wire_in_fn, wire_out_fn)
         # Wire solutions for any specific obsevations
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
@@ -490,7 +490,7 @@ def main():
                 if os.path.isfile(local_wire_out_fn):
                     continue
                 print("Deriving local wire solution for %s" % local_wires[0])
-                pywifes.derive_wifes_wire_solution(local_wire_fn, local_wire_out_fn,halfframe=halfframe)
+                pywifes.derive_wifes_wire_solution(local_wire_fn, local_wire_out_fn)
         return
 
     # ------------------------------------------------------
@@ -509,6 +509,8 @@ def main():
         sky_obs_list = get_sky_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
 
+        print(sci_obs_list + sky_obs_list)
+
         for fn in sci_obs_list + sky_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
@@ -526,7 +528,6 @@ def main():
                 sig_frac=0.2,
                 is_multithread=multithread,
                 max_processes=max_processes,
-                halfframe=halfframe,
             )
             if ns:
                 in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
@@ -545,7 +546,6 @@ def main():
                 )
             gc.collect()
 
-        print('********************************************************')
         for fn in std_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
@@ -594,7 +594,7 @@ def main():
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
             sky_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
             print("Subtracting N+S sky frame for %s" % in_fn.split("/")[-1])
-            pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime",halfframe=halfframe)
+            pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime")
         return
 
     def run_sky_sub(metadata, prev_suffix, curr_suffix, ns=False):
@@ -616,7 +616,7 @@ def main():
                         print("Subtracting sky frame for %s" % in_fn.split("/")[-1])
                         # subtract scaled sky frame!
                         pywifes.scaled_imarith_mef(
-                            in_fn, "-", sky_proc_fn, out_fn, scale="exptime",halfframe=halfframe
+                            in_fn, "-", sky_proc_fn, out_fn, scale="exptime"
                         )
                 else:
                     for fn in obs["sci"]:
@@ -673,11 +673,14 @@ def main():
         print("Generating flatfield response function") 
         print("Using %s_flat" % mode)
         if mode == "all":
+            print('We are in all !!!!!!!!!!!!!!!!!!!')
             pywifes.wifes_2dim_response(
                 super_dflat_mef, super_tflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
             )
         elif mode == "dome":
-            pywifes.wifes_response_poly(super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn,halfframe=halfframe)
+            print('We are in dome !!!!!!!!!!!!!!!!!!!')
+
+            pywifes.wifes_response_poly(super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn)
         else:
             raise ValueError("Requested response mode not recognized")
         return
@@ -694,7 +697,7 @@ def main():
             if skip_done and os.path.isfile(out_fn):
                 continue
             print("Flat-fielding image %s" % in_fn.split("/")[-1])
-            pywifes.imarith_mef(in_fn, "/", flat_resp_fn, out_fn, halfframe=halfframe)
+            pywifes.imarith_mef(in_fn, "/", flat_resp_fn, out_fn)
         return
 
     # ------------------------------------------------------
@@ -831,8 +834,8 @@ def main():
                 ny_orig=76,
                 offset_orig=2.0,
                 **args,
-                halfframe=halfframe,
             )
+            # print squirrel
         return
 
     # ------------------------------------------------------
@@ -919,7 +922,7 @@ def main():
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.%s.fits" % (fn, curr_suffix))
             print("Saving 3D Data Cube for %s" % in_fn.split("/")[-1])
-            pywifes.generate_wifes_3dcube(in_fn, out_fn,halfframe=halfframe, **args)
+            pywifes.generate_wifes_3dcube(in_fn, out_fn, **args)
         return
 
     # --------------------------------------------
@@ -993,9 +996,6 @@ def main():
             # ------------------------------------------------------------------------
             obs_metadata = obs_metadatas[arm]
 
-            # TODO Set this variable to be readed from data
-            halfframe = True
-
             # Check grism and observing mode in the first science image of each arm
             sci_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
 
@@ -1062,26 +1062,23 @@ def main():
                 func_name = "run_" + step_name
                 func = locals()[func_name]
                 if step_run:
-                    print("----------------------------")
+                    print('-----------------------------')
                     print(step_name)
-                    print("----------------------------")
-
+                    print('-----------------------------')
                     func(
                         obs_metadata,
                         prev_suffix=prev_suffix,
                         curr_suffix=step_suffix,
                         **step_args,
                     )
+                    print('---------- DONE -------------')
                     if step_suffix != None:
-                        prev_suffix = step_suffix
-
-                    print("----------------------------")
-                    print('=== DONE! ===')
-                    print("----------------------------")
-    
+                        prev_suffix = step_suffix    
                 else:
                     pass
         except Exception as exc:
+            exit("Problem.")
+ 
             print(f"{arm} skipped, as an error occurred during processing: '{exc}'.")
 
     # ----------------------------------------------------------

@@ -138,60 +138,85 @@ def halpha_mask(wave_array):
 #------------------------------------------------------------------------
 def load_wifes_cube(cube_fn, ytrim=[0,0]):
     f = pyfits.open(cube_fn)
-    ny,nlam = numpy.shape(f[1].data)
-    nx=25
+    
     # get wavelength array
-    lam0 = f[1].header['CRVAL1']
-    dlam = f[1].header['CDELT1']
+    halfframe = is_halfframe(cube_fn)
+
+    if halfframe:
+        first = 7
+        last = 19
+        nx = 12
+    else:
+        first = 1
+        last = 26
+        nx=25
+    ny,nlam = numpy.shape(f[first].data)
+    lam0 = f[first].header['CRVAL1']
+    dlam = f[first].header['CDELT1']
     lam_array = lam0+dlam*numpy.arange(nlam,dtype='d')
     # get data and variance
     obj_cube_data = numpy.zeros([nlam,ny-sum(ytrim),nx],dtype='d')
     obj_cube_var  = numpy.zeros([nlam,ny-sum(ytrim),nx],dtype='d')
-    for i in range(nx):
-        curr_data = f[i+1].data[ytrim[0]:ny-ytrim[1],:]
-        curr_var = f[i+26].data[ytrim[0]:ny-ytrim[1],:]
-        obj_cube_data[:,:,i] = curr_data.T
-        obj_cube_var[:,:,i] = curr_var.T
+    
+    for i in range(first,last):
+        curr_data = f[i].data[ytrim[0]:ny-ytrim[1],:]
+        curr_var = f[i+25].data[ytrim[0]:ny-ytrim[1],:]
+        
+        obj_cube_data[:,:,i-first] = curr_data.T
+        obj_cube_var[:,:,i-first] = curr_var.T
     f.close()
     # return flux, variance, wavelength
     return obj_cube_data, obj_cube_var, lam_array
 
 #------------------------------------------------------------------------
 def extract_wifes_stdstar(cube_fn,
-                          x_ctr = None, y_ctr = None,
+                          x_ctr = None, 
+                          y_ctr = None,
                           extract_radius = 5.0,
                           sky_radius = 8.0,
                           ytrim=0,
                           save_mode=None,
-                          save_fn=None):
-    # extraction parameters...
-    slice_size_arcsec = 1.0
+                          save_fn=None
+):
     # check if halfframe
     halfframe = is_halfframe(cube_fn)
+
+    # make a mask for halfframe
+    if halfframe:
+        first  = 7
+    else:
+        first = 1
+
+    slice_size_arcsec = 1.0
     # check spatial binning!
     f = pyfits.open(cube_fn)
-    exptime = float(f[1].header['EXPTIME'])
-    bin_y = float(f[1].header['CCDSUM'].split()[1])
-    pix_size_arcsec = bin_y*0.5
+    exptime = float(f[first].header['EXPTIME'])
+    bin_y = float(f[first].header['CCDSUM'].split()[1])
+    pix_size_arcsec = bin_y * 0.5
+
     # load the cube data
     init_obj_cube_data, init_obj_cube_var, lam_array = load_wifes_cube(cube_fn)
+
     inlam, iny, inx = numpy.shape(init_obj_cube_data)
     obj_cube_data = init_obj_cube_data[:,ytrim:iny-ytrim,:]
     obj_cube_var  = init_obj_cube_var[:,ytrim:iny-ytrim,:]
     nlam, ny, nx = numpy.shape(obj_cube_data)
+
     # get stdstar centroid
     lin_x = numpy.arange(nx,dtype='d')
     lin_y = numpy.arange(ny,dtype='d')
     full_x, full_y = numpy.meshgrid(lin_x, lin_y)
-    cube_x = full_x*numpy.ones([nlam,ny,nx])
-    cube_y = full_y*numpy.ones([nlam,ny,nx])
+    cube_x = full_x * numpy.ones([nlam,ny,nx])
+    cube_y = full_y * numpy.ones([nlam,ny,nx])
     flux = numpy.sum(numpy.sum(obj_cube_data,axis=2),axis=1)
+
     # make a mask for halfframe
     if halfframe:
         halfframe_mask = full_y < 12.5
     else:
         halfframe_mask = full_y < 50
-        
+
+
     # MZ: Uncommented
     # centroid version
     #~ if x_ctr == None:
@@ -214,8 +239,8 @@ def extract_wifes_stdstar(cube_fn,
         std_x = xc*numpy.ones(nlam, dtype='d')
         std_y = yc*numpy.ones(nlam, dtype='d')
     else:
-        std_x = x_ctr*numpy.ones(nlam, dtype='d')
-        std_y = y_ctr*numpy.ones(nlam, dtype='d')
+        std_x = x_ctr * numpy.ones(nlam, dtype='d')
+        std_y = y_ctr * numpy.ones(nlam, dtype='d')
     # fit smooth curves!
     polydeg=6
     lin_lam = numpy.arange(nlam,dtype='d')
@@ -236,21 +261,23 @@ def extract_wifes_stdstar(cube_fn,
         curr_var  = obj_cube_var[i,:,:]
         # find mean sky spectrum outside sky radius
         sky_pix = numpy.nonzero(
-            (pix_dists >= sky_radius)*halfframe_mask)
+            (pix_dists >= sky_radius) * halfframe_mask
+            )
         nspix = len(sky_pix[0])
         #curr_sky_flux = numpy.sum(curr_data[sky_pix])/float(nspix)
         curr_sky_flux = numpy.median(curr_data[sky_pix])
         # subtract sky and sum up obj flux
         obj_pix = numpy.nonzero(
-            (pix_dists <= extract_radius)*halfframe_mask)
-        obj_flux = numpy.sum(curr_data[obj_pix]-curr_sky_flux)
+            (pix_dists <= extract_radius) * halfframe_mask
+            )
+        obj_flux = numpy.sum(curr_data[obj_pix] - curr_sky_flux)
         obj_var = numpy.sum(curr_var[obj_pix])
         std_flux[i] = obj_flux
         sky_flux[i] = curr_sky_flux
         std_var[i] = obj_var
     # DIVIDE FLUX BY EXPTIME AND BIN SIZE!!!
-    dlam = lam_array[1]-lam_array[0]
-    fscale = exptime*dlam
+    dlam = lam_array[1] - lam_array[0]
+    fscale = exptime * dlam
     std_flux /= fscale
     std_var  /= (fscale**2)
     sky_flux /= fscale
@@ -275,8 +302,8 @@ def extract_wifes_stdstar(cube_fn,
         save_data[:,2] = filtered_std_var
         numpy.savetxt(save_fn, save_data)
     elif save_mode == 'iraf':
-        out_header = f[1].header
-        out_header.set('CD1_1', f[1].header['CDELT1'])
+        out_header = f[first].header
+        out_header.set('CD1_1', f[first].header['CDELT1'])
         out_header.set('CD2_2', 1)
         out_header.set('CD3_3', 1)
         out_header.set('LTM3_3', 1)
@@ -433,6 +460,7 @@ def derive_wifes_calibration(cube_fn_list,
     # first extract stdstar spectra and compare to reference
     fratio_results = []
     print("cube_fn_list =" + repr(cube_fn_list))
+
     for i in range(len(cube_fn_list)):
         f = pyfits.open(cube_fn_list[i])
         cube_hdr = f[1].header
@@ -525,10 +553,10 @@ def derive_wifes_calibration(cube_fn_list,
         raise Exception('Could not find calibration data for any stars!')
     if norm_stars:
         i_mid = int(len(fratio_results[0][0])/2)
-        print('i_mid', i_mid, type(i_mid))
         fscale_max = min([x[1][i_mid] for x in fratio_results])
         init_full_y = numpy.concatenate(
             [x[1]-x[1][i_mid]+fscale_max for x in fratio_results])
+        
     else:
         init_full_y = numpy.concatenate(
             [x[1] for x in fratio_results])
@@ -678,6 +706,18 @@ def calibrate_wifes_cube(inimg, outimg,
                          calib_fn,
                          mode='pywifes',
                          extinction_fn=None):
+    
+    # get wavelength array
+    halfframe = is_halfframe(inimg)
+
+    if halfframe:
+        first = 7
+        last = 19
+    else:
+        first = 1
+        last = 26
+
+
     # get extinction curve
     if extinction_fn == None:
         extinct_interp = sso_extinct_interp
@@ -690,16 +730,16 @@ def calibrate_wifes_cube(inimg, outimg,
     # open data
     f3 = pyfits.open(inimg)
     # get the wavelength array
-    wave0 = f3[1].header['CRVAL1']
-    dwave = f3[1].header['CDELT1']
-    exptime = f3[1].header['EXPTIME']
+    wave0 = f3[first].header['CRVAL1']
+    dwave = f3[first].header['CDELT1']
+    exptime = f3[first].header['EXPTIME']
     try:
-        secz = f3[1].header['AIRMASS']
+        secz = f3[first].header['AIRMASS']
     except:
         secz = 1.0
         print('AIRMASS keyword not found, assuming airmass=1.0')
-    nlam = numpy.shape(f3[1].data)[1]
-    wave_array = wave0+dwave*numpy.arange(nlam,dtype='d')
+    nlam = numpy.shape(f3[first].data)[1]
+    wave_array = wave0 + dwave * numpy.arange(nlam,dtype='d')
     # calculate the flux calibration array
     if mode == 'pywifes':
         f1 = open(calib_fn, 'rb')
@@ -738,9 +778,9 @@ def calibrate_wifes_cube(inimg, outimg,
     fcal_array = inst_fcal_array*obj_ext
     # apply flux cal to data!
     outfits = pyfits.HDUList(f3)
-    for i in range(1,26):
+    for i in range(first,last):
         curr_flux = f3[i].data
-        curr_var  = f3[25+i].data
+        curr_var  = f3[i+25].data
         out_flux = curr_flux / (fcal_array*exptime*dwave)
         # Fred's update 2 : add dwave !
         out_var  = curr_var / ((fcal_array*exptime*dwave)**2)
@@ -920,6 +960,17 @@ def apply_wifes_telluric(inimg,
                          outimg,
                          tellcorr_fn,
                          airmass=None):
+    # get wavelength array
+    halfframe = is_halfframe(inimg)
+
+    if halfframe:
+        first = 7
+        last = 19
+    else:
+        first = 1
+        last = 26
+
+
     #---------------------------------------------
     # open the telluric corrction file
     f1 = open(tellcorr_fn, 'rb')
@@ -945,14 +996,14 @@ def apply_wifes_telluric(inimg,
     # get airmass
     if airmass == None:
         try:
-            airmass = float(f3[1].header['AIRMASS'])
+            airmass = float(f3[first].header['AIRMASS'])
         except:
             airmass = 1.0
             print('AIRMASS keyword not found, assuming airmass=1.0')
     # get the wavelength array
-    wave0 = f3[1].header['CRVAL1']
-    dwave = f3[1].header['CDELT1']
-    nlam = numpy.shape(f3[1].data)[1]
+    wave0 = f3[first].header['CRVAL1']
+    dwave = f3[first].header['CDELT1']
+    nlam = numpy.shape(f3[first].data)[1]
     wave_array = wave0+dwave*numpy.arange(nlam,dtype='d')
     # calculate the telluric correction array
     base_O2_corr = O2_interp(wave_array)
@@ -962,9 +1013,9 @@ def apply_wifes_telluric(inimg,
     fcal_array = O2_corr*H2O_corr
     # correct the data
     outfits = pyfits.HDUList(f3)
-    for i in range(1,26):
+    for i in range(first,last):
         curr_flux = f3[i].data
-        curr_var  = f3[25+i].data
+        curr_var  = f3[i+25].data
         out_flux = curr_flux / fcal_array
         out_var  = curr_var / (fcal_array**2)
         # save to data cube
