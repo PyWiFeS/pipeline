@@ -459,8 +459,6 @@ def derive_wifes_calibration(cube_fn_list,
                                                     fill_value=numpy.nan)
     # first extract stdstar spectra and compare to reference
     fratio_results = []
-    print("cube_fn_list =" + repr(cube_fn_list))
-
     for i in range(len(cube_fn_list)):
         f = pyfits.open(cube_fn_list[i])
         cube_hdr = f[1].header
@@ -743,7 +741,6 @@ def calibrate_wifes_cube(inimg, outimg,
     # calculate the flux calibration array
     if mode == 'pywifes':
         f1 = open(calib_fn, 'rb')
-        print('open rb')
         calib_info = pickle.load(f1)
         f1.close()
         sort_order = calib_info['wave'].argsort()
