@@ -2370,13 +2370,6 @@ def wifes_2dim_response(spec_inimg,
     #------------------------------------
     #------------------------------------
     illum = numpy.zeros([ndy, 25], dtype='d')
-    print('')
-    print('')
-    print('')
-    print('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
-    print("f1", len(f1))
-    print("f2", len(f2))
-
     # divide rectified data by the smooth polynomial
     for i in range(nslits):
         curr_hdu = i+1
@@ -2812,12 +2805,10 @@ def generate_wifes_cube_oneproc(
     frame_wmax = 20000.0
     frame_wdisps = []
 
-
+    f4 = pyfits.open(wsol_fn)
     for i in range(first,last):
         # Wavelenghts
-        f4 = pyfits.open(wsol_fn)
         wave = f4[i - first + 1].data
-        f4.close()
         curr_wmin = numpy.max(numpy.min(wave,axis=1))
         curr_wmax = numpy.min(numpy.max(wave,axis=1))
         curr_wdisp = numpy.abs(numpy.mean(wave[:,1:]-wave[:,:-1]))
@@ -2826,6 +2817,8 @@ def generate_wifes_cube_oneproc(
         if curr_wmax < frame_wmax:
             frame_wmax = curr_wmax
         frame_wdisps.append(curr_wdisp)
+    f4.close()
+        
     if dw_set != None:
         disp_ave = dw_set
     else:
@@ -2898,10 +2891,10 @@ def generate_wifes_cube_oneproc(
         print(' -> Step 1: interpolating along lambda and y (2D interp.)\r')
         sys.stdout.write('\r 0%')
         sys.stdout.flush()
+
+    f4 = pyfits.open(wsol_fn)    
     for i in range(first,last):
-        f4 = pyfits.open(wsol_fn)
         wave = f4[i - first + 1].data
-        f4.close()
 
         curr_flux = f3[i].data
         curr_var  = f3[25+i].data
@@ -2935,9 +2928,8 @@ def generate_wifes_cube_oneproc(
             
             all_ypos_flat -= adr_y
 
-
         # Does the interpolation (this is equally slow ...)
-        flux_data_cube_tmp[i - first + 1,:,:] = _scale_grid_data(
+        flux_data_cube_tmp[i - first,:,:] = _scale_grid_data(
             (wave_flat, all_ypos_flat),
             curr_flux_flat,
             (out_lambda_full, out_y_full),
@@ -2945,7 +2937,7 @@ def generate_wifes_cube_oneproc(
             fill_value=0.0,
             scale_factor=disp_ave)
 
-        var_data_cube_tmp[i - first + 1,:,:] = _scale_grid_data(
+        var_data_cube_tmp[i - first,:,:] = _scale_grid_data(
             (wave_flat, all_ypos_flat),
             curr_var_flat,
             (out_lambda_full, out_y_full),
@@ -2953,19 +2945,21 @@ def generate_wifes_cube_oneproc(
             fill_value=0.0,
             scale_factor=disp_ave ** 2)
 
-        dq_data_cube_tmp[i - first + 1 ,:,:] = _scale_grid_data(
+        dq_data_cube_tmp[i - first ,:,:] = _scale_grid_data(
             (wave_flat, all_ypos_flat),
             curr_dq_flat,
             (out_lambda_full, out_y_full),
             method='nearest',
             fill_value=1.0,
             scale_factor=1.0)
-        
+
         if verbose:
             sys.stdout.flush()
             sys.stdout.write('\r\r %d' % ((i-first)/(float(nslits))*100.) + '%')
             sys.stdout.flush()
             if i == last : sys.stdout.write('\n')
+    f4.close()
+        
     # Second interpolation : x (=ADR)
     if adr :
         # To avoid interpolation issues at the edges,
@@ -3146,8 +3140,8 @@ def generate_wifes_cube_multithread(
         wire_trans = numpy.zeros([ndy, ndx], dtype='d')+numpy.max(yarr)/2
     #ny=70//bin_y+1
     wire_offset = float(offset_orig)/float(bin_y)
-    ny=ny_orig//bin_y
-    nx=25
+    ny = ny_orig//bin_y
+    nx = nslits
     nlam=len(out_lambda)
     # for each slitlet...
     init_out_y = numpy.arange(ny,dtype='d')
@@ -3324,7 +3318,7 @@ def generate_wifes_cube_multithread(
 
 
 #------------------------------------------------------------------------
-def generate_wifes_3dcube(inimg, outimg):
+def generate_wifes_3dcube(inimg, outimg, halfframe):
     # load in data
     # assumes it is in pywifes format
     # otherwise why are you using this function
@@ -3332,9 +3326,6 @@ def generate_wifes_3dcube(inimg, outimg):
     f = pyfits.open(inimg)
     if len(f) == 76:
             
-            # get wavelength array
-            halfframe = True
-
             if halfframe:
                 ny,nlam = numpy.shape(f[7].data)
                 nx=12

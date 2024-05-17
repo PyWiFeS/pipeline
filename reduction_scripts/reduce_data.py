@@ -15,6 +15,7 @@ from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
+from pywifes.pywifes import is_halfframe
 import shutil
 import glob
 import argparse
@@ -916,13 +917,21 @@ def main():
 
     # Save final cube in suitable fits format
     def run_save_3dcube(metadata, prev_suffix, curr_suffix, **args):
-        # now generate cubes
+        
+        # List all the  science files
         sci_obs_list = get_primary_sci_obs_list(metadata)
+
+        # Check if is half-frame from the first sci image
+        sci_filename = data_dir +  sci_obs_list[0] + ".fits"
+
+        halfframe = is_halfframe(sci_filename)
+
+        # now generate cubes
         for fn in sci_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.%s.fits" % (fn, curr_suffix))
             print("Saving 3D Data Cube for %s" % in_fn.split("/")[-1])
-            pywifes.generate_wifes_3dcube(in_fn, out_fn, **args)
+            pywifes.generate_wifes_3dcube(in_fn, out_fn, halfframe = halfframe, **args)
         return
 
     # --------------------------------------------
@@ -990,6 +999,7 @@ def main():
     }
 
     for arm in obs_metadatas.keys():
+
         try:
             # ------------------------------------------------------------------------
             #      LOAD JSON FILE WITH USER REDUCTION SETUP
@@ -998,6 +1008,7 @@ def main():
 
             # Check grism and observing mode in the first science image of each arm
             sci_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
+
 
             # Check observing mode
             if pywifes.is_nodshuffle(data_dir + sci_filename):
@@ -1029,7 +1040,7 @@ def main():
             my_data_hdu = 0
 
             # SET SKIP ALREADY DONE FILES ?
-            skip_done = False
+            skip_done = True
 
             # ------------------------------------------------------------------------
             # NAMES FOR MASTER CALIBRATION FILES!!!
@@ -1077,7 +1088,6 @@ def main():
                 else:
                     pass
         except Exception as exc:
-            exit("Problem.")
  
             print(f"{arm} skipped, as an error occurred during processing: '{exc}'.")
 

@@ -1709,8 +1709,8 @@ def derive_wifes_optical_wave_solution(inimg,
     om.saveData(outfn+"_extra.pkl", grating, params, newlines, (dateobs, tdk, pmb, rh, rma))
 
     # And the resampling data
-    om.saveResamplingData(outfn, yrange, grating, bin_x, bin_y, params)
-
+    om.saveResamplingData(outfn, yrange, grating, bin_x, bin_y, params,halfframe=halfframe)
+    
   return
 
 #------------------------------------------------------------------------

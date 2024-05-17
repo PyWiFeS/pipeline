@@ -40,9 +40,14 @@ def loadData(fname):
   (grating, params, lines, meta) = pickle.load(open(fname, "r"))
   return grating, params, lines, meta
 
-def saveResamplingData(fname, yrange, grating, bin_x, bin_y, pl):
+def saveResamplingData(fname, yrange, grating, bin_x, bin_y, pl,halfframe):
   """ Saves the resampling data as a FITS image with one extension for x
       and one for y."""
+
+  if halfframe:
+    nslits = 12
+  else:
+    nslits = 25  
 
   # The length in x (note that for mjc's interpolation we need to use 4096, but for my C++ code
   # we need 4097)
@@ -54,8 +59,8 @@ def saveResamplingData(fname, yrange, grating, bin_x, bin_y, pl):
   # The beginnings of a FITS file
   pri = pf.PrimaryHDU(header=None, data=None)
   f = pf.HDUList([pri])
-  
-  for s in range(25):
+
+  for s in range(nslits):
     y0,y1 = yrange[s]
     xout = -1*np.ones((abs(y1-y0),xlen))
     #yout = np.zeros((y1-y0+1,xlen))
