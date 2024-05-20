@@ -1,5 +1,9 @@
 #! /usr/bin/env python3
 
+# ------------------------------------------------------------------------
+# Initial set ups and import modules
+# ------------------------------------------------------------------------
+  
 import sys
 import os
 import pickle
@@ -8,22 +12,35 @@ import gc
 import datetime
 import numpy as np
 import json
+import shutil
+import glob
+import argparse
+from pywifes.logger_config import setup_logger, custom_print
+
+# Set paths
+reduction_scripts_dir = os.path.dirname(__file__)
+working_dir = os.getcwd()
+
+# Setup the logger.
+log_file = os.path.join(working_dir, "data_products/pywifes_logger.log")
+logger = setup_logger(file=log_file)
+# Redirect print statements to logger
+print = custom_print(logger)    # Redirect print statements to logger
+logger.info("Starting PyWiFeS data reduction pipeline.")
+
+
 from pywifes.data_classifier import classify, cube_matcher
 from pywifes.extract_spec import detect_extract_and_save
 from pywifes.splice import splice_spectra, splice_cubes
 from pywifes.lacosmic import lacos_wifes
-from pywifes.logging import setup_logging
 from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
-import shutil
-import glob
-import argparse
+
 
 # ------------------------------------------------------------------------
 # Function definition
 # ------------------------------------------------------------------------
-
 
 def move_files(src_dir_path, destination_dir_path, filenames):
     for file in filenames:
@@ -143,7 +160,7 @@ def main():
                 if obs["sci"][0] not in std_obs_list and (type in obs["type"]):
                     std_obs_list.append(obs["sci"][0])
         else:
-            print("Standard star type not understood !")
+            print("Standard star type not understood!")
             print("I will crash now ...")
         return std_obs_list
 
@@ -324,7 +341,7 @@ def main():
         else:
             slitlet_fn = None
         if "dome" in type:
-            print("Correcting master domeflat", super_dflat_fn.split("/")[-1])
+            print("Correcting master domeflat %s", super_dflat_fn.split("/")[-1])
             pywifes.interslice_cleanup(
                 super_dflat_raw,
                 super_dflat_fn,
@@ -334,7 +351,7 @@ def main():
                 **args,
             )
         if "twi" in type:
-            print("Correcting master twilight flat", super_tflat_fn.split("/")[-1])
+            print("Correcting master twilight flat %s", super_tflat_fn.split("/")[-1])
             pywifes.interslice_cleanup(
                 super_tflat_raw,
                 super_tflat_fn,
@@ -976,10 +993,6 @@ def main():
     naxis2_to_process = 0  # TODO is this used in half frame (stellar mode)? Check that and include it as a parameter in the json files if needed.
     obs_metadatas = classify(data_dir, naxis2_to_process)
 
-    # Set paths
-    reduction_scripts_dir = os.path.dirname(__file__)
-    working_dir = os.getcwd()
-
     # Set grism_key dictionary due to different keyword names for red and blue arms.
     grism_key = {
         "blue": "GRATINGB",
@@ -1022,9 +1035,6 @@ def main():
 
             calib_prefix = os.path.join(out_dir, f"wifes_{arm}")
 
-            # Add options for the logger.
-            log_file = os.path.join(out_dir, f"pywifes_logger{arm}.log")
-            logger = setup_logger(file=log_file)
             # Some WiFeS specific things
             my_data_hdu = 0
 
@@ -1053,6 +1063,10 @@ def main():
             # ------------------------------------------------------------------------
             # RUN THE PROCESSING STEPS
             # ------------------------------------------------------------------------
+            print("________________________________________________________________")
+            print("Starting processing of %s arm" % arm)
+            print("________________________________________________________________")
+
             prev_suffix = None
             for step in proc_steps[arm]:
                 step_name = step["step"]
@@ -1073,7 +1087,9 @@ def main():
                 else:
                     pass
         except Exception as exc:
+            print("________________________________________________________________")
             print(f"{arm} skipped, as an error occurred during processing: '{exc}'.")
+            print("________________________________________________________________")
 
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory

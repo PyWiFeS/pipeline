@@ -14,16 +14,21 @@ import pylab
 import matplotlib.pyplot as plt
 import pylab
 import  astropy.units as u
-
+from pywifes.logger_config import custom_print
+import logging
+# Redirect print statements to logger
+logger = logging.getLogger('pywifes.py')
+print = custom_print(logger)
+  
+# CODE VERSION
+from .wifes_metadata import __version__
+# Pipeline imports
 from .multiprocessing_utils import get_task, map_tasks
 from .wifes_metadata import metadata_dir
 from .wifes_imtrans import transform_data, detransform_data
 from .wifes_wsol import fit_wsol_poly, evaluate_wsol_poly
 from .wifes_adr import ha_degrees, dec_dms2dd, adr_x_y
 from .mpfit import mpfit
-
-# CODE VERSION
-from .wifes_metadata import __version__
 
 #------------------------------------------------------------------------
 # NEED TO OPEN / ACCESS WIFES METADATA FILE!!

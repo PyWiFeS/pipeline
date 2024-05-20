@@ -3,9 +3,18 @@ import numpy
 import scipy.signal
 import scipy.ndimage
 import scipy.interpolate
+from pywifes.logger_config import custom_print
+import logging
+
+# Redirect print statements to logger
+logger = logging.getLogger('lacosmic.py')
+print = custom_print(logger)
 
 from .multiprocessing_utils import get_task, map_tasks
 from .wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
+import logging
+
+
 
 #------------------------------------------------------------------------
 # high-level functions to check if an observation is half-frame or N+S

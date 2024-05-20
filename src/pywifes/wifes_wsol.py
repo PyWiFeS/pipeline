@@ -17,6 +17,11 @@ from . import optical_model as om
 from .wifes_metadata import metadata_dir
 from .wifes_metadata import __version__
 from .mpfit import mpfit
+from pywifes.logger_config import custom_print
+import logging
+# Redirect print statements to logger
+logger = logging.getLogger('wifes_wsol.py')
+print = custom_print(logger) 
 
 #------------------------------------------------------------------------
 f0 = open(os.path.join(metadata_dir,'basic_wifes_metadata.pkl'), 'rb')
