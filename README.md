@@ -96,10 +96,28 @@ The pipeline will generate the `data_products` directory within the working dire
 
 **User-Defined Reduction Parameters:**
 
+*Set reduction steps*
+
 To specify the reduction steps for blue and red data, users can provide the paths to the respective JSON files using the `--red-params` and `--blue-params` flags as follows:
    
 
     pywifes-reduce my_raw_data --red-params /Users/.../user_red_param_file.json --blue-params /Users/.../user_blue_param_file.json
+
+
+
+
+*Reduce Data Using Master Calibration Files*
+
+To perform data reduction using master calibration files from previous reductions, use the `--from-master` flag along with the path to the directory containing all calibration files. Both blue and red data should be stored together in the same directory for coherence. If no path is specified after the `--from-master` flag, the default directory `./data_products/master_calib` is assumed.
+
+    pywifes-reduce my_raw_data --from-master /Users/.../master_calibrations_directory
+
+
+*Other parameters*
+
+`-skip-done`: Skip already completed steps. 
+
+`-just-calib`: Triggers the data reduction in absence of on-sky data (both science and calibration). It only produce basic calibration files.
 
 ### TO DO
 

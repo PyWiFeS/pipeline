@@ -73,8 +73,8 @@ def load_config_file(filename):
 def main():
     # ------------------------------------------------------------------------
     start_time = datetime.datetime.now()
-    # ------------------------------------------------------------------------
 
+    # ------------------------------------------------------------------------
     # ------------------------------------------------------------------------
     # METADATA WRANGLING FUNCTIONS
     # ------------------------------------------------------------------------
@@ -84,9 +84,8 @@ def main():
             metadata["bias"]
             + metadata["arc"]
             + metadata["wire"]
-            +
-            # metadata['dark']+
-            metadata["domeflat"]
+            # + metadata['dark']
+            + metadata["domeflat"]
             + metadata["twiflat"]
         )
         for fn in base_fn_list:
@@ -213,6 +212,7 @@ def main():
         print("Calculating Global Superbias")
         pywifes.imcombine(bias_list, superbias_fn, data_hdu=my_data_hdu)
         # decide what bias model you will actually subtract - could be just data
+
         if method == "fit" or method == "row_med":
             # Fit a smart surface to the bias or take the median
             # A bit experimental so far ... but you know what you are doing, right ?
@@ -225,6 +225,7 @@ def main():
             )
         else:
             pywifes.imcopy(superbias_fn, superbias_fit_fn)
+
         # generate local superbiases for any science frames
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
@@ -290,6 +291,7 @@ def main():
             else:
                 bias_fit_fn = superbias_fit_fn
                 bias_type = "global"
+
             # subtract it!
             print("Subtracting %s superbias for %s" % (bias_type, in_fn.split("/")[-1]))
             if method == "copy":
@@ -335,6 +337,7 @@ def main():
         offsets=[0.0, 0.0],
         **args,
     ):
+
         # check the slitlet definition file
         if os.path.isfile(slitlet_def_fn):
             slitlet_fn = slitlet_def_fn
@@ -688,6 +691,7 @@ def main():
         # now fit the desired style of response function
         print("Generating flatfield response function")
         if mode == "all":
+
             pywifes.wifes_2dim_response(
                 super_dflat_mef, super_tflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
             )
@@ -932,7 +936,8 @@ def main():
     def run_save_3dcube(metadata, prev_suffix, curr_suffix, **args):
         # now generate cubes
         sci_obs_list = get_primary_sci_obs_list(metadata)
-        for fn in sci_obs_list:
+        std_obs_list = get_primary_std_obs_list(metadata)
+        for fn in sci_obs_list + std_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.%s.fits" % (fn, curr_suffix))
             print("Saving 3D Data Cube for %s" % in_fn.split("/")[-1])
@@ -965,6 +970,29 @@ def main():
         help="Optional: Path to the configuration JSON file containing parameters for reducing the blue arm.",
     )
 
+    # Option for triggering the reduction from master calibrations
+    parser.add_argument(
+        "--from-master",
+        type=str,
+        const="./data_products/master_calib",
+        nargs="?",
+        help="Optional: Path to the master calibrations directory. If not provided, the default path will be used: .",
+    )
+
+    # Option for specifying to skip already completed steps
+    parser.add_argument(
+        "-skip-done",
+        action="store_true",
+        help="Optional: Skip already completed steps.",
+    )
+
+    parser.add_argument(
+        "-just-calib",
+        action="store_true",
+        help="Optional: Only basics master calibration files will produced.",
+    )
+
+
     args = parser.parse_args()
 
     # Validate and process the data_dir
@@ -989,15 +1017,53 @@ def main():
         params_path["blue"] = os.path.abspath(args.blue_params)
         print(f"Using blue parameters from: {params_path['blue']}")
 
+    # Reduction from master calibration frames
+    from_master = args.from_master
+
+    # Only basics master calibration.
+    just_calib = args.just_calib
+
+
     # Classify all raw data (red and blue arm)
     naxis2_to_process = 0  # TODO is this used in half frame (stellar mode)? Check that and include it as a parameter in the json files if needed.
     obs_metadatas = classify(data_dir, naxis2_to_process)
+
+    # Set paths
+    reduction_scripts_dir = os.path.dirname(__file__)
+    working_dir = os.getcwd()
+
+    # Set to skip already done files
+    skip_done = args.skip_done
 
     # Set grism_key dictionary due to different keyword names for red and blue arms.
     grism_key = {
         "blue": "GRATINGB",
         "red": "GRATINGR",
     }
+
+    # Set the directory for master calibration files (default is ./data_products/master_calib/)
+    # Define a list of steps to skip if the reduction is being performed using master calibration files
+    if from_master:
+        master_dir = os.path.abspath(from_master)
+        extra_skip_steps = [
+            "superbias",
+            "superflat",
+            "slitlet_profile",
+            "flat_cleanup",
+            "superflat_mef",
+            "wave_soln",
+            "wire_soln",
+            "flat_response",
+        ]
+
+    else:
+        # Master calibration files firectory
+        master_dir = os.path.join(working_dir, "data_products/master_calib/")
+        os.makedirs(master_dir, exist_ok=True)
+        # No extra skiped steps in principal.
+        extra_skip_steps = []
+
+    print(f"Processing using master calibrations from: '{master_dir}'.")
 
     for arm in obs_metadatas.keys():
         try:
@@ -1006,26 +1072,41 @@ def main():
             # ------------------------------------------------------------------------
             obs_metadata = obs_metadatas[arm]
 
-            # Check grism and observing mode in the first science image of each arm
-            sci_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
+            # Determine the grism and observing mode used in the first image of science, standard, or arc of the respective arm.
+            # Skip reductions steps if no objects no standar star observations are present.
+
+            if obs_metadata["sci"]:
+                reference_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
+
+            elif obs_metadata["std"]:
+                reference_filename = obs_metadata["std"][0]["sci"][0] + ".fits"
+
+            elif obs_metadata["arc"]:
+                reference_filename = obs_metadata["arc"][0] + ".fits"
+
 
             # Check observing mode
-            if pywifes.is_nodshuffle(data_dir + sci_filename):
+            if pywifes.is_nodshuffle(data_dir + reference_filename):
                 obs_mode = "ns"
-            elif pywifes.is_subnodshuffle(data_dir + sci_filename):
+
+            elif pywifes.is_subnodshuffle(data_dir + reference_filename):
                 obs_mode = "ns"
+
             else:
                 obs_mode = "class"
 
             # Grism
-            grism = pyfits.getheader(data_dir + sci_filename)[grism_key[arm]]
+            grism = pyfits.getheader(data_dir + reference_filename)[grism_key[arm]]
 
-            # Read the JSON file
-            if params_path[arm] is None:
+            # Set the JSON file path and read it.
+            if just_calib and (params_path[arm] is None):
+                json_path = f"./pipeline_params/just-calib/{arm}/params_{obs_mode}_{grism}.json"
+            elif params_path[arm] is None:
                 json_path = f"./pipeline_params/{arm}/params_{obs_mode}_{grism}.json"
             else:
                 json_path = params_path[arm]
 
+    
             proc_steps = load_config_file(json_path)
 
             # Create data products directory structure
@@ -1033,35 +1114,41 @@ def main():
 
             os.makedirs(out_dir, exist_ok=True)
 
-            calib_prefix = os.path.join(out_dir, f"wifes_{arm}")
+            calib_prefix = f"wifes_{arm}"
 
             # Some WiFeS specific things
             my_data_hdu = 0
 
-            # SET SKIP ALREADY DONE FILES ?
-            skip_done = False
+            # ------------------------------------------------------------------------
+            # Define names for master calibration files and set their path.
+            # ------------------------------------------------------------------------
+            # Bias Master Files
+            superbias_fn = os.path.join(master_dir, "%s_superbias.fits" % calib_prefix)
+            superbias_fit_fn = os.path.join(master_dir, "%s_superbias_fit.fits" % calib_prefix)
+
+            # Flat Master Files
+            # Dome
+            super_dflat_raw = os.path.join(master_dir, "%s_super_domeflat_raw.fits" % calib_prefix)
+            super_dflat_fn = os.path.join(master_dir, "%s_super_domeflat.fits" % calib_prefix)
+            super_dflat_mef = os.path.join(master_dir, "%s_super_domeflat_mef.fits" % calib_prefix)
+            # Twilight
+            super_tflat_raw = os.path.join(master_dir, "%s_super_twiflat_raw.fits" % calib_prefix)
+            super_tflat_fn = os.path.join(master_dir, "%s_super_twiflat.fits" % calib_prefix)
+            super_tflat_mef = os.path.join(master_dir, "%s_super_twiflat_mef.fits" % calib_prefix)
+            # Slitlet definition
+            slitlet_def_fn = os.path.join(master_dir, "%s_slitlet_defs.pkl" % calib_prefix)
+            wsol_out_fn = os.path.join(master_dir, "%s_wave_soln.fits" % calib_prefix)
+            wire_out_fn = os.path.join(master_dir, "%s_wire_soln.fits" % calib_prefix)
+            flat_resp_fn = os.path.join(master_dir, "%s_resp_mef.fits" % calib_prefix)
+            calib_fn = os.path.join(master_dir, "%s_calib.pkl" % calib_prefix)
+            tellcorr_fn = os.path.join(master_dir, "%s_tellcorr.pkl" % calib_prefix)
+
+            # When reducing from master calibration files, if the tellic_correction file is already among the master calibrations, skip its generation.
+            if from_master and os.path.exists(tellcorr_fn):
+                extra_skip_steps.append("derive_calib")
 
             # ------------------------------------------------------------------------
-            # NAMES FOR MASTER CALIBRATION FILES!!!
-            # ------------------------------------------------------------------------
-
-            superbias_fn = "%s_superbias.fits" % calib_prefix
-            superbias_fit_fn = "%s_superbias_fit.fits" % calib_prefix
-            super_dflat_raw = "%s_super_domeflat_raw.fits" % calib_prefix
-            super_dflat_fn = "%s_super_domeflat.fits" % calib_prefix
-            super_dflat_mef = "%s_super_domeflat_mef.fits" % calib_prefix
-            super_tflat_raw = "%s_super_twiflat_raw.fits" % calib_prefix
-            super_tflat_fn = "%s_super_twiflat.fits" % calib_prefix
-            super_tflat_mef = "%s_super_twiflat_mef.fits" % calib_prefix
-            slitlet_def_fn = "%s_slitlet_defs.pkl" % calib_prefix
-            wsol_out_fn = "%s_wave_soln.fits" % calib_prefix
-            wire_out_fn = "%s_wire_soln.fits" % calib_prefix
-            flat_resp_fn = "%s_resp_mef.fits" % calib_prefix
-            calib_fn = "%s_calib.pkl" % calib_prefix
-            tellcorr_fn = "%s_tellcorr.pkl" % calib_prefix
-
-            # ------------------------------------------------------------------------
-            # RUN THE PROCESSING STEPS
+            # Run proccessing steps
             # ------------------------------------------------------------------------
             print("________________________________________________________________")
             print("Starting processing of %s arm" % arm)
@@ -1075,6 +1162,11 @@ def main():
                 step_args = step["args"]
                 func_name = "run_" + step_name
                 func = locals()[func_name]
+
+                # When master calibrations are in use, the steps listed in skip_steps will be skipped.
+                if step_name in extra_skip_steps:
+                    continue
+
                 if step_run:
                     func(
                         obs_metadata,
@@ -1084,8 +1176,11 @@ def main():
                     )
                     if step_suffix != None:
                         prev_suffix = step_suffix
+    
                 else:
                     pass
+
+
         except Exception as exc:
             print("________________________________________________________________")
             print(f"{arm} skipped, as an error occurred during processing: '{exc}'.")
@@ -1094,102 +1189,105 @@ def main():
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
     # ----------------------------------------------------------
+    if just_calib:
+        print("Only basics master calibration files have been produced.")
 
-    destination_dir = os.path.join(working_dir, "data_products")
+    else:
+        destination_dir = os.path.join(working_dir, "data_products")
 
-    # Red
-    red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
-    red_cubes_file_name = get_reduced_cube_name(red_cubes_path, "*.cube.fits")
-    # Move reduced cubes to the data_product
-    move_files(red_cubes_path, destination_dir, red_cubes_file_name)
+        # Red
+        red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
+        red_cubes_file_name = get_reduced_cube_name(red_cubes_path, "*.cube.fits")
+        # Move reduced cubes to the data_product
+        move_files(red_cubes_path, destination_dir, red_cubes_file_name)
 
-    # Blue
-    blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
-    blue_cubes_file_name = get_reduced_cube_name(blue_cubes_path, "*.cube.fits")
-    # Move reduced cubes to the data_product
-    move_files(blue_cubes_path, destination_dir, blue_cubes_file_name)
+        # Blue
+        blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
+        blue_cubes_file_name = get_reduced_cube_name(blue_cubes_path, "*.cube.fits")
+        # Move reduced cubes to the data_product
+        move_files(blue_cubes_path, destination_dir, blue_cubes_file_name)
 
-    # ----------------------------------------------------------
-    # Find and list all reduced cubes in the destination directory
-    # ----------------------------------------------------------
-    reduced_cubes_paths = [
-        os.path.join(destination_dir, file_name) for file_name in blue_cubes_file_name
-    ] + [os.path.join(destination_dir, file_name) for file_name in red_cubes_file_name]
+        # ----------------------------------------------------------
+        # Find and list all reduced cubes in the destination directory
+        # ----------------------------------------------------------
+        reduced_cubes_paths = [
+            os.path.join(destination_dir, file_name) for file_name in blue_cubes_file_name
+        ] + [os.path.join(destination_dir, file_name) for file_name in red_cubes_file_name]
 
-    # ----------------------------------------------------------
-    # Match cubes from the same observation based on DATE-OBS
-    # ----------------------------------------------------------
-    matched_cubes = cube_matcher(reduced_cubes_paths)
+        # ----------------------------------------------------------
+        # Match cubes from the same observation based on DATE-OBS
+        # ----------------------------------------------------------
+        matched_cubes = cube_matcher(reduced_cubes_paths)
 
-    # ----------------------------------------------------------
-    # Read extraction parameters from JSON file
-    # ----------------------------------------------------------
+        # ----------------------------------------------------------
+        # Read extraction parameters from JSON file
+        # ----------------------------------------------------------
 
-    # Read the JSON file
-    extract_params = load_config_file(
-        f"./pipeline_params/params_extract_{obs_mode}.json"
-    )
-
-    # ----------------------------------------------------------
-    # Loop over matched cubes list
-    # ----------------------------------------------------------
-
-    for match_cubes in matched_cubes:
-        # ----------
-        # Extraction
-        # ----------
-        blue_cube_path = match_cubes["Blue"]
-        red_cube_path = match_cubes["Red"]
-        plot_output = match_cubes["file_name"].replace(".cube", "_detection_plot.pdf")
-
-        # Run auto-extraction
-        detect_extract_and_save(
-            blue_cube_path,
-            red_cube_path,
-            destination_dir,
-            r_arcsec=extract_params["r_arcsec"],
-            border_width=extract_params["border_width"],
-            sky_sub=extract_params["sky_sub"],
-            check_plot=extract_params["check_plot"],
-            plot_output=plot_output,
+        # Read the JSON file
+        extract_params = load_config_file(
+            f"./pipeline_params/params_extract_{obs_mode}.json"
         )
 
-        # ------------------------------------
-        # Splice only paired cubes and spectra
-        # ------------------------------------
-        if match_cubes["Blue"] is not None and match_cubes["Red"] is not None:
-            blue_cube_name = os.path.basename(match_cubes["Blue"])
-            red_cube_name = os.path.basename(match_cubes["Red"])
+        # ----------------------------------------------------------
+        # Loop over matched cubes list
+        # ----------------------------------------------------------
 
-            # Get filename of form `xxx-Splice-UTxxx.cube.fits`
-            spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
-            spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
+        for match_cubes in matched_cubes:
+            # ----------
+            # Extraction
+            # ----------
+            blue_cube_path = match_cubes["Blue"]
+            red_cube_path = match_cubes["Red"]
+            plot_output = match_cubes["file_name"].replace(".cube", "_detection_plot.pdf")
 
-            # Splice cubes
-            splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path)
-
-            # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.ap*'
-            pattern_blue = os.path.join(
-                destination_dir, blue_cube_name.replace("cube", "spec.ap*")
+            # Run auto-extraction
+            detect_extract_and_save(
+                blue_cube_path,
+                red_cube_path,
+                destination_dir,
+                r_arcsec=extract_params["r_arcsec"],
+                border_width=extract_params["border_width"],
+                sky_sub=extract_params["sky_sub"],
+                check_plot=extract_params["check_plot"],
+                plot_output=plot_output,
             )
-            blue_specs = glob.glob(pattern_blue)
 
-            # Find red spectra files matching the pattern 'xxx-Red-UTxxx.spec.ap*'
-            pattern_red = os.path.join(
-                destination_dir, red_cube_name.replace("cube", "spec.ap*")
-            )
-            red_specs = glob.glob(pattern_red)
+            # ------------------------------------
+            # Splice only paired cubes and spectra
+            # ------------------------------------
+            if match_cubes["Blue"] is not None and match_cubes["Red"] is not None:
+                blue_cube_name = os.path.basename(match_cubes["Blue"])
+                red_cube_name = os.path.basename(match_cubes["Red"])
 
-            # Splice spectra
-            for blue_spec, red_spec in zip(blue_specs, red_specs):
-                # Generate filename for spliced spectrum 'xxx-Splice-UTxxx.spec.apx.fits'
-                spliced_spectrum_name = os.path.basename(blue_spec).replace(
-                    "Blue", "Splice"
+                # Get filename of form `xxx-Splice-UTxxx.cube.fits`
+                spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
+                spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
+
+                # Splice cubes
+                splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path)
+
+                # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.ap*'
+                pattern_blue = os.path.join(
+                    destination_dir, blue_cube_name.replace("cube", "spec.ap*")
                 )
-                output = os.path.join(
-                    working_dir, destination_dir, spliced_spectrum_name
+                blue_specs = glob.glob(pattern_blue)
+
+                # Find red spectra files matching the pattern 'xxx-Red-UTxxx.spec.ap*'
+                pattern_red = os.path.join(
+                    destination_dir, red_cube_name.replace("cube", "spec.ap*")
                 )
-                splice_spectra(blue_spec, red_spec, output)
+                red_specs = glob.glob(pattern_red)
+
+                # Splice spectra
+                for blue_spec, red_spec in zip(blue_specs, red_specs):
+                    # Generate filename for spliced spectrum 'xxx-Splice-UTxxx.spec.apx.fits'
+                    spliced_spectrum_name = os.path.basename(blue_spec).replace(
+                        "Blue", "Splice"
+                    )
+                    output = os.path.join(
+                        working_dir, destination_dir, spliced_spectrum_name
+                    )
+                    splice_spectra(blue_spec, red_spec, output)
 
     # ----------------------------------------------------------
     # Print total running time
