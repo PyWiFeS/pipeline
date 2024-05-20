@@ -38,8 +38,33 @@ red_slitlet_defs = wifes_metadata["red_slitlet_defs"]
 nslits = len(blue_slitlet_defs.keys())
 
 #------------------------------------------------------------------------
-# 
-def trim_fits_file(inimg_path, outimg_prefix="trim_"):
+def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
+    """
+    Cuts a FITS file to half-frame size and saves the output with a specified prefix.
+
+    Parameters
+    ----------
+    inimg_path : str
+        Path to the input FITS file.
+    outimg_prefix : str, optional
+        Prefix for the output FITS file. Default is "cut_".
+
+    Returns
+    -------
+    None
+        This function does not return any value. It writes the cut FITS data to a new file.
+
+    Notes
+    -----
+    This function:
+    - Opens the input FITS file.
+    - Extracts the primary HDU (Header/Data Unit).
+    - Considers binning specified in the 'CCDSUM' header.
+    - Cuts the data to a section defined by the specified coordinates.
+    - Updates the 'DETSEC' keyword in the header.
+    - Writes the cut data to a new FITS file with the specified prefix.
+    """
+
     # Open the input FITS file
     with pyfits.open(inimg_path) as hdul:
         # Get the primary HDU (Header/Data Unit)
@@ -54,54 +79,53 @@ def trim_fits_file(inimg_path, outimg_prefix="trim_"):
         bins = ccdsum.split()
         bin_y = int(float(bins[1]))
         
-        # Trim the data according to the specified sectionclear
-        trimmed_data = data[int(1028/bin_y):int(3084/bin_y), :]
+        # Cut the data according to the specified sectionclear
+        cut_data = data[int(1028/bin_y):int(3084/bin_y), :]
         
         # Update the DETSEC in the header
         header['DETSEC'] = '[1:4202,1029:3084]'
         
-        # Create a new HDU with the trimmed data and the updated header
-        trimmed_hdu = pyfits.PrimaryHDU(data=trimmed_data, header=header)
+        # Create a new HDU with the cut data and the updated header
+        cut_hdu = pyfits.PrimaryHDU(data=cut_data, header=header)
         
         # Generate the output filename
-        outimg_path = outimg_prefix + inimg_path
-        
-        # Write the trimmed data to the new FITS file
-        trimmed_hdu.writeto(outimg_path, overwrite=True)
-        
 
-#------------------------------------------------------------------------
-# 
-def trim_fits_file(inimg_path, outimg_prefix="trim_"):
-    # Open the input FITS file
-    with pyfits.open(inimg_path) as hdul:
-        # Get the primary HDU (Header/Data Unit)
-        primary_hdu = hdul[0]
-        
-        # Extract the data and header
-        data = primary_hdu.data
-        header = primary_hdu.header
+        dir_name, file_name = os.path.split(inimg_path)
 
-        # Consider binning
-        ccdsum = header['CCDSUM']
-        bins = ccdsum.split()
-        bin_y = int(float(bins[1]))
+        outimg_path = os.path.join(dir_name, outimg_prefix + file_name)
         
-        # Trim the data according to the specified sectionclear
-        trimmed_data = data[int(1028/bin_y):int(3084/bin_y), :]
+        # Write the cut data to the new FITS file
+        cut_hdu.writeto(outimg_path, overwrite=True)
         
-        # Update the DETSEC in the header
-        header['DETSEC'] = '[1:4202,1029:3084]'
-        
-        # Create a new HDU with the trimmed data and the updated header
-        trimmed_hdu = pyfits.PrimaryHDU(data=trimmed_data, header=header)
-        
-        # Generate the output filename
-        outimg_path = outimg_prefix + inimg_path
-        
-        # Write the trimmed data to the new FITS file
-        trimmed_hdu.writeto(outimg_path, overwrite=True)
-        
+# ------------------------------------------------------------------------
+def calib_to_half_frame(obs_metadata, temp_data_dir):
+    
+
+    # A list of calibration types that need to be half-frame for the pipeline to work properly in the half-frame scenario.
+    calib_types = ['domeflat','twiflat','wire','arc']
+    prefix="cut_"
+
+    for calib_type in calib_types:
+        file_list = obs_metadata[calib_type]
+        for index, file_name in enumerate(file_list):
+            calib_fits = os.path.join(temp_data_dir,  file_name + '.fits')
+            if not is_halfframe(calib_fits):
+                cut_fits_to_half_frame(calib_fits, outimg_prefix=prefix)
+                obs_metadata[calib_type][index] = prefix + file_name      
+
+
+    # Check the standard star separately because the dictionary has a slightly different structure.
+
+    std_list = obs_metadata['std'][0]['sci']    
+    print(std_list)
+    for index, file_name in enumerate(std_list):
+        calib_fits = os.path.join(temp_data_dir,  file_name + '.fits')
+        if not is_halfframe(calib_fits):
+            cut_fits_to_half_frame(calib_fits, outimg_prefix=prefix)
+            obs_metadata['std'][0]['sci'][index] = prefix + file_name      
+
+
+    return obs_metadata
 
 
 

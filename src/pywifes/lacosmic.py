@@ -199,10 +199,10 @@ def lacos_wifes(inimg, outimg,
             n_ny = n_ny)
     return
 
-def _get_slit_indexes(slit_index):
-    slit_hdu_index = slit_index + 1
-    dq_hdu_index = slit_hdu_index + 50
-    return slit_hdu_index, dq_hdu_index
+# def _get_slit_indexes(slit_index):
+#     slit_hdu_index = slit_index + 1
+#     dq_hdu_index = slit_hdu_index + 50
+#     return slit_hdu_index, dq_hdu_index
 
 def lacos_wifes_oneproc(in_img_filepath, out_filepath,
                         gain=1.0,       # assume data has been scaled by its gain 
@@ -233,17 +233,10 @@ def lacos_wifes_oneproc(in_img_filepath, out_filepath,
 
     for i in range(first,last):
 
-        if wsol_filepath:
-            i_slit, i_dq_slit = _get_slit_indexes(i)
-            
-        orig_data = hdus[i_slit].data
+        orig_data = hdus[i].data
 
         if wsol_filepath:
-            if halfframe:
-                wave = wsol_hdus[i-6].data
-            else:
-                wave = wsol_hdus[i+1].data
-
+            wave = wsol_hdus[i - first + 1].data
         else:
             wave = None
         clean_data, global_bpm = lacos_spec_data(
@@ -259,9 +252,9 @@ def lacos_wifes_oneproc(in_img_filepath, out_filepath,
             n_ny=n_ny,
             verbose=False)
         # update the data hdu
-        outfits[i_slit].data = clean_data
-        # save the bad pixel mask in the DQ extention
-        outfits[i_dq_slit].data = global_bpm
+        outfits[i].data = clean_data
+        # save the bad pixel mask in the DQ extentions
+        outfits[i + 50].data = global_bpm
     if wsol_filepath:
         wsol_hdus.close()
 
@@ -285,13 +278,17 @@ def lacos_wifes_multithread(
     halfframe = _is_halfframe(hdus)
     if halfframe:
         nslits = 12
+        first = 7
+        last = 19
     else:
         nslits = 25
+        first = 7
+        last = 19
 
     tasks = []
     if wsol_filepath:
         wsol_hdus = pyfits.open(wsol_filepath)
-    for i in range(nslits):
+    for i in range(first,last):
         i_slit, i_dq_slit = _get_slit_indexes(i)
         orig_data = hdus[i_slit].data
         if wsol_filepath:
@@ -313,7 +310,7 @@ def lacos_wifes_multithread(
             n_ny=n_ny,
             verbose=False)
         tasks.append(task)
-
+    print('LLEGOOOOOOOOO')
     if wsol_filepath:
         wsol_hdus.close()
 
