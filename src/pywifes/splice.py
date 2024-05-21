@@ -5,7 +5,7 @@ from pywifes.logger_config import custom_print
 import logging
 
 # Redirect print statements to logger
-logger = logging.getLogger('splice.py')
+logger = logging.getLogger('PyWiFeS')
 print = custom_print(logger)
 
 def calculate_wavelength_array(

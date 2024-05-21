@@ -7,7 +7,7 @@ from pywifes.logger_config import custom_print
 import logging
 
 # Redirect print statements to logger
-logger = logging.getLogger('lacosmic.py')
+logger = logging.getLogger('PyWiFeS')
 print = custom_print(logger)
 
 from .multiprocessing_utils import get_task, map_tasks

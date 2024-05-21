@@ -1,10 +1,10 @@
 import logging
 from pathlib import Path
 
-def custom_print(logger):
+def custom_print(logger, level=logging.INFO):
     def log_print(*args, **kwargs):
         message = " ".join(map(str, args))
-        logger.info(message)  # or use the appropriate log level
+        logger.log(level, message)
     return log_print
 
 def configure_logger(
@@ -50,5 +50,5 @@ def setup_logger(
     if name is None:
         name = 'PyWiFeS'
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     return configure_logger(logger, console_level, file_level, file, format, datefmt)

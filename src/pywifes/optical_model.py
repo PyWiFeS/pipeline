@@ -19,7 +19,7 @@ import pickle
 from pywifes.logger_config import custom_print
 import logging
 # Redirect print statements to logger
-logger = logging.getLogger('optical_model.py')
+logger = logging.getLogger('PyWiFeS')
 print = custom_print(logger)
 
 # The number of fitted parameters

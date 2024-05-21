@@ -10,7 +10,7 @@ from pywifes.logger_config import custom_print
 import logging
 
 # Redirect print statements to logger
-logger = logging.getLogger('wifes_calib.py')
+logger = logging.getLogger('PyWiFeS')
 print = custom_print(logger)
 
 from .wifes_metadata import metadata_dir

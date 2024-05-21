@@ -17,7 +17,7 @@ import  astropy.units as u
 from pywifes.logger_config import custom_print
 import logging
 # Redirect print statements to logger
-logger = logging.getLogger('pywifes.py')
+logger = logging.getLogger('PyWiFeS')
 print = custom_print(logger)
   
 # CODE VERSION
