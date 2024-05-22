@@ -289,13 +289,11 @@ def lacos_wifes_multithread(
     if wsol_filepath:
         wsol_hdus = pyfits.open(wsol_filepath)
     for i in range(first,last):
-        i_slit, i_dq_slit = _get_slit_indexes(i)
-        orig_data = hdus[i_slit].data
+        orig_data = hdus[i].data
         if wsol_filepath:
-            wave = wsol_hdus[i+1].data
+            wave = wsol_hdus[i - first + 1].data
         else:
             wave = None
-
         task = get_task(
             lacos_spec_data,
             orig_data,
@@ -310,7 +308,6 @@ def lacos_wifes_multithread(
             n_ny=n_ny,
             verbose=False)
         tasks.append(task)
-    print('LLEGOOOOOOOOO')
     if wsol_filepath:
         wsol_hdus.close()
 
@@ -318,7 +315,8 @@ def lacos_wifes_multithread(
 
     outfits = pyfits.HDUList(hdus)
     for i, (clean_data, global_bpm) in enumerate(results):
-        i_slit, i_dq_slit = _get_slit_indexes(i)
+        i_slit = first + i 
+        i_dq_slit = first + 50 + i
         # update the data hdu
         outfits[i_slit].data = clean_data
         # save the bad pixel mask in the DQ extention

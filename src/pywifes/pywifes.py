@@ -3139,10 +3139,9 @@ def generate_wifes_cube_oneproc(
         f5.close()
     except:
         wire_trans = numpy.zeros([ndy, ndx], dtype='d') + numpy.max(yarr)/2
-    #ny=70//bin_y+1
     wire_offset = float(offset_orig)/float(bin_y)
     ny=ny_orig//bin_y
-    nx=25
+    nx=nslits
     nlam=len(out_lambda)
     # for each slitlet...
     init_out_y = numpy.arange(ny, dtype="d")
@@ -3202,9 +3201,7 @@ def generate_wifes_cube_oneproc(
         full_dw = numpy.zeros(numpy.shape(wave))
         full_dw[:,1:] = dw
         full_dw[:,0] = dw[:,0]
-
         # and *y* to real y
-
         curr_wire = wire_trans[i-first,:]
         all_ypos = full_y - curr_wire - wire_offset
 
@@ -3215,8 +3212,6 @@ def generate_wifes_cube_oneproc(
         curr_flux_flat = (curr_flux/full_dw).flatten()
         curr_var_flat  = (curr_var/full_dw**2).flatten()
         curr_dq_flat   = curr_dq.flatten()
-
-
         # Calculate the ADR corrections (this is slow)
         if adr :
             adr = adr_x_y(wave_flat,secz, ha, dec, lat, teltemp = 0.0,
@@ -3264,7 +3259,7 @@ def generate_wifes_cube_oneproc(
     if adr:
         # To avoid interpolation issues at the edges,
         # add two extra values on either side (0 in this version).
-        in_x = numpy.arange(-1, nslits +1,1, dtype='d') 
+        in_x = numpy.arange(-1, nslits + 1,1, dtype='d') 
         out_x = numpy.arange(nslits, dtype='d')
         if verbose:
             print(" -> Step 2: interpolating along x (1D interp.)")
@@ -3332,7 +3327,6 @@ def generate_wifes_cube_oneproc(
                     sys.stdout.write('\n')
                 
     # All done, at last ! Now, let's save it all ...
-    # ALWAYS ITERATE TO 25 EVEN IF HALFFRAME HERE!!
     outfits = pyfits.HDUList(f3)
     for i in range(first,last):
         # save to data cube
@@ -3342,28 +3336,12 @@ def generate_wifes_cube_oneproc(
         outfits[i].header.set('NAXIS1', len(out_lambda))
         outfits[i+25].data = var_data_cube_tmp[i-first,:,:]
         outfits[i+50].data = dq_data_cube_tmp[i-first,:,:]
-
     outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return
 
 
-
-
-# outfits = pyfits.HDUList(f3)
-#     for i in range(1,26):
-#         # save to data cube
-#         outfits[i].data = flux_data_cube_tmp[i-1,:,:]
-#         outfits[i].header.set('CRVAL1', final_frame_wmin)
-#         outfits[i].header.set('CDELT1', disp_ave)
-#         outfits[i+25].data = var_data_cube_tmp[i-1,:,:]
-#         outfits[i+50].data = dq_data_cube_tmp[i-1,:,:]
-#         #outfits[i].header.set('NAXIS1', len(out_lambda))
-#     outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
-#     outfits.writeto(outimg, overwrite=True)
-#     f3.close()
-#     return
 
 
 def generate_wifes_cube_multithread(
@@ -3392,18 +3370,18 @@ def generate_wifes_cube_multithread(
 
     else:
         nslits = 25
-        first = 7
-        last = 19
+        first = 1
+        last = 26
     # setup base x/y array
     f3 = pyfits.open(inimg)
-    ndy, ndx = numpy.shape(f3[1].data)
+    ndy, ndx = numpy.shape(f3[first].data)
     xarr = numpy.arange(ndx)
     yarr = numpy.arange(ndy)
     full_x, full_y = numpy.meshgrid(xarr, yarr)
     obs_hdr = f3[0].header
     # figure out the binning!
     try:
-        bin_temp = f3[1].header["CCDSUM"].split()
+        bin_temp = f3[first].header["CCDSUM"].split()
         default_bin_x = int(float(bin_temp[0]))
         default_bin_y = int(float(bin_temp[1]))
     except:
@@ -3417,9 +3395,9 @@ def generate_wifes_cube_multithread(
     frame_wmin = 0.0
     frame_wmax = 20000.0
     frame_wdisps = []
-    for i in range(1, nslits + 1):
+    for i in range(first,last):
         f4 = pyfits.open(wsol_fn)
-        wave = f4[i].data
+        wave = f4[i - first + 1].data
         f4.close()
         curr_wmin = numpy.max(numpy.min(wave, axis=1))
         curr_wmax = numpy.min(numpy.max(wave, axis=1))
@@ -3429,7 +3407,7 @@ def generate_wifes_cube_multithread(
         if curr_wmax < frame_wmax:
             frame_wmax = curr_wmax
         frame_wdisps.append(curr_wdisp)
-        # print numpy.shape(f3[i].data)
+    
     if dw_set != None:
         disp_ave = dw_set
     else:
@@ -3463,7 +3441,6 @@ def generate_wifes_cube_multithread(
         f5.close()
     except:
         wire_trans = numpy.zeros([ndy, ndx], dtype='d')+numpy.max(yarr)/2
-    #ny=70//bin_y+1
     wire_offset = float(offset_orig)/float(bin_y)
     ny = ny_orig//bin_y
     nx = nslits
@@ -3508,10 +3485,12 @@ def generate_wifes_cube_multithread(
         print(" -> Step 1: interpolating along lambda and y (2D interp.) MULTITHREAD\r")
 
     tasks = []
-    for i in range(1,nslits+1):
+
+    for i in range(first,last):
         f4 = pyfits.open(wsol_fn)
-        wave = f4[i].data
+        wave = f4[i - first + 1].data
         f4.close()
+
         curr_flux = f3[i].data
         curr_var = f3[25 + i].data
         curr_dq = f3[50 + i].data
@@ -3521,7 +3500,7 @@ def generate_wifes_cube_multithread(
         full_dw[:, 1:] = dw
         full_dw[:, 0] = dw[:, 0]
         # and *y* to real y
-        curr_wire = wire_trans[i - 1, :]
+        curr_wire = wire_trans[i-first,:]
         all_ypos = full_y - curr_wire - wire_offset
         # from the y-lambda-flux data, interpolate the flux
         # for the desired output y-lambda grid
@@ -3581,9 +3560,9 @@ def generate_wifes_cube_multithread(
     dq_data_cube_tmp = numpy.ones([nx, ny, nlam])
 
     for i in range(nslits):
-        flux_data_cube_tmp[i, :, :] = results[3 * i]
-        var_data_cube_tmp[i, :, :] = results[3 * i + 1]
-        dq_data_cube_tmp[i, :, :] = results[3 * i + 2]
+        flux_data_cube_tmp[i ,:,:] = results[3 * i]
+        var_data_cube_tmp[i,:,:] = results[3 * i + 1]
+        dq_data_cube_tmp[i ,:,:] = results[3 * i + 2]
 
     # ---------------------------
     # Second interpolation : x (=ADR)
@@ -3656,20 +3635,19 @@ def generate_wifes_cube_multithread(
             if verbose:
                 if i > 0:
                     sys.stdout.flush()
-                sys.stdout.write("\r\r %d" % (i / (nlam - 1.0) * 100.0) + "%")
+                sys.stdout.write("\r\r %d" % ((i-first) / (nlam - 1.0) * 100.0) + "%")
                 if i == nlam - 1:
                     sys.stdout.write("\n")
     # All done, at last ! Now, let's save it all ...
-    # ALWAYS ITERATE TO 25 EVEN IF HALFFRAME HERE!!
     outfits = pyfits.HDUList(f3)
-    for i in range(1, 26):
+    for i in range(first,last):
         # save to data cube
-        outfits[i].data = flux_data_cube_tmp[i - 1, :, :]
-        outfits[i].header.set("CRVAL1", final_frame_wmin)
-        outfits[i].header.set("CDELT1", disp_ave)
-        outfits[i + 25].data = var_data_cube_tmp[i - 1, :, :]
-        outfits[i + 50].data = dq_data_cube_tmp[i - 1, :, :]
-        # outfits[i].header.set('NAXIS1', len(out_lambda))
+        outfits[i].data = flux_data_cube_tmp[i-first,:,:]
+        outfits[i].header.set('CRVAL1', final_frame_wmin)
+        outfits[i].header.set('CDELT1', disp_ave)
+        outfits[i].header.set('NAXIS1', len(out_lambda))
+        outfits[i+25].data = var_data_cube_tmp[i-first,:,:]
+        outfits[i+50].data = dq_data_cube_tmp[i-first,:,:]
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits.writeto(outimg, overwrite=True)
     f3.close()
