@@ -6,6 +6,12 @@ import os
 import scipy.interpolate
 from math import factorial   
 import pylab
+from pywifes.logger_config import custom_print
+import logging
+
+# Redirect print statements to logger
+logger = logging.getLogger('PyWiFeS')
+print = custom_print(logger)
 
 from .wifes_metadata import metadata_dir
 from .wifes_metadata import __version__

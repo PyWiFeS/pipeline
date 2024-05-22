@@ -63,7 +63,7 @@
                 "type": [
                     "dome", "twi"
                 ],
-                "verbose": true,
+                "verbose": false,
                 "plot": false,
                 "offsets": [
                     0.4,
@@ -102,7 +102,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "verbose": true,
+                "verbose": false,
                 "method": "optical",
                 "shift_method": "xcorr_all",
                 "find_method": "mpfit",

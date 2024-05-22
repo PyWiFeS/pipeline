@@ -63,7 +63,7 @@
                 "type": [
                     "dome", "twi"
                 ],
-                "verbose": true,
+                "verbose": false,
                 "plot": false,
                 "buffer": 4,
                 "offsets": [
@@ -103,7 +103,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "verbose": true,
+                "verbose": false,
                 "method": "optical",
                 "doalphapfit": true,
                 "doplot": false,

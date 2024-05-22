@@ -17,6 +17,12 @@ from photutils.utils.exceptions import NoDetectionsWarning
 
 warnings.filterwarnings("ignore", category=NoDetectionsWarning)
 
+# Logger
+from pywifes.logger_config import custom_print
+import logging
+# Redirect print statements to logger
+logger = logging.getLogger('PyWiFeS')
+print = custom_print(logger)
 
 def extract_and_save(
     cube_path, sci, var, source_ap, ap_index, sky_ap, output_dir, sci_hdr, var_hdr

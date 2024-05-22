@@ -16,6 +16,11 @@ from astropy.io import fits as pf
 import functools
 import multiprocessing
 import pickle
+from pywifes.logger_config import custom_print
+import logging
+# Redirect print statements to logger
+logger = logging.getLogger('PyWiFeS')
+print = custom_print(logger)
 
 # The number of fitted parameters
 nparams = 18

@@ -13,8 +13,16 @@ import scipy.interpolate as interp
 import pylab
 import matplotlib.pyplot as plt
 import pylab
-import astropy.units as u
-
+import  astropy.units as u
+from pywifes.logger_config import custom_print
+import logging
+# Redirect print statements to logger
+logger = logging.getLogger('PyWiFeS')
+print = custom_print(logger)
+  
+# CODE VERSION
+from .wifes_metadata import __version__
+# Pipeline imports
 from .multiprocessing_utils import get_task, map_tasks
 from .wifes_metadata import metadata_dir
 from .wifes_imtrans import transform_data, detransform_data
