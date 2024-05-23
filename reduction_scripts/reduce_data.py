@@ -992,7 +992,7 @@ def main():
             in_fn = os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
             out_fn = os.path.join(out_dir, f"{fn}.{curr_suffix}.fits")
             info_print(f"Saving 3D Data Cube for {os.path.basename(in_fn)}")
-            pywifes.generate_wifes_3dcube(in_fn, out_fn, **args)
+            pywifes.generate_wifes_3dcube(in_fn, out_fn, halfframe=halfframe, **args)
         return
 
     # --------------------------------------------
@@ -1246,7 +1246,7 @@ def main():
             error_print("________________________________________________________________")
             error_print(f"{arm} arm skipped, an error occurred during processing: '{exc}'.")        
             error_print("________________________________________________________________")
-            
+
 
     # Delete temporary directory containing raw data.
     shutil.rmtree(temp_data_dir)
@@ -1354,8 +1354,9 @@ def main():
     # ----------------------------------------------------------
     end_time = datetime.datetime.now()
     duration = end_time - start_time
-    info_print("All done in %.01f seconds." % duration.total_seconds())
-
-
+    messagge = "All done in %.01f seconds." % duration.total_seconds()
+    info_print(messagge)
+    print('\U0001F52D',messagge,'\u2B50')
+    
 if __name__ == "__main__":
     main()
