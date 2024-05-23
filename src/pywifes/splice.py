@@ -1,7 +1,12 @@
 import astropy.io.fits as fits
 import numpy as np
 import scipy.sparse as sp
+from pywifes.logger_config import custom_print
+import logging
 
+# Redirect print statements to logger
+logger = logging.getLogger('PyWiFeS')
+print = custom_print(logger)
 
 def calculate_wavelength_array(
     blue_CRVAL1, blue_CDELT1, blue_CRPIX1, red_CRVAL1, red_CDELT1, red_NAXIS1
