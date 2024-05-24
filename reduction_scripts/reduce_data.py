@@ -1236,9 +1236,6 @@ def main():
                     )
                     if step_suffix != None:
                         prev_suffix = step_suffix
-                    print('======================')
-                    print(step_name)
-
                 else:
                     pass
 
