@@ -9,7 +9,8 @@ import math
 import multiprocessing
 from itertools import cycle
 import scipy.optimize as op
-# Fred's upadate (wsol)
+import matplotlib.pyplot as plt
+
 import os
 import datetime
 
@@ -217,7 +218,6 @@ def _mpfit_gauss_line( packaged_args ):
     # plot for check purposes
     '''
     print my_fit.params, my_fit.status
-    import matplotlib.pyplot as plt
     plt.figure()
     plt.plot(xfit,yfit,'ko-')
     plt.plot(xfit, gauss_line(my_fit.params,xfit),'ro-')
@@ -656,9 +656,9 @@ def find_lines_and_guess_refs(slitlet_data,
         iter_y_array = init_y_array[good_inds]
         iter_ref_array = ref_array[good_inds]
 
-        if plot :
-            plot_detected_lines(chosen_slitlet, iter_x_array, 
-                                iter_y_array, iter_ref_array, ncols)
+        # if plot : TODO
+        #     plot_detected_lines(chosen_slitlet, iter_x_array, 
+        #                         iter_y_array, iter_ref_array, ncols)
 
         return  iter_x_array,iter_y_array, iter_ref_array
 
@@ -684,31 +684,31 @@ def find_lines_and_guess_refs(slitlet_data,
     iter_x_array   = start_full_x_array[iter0_good_inds]
     iter_y_array   = start_full_y_array[iter0_good_inds]
 
-    if plot :
-        plot_detected_lines(chosen_slitlet, iter_x_array, iter_y_array, 
-                            iter_ref_array,ncols)
+    # if plot :
+    #     plot_detected_lines(chosen_slitlet, iter_x_array, iter_y_array, 
+    #                         iter_ref_array,ncols)
 
     return iter_x_array, iter_y_array, iter_ref_array
 
 def plot_detected_lines(slitlet, x, y, ref,ncols):
-      pylab.figure()
-      pylab.plot(x, ref, 'k.')
-      pylab.xlim([0,ncols])
+      plt.figure()
+      plt.plot(x, ref, 'k.')
+      plt.xlim([0,ncols])
       pylab.xlabel('Detected arc lines position (spectral dir.) [pixel]')
-      pylab.ylabel('Associated wavelength [Angstroem]')
-      pylab.title('Slice '+str(slitlet))
+      plt.ylabel(r'Associated wavelength [$\AA$]')
+      plt.title('Slice '+str(slitlet))
 
-      pylab.figure()
+      plt.figure()
       linestyles = ["k.-","r.-","g.-","b.-","c.-","m.-"]
       linestylecycler = cycle(linestyles)
       for a in numpy.unique(ref):
           args = ref == a
-          pylab.plot(x[args], y[args], next(linestylecycler))
-      pylab.xlim([0,ncols])
-      pylab.xlabel('Detected arc lines position (spectral dir.) [pixel]')
-      pylab.ylabel('Detected arc lines position (spatial dir.) [pixel]')
-      pylab.title('Slice '+str(slitlet))
-      pylab.show()
+          plt.plot(x[args], y[args], next(linestylecycler))
+      plt.xlim([0,ncols])
+      plt.xlabel('Detected arc lines position (spectral dir.) [pixel]')
+      plt.ylabel('Detected arc lines position (spatial dir.) [pixel]')
+      plt.title('Slice '+str(slitlet))
+      plt.show()
 
 #------------------------------------------------------------------------
 # XCORR SHIFT FUNCTIONS
@@ -1308,7 +1308,7 @@ def excludeLines(lines, exclude, index=3, epsilon=0.05):
   else:
     return lines
 
-def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit, doplot, automatic, sigma, verbose, decimate, save_prefix=None):
+def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit, plot, automatic, sigma, verbose, decimate, save_prefix=None):
 
   # Don't do the alphap fit initially
   doalphapfit_thistime = False
@@ -1342,7 +1342,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
   resid = om.errfunc(grating, plorig, alphap, alls, ally, allx, allarcs)
 
   # Do an initial plot of the residuals if required
-  if doplot:
+  if plot:
     om.plotFunc(title,allx,ally,allarcs,om.fitfunc(grating,plorig,alphap,alls,ally,allx))
     om.plotResid(title,allx,ally,allarcs,resid)
 
@@ -1453,7 +1453,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
           else:
             fitdone = True
 
-        if doplot:
+        if plot:
           pl = numpy.asarray(m.params)[:om.nparams]
           resid = om.errfunc(grating, pl, alphap, alls, ally, allx, allarcs)
           om.plotResid(title,allx,ally,allarcs,resid)
@@ -1487,18 +1487,18 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
       decimate = False
       alls, ally, allx, allarcs = om.extractArrays(lines, grating, bin_x, bin_y)
       resid = om.errfunc(grating, pl[:om.nparams],pl[om.nparams:],alls,ally,allx,allarcs)
-      if (doplot):
+      if (plot):
         om.plotResid(title,allx,ally,allarcs,resid)
 
     # In automatic mode we select some of the lines to be removed
     if automatic > 0:
-      lines = om.excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, doplot, verbose)
+      lines = om.excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, plot, verbose)
       alls, ally, allx, allarcs = om.extractArrays(lines, grating, bin_x, bin_y)
       err = numpy.ones_like(ally)
       fa = {'s':alls, 'y':ally, 'x':allx, 'arc':allarcs, 'err':err}
       automatic -= 1
 
-    elif doplot:
+    elif plot:
       # Do a plot of the residuals if required
       if save_prefix != None:
           save_fn = save_prefix+'final_resids.png'
@@ -1507,7 +1507,7 @@ def _fit_optical_model(title, grating, bin_x, bin_y, lines, alphap, doalphapfit,
       om.plotResid(title,allx,ally,allarcs,resid, save_fn=save_fn)
 
   # Do a final plot of the data if required
-  if doplot:
+  if plot:
     alls, ally, allx, allarcs = om.extractArrays(lines, grating, bin_x, bin_y)
     if save_prefix != None:
         save_fn = save_prefix+'final_wsol.png'
@@ -1539,7 +1539,7 @@ def derive_wifes_optical_wave_solution(inimg,
                                        sigma=1.0,
                                        alphapfile=None,
                                        #global parameters
-                                       doplot=False,
+                                       plot=False,
                                        savefigs=False,
                                        save_prefix='wsol_',
                                        multithread=True):
@@ -1606,11 +1606,11 @@ def derive_wifes_optical_wave_solution(inimg,
             ystop = y1 + 1
             ystart = y0
         # Plot them or not ?
-        if doplot == True or ((doplot != False) and ('step1' in doplot)):
+        if plot == True or ((plot != False) and ('step1' in plot)):
             step1plot = True
         else:
             step1plot = False
-        if doplot == True or (doplot != False) and (('step2' in doplot)):
+        if plot == True or (plot != False) and (('step2' in plot)):
             step2plot = True
         else:
             step2plot = False    

@@ -95,7 +95,6 @@ def lacos_spec_data(data,
         #import pylab
         #pylab.hist(plot_sig.flatten(), bins=1000)
         #pylab.show()
-        #print squirrel
         
         #------------------------------------
         # step 5 - identify potential cosmic rays!!!!

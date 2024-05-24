@@ -235,6 +235,8 @@ def main():
                 superbias_fit_fn,
                 data_hdu=my_data_hdu,
                 method=method,
+                plot_dir=plots_dir,
+                arm=arm, 
                 **args,
             )
         else:
@@ -368,10 +370,11 @@ def main():
                     slitlet_fn,
                     offset=offsets[type.index("dome")],
                     method="2D",
+                    plot_dir=plots_dir,
                     **args,
                 )
             else:
-                warnig_print(f"Master dome flat {os.path.basename(super_dflat_raw)} not found. Skipping dome flat cleanup.")
+                warning_print(f"Master dome flat {os.path.basename(super_dflat_raw)} not found. Skipping dome flat cleanup.")
 
         if "twi" in type:
             if os.path.isfile(super_tflat_raw):
@@ -382,6 +385,7 @@ def main():
                     slitlet_fn,
                     offset=offsets[type.index("twi")],
                     method="2D",
+                    plot_dir=plots_dir,
                     **args,
                 )
             else:
@@ -1080,13 +1084,18 @@ def main():
     reduction_scripts_dir = os.path.dirname(__file__)
     working_dir = os.getcwd()
 
-    # Creates a tempoarary data directory containning all raw data for reduction.
+    # Creates a temporary data directory containning all raw data for reduction.
     temp_data_dir = os.path.join(working_dir, f"data_products/intermediate/raw_data_temp/")
     os.makedirs(temp_data_dir, exist_ok=True)
 
     all_fits_names = get_file_names(user_data_dir, "*.fits")
     # Copy raw data  from user's direcory into temporaty raw directory.
     copy_files(user_data_dir, temp_data_dir, all_fits_names)
+
+
+    # Creates a directory for quality plot.
+    plots_dir = os.path.join(working_dir, f"data_products/quality_plots/")
+    os.makedirs(plots_dir, exist_ok=True)
 
 
     # Classify all raw data (red and blue arm)
@@ -1228,6 +1237,9 @@ def main():
                     continue
 
                 if step_run:
+                    print('======================')
+                    print(step_name)
+
                     func(
                         obs_metadata,
                         prev_suffix=prev_suffix,
@@ -1236,16 +1248,16 @@ def main():
                     )
                     if step_suffix != None:
                         prev_suffix = step_suffix
-                    print('======================')
-                    print(step_name)
 
                 else:
                     pass
+                print('======================')
+
 
         except Exception as exc:
-            error_print("________________________________________________________________")
-            error_print(f"{arm} arm skipped, an error occurred during processing: '{exc}'.")        
-            error_print("________________________________________________________________")
+            warning_print("________________________________________________________________")
+            warning_print(f"{arm} arm skipped, an error occurred during processing: '{exc}'.")        
+            warning_print("________________________________________________________________")
 
 
     # Delete temporary directory containing raw data.
@@ -1357,6 +1369,6 @@ def main():
     messagge = "All done in %.01f seconds." % duration.total_seconds()
     info_print(messagge)
     print('\U0001F52D',messagge,'\u2B50')
-    
+
 if __name__ == "__main__":
     main()

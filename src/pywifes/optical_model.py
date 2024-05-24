@@ -113,14 +113,10 @@ def plotFunc(title,allx,ally,allarcs,f):
   plt.figure()
   plt.plot(allx,f,'r.', markeredgecolor = 'w')
   plt.plot(allx,allarcs,'b.', markeredgecolor='w')
-  plt.xlabel("x pixel")
-  plt.ylabel(u"wavelength \u00C5")
-  #plt.plot(f,ally,'r.')
-  #plt.plot(allarcs,ally,'b.')
-  #plt.xlabel(u"wavelength \u00C5")
-  #plt.ylabel("y pixel")
-  plt.title(title)
-  plt.show()
+  plt.xlabel("X-axis [pixel]")
+  plt.ylabel(r"Wavelength [$\AA$]")
+  plt.title(title)s
+  return 
 
 def plotResidKeep(allx,ally,allarcs,resid,keepargs):
   """ Plot the residuals that are being kept, and those that are being
@@ -617,7 +613,7 @@ def extractArrays(lines, grating, bin_x, bin_y):
   return alls, ally, allx, allarcs
 
 # Automatically exclude lines that have large residuals
-def excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, doplot, verbose):
+def excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, plot, verbose):
   alls, ally, allx, allarcs = extractArrays(lines, grating, bin_x, bin_y)
   allrms = []
   for s in set(alls):
@@ -639,7 +635,7 @@ def excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, doplot, verbose):
       excludeargs = np.logical_and(alls==s, allarcs==a)
       keepargs = np.logical_and(keepargs, np.logical_not(excludeargs))
 
-  if (doplot):
+  if (plot):
     plotResidKeep(allx,ally,allarcs,resid,keepargs)
 
   return lines[keepargs]
