@@ -523,3 +523,57 @@ def detect_extract_and_save(
             plt.tight_layout()
             fig_output = os.path.join(output_dir, plot_path)
             plt.savefig(fig_output, bbox_inches="tight", dpi=300)
+            plt.close('all')
+
+
+
+# TODO Replace with a proper SpecUtils loader
+
+class SingleSpec(object):
+    """
+    Class representing a single spectrum for analysis
+    """
+
+    def __init__(self, fitsFILE):
+        self.flux, self.header = fits.getdata(fitsFILE, 0, header=True)
+        self.wl = (
+            np.arange(self.header["NAXIS1"]) - self.header["CRPIX1"] + 1
+        ) * self.header["CDELT1"] + self.header["CRVAL1"]
+        # Temporary
+        self.fluxvar = fits.getdata(fitsFILE, 1, header=False)
+        self.minWL = np.min(self.wl)
+        self.maxWL = np.max(self.wl)
+        return
+
+
+
+
+def plot_1D_spectrum(spec_path):
+
+
+    spec = SingleSpec(spec_path)
+    flux = spec.flux
+    wl = spec.wl
+    fluxvar = spec.fluxvar
+    # Calculate the error as the square root of the flux variance
+    flux_error = np.sqrt(fluxvar)
+
+
+    # Plot the spectrum with error bars
+    plot_path = spec_path.replace('.fits', '.png')
+
+    fig = plt.figure(figsize=(12,5))
+
+    # Plot the error bars
+    plt.errorbar(wl, flux, yerr=flux_error, fmt='none', ecolor='grey', elinewidth=0.5, capsize=1.5)
+
+    # Plot the step plot for the spectrum values
+    plt.step(wl, flux, where='mid', color='b')
+
+    # Customize the plot
+    plt.title('Aperture #' + spec_path[-10])
+    plt.xlabel('Wavelength (Å)')
+    plt.ylabel('Flux')
+    plt.grid(True)
+
+    plt.savefig(plot_path, dpi=300)

@@ -2505,7 +2505,7 @@ def wifes_2dim_response(
     wsol_fn=None,
     zero_var=True,
     plot=False,
-    savefigs=False,
+    plot_dir='.',
     save_prefix="response_",
     polydeg=7,
     resp_min=1.0e-6,
@@ -2615,10 +2615,10 @@ def wifes_2dim_response(
         10.0 ** (numpy.polyval(smooth_poly, mid_lam_array))
     )
     
-    pylab.figure()
-    pylab.plot(mid_lam_array, spec_norm)
-    pylab.show()
-    input()
+    # pylab.figure()
+    # pylab.plot(mid_lam_array, spec_norm)
+    # pylab.show()
+    # input()
     
     spat_interp = scipy.interpolate.interp1d(
         mid_lam_array, spatial_flat_spec / spec_norm, bounds_error=False, fill_value=0.0
@@ -2713,33 +2713,47 @@ def wifes_2dim_response(
     f1.close()
     f2.close()
     # ---------------------------------------------
-    # diagnostic plots!
-    if plot or savefigs:
-        # ------------------
+    # diagnostic plots! 
+    plot = True
+    if plot:
+        # Response plots
+
+        fig = plt.figure(figsize=(10, 5))
+        grid = fig.add_gridspec(1, 3)
+                
         # (1) spectral fit
-        pylab.figure()
-        pylab.plot(mid_lam_array, curr_ff_rowwise_ave, "b")
-        pylab.plot(
+        ax_left = fig.add_subplot(grid[0, 0:2])
+        ax_left.set_title('Spectral Flatfield Correction')
+        ax_left.plot(mid_lam_array, curr_ff_rowwise_ave, "C0",label='flat lamp spectrum')
+        ax_left.plot(
             mid_lam_array,
             10.0 ** (numpy.polyval(smooth_poly, mid_lam_array)),
-            color="g",
-            lw=3,
+            color="r",
+            ls='dashed',
+            label='smooth function fit ',
         )
-        if savefigs:
-            save_fn = save_prefix + "flat_spectrum.png"
-            pylab.savefig(save_fn)
-        # ------------------
+
+        ax_left.legend()
+        ax_left.set_xlabel(r'Wavelength [$\AA$]')
+        ax_left.set_ylabel(r'Log Flux')
+
+
         # (2) illumination correction
-        pylab.figure()
-        pylab.imshow(
-            illum, interpolation="nearest", origin="lower", cmap=pylab.cm.Greys_r
+        ax_right = fig.add_subplot(grid[0, 2])
+        ax_right.set_title('Illumination Correction')
+        ax_right.imshow(
+            illum, interpolation="nearest", origin="lower", cmap=plt.cm.Greys_r
         )
-        if savefigs:
-            save_fn = save_prefix + "flat_illumination.png"
-            pylab.savefig(save_fn)
-        # ------------------
-        if plot:
-            pylab.show()
+
+        ax_right.set_xlabel('Slitlet')
+        ax_right.set_ylabel('Detector Y')
+
+        plt.tight_layout()
+        plot_name = "flat_response.png"
+        plot_path = os.path.join(plot_dir, plot_name)
+        plt.savefig(plot_path, dpi=300)
+        plt.close()
+
     # ---------------------------------------------
     return
 

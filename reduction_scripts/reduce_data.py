@@ -744,7 +744,12 @@ def main():
         info_print("Generating flatfield response function")
         if mode == "all":
             pywifes.wifes_2dim_response(
-                super_dflat_mef, super_tflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
+                super_dflat_mef, 
+                super_tflat_mef, 
+                flat_resp_fn, 
+                wsol_fn=wsol_out_fn, 
+                plot=True, 
+                plot_dir=plot_dir,
             )
         elif mode == "dome":
             pywifes.wifes_response_poly(
@@ -932,7 +937,7 @@ def main():
         ]
         info_print("Deriving sensitivity function")
         best_calib = wifes_calib.derive_wifes_calibration(
-            std_cube_list, calib_fn, extract_in_list=extract_list, method=method, **args
+            std_cube_list, calib_fn, extract_in_list=extract_list, method=method, plot_dir=plot_dir, **args
         )
         return
 

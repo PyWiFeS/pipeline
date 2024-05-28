@@ -11,8 +11,8 @@ from pywifes.logger_config import custom_print
 import logging
 
 # Redirect print statements to logger
-# logger = logging.getLogger('PyWiFeS')
-# # print = custom_print(logger)
+logger = logging.getLogger('PyWiFeS')
+print = custom_print(logger)
 
 from .wifes_metadata import metadata_dir
 from .wifes_metadata import __version__
@@ -444,7 +444,7 @@ def derive_wifes_calibration(cube_fn_list,
                              ref_fname_list=None,
                              plot_stars=False,
                              plot_sensf=False,
-                             savefigs=False,
+                             plot_dir='.',
                              save_prefix='calib_',
                              norm_stars=False,
                              method = 'poly',
@@ -541,15 +541,25 @@ def derive_wifes_calibration(cube_fn_list,
 
         if plot_stars:
             scaled_flux = obs_flux[good_inds]/numpy.mean(10.0**(-0.4*flux_ratio))
-            pylab.figure()
-            pylab.plot(obs_wave, ref_flux, color='b', label='Reference star flux')
-            pylab.plot(obs_wave[good_inds], scaled_flux, color='r',label='Scaled observed flux')
-            pylab.title(star_name)
-            pylab.xlabel(r'Wavelength [$\AA$]')
-            pylab.legend(loc='lower right', fancybox=True,shadow=True)
-            save_fn = save_prefix+'star_%d.png' % (i+1)
-            pylab.savefig(save_fn)
-            pylab.close()
+            plt.figure(1,figsize=(8,5))
+            plt.plot(obs_wave, ref_flux, color='b', label='Reference star flux')
+            plt.plot(obs_wave[good_inds], scaled_flux, color='r',label='Scaled observed flux')
+            plt.title(star_name)
+            plt.xlabel(r'Wavelength [$\AA$]')
+            plt.legend()
+
+            # Set y-limits to exclude peaks
+            lower_limit = numpy.percentile(scaled_flux, 0.2)
+            upper_limit = numpy.percentile(scaled_flux, 99.8)
+            plt.ylim(lower_limit, upper_limit)
+            plt.ylabel(r'Scaled Flux ')
+
+            plot_name = f'{star_name}.png'
+            plot_path = os.path.join(plot_dir, plot_name)
+            plt.savefig(plot_path,dpi=300)
+            plt.close()
+
+            
 
     # from all comparisons, derive a calibration solution
     # EVENTUALLY WILL FIT AN EXTINCTION TERM TOO
@@ -640,7 +650,6 @@ def derive_wifes_calibration(cube_fn_list,
     print(method)
     print(stdstar_name_list)
     print(best_calib)
-    print('')
 
     # Calculate the final result
     final_fvals = this_f(full_x)
@@ -651,10 +660,10 @@ def derive_wifes_calibration(cube_fn_list,
     final_y = this_f(final_x)
 
 
-    # plot if requested
+    # Plot Sensitivity function
     if plot_sensf:
         
-        pylab.figure()
+        pylab.figure(figsize=(8, 6))
         # MC update - raw fit on top
         pylab.axes([0.10, 0.35, 0.85, 0.60])
 
@@ -684,6 +693,10 @@ def derive_wifes_calibration(cube_fn_list,
         curr_ylim = pylab.ylim()
         curr_xlim = pylab.xlim()
         pylab.ylim(curr_ylim[::-1])
+        
+        pylab.ylabel('Counts-to-Flux Ratio [mag]')
+
+
         pylab.title('Derived sensitivity function')
         pylab.legend(loc='lower right',fancybox=True, shadow=True)
         # lower plot - residuals!
@@ -695,8 +708,13 @@ def derive_wifes_calibration(cube_fn_list,
         pylab.ylim([-0.2, 0.2])
         pylab.xlabel(r'Wavelength [$\AA$]')
         pylab.ylabel('Residuals')
-        save_fn = save_prefix + 'solution_fit.png'
-        pylab.savefig(save_fn,dpi=300)
+
+        plot_name = 'flux_calibration_solution.png'
+        plot_path = os.path.join(plot_dir, plot_name)
+        pylab.savefig(plot_path,dpi=300)
+        pylab.close()
+
+
 
     # Fred's update ... now, careful, because that's dirty ... 
     # the function does not always return the same thing !
