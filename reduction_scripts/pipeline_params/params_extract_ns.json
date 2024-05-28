@@ -1,7 +1,7 @@
 
 {
     "sky_sub": false,
-    "check_plot": true,
+    "plot": true,
     "border_width": 3,
     "r_arcsec": 2
 }   

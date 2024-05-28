@@ -10,7 +10,7 @@ def custom_print(logger, level=logging.INFO):
 def configure_logger(
     logger,
     console_level=logging.WARNING,
-    file_level=logging.DEBUG,
+    file_level=logging.INFO,
     file=None,
     format=None,
     datefmt=None,
@@ -50,5 +50,5 @@ def setup_logger(
     if name is None:
         name = 'PyWiFeS'
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.WARNING)
     return configure_logger(logger, console_level, file_level, file, format, datefmt)

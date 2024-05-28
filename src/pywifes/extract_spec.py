@@ -372,8 +372,8 @@ def detect_extract_and_save(
     r_arcsec=2,
     border_width=3,
     sky_sub=False,
-    check_plot=False,
-    plot_output="detected_apertures_plot.pdf",
+    plot=False,
+    plot_path="detected_apertures_plot.png",
 ):
     # reading the data from cubes
     # Blue arm
@@ -386,6 +386,7 @@ def detect_extract_and_save(
     if blue_cube_data["sci"] is not None:
         binning_x = blue_cube_data["binning_x"]
         binning_y = blue_cube_data["binning_y"]
+        object = blue_sci_hdr['OBJECT']
 
     # Red arm
     red_cube_data = read_cube_data(red_cube_path)
@@ -397,6 +398,7 @@ def detect_extract_and_save(
     if red_cube_data["sci"] is not None:
         binning_x = red_cube_data["binning_x"]
         binning_y = red_cube_data["binning_y"]
+        object = red_sci_hdr['OBJECT']
 
     # Calculate pixel scale from binning
     pixel_scale_x = binning_x  # arcsec/pix
@@ -492,7 +494,8 @@ def detect_extract_and_save(
                 red_var_hdr,
             )
 
-        if check_plot:
+        if plot:
+            plt.suptitle(object)
             # Plot Red
             ax1 = plt.subplot(1, 2, 2, projection=red_wcs)
             plot_arm(
@@ -518,5 +521,5 @@ def detect_extract_and_save(
             )
 
             plt.tight_layout()
-            fig_output = os.path.join(output_dir, plot_output)
+            fig_output = os.path.join(output_dir, plot_path)
             plt.savefig(fig_output, bbox_inches="tight", dpi=300)

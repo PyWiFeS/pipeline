@@ -6,12 +6,13 @@ import os
 import scipy.interpolate
 from math import factorial   
 import pylab
+import matplotlib.pyplot as plt
 from pywifes.logger_config import custom_print
 import logging
 
 # Redirect print statements to logger
-logger = logging.getLogger('PyWiFeS')
-print = custom_print(logger)
+# logger = logging.getLogger('PyWiFeS')
+# # print = custom_print(logger)
 
 from .wifes_metadata import metadata_dir
 from .wifes_metadata import __version__
@@ -520,6 +521,7 @@ def derive_wifes_calibration(cube_fn_list,
             wave_min = numpy.min(obs_wave)
         if wave_max == None:
             wave_max = numpy.max(obs_wave)
+            
         # get reference data
         ref_data = numpy.loadtxt(os.path.join(ref_dir,ref_fname))
         ref_interp = scipy.interpolate.interp1d(
@@ -536,20 +538,19 @@ def derive_wifes_calibration(cube_fn_list,
                                            ref_flux[good_inds])
         flux_ratio = init_flux_ratio + (secz-1.0)*std_ext[good_inds]
         fratio_results.append([obs_wave[good_inds], init_flux_ratio])
-        if plot_stars or savefigs:
-            scaled_flux = obs_flux[good_inds]/numpy.mean(
-                10.0**(-0.4*flux_ratio))
+
+        if plot_stars:
+            scaled_flux = obs_flux[good_inds]/numpy.mean(10.0**(-0.4*flux_ratio))
             pylab.figure()
-            pylab.plot(obs_wave, ref_flux, color='b',
-                       label='Reference star flux')
-            pylab.plot(obs_wave[good_inds], scaled_flux, color='r', 
-                       label='Scaled observed flux')
+            pylab.plot(obs_wave, ref_flux, color='b', label='Reference star flux')
+            pylab.plot(obs_wave[good_inds], scaled_flux, color='r',label='Scaled observed flux')
             pylab.title(star_name)
             pylab.xlabel(r'Wavelength [$\AA$]')
             pylab.legend(loc='lower right', fancybox=True,shadow=True)
-            if savefigs:
-                save_fn = save_prefix+'star_%d.png' % (i+1)
-                pylab.savefig(save_fn)
+            save_fn = save_prefix+'star_%d.png' % (i+1)
+            pylab.savefig(save_fn)
+            pylab.close()
+
     # from all comparisons, derive a calibration solution
     # EVENTUALLY WILL FIT AN EXTINCTION TERM TOO
     if len(fratio_results) < 1:
@@ -577,7 +578,7 @@ def derive_wifes_calibration(cube_fn_list,
     sort_order = next_full_x.argsort()
     temp_full_x = next_full_x[sort_order]
     temp_full_y = next_full_y[sort_order]
-    # ----------- Fred's update 3 -------------------  
+
     if method == 'smooth_SG':
         # Savitzky-Golay requires continuous data. ->need to fill the 'holes' 
         # It is a problem for red spectra (at this point at least)
@@ -624,10 +625,6 @@ def derive_wifes_calibration(cube_fn_list,
         this_f = scipy.interpolate.interp1d(
             smooth_x,final_fvals,bounds_error=False, 
             kind='linear')
-        print('this_f', this_f)
-        #~ f111 = open('this_f.pkl', 'w')
-        #~ pickle.dump(this_f, f111)
-        #~ f111.close()
     
         all_final_fvals = this_f(init_full_x)
         final_x = full_x
@@ -638,7 +635,7 @@ def derive_wifes_calibration(cube_fn_list,
 
     best_calib = numpy.polyfit(full_x, full_y, polydeg)
     this_f2 = numpy.poly1d(best_calib)
-    #~ if print_result: # TODO
+
     print('best_calib')
     print(method)
     print(stdstar_name_list)
@@ -652,18 +649,26 @@ def derive_wifes_calibration(cube_fn_list,
         1.000001*numpy.max(full_x),
         0.0001*(numpy.max(full_x)-numpy.min(full_x)))
     final_y = this_f(final_x)
+
+
     # plot if requested
-    if plot_sensf or savefigs:
+    if plot_sensf:
+        
         pylab.figure()
         # MC update - raw fit on top
         pylab.axes([0.10, 0.35, 0.85, 0.60])
+
         pylab.plot(temp_full_x, temp_full_y, 'r.',markerfacecolor='none',
                    markeredgecolor='r', 
                    label='Raw sensitivity (initial regions)')
+        
         pylab.plot(full_x, full_y, color='b', 
                    label ='Raw sensitivity (valid regions)')
+        
         pylab.plot(temp_full_x,temp_fvals, color=r'#FF6103',
                    lw=2,label='Initial fit')
+        
+
         if  method == 'smooth_SG':
             pylab.plot(means[:,0], means[:,1], color='b', 
                        label ='Mean sensitivity (valid regions, all stars)')
@@ -674,7 +679,7 @@ def derive_wifes_calibration(cube_fn_list,
                        label ='Raw sensitivity (valid regions)')
         pylab.plot(full_x, final_fvals, color=r'#00FF00', lw=2, 
                    label='Final fit')
-        #pylab.hlines(-37.5,numpy.min(full_x),numpy.max(full_x), 'k')
+
         pylab.xlim([numpy.min(full_x),numpy.max(full_x)])
         curr_ylim = pylab.ylim()
         curr_xlim = pylab.xlim()
@@ -690,11 +695,9 @@ def derive_wifes_calibration(cube_fn_list,
         pylab.ylim([-0.2, 0.2])
         pylab.xlabel(r'Wavelength [$\AA$]')
         pylab.ylabel('Residuals')
-        if savefigs:
-            save_fn = save_prefix+'solution_fit.png'
-            pylab.savefig(save_fn)
-    if plot_stars or plot_sensf:
-        pylab.show()
+        save_fn = save_prefix + 'solution_fit.png'
+        pylab.savefig(save_fn,dpi=300)
+
     # Fred's update ... now, careful, because that's dirty ... 
     # the function does not always return the same thing !
     # SAVE IN THE PICKLE FILE THE WAVELENGTH AND CALIB FVAL ARRAYS
@@ -802,7 +805,7 @@ def derive_wifes_telluric(cube_fn_list,
                           out_fn,
                           plot=False,
                           plot_stars=False,
-                          savefigs=False,
+                          plot_dir=None,
                           save_prefix='telluric_',
                           extract_in_list=None,
                           airmass_list=None,
@@ -856,12 +859,7 @@ def derive_wifes_telluric(cube_fn_list,
         # get ratio of data to smooth continuum
         smooth_cont = numpy.polyval(smooth_poly, obs_wave)
         init_ratio = obs_flux / smooth_cont
-        if plot_stars or savefigs:
-            pylab.figure()
-            pylab.plot(obs_wave, obs_flux, 'b')
-            pylab.plot(obs_wave, smooth_cont, 'g')
-            if savefigs:
-                save_fn = save_prefix + 'star_%d.png' % (i+1)
+    
         # isolate desired regions, apply thresholds!
         O2_ratio = numpy.ones(len(obs_wave), dtype='d')
         O2_ratio[O2_inds] = init_ratio[O2_inds]
@@ -904,48 +902,60 @@ def derive_wifes_telluric(cube_fn_list,
     final_O2_corr[numpy.nonzero(final_O2_corr != final_O2_corr)[0]] = 1.0
     final_H2O_corr[numpy.nonzero(final_H2O_corr != final_H2O_corr)[0]] = 1.0
     #---------------------------------------------
-    # PLOT FOR INSPECTION...
-    if plot or savefigs:
-        fig1=pylab.figure()
-        sp1 = fig1.add_subplot(111)
-        fig2=pylab.figure()
-        sp2 = fig2.add_subplot(111)
-        sp1.plot(base_wave, final_O2_corr, color='k', lw=2, label='Default O2')
-        sp2.plot(base_wave, final_H2O_corr, color='k', lw=2, label='Default H2O')
-        for i in range(len(cube_fn_list)):
-            airmass = airmass_list[i]
-            wave, O2_ratio = O2_corrections[i]
-            H2O_ratio = H2O_corrections[i][1]
-            sp1.plot(wave, O2_ratio**(1.0/(airmass**O2_power)), 
-                     label=cube_fn_list[i].split('/')[-1])
-            sp2.plot(wave, H2O_ratio**(1.0/(airmass**H2O_power)), 
-                     label=cube_fn_list[i].split('/')[-1])
-        sp1.set_xlabel(r'Wavelength [$\AA$]')
-        sp1.set_title('Individual O2 Telluric Correction functions')
-        sp1.legend(loc='lower left',fancybox=True, shadow=True)
-        sp1.set_xlim([numpy.min(base_wave),numpy.max(base_wave)])
-        sp2.set_xlabel(r'Wavelength [$\AA$]')
-        sp2.set_title('Individual H2O Telluric Correction functions')
-        sp2.legend(loc='lower left',fancybox=True, shadow=True)
-        sp2.set_xlim([numpy.min(base_wave),numpy.max(base_wave)])
-        pylab.figure()
-        pylab.plot(base_wave, final_O2_corr, color='r', lw=2, 
-                   label='Default O2 lines' )
-        pylab.plot(base_wave, final_H2O_corr, color='k', lw=2, 
-                   label='Default H2O lines')
-        pylab.xlabel(r'Wavelength [$\AA$]')
-        pylab.legend(loc='lower left',fancybox=True,shadow=True)
-        pylab.xlim([numpy.min(base_wave),numpy.max(base_wave)])
-        pylab.title('Telluric Correction functions')
-        if savefigs:
-            save_fn = save_prefix+'final_solutions.png'
-            pylab.savefig(save_fn)
-            save_fn_1 = save_prefix+'O2_corrections.png'
-            fig1.savefig(save_fn_1)
-            save_fn_2 = save_prefix+'H2O_corrections.png'
-            fig2.savefig(save_fn_2)
-        if plot:
-            pylab.show()
+    # Check Plot
+    if plot:
+
+        fig, (ax_top, ax_bottom) = plt.subplots(2, 1, sharex=True, figsize=(10, 8))        
+        plt.suptitle('Telluric Correction Function',size=16)
+
+        # Top subplot (Telluric start)
+        ax_top.plot(obs_wave, obs_flux, 'C0', label='Observed Flux')
+        ax_top.plot(obs_wave, smooth_cont, 'r', ls = 'dashed', label='Smooth Fitting')
+        ax_top.legend()
+        ax_top.set_ylabel(r'Flux [$F_{\lambda}$]')
+
+        # Set y-limits to exclude peaks
+        lower_limit = numpy.percentile(obs_flux, 0.2)
+        upper_limit = numpy.percentile(obs_flux, 99.8)
+        ax_top.set_ylim(lower_limit, upper_limit)
+
+
+
+        # Bottom subplot (Telluric correction derived)
+        # Mask the continum for plotting
+        telluric_correction = final_O2_corr * final_H2O_corr
+
+
+        ax_bottom.plot(base_wave, telluric_correction, color='k', lw=1, label=r'Telluric correction')
+        # Shading the masked regions for O2 and H2O corrections
+        ax_bottom.fill_between(base_wave, final_O2_corr, where=(final_O2_corr < 1), lw =0, color='C4', alpha=0.5, label=r'O$_2$ lines')
+        ax_bottom.fill_between(base_wave, final_H2O_corr, where=(final_H2O_corr < 1), lw=0, color='C0', alpha=0.5, label=r'H$_2$O lines')
+
+        # for i, cube_fn in enumerate(cube_fn_list):
+        #     airmass = airmass_list[i]
+        #     wave, O2_ratio = O2_corrections[i]
+        #     H2O_ratio = H2O_corrections[i][1]
+            
+        #     ax_bottom.plot(wave, O2_ratio**(1.0/(airmass**O2_power)), label=f'{cube_fn} O2')
+        #     ax_bottom.plot(wave, H2O_ratio**(1.0/(airmass**H2O_power)), label=f'{cube_fn} H2O')
+
+        ax_bottom.set_xlabel(r'Wavelength [$\AA$]')
+        ax_bottom.set_ylabel('Transmission at Airmass = 1')
+        ax_bottom.legend()
+
+        # Set x-axis limits
+        ax_bottom.set_xlim([numpy.min(base_wave), numpy.max(base_wave)])
+
+        # Display the plot
+        plt.tight_layout()
+
+        plot_name = 'telluric_correction.png'
+        plot_path = os.path.join(plot_dir,plot_name)
+        plt.savefig(plot_path,dpi=300)
+        plt.close()
+
+
+        
     #---------------------------------------------
     # save to output file!
     tellcorr_info = {

@@ -1282,7 +1282,13 @@ def error_wifes_bias_model(p, x, z, err, camera, fjac=None):
 
 # --------------------------- Fred's update ------------------------------
 def generate_wifes_bias_fit(
-    bias_img, outimg, arm, data_hdu=0, plot=False, plot_dir=None, verbose=False, method="row_med"
+    bias_img, 
+    outimg, arm, 
+    data_hdu=0, 
+    plot=False, 
+    plot_dir=".", 
+    verbose=False, 
+    method="row_med"
 ):
     # get object and bias data
     f1 = pyfits.open(bias_img)
@@ -1476,7 +1482,7 @@ def generate_wifes_bias_fit(
             plt.legend(loc="lower left", fancybox=True, shadow=True)
             plt.xlim([numpy.min(linx), numpy.max(linx)])
             plt.title("Fitting bias frame %s" % bias_img.split("/")[-1])
-            plot_path = os.path.join(plot_dir, f"{arm}_bias.png")
+            plot_path = os.path.join(plot_dir, f"bias_{arm}.png")
             plt.savefig(plot_path,dpi=300)
             plt.close()
 
@@ -1627,7 +1633,7 @@ def interslice_cleanup(
     nsig_lim=5.0,
     verbose=False,
     plot=False,
-    plot_dir=None,
+    plot_dir=".",
     save_prefix="cleanup_",
     method="2D",
 ):
@@ -2960,10 +2966,11 @@ def derive_wifes_wire_solution(
             fit_x_arr[good_inds], fit_y_arr[good_inds], wire_polydeg
         )
         trend_y = numpy.polyval(wire_trend, ccd_x)
-        pylab.figure()
-        pylab.plot(fit_x_arr, fit_y_arr, 'b')
-        pylab.plot(ccd_x, trend_y, 'r')
-        pylab.show()
+        # Plot wire solution
+        # pylab.figure()
+        # pylab.plot(fit_x_arr, fit_y_arr, 'b')
+        # pylab.plot(ccd_x, trend_y, 'r')
+        # pylab.show()
         ctr_results[q, :] = trend_y
     f.close()
     results = pyfits.PrimaryHDU(data=ctr_results)

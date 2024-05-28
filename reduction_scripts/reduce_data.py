@@ -24,7 +24,7 @@ working_dir = os.getcwd()
 
 # Setup the logger.
 log_file = os.path.join(working_dir, "data_products/pywifes_logger.log")
-logger = setup_logger(file=log_file)
+logger = setup_logger(file=log_file, console_level=logging.WARNING, file_level=logging.INFO)
 
 # Redirect print statements to logger with different levels
 debug_print = custom_print(logger, logging.DEBUG)
@@ -235,7 +235,7 @@ def main():
                 superbias_fit_fn,
                 data_hdu=my_data_hdu,
                 method=method,
-                plot_dir=plots_dir,
+                plot_dir=plot_dir,
                 arm=arm, 
                 **args,
             )
@@ -370,7 +370,7 @@ def main():
                     slitlet_fn,
                     offset=offsets[type.index("dome")],
                     method="2D",
-                    plot_dir=plots_dir,
+                    plot_dir=plot_dir,
                     **args,
                 )
             else:
@@ -385,7 +385,7 @@ def main():
                     slitlet_fn,
                     offset=offsets[type.index("twi")],
                     method="2D",
-                    plot_dir=plots_dir,
+                    plot_dir=plot_dir,
                     **args,
                 )
             else:
@@ -496,25 +496,34 @@ def main():
             out_dir, "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
         )
         info_print(f"Deriving master wavelength solution from {os.path.basename(wsol_in_fn)}")
-        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, **args)
+        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, plot_dir=plot_dir, **args)
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
+       
         for fn in sci_obs_list + std_obs_list:
             local_arcs = get_associated_calib(metadata, fn, "arc")
+
             if local_arcs:
                 for i in range(np.min([2, np.size(local_arcs)])):
                     local_arc_fn = os.path.join(
                         out_dir, "%s.p%s.fits" % (local_arcs[i], prev_suffix)
                     )
+                    
                     local_wsol_out_fn = os.path.join(
                         out_dir, "%s.wsol.fits" % (local_arcs[i])
                     )
+                    
                     if os.path.isfile(local_wsol_out_fn):
                         continue
                     info_print(f"Deriving local wavelength solution for {local_arcs[i]}")
+                    
                     wifes_wsol.derive_wifes_wave_solution(
-                        local_arc_fn, local_wsol_out_fn, **args
+                        local_arc_fn, 
+                        local_wsol_out_fn,
+                        plot_dir=plot_dir 
+                        **args
                     )
+                    
         return
 
     # ------------------------------------------------------
@@ -961,9 +970,9 @@ def main():
         ]
         info_print("Deriving telluric correction")
         wifes_calib.derive_wifes_telluric(
-            std_cube_list, tellcorr_fn, extract_in_list=extract_list, **args
+            std_cube_list, tellcorr_fn, extract_in_list=extract_list, plot_dir=plot_dir, **args
         )
-        return
+        return  
 
     def run_telluric_corr(metadata, prev_suffix, curr_suffix, **args):
         '''
@@ -1094,8 +1103,8 @@ def main():
 
 
     # Creates a directory for quality plot.
-    plots_dir = os.path.join(working_dir, f"data_products/quality_plots/")
-    os.makedirs(plots_dir, exist_ok=True)
+    plot_dir = os.path.join(working_dir, f"data_products/quality_plots/")
+    os.makedirs(plot_dir, exist_ok=True)
 
 
     # Classify all raw data (red and blue arm)
@@ -1237,8 +1246,8 @@ def main():
                     continue
 
                 if step_run:
-                    print('======================')
-                    print(step_name)
+                    debug_print('======================')
+                    debug_print(step_name)
 
                     func(
                         obs_metadata,
@@ -1251,7 +1260,7 @@ def main():
 
                 else:
                     pass
-                print('======================')
+                debug_print('======================')
 
 
         except Exception as exc:
@@ -1310,8 +1319,8 @@ def main():
             # ----------
             blue_cube_path = match_cubes["Blue"]
             red_cube_path = match_cubes["Red"]
-            plot_output = match_cubes["file_name"].replace(".cube", "_detection_plot.pdf")
-
+            plot_name = match_cubes["file_name"].replace(".cube", "_detection_plot.png")
+            plot_path = os.path.join(plot_dir,plot_name)
             # Run auto-extraction
             detect_extract_and_save(
                 blue_cube_path,
@@ -1320,8 +1329,8 @@ def main():
                 r_arcsec=extract_params["r_arcsec"],
                 border_width=extract_params["border_width"],
                 sky_sub=extract_params["sky_sub"],
-                check_plot=extract_params["check_plot"],
-                plot_output=plot_output,
+                plot=extract_params["plot"],
+                plot_path=plot_path,
             )
 
             # ------------------------------------

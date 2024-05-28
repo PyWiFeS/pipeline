@@ -185,8 +185,8 @@
             "run": true,
             "suffix": null,
             "args": {
-                "plot_stars": false,
-                "plot_sensf": false,
+                "plot_stars": true,
+                "plot_sensf": true,
                 "polydeg": 10,
                 "method": "smooth_SG",
                 "boxcar": 10,
