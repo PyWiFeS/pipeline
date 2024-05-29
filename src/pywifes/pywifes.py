@@ -2520,12 +2520,12 @@ def wifes_2dim_response(
     halfframe = is_halfframe(spec_inimg)
     if halfframe:
         nslits = 12
-        mid_slit = 6
+        mid_slit = 7
         first = 7
         last = 19
     else:
         nslits = 25
-        mid_slit = 7
+        mid_slit = 13
         first = 1
         last = 26
 
@@ -2551,20 +2551,24 @@ def wifes_2dim_response(
         f3 = pyfits.open(wsol_fn)
         wave = f3[mid_slit].data
         f3.close()
+
         rect_data, mid_lam_array = transform_data(
             midslice_data, wave, return_lambda=True
         )
     else:
-
         rect_data = midslice_data
         mid_lam_array = numpy.arange(len(rect_data[0,:]),dtype='d')
     
+
     out_y_full, out_lambda_full = numpy.meshgrid(yarr, mid_lam_array)
     disp_ave = abs(numpy.mean(mid_lam_array[1:] - mid_lam_array[:-1]))
+    
+
     # fit polynomial to median data
     curr_ff_rowwise_ave = numpy.median(rect_data, axis=0)
     curr_y = numpy.log10(curr_ff_rowwise_ave)
     good_inds = numpy.nonzero((curr_y == curr_y)*(curr_ff_rowwise_ave > 0.0))[0]
+
 
     good_inds = numpy.nonzero((curr_y == curr_y) * (curr_ff_rowwise_ave > 0.0))[0]
     # add points far away to force edge derivatives to be preserved
@@ -2575,6 +2579,7 @@ def wifes_2dim_response(
         next_x = mid_lam_array[good_inds][50:-100]
         next_y = curr_y[good_inds][50:-100]
 
+
     yderiv = (next_y[1:]-next_y[:-1])/(next_x[1:]-next_x[:-1])
     nave_lo = 50
     nave_hi = 100
@@ -2582,6 +2587,7 @@ def wifes_2dim_response(
     nextend_hi = 300.0
     ydave_lo = numpy.mean(yderiv[:nave_lo])
     ydave_hi = numpy.mean(yderiv[-nave_hi:])
+
     dxlo = numpy.arange(1, nextend_lo + 1, dtype="d") * (next_x[1] - next_x[0])
     new_xlo = next_x[0] - dxlo
     new_ylo = next_y[0] - dxlo * ydave_lo
@@ -2600,7 +2606,7 @@ def wifes_2dim_response(
         new_yhi))
     
     smooth_poly = numpy.polyfit(fit_x, fit_y, polydeg)
-    
+
     #------------------------------------
     # SPATIAL FLAT
     # get median spatial flat spectrum
@@ -2626,26 +2632,29 @@ def wifes_2dim_response(
     spat_interp = scipy.interpolate.interp1d(
         mid_lam_array, spatial_flat_spec / spec_norm, bounds_error=False, fill_value=0.0
     )
+
     # ------------------------------------
     # ------------------------------------
     illum = numpy.zeros([ndy, 25], dtype="d")
     # divide rectified data by the smooth polynomial
-    for i in range(nslits):
-        curr_hdu = i + 1
+    for i in range(first,last):
+        curr_hdu = i 
         orig_spec_data = f1[curr_hdu].data
         orig_spat_data = f2[curr_hdu].data
 
         # rectify data!
         if wsol_fn != None:
             f3 = pyfits.open(wsol_fn)
-            wave = f3[i + 1].data
+            wave = f3[i - first + 1].data
             f3.close()
+            
             # convert the *x* pixels to lambda
             dw = numpy.abs(wave[:, 1:] - wave[:, :-1])
             full_dw = numpy.zeros(numpy.shape(wave))
             full_dw[:, 1:] = dw
             full_dw[:, 0] = dw[:, 0]
             print("Transforming data for Slitlet %d" % curr_hdu)
+
             # SPECTRAL FLAT
             rect_spec_data, lam_array = transform_data(
                 orig_spec_data, wave, return_lambda=True
@@ -2658,7 +2667,9 @@ def wifes_2dim_response(
             next_normed_data = (
                 init_normed_data.T / numpy.median(norm_region, axis=1)
             ).T
+
             # SPATIAL FLAT
+
             rect_spat_data = transform_data(orig_spat_data, wave, return_lambda=False)
             alt_dw = lam_array[1] - lam_array[0]
             alt_flat_spec = spat_interp(lam_array)
@@ -2669,6 +2680,7 @@ def wifes_2dim_response(
             # pylab.title(str(curr_hdu))
             # f2 = pylab.figure()
             # sp2 = f2.add_subplot(111)
+
             for q in range(ndy):
                 curr_x = wave[q, :]
                 curr_y = orig_spat_data[q, :] / full_dw[q, :]
@@ -2706,11 +2718,12 @@ def wifes_2dim_response(
             curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
             normed_data = orig_spec_data / curr_norm_array
         outfits[curr_hdu].data = normed_data
-        illum[:, i] = numpy.sum(normed_data, axis=1)
+        illum[:, i-first] = numpy.sum(normed_data, axis=1)
         if zero_var:
             var_hdu = curr_hdu + 25
             outfits[var_hdu].data *= 0.0
         # need to fit this for each slitlet
+    
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits.writeto(outimg, overwrite=True)
     f1.close()
@@ -2782,6 +2795,7 @@ def wifes_illumination(
         rect_data = midslice_data
         mid_lam_array = numpy.arange(len(rect_data[0, :]), dtype="d")
     out_y_full, out_lambda_full = numpy.meshgrid(yarr, mid_lam_array)
+
     # derive median data
     spatial_flat_spec = numpy.median(rect_data, axis=0)
     # ------------------------------------

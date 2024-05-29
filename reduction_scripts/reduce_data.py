@@ -730,10 +730,13 @@ def main():
         # Fit the desired style of response function
         info_print("Generating flatfield response function")
         if mode == "all":
+            print("------------ ALL --------------")
+
             pywifes.wifes_2dim_response(
                 super_dflat_mef, super_tflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
             )
         elif mode == "dome":
+            print("------------ DOME --------------")
             pywifes.wifes_response_poly(
                 super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
             )
@@ -1228,6 +1231,8 @@ def main():
                     continue
 
                 if step_run:
+                    # print('========******************========')
+                    # print(step_name)
                     func(
                         obs_metadata,
                         prev_suffix=prev_suffix,
@@ -1236,6 +1241,9 @@ def main():
                     )
                     if step_suffix != None:
                         prev_suffix = step_suffix
+
+                    # print('========******* DONE **********========')
+
                 else:
                     pass
 
