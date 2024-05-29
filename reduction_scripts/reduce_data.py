@@ -36,7 +36,7 @@ critical_print = custom_print(logger, logging.CRITICAL)
 info_print("Starting PyWiFeS data reduction pipeline.")
 
 from pywifes.data_classifier import classify, cube_matcher
-from pywifes.extract_spec import detect_extract_and_save
+from pywifes.extract_spec import detect_extract_and_save, plot_1D_spectrum
 from pywifes.splice import splice_spectra, splice_cubes
 from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
@@ -235,7 +235,7 @@ def main():
                 superbias_fit_fn,
                 data_hdu=my_data_hdu,
                 method=method,
-                plot_dir=plot_dir,
+                plot_dir=plot_dir_arm,
                 arm=arm, 
                 **args,
             )
@@ -370,7 +370,7 @@ def main():
                     slitlet_fn,
                     offset=offsets[type.index("dome")],
                     method="2D",
-                    plot_dir=plot_dir,
+                    plot_dir=plot_dir_arm,
                     **args,
                 )
             else:
@@ -385,7 +385,7 @@ def main():
                     slitlet_fn,
                     offset=offsets[type.index("twi")],
                     method="2D",
-                    plot_dir=plot_dir,
+                    plot_dir=plot_dir_arm,
                     **args,
                 )
             else:
@@ -496,7 +496,7 @@ def main():
             out_dir, "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
         )
         info_print(f"Deriving master wavelength solution from {os.path.basename(wsol_in_fn)}")
-        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, plot_dir=plot_dir, **args)
+        wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, plot_dir=plot_dir_arm, **args)
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
        
@@ -520,7 +520,7 @@ def main():
                     wifes_wsol.derive_wifes_wave_solution(
                         local_arc_fn, 
                         local_wsol_out_fn,
-                        plot_dir=plot_dir 
+                        plot_dir=plot_dir_arm 
                         **args
                     )
                     
@@ -749,7 +749,7 @@ def main():
                 flat_resp_fn, 
                 wsol_fn=wsol_out_fn, 
                 plot=True, 
-                plot_dir=plot_dir,
+                plot_dir=plot_dir_arm,
             )
         elif mode == "dome":
             pywifes.wifes_response_poly(
@@ -937,7 +937,7 @@ def main():
         ]
         info_print("Deriving sensitivity function")
         best_calib = wifes_calib.derive_wifes_calibration(
-            std_cube_list, calib_fn, extract_in_list=extract_list, method=method, plot_dir=plot_dir, **args
+            std_cube_list, calib_fn, extract_in_list=extract_list, method=method, plot_dir=plot_dir_arm, **args
         )
         return
 
@@ -975,7 +975,7 @@ def main():
         ]
         info_print("Deriving telluric correction")
         wifes_calib.derive_wifes_telluric(
-            std_cube_list, tellcorr_fn, extract_in_list=extract_list, plot_dir=plot_dir, **args
+            std_cube_list, tellcorr_fn, extract_in_list=extract_list, plot_dir=plot_dir_arm, **args
         )
         return  
 
@@ -1107,8 +1107,8 @@ def main():
     copy_files(user_data_dir, temp_data_dir, all_fits_names)
 
 
-    # Creates a directory for quality plot.
-    plot_dir = os.path.join(working_dir, f"data_products/quality_plots/")
+    # Creates a directory for plot.
+    plot_dir = os.path.join(working_dir, f"data_products/plots/")
     os.makedirs(plot_dir, exist_ok=True)
 
 
@@ -1146,6 +1146,7 @@ def main():
     info_print(f"Processing using master calibrations from: '{master_dir}'.")
 
     for arm in obs_metadatas.keys():
+        
         try:
             # ------------------------------------------------------------------------
             #      LOAD JSON FILE WITH USER DATA REDUCTION SETUP
@@ -1201,6 +1202,12 @@ def main():
 
             # WiFeS specific parameter
             my_data_hdu = 0
+
+            # Creates a directory for diagnisis plots (one per arm).
+            plot_dir_arm = os.path.join(plot_dir, arm)
+            os.makedirs(plot_dir_arm, exist_ok=True)
+
+
 
             # ------------------------------------------------------------------------
             # Define names for master calibration files and set their path.
@@ -1326,6 +1333,7 @@ def main():
             red_cube_path = match_cubes["Red"]
             plot_name = match_cubes["file_name"].replace(".cube", "_detection_plot.png")
             plot_path = os.path.join(plot_dir,plot_name)
+            plot = extract_params["plot"]
             # Run auto-extraction
             detect_extract_and_save(
                 blue_cube_path,
@@ -1334,16 +1342,18 @@ def main():
                 r_arcsec=extract_params["r_arcsec"],
                 border_width=extract_params["border_width"],
                 sky_sub=extract_params["sky_sub"],
-                plot=extract_params["plot"],
+                plot=plot,
                 plot_path=plot_path,
             )
+
 
             # ------------------------------------
             # Splice only paired cubes and spectra
             # ------------------------------------
-            if match_cubes["Blue"] is not None and match_cubes["Red"] is not None:
-                blue_cube_name = os.path.basename(match_cubes["Blue"])
-                red_cube_name = os.path.basename(match_cubes["Red"])
+
+            if blue_cube_path is not None and red_cube_path is not None:
+                blue_cube_name = os.path.basename(blue_cube_path)
+                red_cube_name = os.path.basename(red_cube_path)
 
                 # Get filename of form `xxx-Splice-UTxxx.cube.fits`
                 spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
@@ -1374,6 +1384,49 @@ def main():
                         working_dir, destination_dir, spliced_spectrum_name
                     )
                     splice_spectra(blue_spec, red_spec, output)
+
+
+            # Plot extracted spectra:
+            if plot:
+                if blue_cube_path is not None and red_cube_path is not None:
+
+                    blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")
+                    blue_specs = glob.glob(blue_pattern)
+
+                    red_pattern = red_cube_path.replace("cube.fits", "spec.ap*")
+                    red_specs = glob.glob(red_pattern)
+
+                    for blue_spec, red_spec in zip(blue_specs, red_specs):
+                        spliced_spec = blue_spec.replace("Blue", "Splice")
+                        
+                        plot_1D_spectrum(blue_spec,plot_dir=plot_dir)
+                        plot_1D_spectrum(red_spec,plot_dir=plot_dir)
+                        plot_1D_spectrum(spliced_spec,plot_dir=plot_dir)
+
+
+                elif blue_cube_path is not None:
+
+                    blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")
+                    blue_specs = glob.glob(blue_pattern)
+
+
+                    for blue_spec in blue_specs:
+
+                        plot_1D_spectrum(blue_spec,plot_dir=plot_dir)
+
+
+
+                elif red_cube_path is not None:
+
+                    red_pattern = red_cube_path.replace("cube.fits", "spec.ap*")
+                    red_specs = glob.glob(red_pattern)
+
+
+                    for red_spec in red_specs:
+                                            
+                        plot_1D_spectrum(red_spec,plot_dir=plot_dir)
+
+
 
     # ----------------------------------------------------------
     # Print total running time

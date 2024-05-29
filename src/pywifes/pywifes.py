@@ -1482,7 +1482,7 @@ def generate_wifes_bias_fit(
             plt.legend(loc="lower left", fancybox=True, shadow=True)
             plt.xlim([numpy.min(linx), numpy.max(linx)])
             plt.title("Fitting bias frame %s" % bias_img.split("/")[-1])
-            plot_path = os.path.join(plot_dir, f"bias_{arm}.png")
+            plot_path = os.path.join(plot_dir, f"bias.png")
             plt.savefig(plot_path,dpi=300)
             plt.close()
 

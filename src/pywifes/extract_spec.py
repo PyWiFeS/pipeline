@@ -10,6 +10,7 @@ import matplotlib.colors as mcolors
 from matplotlib.patheffects import withStroke
 from astropy.wcs import WCS
 import os
+import re
 
 # Suppress the NoDetectionsWarning as we have set a warning for no detection
 import warnings
@@ -23,6 +24,15 @@ import logging
 # Redirect print statements to logger
 logger = logging.getLogger('PyWiFeS')
 print = custom_print(logger)
+
+
+def extract_aperture_name(spec_name):
+    match = re.search(r'ap(\d)', spec_name)
+    if match:
+        aperture_number = match.group(1)
+        return f"Aperture {aperture_number}"
+    return None
+
 
 def extract_and_save(
     cube_path, sci, var, source_ap, ap_index, sky_ap, output_dir, sci_hdr, var_hdr
@@ -547,9 +557,7 @@ class SingleSpec(object):
 
 
 
-
-def plot_1D_spectrum(spec_path):
-
+def plot_1D_spectrum(spec_path,plot_dir):
 
     spec = SingleSpec(spec_path)
     flux = spec.flux
@@ -560,7 +568,10 @@ def plot_1D_spectrum(spec_path):
 
 
     # Plot the spectrum with error bars
-    plot_path = spec_path.replace('.fits', '.png')
+    spec_name = os.path.basename(spec_path)
+    plot_name = spec_name.replace('.fits', '.png')
+    plot_path = os.path.join(plot_dir,plot_name)
+    aperture_name = extract_aperture_name(spec_name)
 
     fig = plt.figure(figsize=(12,5))
 
@@ -571,9 +582,10 @@ def plot_1D_spectrum(spec_path):
     plt.step(wl, flux, where='mid', color='b')
 
     # Customize the plot
-    plt.title('Aperture #' + spec_path[-10])
+    plt.title(f'{spec_name} \n' + aperture_name)
     plt.xlabel('Wavelength (Å)')
     plt.ylabel('Flux')
     plt.grid(True)
 
     plt.savefig(plot_path, dpi=300)
+    plt.close()
