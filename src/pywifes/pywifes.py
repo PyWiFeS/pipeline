@@ -19,7 +19,7 @@ import logging
 
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
-# print = custom_print(logger)
+print = custom_print(logger)
 
 # CODE VERSION
 from .wifes_metadata import __version__

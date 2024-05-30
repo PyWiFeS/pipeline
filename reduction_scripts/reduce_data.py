@@ -24,7 +24,7 @@ working_dir = os.getcwd()
 
 # Setup the logger.
 log_file = os.path.join(working_dir, "data_products/pywifes_logger.log")
-logger = setup_logger(file=log_file)
+logger = setup_logger(file=log_file, console_level=logging.WARNING, file_level=logging.INFO)
 
 # Redirect print statements to logger with different levels
 debug_print = custom_print(logger, logging.DEBUG)
@@ -1229,7 +1229,6 @@ def main():
                     continue
 
                 if step_run:
-                    print('=========================>', step_name, '<=========================')
                     func(
                         obs_metadata,
                         prev_suffix=prev_suffix,
@@ -1238,8 +1237,6 @@ def main():
                     )
                     if step_suffix != None:
                         prev_suffix = step_suffix
-
-                    print('========             ******* DONE **********         ========')
 
                 else:
                     pass

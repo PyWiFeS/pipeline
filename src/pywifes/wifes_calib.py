@@ -11,7 +11,7 @@ import logging
 
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
-# print = custom_print(logger)
+print = custom_print(logger)
 
 from .wifes_metadata import metadata_dir
 from .wifes_metadata import __version__
@@ -541,7 +541,6 @@ def derive_wifes_calibration(
         if extract_in_list == None:
             obs_wave, obs_flux = extract_wifes_stdstar(cube_fn_list[i], ytrim=ytrim)
         else:
-            print("+++++++++++++++++++++++++", extract_in_list[i])
             ex_data = numpy.loadtxt(extract_in_list[i])
             obs_wave = ex_data[:, 0]
             obs_flux = ex_data[:, 1]
@@ -570,13 +569,6 @@ def derive_wifes_calibration(
         init_flux_ratio = -2.5 * numpy.log10(obs_flux[good_inds] / ref_flux[good_inds])
         flux_ratio = init_flux_ratio + (secz - 1.0) * std_ext[good_inds]
         fratio_results.append([obs_wave[good_inds], init_flux_ratio])
-
-        print(f"Star name: {star_name}")
-        print(f"Airmass: {secz}")
-        print(f"Reference filename: {ref_fname}")
-        print(f"Observed wave: {obs_wave}")
-        print(f"Observed flux: {obs_flux}")
-        print(f"Good indices: {good_inds}")
 
         if plot_stars or savefigs:
             scaled_flux = obs_flux[good_inds] / numpy.mean(10.0 ** (-0.4 * flux_ratio))
