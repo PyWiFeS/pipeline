@@ -11,7 +11,7 @@ import logging
 
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
-print = custom_print(logger)
+# print = custom_print(logger)
 
 from .wifes_metadata import metadata_dir
 from .wifes_metadata import __version__
@@ -229,7 +229,7 @@ def extract_wifes_stdstar(
 
     # make a mask for halfframe
     if halfframe:
-        halfframe_mask = full_y < 12.5
+        halfframe_mask = full_y < 25
     else:
         halfframe_mask = full_y < 50
 
@@ -478,9 +478,19 @@ def derive_wifes_calibration(
     # first extract stdstar spectra and compare to reference
     fratio_results = []
     for i in range(len(cube_fn_list)):
+
+        # Check half-frame
+        halfframe = is_halfframe(cube_fn_list[i])
+
+        if halfframe:
+            first = 7
+        else:
+            first = 1
+
         f = pyfits.open(cube_fn_list[i])
-        cube_hdr = f[1].header
+        cube_hdr = f[first].header
         f.close()
+
         # ------------------------------------
         # figure out which star it is
         # NEW VERSION 0.7.0: smart star name lookup!
@@ -507,6 +517,7 @@ def derive_wifes_calibration(
         print("Found star " + star_name)
         if airmass_list != None:
             secz = airmass_list[i]
+
         else:
             try:
                 secz = cube_hdr["AIRMASS"]
@@ -517,6 +528,7 @@ def derive_wifes_calibration(
                     )
                 )
                 secz = 1.0
+
         # check if there is a calib spectrum...
         if ref_fname_list != None:
             ref_fname = ref_fname_list[i]
@@ -524,22 +536,27 @@ def derive_wifes_calibration(
             ref_fname = ref_fname_lookup[star_name]
         else:
             continue
+
         # get observed data
         if extract_in_list == None:
             obs_wave, obs_flux = extract_wifes_stdstar(cube_fn_list[i], ytrim=ytrim)
         else:
+            print("+++++++++++++++++++++++++", extract_in_list[i])
             ex_data = numpy.loadtxt(extract_in_list[i])
             obs_wave = ex_data[:, 0]
             obs_flux = ex_data[:, 1]
+
         if wave_min == None:
             wave_min = numpy.min(obs_wave)
         if wave_max == None:
             wave_max = numpy.max(obs_wave)
+
         # get reference data
         ref_data = numpy.loadtxt(os.path.join(ref_dir, ref_fname))
         ref_interp = scipy.interpolate.interp1d(
             ref_data[:, 0], ref_data[:, 1], bounds_error=False, fill_value=numpy.nan
         )
+
         ref_flux = ref_interp(obs_wave)
         std_ext = extinct_interp(obs_wave)
         good_inds = numpy.nonzero(
@@ -549,9 +566,18 @@ def derive_wifes_calibration(
             * (obs_wave <= wave_max)
             * (obs_flux > 0.0)
         )[0]
+
         init_flux_ratio = -2.5 * numpy.log10(obs_flux[good_inds] / ref_flux[good_inds])
         flux_ratio = init_flux_ratio + (secz - 1.0) * std_ext[good_inds]
         fratio_results.append([obs_wave[good_inds], init_flux_ratio])
+
+        print(f"Star name: {star_name}")
+        print(f"Airmass: {secz}")
+        print(f"Reference filename: {ref_fname}")
+        print(f"Observed wave: {obs_wave}")
+        print(f"Observed flux: {obs_flux}")
+        print(f"Good indices: {good_inds}")
+
         if plot_stars or savefigs:
             scaled_flux = obs_flux[good_inds] / numpy.mean(10.0 ** (-0.4 * flux_ratio))
             pylab.figure()
@@ -568,19 +594,24 @@ def derive_wifes_calibration(
             if savefigs:
                 save_fn = save_prefix + "star_%d.png" % (i + 1)
                 pylab.savefig(save_fn)
+
     # from all comparisons, derive a calibration solution
     # EVENTUALLY WILL FIT AN EXTINCTION TERM TOO
     if len(fratio_results) < 1:
         # Didn't find any stars - there's no point in continuing
         raise Exception("Could not find calibration data for any stars!")
+
     if norm_stars:
+
         i_mid = int(len(fratio_results[0][0]) / 2)
+
         fscale_max = min([x[1][i_mid] for x in fratio_results])
         init_full_y = numpy.concatenate(
             [x[1] - x[1][i_mid] + fscale_max for x in fratio_results]
         )
 
     else:
+
         init_full_y = numpy.concatenate([x[1] for x in fratio_results])
     init_full_x = numpy.concatenate([x[0] for x in fratio_results])
     init_good_inds = numpy.nonzero(
@@ -590,11 +621,17 @@ def derive_wifes_calibration(
         * (halpha_mask(init_full_x))
     )[0]
     # do a first fit
+
     next_full_y = init_full_y[init_good_inds]
+
     next_full_x = init_full_x[init_good_inds]
+
     sort_order = next_full_x.argsort()
+
     temp_full_x = next_full_x[sort_order]
+
     temp_full_y = next_full_y[sort_order]
+
     # ----------- Fred's update 3 -------------------
     if method == "smooth_SG":
         # Savitzky-Golay requires continuous data. ->need to fill the 'holes'
@@ -664,12 +701,6 @@ def derive_wifes_calibration(
 
     best_calib = numpy.polyfit(full_x, full_y, polydeg)
     this_f2 = numpy.poly1d(best_calib)
-    # ~ if print_result: # TODO
-    print("best_calib")
-    print(method)
-    print(stdstar_name_list)
-    print(best_calib)
-    print("")
 
     # Calculate the final result
     final_fvals = this_f(full_x)

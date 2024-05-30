@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------------
 # Initial set ups and import modules
 # ------------------------------------------------------------------------
-
+  
 import sys
 import os
 import pickle
@@ -52,7 +52,6 @@ import argparse
 # Function definition
 # ------------------------------------------------------------------------
 
-
 def move_files(src_dir_path, destination_dir_path, filenames):
     for file in filenames:
         src_file = os.path.join(src_dir_path, file)
@@ -60,10 +59,9 @@ def move_files(src_dir_path, destination_dir_path, filenames):
         info_print(f"Moving file {src_file} to {dest_file}")
         shutil.move(src_file, dest_file)
 
-
 def copy_files(src_dir_path, destination_dir_path, filenames):
     for file in filenames:
-        src_file = os.path.join(src_dir_path, file)
+        src_file = os.path.join(src_dir_path, file) 
         dest_file = os.path.join(destination_dir_path, file)
         shutil.copy(src_file, dest_file)
 
@@ -84,7 +82,6 @@ def load_config_file(filename):
     with open(file_path, "r") as f:
         return json.load(f)
 
-
 # ------------------------------------------------------------------------
 
 
@@ -101,7 +98,7 @@ def main():
             metadata["bias"]
             + metadata["arc"]
             + metadata["wire"]
-            + metadata["dark"]
+            + metadata['dark']
             + metadata["domeflat"]
             + metadata["twiflat"]
         )
@@ -145,7 +142,7 @@ def main():
             for fn in obs["sky"]:
                 if fn not in sky_obs_list:
                     sky_obs_list.append(fn)
-        info_print(f"Sky observation list: {sky_obs_list}")
+        info_print(f"Sky observation list: {sky_obs_list}")            
         return sky_obs_list
 
     def get_associated_calib(metadata, this_fn, type):
@@ -223,13 +220,13 @@ def main():
     # Generate super-bias
     # ------------------------------------------------------
     def run_superbias(metadata, prev_suffix, curr_suffix, method="row_med", **args):
-        """Generate superbias for the entire dataset and for each science frame.
+        '''Generate superbias for the entire dataset and for each science frame.
         Fit a smart surface to the bias or take the median of each row.
-        """
+        '''
         bias_list = [
             os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
             for x in metadata["bias"]
-        ]
+            ]
         info_print("Calculating Global Superbias")
         pywifes.imcombine(bias_list, superbias_fn, data_hdu=my_data_hdu)
         if method == "fit" or method == "row_med":
@@ -304,9 +301,7 @@ def main():
                 bias_type = "global"
 
             # subtract it!
-            info_print(
-                f"Subtracting {bias_type} superbias for {os.path.basename(in_fn)}"
-            )
+            info_print(f"Subtracting {bias_type} superbias for {os.path.basename(in_fn)}")
             if method == "copy":
                 pywifes.imcopy(in_fn, out_fn)
             else:
@@ -337,9 +332,7 @@ def main():
             error_print("Flatfield type not recognized")
             raise ValueError("Flatfield type not recognized")
         if not flat_list:
-            warning_print(
-                f"No {source} flats found. Skipping the superflat generation for {source}."
-            )
+            warning_print(f"No {source} flats found. Skipping the superflat generation for {source}.")
             return
         info_print(f"Generating co-add {source} flat")
         pywifes.imcombine(
@@ -358,9 +351,9 @@ def main():
         offsets=[0.0, 0.0],
         **args,
     ):
-        """
+        '''
         Make the master domeflat and twilight flat corrections.
-        """
+        '''
         # check the slitlet definition file
         if os.path.isfile(slitlet_def_fn):
             slitlet_fn = slitlet_def_fn
@@ -368,9 +361,7 @@ def main():
             slitlet_fn = None
         if "dome" in type:
             if os.path.isfile(super_dflat_raw):
-                info_print(
-                    f"Correcting master domeflat {os.path.basename(super_dflat_fn)}"
-                )
+                info_print(f"Correcting master domeflat {os.path.basename(super_dflat_fn)}")
                 pywifes.interslice_cleanup(
                     super_dflat_raw,
                     super_dflat_fn,
@@ -380,15 +371,11 @@ def main():
                     **args,
                 )
             else:
-                warnig_print(
-                    f"Master dome flat {os.path.basename(super_dflat_raw)} not found. Skipping dome flat cleanup."
-                )
+                warnig_print(f"Master dome flat {os.path.basename(super_dflat_raw)} not found. Skipping dome flat cleanup.")
 
         if "twi" in type:
             if os.path.isfile(super_tflat_raw):
-                info_print(
-                    f"Correcting master twilight flat {os.path.basename(super_tflat_fn)}"
-                )
+                info_print(f"Correcting master twilight flat {os.path.basename(super_tflat_fn)}")
                 pywifes.interslice_cleanup(
                     super_tflat_raw,
                     super_tflat_fn,
@@ -398,18 +385,16 @@ def main():
                     **args,
                 )
             else:
-                warning_print(
-                    f"Master twilight flat {os.path.basename(super_tflat_raw)} not found. Skipping twilight flat cleanup."
-                )
+                warning_print(f"Master twilight flat {os.path.basename(super_tflat_raw)} not found. Skipping twilight flat cleanup.")
         return
 
     # ------------------------------------------------------
     # Fit slitlet profiles
     # ------------------------------------------------------
     def run_slitlet_profile(metadata, prev_suffix, curr_suffix, **args):
-        """
+        ''' 
         Fit the slitlet profiles to the flatfield.
-        """
+        ''' 
         if os.path.isfile(super_dflat_fn):
             flatfield_fn = super_dflat_fn
         else:
@@ -430,9 +415,7 @@ def main():
             elif os.path.isfile(super_dflat_raw):
                 in_fn = super_dflat_raw
             else:
-                warning_print(
-                    f"No master dome flat found. Skipping MEF generation for dome flat."
-                )
+                warning_print(f"No master dome flat found. Skipping MEF generation for dome flat.")
                 return
             out_fn = super_dflat_mef
 
@@ -442,9 +425,7 @@ def main():
             elif os.path.isfile(super_tflat_raw):
                 in_fn = super_tflat_raw
             else:
-                warning_print(
-                    f"No master twilight flat found. Skipping MEF generation for twilight flat."
-                )
+                warning_print(f"No master twilight flat found. Skipping MEF generation for twilight flat.")
                 return
             out_fn = super_tflat_mef
         else:
@@ -499,20 +480,18 @@ def main():
     # Wavelength solution
     # ------------------------------------------------------
     def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
-        """
+        '''
         Generate the master arc solution, based on generic arcs at first.
         Then looks for the local wavelength solutions for science or standards (sky not required at this stage).
         Check if the file has a dedicated arc associated with it.
         If two arcs are present, find a solution for both to later interpolate between them.
         Restrict it to the first two arcs in the list (in case the feature is
         being unknowingly used).
-        """
+        '''
         wsol_in_fn = os.path.join(
             out_dir, "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
         )
-        info_print(
-            f"Deriving master wavelength solution from {os.path.basename(wsol_in_fn)}"
-        )
+        info_print(f"Deriving master wavelength solution from {os.path.basename(wsol_in_fn)}")
         wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, **args)
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
@@ -528,9 +507,7 @@ def main():
                     )
                     if os.path.isfile(local_wsol_out_fn):
                         continue
-                    info_print(
-                        f"Deriving local wavelength solution for {local_arcs[i]}"
-                    )
+                    info_print(f"Deriving local wavelength solution for {local_arcs[i]}")
                     wifes_wsol.derive_wifes_wave_solution(
                         local_arc_fn, local_wsol_out_fn, **args
                     )
@@ -540,9 +517,9 @@ def main():
     # Wire solution
     # ------------------------------------------------------
     def run_wire_soln(metadata, prev_suffix, curr_suffix):
-        """
+        ''' 
         Global wire solution first, then local wire solutions for any specific obsevations.
-        """
+        '''
         # Global wire solution
         wire_in_fn = os.path.join(
             out_dir, "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
@@ -580,9 +557,9 @@ def main():
         multithread=False,
         max_processes=-1,
     ):
-        """
+        ''' 
         Clean cosmic rays on all science and standard frames.
-        """
+        '''
         # now run ONLY ON SCIENCE TARGETS AND STANDARDS
         sci_obs_list = get_sci_obs_list(metadata)
         sky_obs_list = get_sky_obs_list(metadata)
@@ -640,9 +617,7 @@ def main():
             if ns:
                 in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
                 out_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, curr_suffix))
-                info_print(
-                    f"Cleaning cosmics in standard star {os.path.basename(in_fn)}"
-                )
+                info_print(f"Cleaning cosmics in standard star {os.path.basename(in_fn)}")
                 lacos_wifes(
                     in_fn,
                     out_fn,
@@ -661,9 +636,9 @@ def main():
     # Sky subtraction
     # ------------------------------------------------------
     def run_sky_sub_ns(metadata, prev_suffix, curr_suffix):
-        """
+        '''
         Subtract sky frames from science objects.
-        """
+        '''
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
         ns_proc_list = sci_obs_list + std_obs_list
@@ -691,9 +666,7 @@ def main():
                         out_fn = os.path.join(
                             out_dir, "%s.p%s.fits" % (fn, curr_suffix)
                         )
-                        info_print(
-                            f"Subtracting sky frame for {os.path.basename(in_fn)}"
-                        )
+                        info_print(f"Subtracting sky frame for {os.path.basename(in_fn)}")
                         # subtract scaled sky framefrom science frame
                         pywifes.scaled_imarith_mef(
                             in_fn, "-", sky_proc_fn, out_fn, scale="exptime"
@@ -721,9 +694,9 @@ def main():
     # Image coaddition for science and standards
     # ------------------------------------------------------
     def run_obs_coadd(metadata, prev_suffix, curr_suffix, method="sum", scale=None):
-        """
+        '''
         Coadd science and standard frames.
-        """
+        '''
         for obs in metadata["sci"] + metadata["std"]:
             # If just one, then copy it
             if len(obs["sci"]) == 1:
@@ -751,9 +724,9 @@ def main():
     # Flatfield: Response
     # ------------------------------------------------------
     def run_flat_response(metadata, prev_suffix, curr_suffix, mode="all"):
-        """
+        '''
         Generate the flatfield response function.
-        """
+        '''
         # Fit the desired style of response function
         info_print("Generating flatfield response function")
         if mode == "all":
@@ -773,9 +746,9 @@ def main():
     # Flatfield: Division
     # ------------------------------------------------------
     def run_flatfield(metadata, prev_suffix, curr_suffix):
-        """
+        ''' 
         Flat-field correction to science and standard frames.
-        """
+        '''
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
         for fn in sci_obs_list + std_obs_list:
@@ -791,9 +764,9 @@ def main():
     # Data Cube Generation
     # ------------------------------------------------------
     def run_cube_gen(metadata, prev_suffix, curr_suffix, **args):
-        """
+        ''' 
         Generate data cubes for science and standard frames.
-        """
+        '''
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
         for fn in sci_obs_list + std_obs_list:
@@ -822,13 +795,12 @@ def main():
                     arc_times = ["", ""]
                     for i in range(2):
                         local_wsol_out_fn_extra = os.path.join(
-                            out_dir, f"{local_arcs[i]}.wsol.fits_extra.pkl"
-                        )
+                            out_dir, f"{local_arcs[i]}.wsol.fits_extra.pkl")
                         with open(local_wsol_out_fn_extra, "rb") as f:
                             try:
                                 f_pickled = pickle.load(f, protocol=2)
                             except:
-                                f_pickled = pickle.load(f)
+                                f_pickled = pickle.load(f)  
                         f.close()
                         arc_times[i] = f_pickled[-1][0]
 
@@ -882,24 +854,18 @@ def main():
                         fits0.writeto(wsol_fn, overwrite=True)
 
                         info_print("(2 arcs found)")
-                        info_print(
-                            f"(Note: using {w1:.2f}x{local_arcs[0]}.wsol.fits + {w2:.2f}x{local_arcs[1]}.wsol.fits as wsol file)"
-                        )
-
+                        info_print(f"(Note: using {w1:.2f}x{local_arcs[0]}.wsol.fits + {w2:.2f}x{local_arcs[1]}.wsol.fits as wsol file)")
+                            
                     else:
                         # Arcs do not surround the Science frame
                         # Revert to using the first one instead
                         wsol_fn = os.path.join(out_dir, f"{local_arcs[0]}.wsol.fits")
-                        info_print(
-                            "(2 arcs found, but they do not bracket the Science frame!)"
-                        )
+                        info_print("(2 arcs found, but they do not bracket the Science frame!)")
                         print(f"(Note: using {os.path.basename(wsol_fn)} as wsol file)")
                 else:
                     # IF Either 1 or more than two arcs present, only use the first one.
                     wsol_fn = os.path.join(out_dir, f"{local_arcs[0]}.wsol.fits")
-                    info_print(
-                        f"(Note: using {os.path.basename(wsol_fn)} as wsol file)"
-                    )
+                    info_print(f"(Note: using {os.path.basename(wsol_fn)} as wsol file)")
             else:
                 wsol_fn = wsol_out_fn
 
@@ -912,16 +878,16 @@ def main():
                 ny_orig=76,
                 offset_orig=2.0,
                 **args,
-            )
+                )
         return
 
     # ------------------------------------------------------
     # Standard star extraction
     # ------------------------------------------------------
     def run_extract_stars(metadata, prev_suffix, curr_suffix, type="all", **args):
-        """
+        '''
         Extract standard stars spectrum.
-        """
+        '''
         # For each std, extract spectrum as desired
         std_obs_list = get_primary_std_obs_list(metadata, type=type)
         for fn in std_obs_list:
@@ -935,19 +901,22 @@ def main():
 
     # Sensitivity Function fit
     def run_derive_calib(metadata, prev_suffix, curr_suffix, method="poly", **args):
-        """
+        ''' 
         Derive the sensitivity function from the extracted standard stars.
         kwargs:
             - method: 'poly' or 'spline'
             - order: polynomial order
             - knots: number of knots for the spline
-        """
+        '''
         std_obs_list = get_primary_std_obs_list(metadata, type="flux")
+
         std_cube_list = [
-            os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits") for fn in std_obs_list
+            os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
+            for fn in std_obs_list
         ]
         extract_list = [
-            os.path.join(out_dir, f"{fn}.x{prev_suffix}.dat") for fn in std_obs_list
+            os.path.join(out_dir, f"{fn}.x{prev_suffix}.dat")
+            for fn in std_obs_list
         ]
         info_print("Deriving sensitivity function")
         best_calib = wifes_calib.derive_wifes_calibration(
@@ -959,9 +928,9 @@ def main():
     # Flux Calibration
     # ------------------------------------------------------
     def run_flux_calib(metadata, prev_suffix, curr_suffix, mode="pywifes", **args):
-        """
+        '''
         Flux calibrate all science and standard observations.
-        """
+        ''' 
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
         for fn in sci_obs_list + std_obs_list:
@@ -975,15 +944,17 @@ def main():
     # Telluric - derive
     # ------------------------------------------------------
     def run_derive_telluric(metadata, prev_suffix, curr_suffix, **args):
-        """
+        '''
         Derive the telluric correction from the standard star.
-        """
+        '''
         std_obs_list = get_primary_std_obs_list(metadata, "telluric")
         std_cube_list = [
-            os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits") for fn in std_obs_list
+            os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
+            for fn in std_obs_list
         ]
         extract_list = [
-            os.path.join(out_dir, f"{fn}.x{prev_suffix}.dat") for fn in std_obs_list
+            os.path.join(out_dir, f"{fn}.x{prev_suffix}.dat")
+            for fn in std_obs_list
         ]
         info_print("Deriving telluric correction")
         wifes_calib.derive_wifes_telluric(
@@ -992,9 +963,9 @@ def main():
         return
 
     def run_telluric_corr(metadata, prev_suffix, curr_suffix, **args):
-        """
+        '''
         Apply telluric correction for all science and standard observations.
-        """
+        '''
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
         for fn in sci_obs_list + std_obs_list:
@@ -1005,17 +976,18 @@ def main():
         return
 
     def run_save_3dcube(metadata, prev_suffix, curr_suffix, **args):
-        """
+        '''
         Save 3D Data Cube for all science and standard observations.
-        """
+        '''
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
 
         # Check if is half-frame from the first sci image
-        sci_filename = temp_data_dir + sci_obs_list[0] + ".fits"
+        sci_filename = temp_data_dir +  sci_obs_list[0] + ".fits"
 
         halfframe = is_halfframe(sci_filename)
         # now generate cubes
+
 
         for fn in sci_obs_list + std_obs_list:
             in_fn = os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
@@ -1034,9 +1006,7 @@ def main():
     )
 
     # The raw data directory is a required positional argument
-    parser.add_argument(
-        "user_data_dir", type=str, help="Path to the raw data directory."
-    )
+    parser.add_argument("user_data_dir", type=str, help="Path to the raw data directory.")
 
     # Option for specifying the path to the red parameters JSON file
     parser.add_argument(
@@ -1112,14 +1082,13 @@ def main():
     working_dir = os.getcwd()
 
     # Creates a tempoarary data directory containning all raw data for reduction.
-    temp_data_dir = os.path.join(
-        working_dir, f"data_products/intermediate/raw_data_temp/"
-    )
+    temp_data_dir = os.path.join(working_dir, f"data_products/intermediate/raw_data_temp/")
     os.makedirs(temp_data_dir, exist_ok=True)
 
     all_fits_names = get_file_names(user_data_dir, "*.fits")
     # Copy raw data  from user's direcory into temporaty raw directory.
     copy_files(user_data_dir, temp_data_dir, all_fits_names)
+
 
     # Classify all raw data (red and blue arm)
     obs_metadatas = classify(temp_data_dir)
@@ -1171,11 +1140,9 @@ def main():
                 reference_filename = obs_metadata["arc"][0] + ".fits"
             else:
                 error_print("No science, standard, or arc files found in metadata.")
-                raise ValueError(
-                    "No science, standard, or arc files found in metadata."
-                )
+                raise ValueError("No science, standard, or arc files found in metadata.")
 
-            # Check observing mode
+            # Check observing mode 
             if pywifes.is_nodshuffle(temp_data_dir + reference_filename):
                 obs_mode = "ns"
 
@@ -1187,16 +1154,15 @@ def main():
             # Check if is half-frame
             halfframe = is_halfframe(temp_data_dir + reference_filename)
             if halfframe:
-                obs_metadata = calib_to_half_frame(obs_metadata, temp_data_dir)
+                obs_metadata = calib_to_half_frame(obs_metadata,temp_data_dir) 
+
 
             # Grism
             grism = pyfits.getheader(temp_data_dir + reference_filename)[grism_key[arm]]
 
             # Set the JSON file path and read it.
             if just_calib and (params_path[arm] is None):
-                json_path = (
-                    f"./pipeline_params/just-calib/{arm}/params_{obs_mode}_{grism}.json"
-                )
+                json_path = f"./pipeline_params/just-calib/{arm}/params_{obs_mode}_{grism}.json"
             elif params_path[arm] is None:
                 json_path = f"./pipeline_params/{arm}/params_{obs_mode}_{grism}.json"
             else:
@@ -1219,35 +1185,19 @@ def main():
             # ------------------------------------------------------------------------
             # Bias Master Files
             superbias_fn = os.path.join(master_dir, "%s_superbias.fits" % calib_prefix)
-            superbias_fit_fn = os.path.join(
-                master_dir, "%s_superbias_fit.fits" % calib_prefix
-            )
+            superbias_fit_fn = os.path.join(master_dir, "%s_superbias_fit.fits" % calib_prefix)
 
             # Flat Master Files
             # Dome
-            super_dflat_raw = os.path.join(
-                master_dir, "%s_super_domeflat_raw.fits" % calib_prefix
-            )
-            super_dflat_fn = os.path.join(
-                master_dir, "%s_super_domeflat.fits" % calib_prefix
-            )
-            super_dflat_mef = os.path.join(
-                master_dir, "%s_super_domeflat_mef.fits" % calib_prefix
-            )
+            super_dflat_raw = os.path.join(master_dir, "%s_super_domeflat_raw.fits" % calib_prefix)
+            super_dflat_fn = os.path.join(master_dir, "%s_super_domeflat.fits" % calib_prefix)
+            super_dflat_mef = os.path.join(master_dir, "%s_super_domeflat_mef.fits" % calib_prefix)
             # Twilight
-            super_tflat_raw = os.path.join(
-                master_dir, "%s_super_twiflat_raw.fits" % calib_prefix
-            )
-            super_tflat_fn = os.path.join(
-                master_dir, "%s_super_twiflat.fits" % calib_prefix
-            )
-            super_tflat_mef = os.path.join(
-                master_dir, "%s_super_twiflat_mef.fits" % calib_prefix
-            )
+            super_tflat_raw = os.path.join(master_dir, "%s_super_twiflat_raw.fits" % calib_prefix)
+            super_tflat_fn = os.path.join(master_dir, "%s_super_twiflat.fits" % calib_prefix)
+            super_tflat_mef = os.path.join(master_dir, "%s_super_twiflat_mef.fits" % calib_prefix)
             # Slitlet definition
-            slitlet_def_fn = os.path.join(
-                master_dir, "%s_slitlet_defs.pkl" % calib_prefix
-            )
+            slitlet_def_fn = os.path.join(master_dir, "%s_slitlet_defs.pkl" % calib_prefix)
             wsol_out_fn = os.path.join(master_dir, "%s_wave_soln.fits" % calib_prefix)
             wire_out_fn = os.path.join(master_dir, "%s_wire_soln.fits" % calib_prefix)
             flat_resp_fn = os.path.join(master_dir, "%s_resp_mef.fits" % calib_prefix)
@@ -1261,13 +1211,9 @@ def main():
             # ------------------------------------------------------------------------
             # Run proccessing steps
             # ------------------------------------------------------------------------
-            info_print(
-                f"________________________________________________________________"
-            )
+            info_print(f"________________________________________________________________")
             info_print(f"Starting processing of {arm} arm")
-            info_print(
-                f"________________________________________________________________"
-            )
+            info_print(f"________________________________________________________________")
 
             prev_suffix = None
             for step in proc_steps[arm]:
@@ -1283,8 +1229,7 @@ def main():
                     continue
 
                 if step_run:
-                    # print('========******************========')
-                    # print(step_name)
+                    print('=========================>', step_name, '<=========================')
                     func(
                         obs_metadata,
                         prev_suffix=prev_suffix,
@@ -1294,21 +1239,16 @@ def main():
                     if step_suffix != None:
                         prev_suffix = step_suffix
 
-                    # print('========******* DONE **********========')
+                    print('========             ******* DONE **********         ========')
 
                 else:
                     pass
 
         except Exception as exc:
-            error_print(
-                "________________________________________________________________"
-            )
-            error_print(
-                f"{arm} arm skipped, an error occurred during processing: '{exc}'."
-            )
-            error_print(
-                "________________________________________________________________"
-            )
+            error_print("________________________________________________________________")
+            error_print(f"{arm} arm skipped, an error occurred during processing: '{exc}'.")        
+            error_print("________________________________________________________________")
+
 
     # Delete temporary directory containing raw data.
     shutil.rmtree(temp_data_dir)
@@ -1338,12 +1278,8 @@ def main():
         # Find and list all reduced cubes in the destination directory
         # ----------------------------------------------------------
         reduced_cubes_paths = [
-            os.path.join(destination_dir, file_name)
-            for file_name in blue_cubes_file_name
-        ] + [
-            os.path.join(destination_dir, file_name)
-            for file_name in red_cubes_file_name
-        ]
+            os.path.join(destination_dir, file_name) for file_name in blue_cubes_file_name
+        ] + [os.path.join(destination_dir, file_name) for file_name in red_cubes_file_name]
 
         # ----------------------------------------------------------
         # Match cubes from the same observation based on DATE-OBS
@@ -1353,9 +1289,7 @@ def main():
         # ----------------------------------------------------------
         # Read extraction parameters from JSON file
         # ----------------------------------------------------------
-        extract_params = load_config_file(
-            f"./pipeline_params/params_extract_{obs_mode}.json"
-        )
+        extract_params = load_config_file(f"./pipeline_params/params_extract_{obs_mode}.json")
 
         # ----------------------------------------------------------
         # Loop over matched cubes list
@@ -1366,9 +1300,7 @@ def main():
             # ----------
             blue_cube_path = match_cubes["Blue"]
             red_cube_path = match_cubes["Red"]
-            plot_output = match_cubes["file_name"].replace(
-                ".cube", "_detection_plot.pdf"
-            )
+            plot_output = match_cubes["file_name"].replace(".cube", "_detection_plot.pdf")
 
             # Run auto-extraction
             detect_extract_and_save(
@@ -1426,8 +1358,7 @@ def main():
     duration = end_time - start_time
     messagge = "All done in %.01f seconds." % duration.total_seconds()
     info_print(messagge)
-    print("\U0001F52D", messagge, "\u2B50")
-
-
+    print('\U0001F52D',messagge,'\u2B50')
+    
 if __name__ == "__main__":
     main()
