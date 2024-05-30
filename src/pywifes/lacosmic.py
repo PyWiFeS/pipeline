@@ -233,8 +233,8 @@ def lacos_wifes_oneproc(in_img_filepath, out_filepath,
         last = 19
     else:
         nslits = 25
-        first = 7
-        last = 19
+        first = 1
+        last = 26
         
     outfits = pyfits.HDUList(hdus)
     if wsol_filepath:
@@ -291,8 +291,8 @@ def lacos_wifes_multithread(
         last = 19
     else:
         nslits = 25
-        first = 7
-        last = 19
+        first = 1
+        last = 26
 
     tasks = []
     if wsol_filepath:
