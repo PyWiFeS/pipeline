@@ -2459,6 +2459,8 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7):
         lam_array = numpy.arange(len(rect_data[0, :]), dtype="d")
     # fit polynomial to median data
     curr_ff_rowwise_ave = numpy.median(rect_data, axis=0)
+    # Masking negatives values before entering the log10
+    curr_ff_rowwise_ave[curr_ff_rowwise_ave<=0] = numpy.nan
     curr_y = numpy.log10(curr_ff_rowwise_ave)
     good_inds = numpy.nonzero((curr_y == curr_y) * (curr_ff_rowwise_ave > 0.0))[0]
     # add points far away to force edge derivatives to be preserved
@@ -2527,19 +2529,19 @@ def wifes_2dim_response(
     halfframe = is_halfframe(spec_inimg)
     if halfframe:
         nslits = 12
-        mid_slit = 7
         first = 7
         last = 19
     else:
         nslits = 25
-        mid_slit = 13
         first = 1
         last = 26
+        
+    mid_slit = 13
 
     # open the two files!
     f1 = pyfits.open(spec_inimg)
     f2 = pyfits.open(spatial_inimg)
-    ndy, ndx = numpy.shape(f1[1].data)
+    ndy, ndx = numpy.shape(f1[first].data)
     xarr = numpy.arange(ndx)
     yarr = numpy.arange(ndy)
     full_x, full_y = numpy.meshgrid(xarr, yarr)
@@ -2554,7 +2556,9 @@ def wifes_2dim_response(
 
     if wsol_fn != None:
         f3 = pyfits.open(wsol_fn)
-        wave = f3[mid_slit].data
+        # The middle wavelengh index is 7 if half frame and 13 if not.
+        mid_wl_index = mid_slit - first + 1
+        wave = f3[mid_wl_index].data
         f3.close()
 
         rect_data, mid_lam_array = transform_data(
@@ -2569,9 +2573,9 @@ def wifes_2dim_response(
 
     # fit polynomial to median data
     curr_ff_rowwise_ave = numpy.median(rect_data, axis=0)
+    # Masking negatives values before entering the log10
+    curr_ff_rowwise_ave[curr_ff_rowwise_ave<=0] = numpy.nan
     curr_y = numpy.log10(curr_ff_rowwise_ave)
-    good_inds = numpy.nonzero((curr_y == curr_y) * (curr_ff_rowwise_ave > 0.0))[0]
-
     good_inds = numpy.nonzero((curr_y == curr_y) * (curr_ff_rowwise_ave > 0.0))[0]
     # add points far away to force edge derivatives to be preserved
     if pyfits.getval(spec_inimg, "CAMERA") == "WiFeSRed":
@@ -2611,7 +2615,9 @@ def wifes_2dim_response(
 
     if wsol_fn != None:
         f3 = pyfits.open(wsol_fn)
-        wave = f3[mid_slit].data
+        # The middle wavelengh index is 7 if half frame and 13 if not.
+        mid_wl_index = mid_slit - first + 1
+        wave = f3[mid_wl_index].data
         f3.close()
         rect_data = transform_data(midslice_data, wave)
     else:
@@ -2630,7 +2636,7 @@ def wifes_2dim_response(
 
     # ------------------------------------
     # ------------------------------------
-    illum = numpy.zeros([ndy, 25], dtype="d")
+    illum = numpy.zeros([ndy, ndx], dtype="d")
     # divide rectified data by the smooth polynomial
     for i in range(first, last):
         curr_hdu = i
@@ -2649,6 +2655,7 @@ def wifes_2dim_response(
             full_dw[:, 1:] = dw
             full_dw[:, 0] = dw[:, 0]
             print("Transforming data for Slitlet %d" % curr_hdu)
+
 
             # SPECTRAL FLAT
             rect_spec_data, lam_array = transform_data(
