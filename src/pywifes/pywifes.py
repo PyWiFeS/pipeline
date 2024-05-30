@@ -13,15 +13,17 @@ import scipy.interpolate as interp
 import pylab
 import matplotlib.pyplot as plt
 import pylab
-import  astropy.units as u
+import astropy.units as u
 from pywifes.logger_config import custom_print
 import logging
+
 # Redirect print statements to logger
-logger = logging.getLogger('PyWiFeS')
+logger = logging.getLogger("PyWiFeS")
 print = custom_print(logger)
-  
+
 # CODE VERSION
 from .wifes_metadata import __version__
+
 # Pipeline imports
 from .multiprocessing_utils import get_task, map_tasks
 from .wifes_metadata import metadata_dir
@@ -45,7 +47,8 @@ blue_slitlet_defs = wifes_metadata["blue_slitlet_defs"]
 red_slitlet_defs = wifes_metadata["red_slitlet_defs"]
 nslits = len(blue_slitlet_defs.keys())
 
-#------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------
 def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
     """
     Cuts a FITS file to half-frame size and saves the output with a specified prefix.
@@ -77,64 +80,61 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
     with pyfits.open(inimg_path) as hdul:
         # Get the primary HDU (Header/Data Unit)
         primary_hdu = hdul[0]
-        
+
         # Extract the data and header
         data = primary_hdu.data
         header = primary_hdu.header
 
         # Consider binning
-        ccdsum = header['CCDSUM']
+        ccdsum = header["CCDSUM"]
         bins = ccdsum.split()
         bin_y = int(float(bins[1]))
-        
+
         # Cut the data according to the specified sectionclear
-        cut_data = data[int(1028/bin_y):int(3084/bin_y), :]
-        
+        cut_data = data[int(1028 / bin_y) : int(3084 / bin_y), :]
+
         # Update the DETSEC in the header
-        header['DETSEC'] = '[1:4202,1029:3084]'
-        
+        header["DETSEC"] = "[1:4202,1029:3084]"
+
         # Create a new HDU with the cut data and the updated header
         cut_hdu = pyfits.PrimaryHDU(data=cut_data, header=header)
-        
+
         # Generate the output filename
 
         dir_name, file_name = os.path.split(inimg_path)
 
         outimg_path = os.path.join(dir_name, outimg_prefix + file_name)
-        
+
         # Write the cut data to the new FITS file
         cut_hdu.writeto(outimg_path, overwrite=True)
-        
+
+
 # ------------------------------------------------------------------------
 def calib_to_half_frame(obs_metadata, temp_data_dir):
-    
 
     # A list of calibration types that need to be half-frame for the pipeline to work properly in the half-frame scenario.
-    calib_types = ['domeflat','twiflat','wire','arc']
-    prefix="cut_"
+    calib_types = ["domeflat", "twiflat", "wire", "arc"]
+    prefix = "cut_"
 
     for calib_type in calib_types:
         file_list = obs_metadata[calib_type]
         for index, file_name in enumerate(file_list):
-            calib_fits = os.path.join(temp_data_dir,  file_name + '.fits')
+            calib_fits = os.path.join(temp_data_dir, file_name + ".fits")
             if not is_halfframe(calib_fits):
                 cut_fits_to_half_frame(calib_fits, outimg_prefix=prefix)
-                obs_metadata[calib_type][index] = prefix + file_name      
-
+                obs_metadata[calib_type][index] = prefix + file_name
 
     # Check the standard star separately because the dictionary has a slightly different structure.
 
-    std_list = obs_metadata['std'][0]['sci']    
+    std_list = obs_metadata["std"][0]["sci"]
     print(std_list)
     for index, file_name in enumerate(std_list):
-        calib_fits = os.path.join(temp_data_dir,  file_name + '.fits')
+        calib_fits = os.path.join(temp_data_dir, file_name + ".fits")
         if not is_halfframe(calib_fits):
             cut_fits_to_half_frame(calib_fits, outimg_prefix=prefix)
-            obs_metadata['std'][0]['sci'][index] = prefix + file_name      
-
+            obs_metadata["std"][0]["sci"][index] = prefix + file_name
 
     return obs_metadata
-
 
 
 # ------------------------------------------------------------------------
@@ -170,7 +170,7 @@ def is_halfframe(inimg, data_hdu=0):
     f = pyfits.open(inimg)
     detsec = f[data_hdu].header["DETSEC"]
     f.close()
-    ystart = int(float(detsec.split(',')[1].split(':')[0]))
+    ystart = int(float(detsec.split(",")[1].split(":")[0]))
     return ystart > 1028
 
 
@@ -227,10 +227,10 @@ def imcombine(inimg_list, outimg, method="median", scale=None, data_hdu=0):
         # later - scale data by some value, e.g. median or exptime
         gc.collect()
     # now do median (or something else - tbd later)
-    if method == 'median':
-        coadd_data = numpy.nanmedian(coadd_arr,axis=2)
-    elif method == 'sum':
-        coadd_data = numpy.nansum(coadd_arr,axis=2)
+    if method == "median":
+        coadd_data = numpy.nanmedian(coadd_arr, axis=2)
+    elif method == "sum":
+        coadd_data = numpy.nansum(coadd_arr, axis=2)
     else:
         raise ValueError("combine method not yet supported")
     outfits[data_hdu].data = coadd_data
@@ -353,9 +353,9 @@ def imarith_mef(inimg1, operator, inimg2, outimg):
     halfframe = is_halfframe(inimg1)
     if halfframe:
         nslits = 12
-        data_hdu_list = range(7,19)
-        var_hdu_list = range(32,44)
-        dq_hdu_list = range(57,69)
+        data_hdu_list = range(7, 19)
+        var_hdu_list = range(32, 44)
+        dq_hdu_list = range(57, 69)
     else:
         nslits = 25
         data_hdu_list = range(1, 26)
@@ -431,9 +431,9 @@ def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None):
     halfframe = is_halfframe(inimg1)
     if halfframe:
         nslits = 12
-        data_hdu_list = range(7,19)
-        var_hdu_list = range(32,44)
-        dq_hdu_list = range(57,69)
+        data_hdu_list = range(7, 19)
+        var_hdu_list = range(32, 44)
+        dq_hdu_list = range(57, 69)
     else:
         nslits = 25
         data_hdu_list = range(1, 26)
@@ -510,7 +510,7 @@ def imarith(inimg1, operator, inimg2, outimg, data_hdu=0):
     # check if halfframe
     halfframe = is_halfframe(inimg1)
     if halfframe:
-        data2 = f2[data_hdu].data[:1028,:]
+        data2 = f2[data_hdu].data[:1028, :]
     else:
         data2 = f2[data_hdu].data
     # do the desired operation
@@ -537,9 +537,9 @@ def imarith_float_mef(inimg1, operator, scale, outimg):
     halfframe = is_halfframe(inimg1)
     if halfframe:
         nslits = 12
-        data_hdu_list = range(7,19)
-        var_hdu_list = range(32,44)
-        dq_hdu_list = range(57,69)
+        data_hdu_list = range(7, 19)
+        var_hdu_list = range(32, 44)
+        dq_hdu_list = range(57, 69)
     else:
         nslits = 25
         data_hdu_list = range(1, 26)
@@ -865,8 +865,8 @@ def subtract_overscan(
     # (2) create data array - MUST QUERY FOR HALF-FRAME
     halfframe = is_halfframe(inimg, data_hdu=data_hdu)
     if halfframe:
-        ny = 2056//bin_y
-        nx = 4096//bin_x
+        ny = 2056 // bin_y
+        nx = 4096 // bin_x
         # note: offset will be equal to ny
         subbed_data = numpy.zeros([ny, nx], dtype=float)
         for i in range(len(fmt_det_reg)):
@@ -942,7 +942,7 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1):
     halfframe = is_halfframe(inimg)
     if halfframe:
         y_bad_min = 0
-        y_bad_max = 2056//bin_y
+        y_bad_max = 2056 // bin_y
     else:
         y_bad_min = 752 // bin_y - 1
         y_bad_max = 4096 // bin_y
@@ -1042,7 +1042,7 @@ def fit_wifes_interslit_bias(
         slitlet_defs = blue_slitlet_defs
     if halfframe:
         nslits = 12
-        offset = 2056//bin_y
+        offset = 2056 // bin_y
     else:
         nslits = 25
         offset = 0
@@ -1103,8 +1103,8 @@ def fit_wifes_interslit_bias(
     for i in range(len(sci_regs)):
         init_reg = sci_regs[i]
         if halfframe:
-            ny = 2056//bin_y
-            reg = [init_reg[0], init_reg[1]-ny, init_reg[2], init_reg[3]]
+            ny = 2056 // bin_y
+            reg = [init_reg[0], init_reg[1] - ny, init_reg[2], init_reg[3]]
         else:
             reg = init_reg
         curr_data = orig_data[reg[0] : reg[1] + 1, reg[2] : reg[3] + 1]
@@ -1534,7 +1534,7 @@ def derive_slitlet_profiles(
     y_shift_vals = []
     if halfframe:
         nslits = 12
-        offset = 2056//bin_y
+        offset = 2056 // bin_y
     else:
         nslits = 25
         offset = 0
@@ -1560,9 +1560,7 @@ def derive_slitlet_profiles(
         # fit for best new center!
         init_yprof = numpy.sum(expanded_data, axis=1)
 
-        y_prof = (init_yprof - init_yprof.min())/(
-            init_yprof.max()-init_yprof.min())
-        
+        y_prof = (init_yprof - init_yprof.min()) / (init_yprof.max() - init_yprof.min())
 
         # center = halfway between edges where it drops below 0.001
         bright_inds = numpy.nonzero(y_prof > 0.1)[0]
@@ -1784,8 +1782,8 @@ def interslice_cleanup(
         # Special case we have to extrapolate for the half slitlet rather than
         # interpolate as there is not dark interslit region on the other side.
         elif slit == 18 and halfframe:
-            y4 = numpy.round(slitlet_defs[str(slit-1)][2]//bin_y)
-            y1 = y2 
+            y4 = numpy.round(slitlet_defs[str(slit - 1)][2] // bin_y)
+            y1 = y2
         else:
             y4 = numpy.round(slitlet_defs[str(slit - 1)][2] // bin_y)
             y1 = numpy.round(slitlet_defs[str(slit + 1)][3] // bin_y)
@@ -1794,7 +1792,7 @@ def interslice_cleanup(
         x = numpy.arange(xmin + 3, xmax - 3, dx)
 
         if slit == 18 and halfframe:
-            y = numpy.arange(y3+1,y4-1,dy)
+            y = numpy.arange(y3 + 1, y4 - 1, dy)
         else:
             y = numpy.append(
                 numpy.arange(y1 + 1, y2 - 1, dy), numpy.arange(y3 + 1, y4 - 1, dy)
@@ -1814,9 +1812,8 @@ def interslice_cleanup(
         yall = numpy.arange(y1, y4, 1)
 
         if slit == 18 and halfframe:
-            func = interp.interp2d(y, x, grid.T, bounds_error=False,
-                                   fill_value=None)
-            fitted[y1:y4,xmin:xmax] = func(yall,xall).T
+            func = interp.interp2d(y, x, grid.T, bounds_error=False, fill_value=None)
+            fitted[y1:y4, xmin:xmax] = func(yall, xall).T
 
         else:
             func = interp.RectBivariateSpline(y, x, grid, kx=1, ky=1)
@@ -1929,7 +1926,7 @@ def wifes_slitlet_mef(
             x_bad = 1529 // bin_x - 1
             if halfframe:
                 y_bad_min = 0
-                y_bad_max = 2056//bin_y
+                y_bad_max = 2056 // bin_y
             else:
                 y_bad_min = 752 // bin_y - 1
                 y_bad_max = 4096 // bin_y
@@ -1938,10 +1935,9 @@ def wifes_slitlet_mef(
     # for each slitlet, save it to a single header extension
     if halfframe:
         nslits = 12
-        offset = 2056//bin_y
-        old_ymin = int(float(
-            old_hdr['DETSEC'].split(',')[1].split(':')[0]))-1
-        offset = old_ymin//bin_y
+        offset = 2056 // bin_y
+        old_ymin = int(float(old_hdr["DETSEC"].split(",")[1].split(":")[0])) - 1
+        offset = old_ymin // bin_y
     else:
         nslits = 25
         offset = 0
@@ -1974,8 +1970,8 @@ def wifes_slitlet_mef(
         ]
         # print curr_defs, (curr_defs[3]-curr_defs[2]), init_curr_defs, (
         #    init_curr_defs[3]-init_curr_defs[2])
-        if halfframe and ((i+1) > 18):
-            new_data = numpy.zeros([86//bin_y, 4096//bin_x], dtype='d')
+        if halfframe and ((i + 1) > 18):
+            new_data = numpy.zeros([86 // bin_y, 4096 // bin_x], dtype="d")
         else:
             new_data = full_data[mod_defs[2] : mod_defs[3], mod_defs[0] : mod_defs[1]]
         # create fits hdu
@@ -2005,13 +2001,20 @@ def wifes_slitlet_mef(
         # print curr_defs
         # print squirrel
         # get the data
-        dim_str = '[%d:%d,%d:%d]' % (
-            curr_defs[0], curr_defs[1],
-            curr_defs[2], curr_defs[3])
-        mod_defs = [curr_defs[0]-1, curr_defs[1],
-                    curr_defs[2]-1-offset, curr_defs[3]-offset]
-        if halfframe and not (7 <= (i+1) < 19):
-            new_data = numpy.zeros([86//bin_y, 4096//bin_x], dtype='d')
+        dim_str = "[%d:%d,%d:%d]" % (
+            curr_defs[0],
+            curr_defs[1],
+            curr_defs[2],
+            curr_defs[3],
+        )
+        mod_defs = [
+            curr_defs[0] - 1,
+            curr_defs[1],
+            curr_defs[2] - 1 - offset,
+            curr_defs[3] - offset,
+        ]
+        if halfframe and not (7 <= (i + 1) < 19):
+            new_data = numpy.zeros([86 // bin_y, 4096 // bin_x], dtype="d")
         else:
             new_data = full_data[mod_defs[2] : mod_defs[3], mod_defs[0] : mod_defs[1]]
         var_data = new_data + rdnoise**2
@@ -2039,15 +2042,22 @@ def wifes_slitlet_mef(
         if (curr_defs[3] - curr_defs[2] + 1) != (86 // bin_y):
             curr_defs[3] -= 1
         # get the data
-        dim_str = '[%d:%d,%d:%d]' % (
-            curr_defs[0], curr_defs[1],
-            curr_defs[2], curr_defs[3])
-        mod_defs = [curr_defs[0]-1, curr_defs[1],
-                    curr_defs[2]-1-offset, curr_defs[3]-offset]
-        ny = curr_defs[3]-curr_defs[2]+1
-        nx = curr_defs[1]-curr_defs[0]+1
-        if halfframe and not (7 <= (i+1) < 19):
-            dq_data = numpy.ones([ny,nx])
+        dim_str = "[%d:%d,%d:%d]" % (
+            curr_defs[0],
+            curr_defs[1],
+            curr_defs[2],
+            curr_defs[3],
+        )
+        mod_defs = [
+            curr_defs[0] - 1,
+            curr_defs[1],
+            curr_defs[2] - 1 - offset,
+            curr_defs[3] - offset,
+        ]
+        ny = curr_defs[3] - curr_defs[2] + 1
+        nx = curr_defs[1] - curr_defs[0] + 1
+        if halfframe and not (7 <= (i + 1) < 19):
+            dq_data = numpy.ones([ny, nx])
         else:
             dq_data = dq_img[mod_defs[2] : mod_defs[3], mod_defs[0] : mod_defs[1]]
         # OLD METHOD
@@ -2381,9 +2391,9 @@ def wifes_response_pixel(inimg, outimg, wsol_fn=None):
     outfits = pyfits.HDUList(f)
     for i in range(nslits):
         if halfframe:
-            curr_hdu = i+7
+            curr_hdu = i + 7
         else:
-            curr_hdu = i+1        
+            curr_hdu = i + 1
 
         orig_data = f[curr_hdu].data
         # NEW 2012-04-20
@@ -2427,7 +2437,7 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7):
     else:
         first = 1
         last = 26
-    
+
     mid_slit = 13
 
     # now open and operate on data
@@ -2441,7 +2451,7 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7):
         f3 = pyfits.open(wsol_fn)
         # The middle wavelengh index is 7 if half frame and 13 if not.
         mid_wl_index = mid_slit - first + 1
-        wave = f3[mid_wl_index].data    
+        wave = f3[mid_wl_index].data
         f3.close()
         rect_data, lam_array = transform_data(midslice_data, wave, return_lambda=True)
     else:
@@ -2480,17 +2490,14 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7):
             f3 = pyfits.open(wsol_fn)
             wave = f3[i - first + 1].data
             f3.close()
-            print('Transforming data for Slitlet %d' % curr_hdu)
-            rect_data, lam_array =  transform_data(
-                orig_data, wave, return_lambda=True)
-            curr_norm_array = 10.0**(numpy.polyval(smooth_poly,
-                                                lam_array))
+            print("Transforming data for Slitlet %d" % curr_hdu)
+            rect_data, lam_array = transform_data(orig_data, wave, return_lambda=True)
+            curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
             init_normed_data = rect_data / curr_norm_array
             normed_data = detransform_data(init_normed_data, orig_data, wave)
         else:
-            lam_array = numpy.arange(len(orig_data[0,:]),dtype='d')
-            curr_norm_array = 10.0**(numpy.polyval(smooth_poly,
-                                                lam_array))
+            lam_array = numpy.arange(len(orig_data[0, :]), dtype="d")
+            curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
             normed_data = rect_data / curr_norm_array
         outfits[curr_hdu].data = normed_data
         if zero_var:
@@ -2529,7 +2536,6 @@ def wifes_2dim_response(
         first = 1
         last = 26
 
-
     # open the two files!
     f1 = pyfits.open(spec_inimg)
     f2 = pyfits.open(spatial_inimg)
@@ -2542,10 +2548,9 @@ def wifes_2dim_response(
     # ------------------------------------
     # SPECTRAL FLAT
     # fit a smooth polynomial to the middle slice
-    #------------------------------------
+    # ------------------------------------
 
     midslice_data = f1[mid_slit].data
-
 
     if wsol_fn != None:
         f3 = pyfits.open(wsol_fn)
@@ -2557,18 +2562,15 @@ def wifes_2dim_response(
         )
     else:
         rect_data = midslice_data
-        mid_lam_array = numpy.arange(len(rect_data[0,:]),dtype='d')
-    
+        mid_lam_array = numpy.arange(len(rect_data[0, :]), dtype="d")
 
     out_y_full, out_lambda_full = numpy.meshgrid(yarr, mid_lam_array)
     disp_ave = abs(numpy.mean(mid_lam_array[1:] - mid_lam_array[:-1]))
-    
 
     # fit polynomial to median data
     curr_ff_rowwise_ave = numpy.median(rect_data, axis=0)
     curr_y = numpy.log10(curr_ff_rowwise_ave)
-    good_inds = numpy.nonzero((curr_y == curr_y)*(curr_ff_rowwise_ave > 0.0))[0]
-
+    good_inds = numpy.nonzero((curr_y == curr_y) * (curr_ff_rowwise_ave > 0.0))[0]
 
     good_inds = numpy.nonzero((curr_y == curr_y) * (curr_ff_rowwise_ave > 0.0))[0]
     # add points far away to force edge derivatives to be preserved
@@ -2579,8 +2581,7 @@ def wifes_2dim_response(
         next_x = mid_lam_array[good_inds][50:-100]
         next_y = curr_y[good_inds][50:-100]
 
-
-    yderiv = (next_y[1:]-next_y[:-1])/(next_x[1:]-next_x[:-1])
+    yderiv = (next_y[1:] - next_y[:-1]) / (next_x[1:] - next_x[:-1])
     nave_lo = 50
     nave_hi = 100
     nextend_lo = 150.0
@@ -2593,27 +2594,21 @@ def wifes_2dim_response(
     new_ylo = next_y[0] - dxlo * ydave_lo
     dxhi = numpy.arange(1, nextend_hi + 1, dtype="d") * (next_x[-1] - next_x[-2])
     new_xhi = next_x[-1] + dxhi
-    new_yhi = next_y[-1] + dxhi*ydave_hi
+    new_yhi = next_y[-1] + dxhi * ydave_hi
 
-    fit_x = numpy.concatenate((
-        new_xlo,
-        next_x,
-        new_xhi))
-    
-    fit_y = numpy.concatenate((
-        new_ylo,
-        next_y,
-        new_yhi))
-    
+    fit_x = numpy.concatenate((new_xlo, next_x, new_xhi))
+
+    fit_y = numpy.concatenate((new_ylo, next_y, new_yhi))
+
     smooth_poly = numpy.polyfit(fit_x, fit_y, polydeg)
 
-    #------------------------------------
+    # ------------------------------------
     # SPATIAL FLAT
     # get median spatial flat spectrum
-    #------------------------------------
+    # ------------------------------------
 
     midslice_data = f2[mid_slit].data
-    
+
     if wsol_fn != None:
         f3 = pyfits.open(wsol_fn)
         wave = f3[mid_slit].data
@@ -2637,8 +2632,8 @@ def wifes_2dim_response(
     # ------------------------------------
     illum = numpy.zeros([ndy, 25], dtype="d")
     # divide rectified data by the smooth polynomial
-    for i in range(first,last):
-        curr_hdu = i 
+    for i in range(first, last):
+        curr_hdu = i
         orig_spec_data = f1[curr_hdu].data
         orig_spat_data = f2[curr_hdu].data
 
@@ -2647,7 +2642,7 @@ def wifes_2dim_response(
             f3 = pyfits.open(wsol_fn)
             wave = f3[i - first + 1].data
             f3.close()
-            
+
             # convert the *x* pixels to lambda
             dw = numpy.abs(wave[:, 1:] - wave[:, :-1])
             full_dw = numpy.zeros(numpy.shape(wave))
@@ -2718,12 +2713,12 @@ def wifes_2dim_response(
             curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
             normed_data = orig_spec_data / curr_norm_array
         outfits[curr_hdu].data = normed_data
-        illum[:, i-first] = numpy.sum(normed_data, axis=1)
+        illum[:, i - first] = numpy.sum(normed_data, axis=1)
         if zero_var:
             var_hdu = curr_hdu + 25
             outfits[var_hdu].data *= 0.0
         # need to fit this for each slitlet
-    
+
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits.writeto(outimg, overwrite=True)
     f1.close()
@@ -3088,7 +3083,7 @@ def generate_wifes_cube_oneproc(
         nslits = 25
         first = 1
         last = 26
-    
+
     # setup base x/y array
     f3 = pyfits.open(inimg)
     ndy, ndx = numpy.shape(f3[first].data)
@@ -3099,7 +3094,7 @@ def generate_wifes_cube_oneproc(
 
     # figure out the binning!
     try:
-        bin_temp = f3[first].header['CCDSUM'].split()
+        bin_temp = f3[first].header["CCDSUM"].split()
         default_bin_x = int(float(bin_temp[0]))
         default_bin_y = int(float(bin_temp[1]))
     except:
@@ -3115,19 +3110,19 @@ def generate_wifes_cube_oneproc(
     frame_wdisps = []
 
     f4 = pyfits.open(wsol_fn)
-    for i in range(first,last):
+    for i in range(first, last):
         # Wavelenghts
         wave = f4[i - first + 1].data
-        curr_wmin = numpy.max(numpy.min(wave,axis=1))
-        curr_wmax = numpy.min(numpy.max(wave,axis=1))
-        curr_wdisp = numpy.abs(numpy.mean(wave[:,1:]-wave[:,:-1]))
+        curr_wmin = numpy.max(numpy.min(wave, axis=1))
+        curr_wmax = numpy.min(numpy.max(wave, axis=1))
+        curr_wdisp = numpy.abs(numpy.mean(wave[:, 1:] - wave[:, :-1]))
         if curr_wmin > frame_wmin:
             frame_wmin = curr_wmin
         if curr_wmax < frame_wmax:
             frame_wmax = curr_wmax
         frame_wdisps.append(curr_wdisp)
     f4.close()
-        
+
     if dw_set != None:
         disp_ave = dw_set
     else:
@@ -3160,11 +3155,11 @@ def generate_wifes_cube_oneproc(
         wire_trans = f5[0].data
         f5.close()
     except:
-        wire_trans = numpy.zeros([ndy, ndx], dtype='d') + numpy.max(yarr)/2
-    wire_offset = float(offset_orig)/float(bin_y)
-    ny=ny_orig//bin_y
-    nx=nslits
-    nlam=len(out_lambda)
+        wire_trans = numpy.zeros([ndy, ndx], dtype="d") + numpy.max(yarr) / 2
+    wire_offset = float(offset_orig) / float(bin_y)
+    ny = ny_orig // bin_y
+    nx = nslits
+    nlam = len(out_lambda)
     # for each slitlet...
     init_out_y = numpy.arange(ny, dtype="d")
     out_y = init_out_y - numpy.median(init_out_y)
@@ -3210,40 +3205,41 @@ def generate_wifes_cube_oneproc(
         sys.stdout.write("\r 0%")
         sys.stdout.flush()
 
-    f4 = pyfits.open(wsol_fn)    
-    for i in range(first,last):
+    f4 = pyfits.open(wsol_fn)
+    for i in range(first, last):
         wave = f4[i - first + 1].data
 
         curr_flux = f3[i].data
-        curr_var  = f3[25+i].data
-        curr_dq   = f3[50+i].data
+        curr_var = f3[25 + i].data
+        curr_dq = f3[50 + i].data
 
         # convert the *x* pixels to lambda
         dw = numpy.abs(wave[:, 1:] - wave[:, :-1])
         full_dw = numpy.zeros(numpy.shape(wave))
-        full_dw[:,1:] = dw
-        full_dw[:,0] = dw[:,0]
+        full_dw[:, 1:] = dw
+        full_dw[:, 0] = dw[:, 0]
         # and *y* to real y
-        curr_wire = wire_trans[i-first,:]
+        curr_wire = wire_trans[i - first, :]
         all_ypos = full_y - curr_wire - wire_offset
 
         # from the y-lambda-flux data, interpolate the flux
         # for the desired output y-lambda grid
         wave_flat = wave.flatten()
         all_ypos_flat = all_ypos.flatten()
-        curr_flux_flat = (curr_flux/full_dw).flatten()
-        curr_var_flat  = (curr_var/full_dw**2).flatten()
-        curr_dq_flat   = curr_dq.flatten()
+        curr_flux_flat = (curr_flux / full_dw).flatten()
+        curr_var_flat = (curr_var / full_dw**2).flatten()
+        curr_dq_flat = curr_dq.flatten()
         # Calculate the ADR corrections (this is slow)
-        if adr :
-            adr = adr_x_y(wave_flat,secz, ha, dec, lat, teltemp = 0.0,
-                          telpres=700.0, telpa=telpa)            
-            adr_y = adr[1]-adr_ref[1]
-            
+        if adr:
+            adr = adr_x_y(
+                wave_flat, secz, ha, dec, lat, teltemp=0.0, telpres=700.0, telpa=telpa
+            )
+            adr_y = adr[1] - adr_ref[1]
+
             all_ypos_flat -= adr_y
 
         # Does the interpolation (this is equally slow ...)
-        flux_data_cube_tmp[i - first,:,:] = _scale_grid_data(
+        flux_data_cube_tmp[i - first, :, :] = _scale_grid_data(
             (wave_flat, all_ypos_flat),
             curr_flux_flat,
             (out_lambda_full, out_y_full),
@@ -3252,7 +3248,7 @@ def generate_wifes_cube_oneproc(
             scale_factor=disp_ave,
         )
 
-        var_data_cube_tmp[i - first,:,:] = _scale_grid_data(
+        var_data_cube_tmp[i - first, :, :] = _scale_grid_data(
             (wave_flat, all_ypos_flat),
             curr_var_flat,
             (out_lambda_full, out_y_full),
@@ -3261,7 +3257,7 @@ def generate_wifes_cube_oneproc(
             scale_factor=disp_ave**2,
         )
 
-        dq_data_cube_tmp[i - first ,:,:] = _scale_grid_data(
+        dq_data_cube_tmp[i - first, :, :] = _scale_grid_data(
             (wave_flat, all_ypos_flat),
             curr_dq_flat,
             (out_lambda_full, out_y_full),
@@ -3272,17 +3268,18 @@ def generate_wifes_cube_oneproc(
 
         if verbose:
             sys.stdout.flush()
-            sys.stdout.write('\r\r %d' % ((i-first)/(float(nslits))*100.) + '%')
+            sys.stdout.write("\r\r %d" % ((i - first) / (float(nslits)) * 100.0) + "%")
             sys.stdout.flush()
-            if i == last : sys.stdout.write('\n')
+            if i == last:
+                sys.stdout.write("\n")
     f4.close()
-        
+
     # Second interpolation : x (=ADR)
     if adr:
         # To avoid interpolation issues at the edges,
         # add two extra values on either side (0 in this version).
-        in_x = numpy.arange(-1, nslits + 1,1, dtype='d') 
-        out_x = numpy.arange(nslits, dtype='d')
+        in_x = numpy.arange(-1, nslits + 1, 1, dtype="d")
+        out_x = numpy.arange(nslits, dtype="d")
         if verbose:
             print(" -> Step 2: interpolating along x (1D interp.)")
         for i in range(0, nlam):
@@ -3313,10 +3310,11 @@ def generate_wifes_cube_oneproc(
                 )
                 this_dq = numpy.append(
                     numpy.append(
-                    dq_data_cube_tmp[0,j,i],
-                    dq_data_cube_tmp[:nslits,j,i]),
-                    dq_data_cube_tmp[nslits-1,j,i])
-                
+                        dq_data_cube_tmp[0, j, i], dq_data_cube_tmp[:nslits, j, i]
+                    ),
+                    dq_data_cube_tmp[nslits - 1, j, i],
+                )
+
                 # do interpolation
                 f = scipy.interpolate.interp1d(
                     in_x - adr_x,
@@ -3333,37 +3331,38 @@ def generate_wifes_cube_oneproc(
                     bounds_error=False,
                 )
                 h = scipy.interpolate.interp1d(
-                    in_x-adr_x, this_dq, kind='nearest', 
-                    fill_value=3, bounds_error=False)
-                
-                
-                flux_data_cube_tmp[:nslits,j,i] = f(out_x)
-                var_data_cube_tmp[:nslits,j,i] = g(out_x)
-                dq_data_cube_tmp[:nslits,j,i] = h(out_x)
+                    in_x - adr_x,
+                    this_dq,
+                    kind="nearest",
+                    fill_value=3,
+                    bounds_error=False,
+                )
+
+                flux_data_cube_tmp[:nslits, j, i] = f(out_x)
+                var_data_cube_tmp[:nslits, j, i] = g(out_x)
+                dq_data_cube_tmp[:nslits, j, i] = h(out_x)
 
             if verbose:
                 if i > 0:
                     sys.stdout.flush()
-                sys.stdout.write('\r\r %d' % (i/(nlam-1.)*100.) + '%')
-                if i == nlam-1 :
-                    sys.stdout.write('\n')
-                
+                sys.stdout.write("\r\r %d" % (i / (nlam - 1.0) * 100.0) + "%")
+                if i == nlam - 1:
+                    sys.stdout.write("\n")
+
     # All done, at last ! Now, let's save it all ...
     outfits = pyfits.HDUList(f3)
-    for i in range(first,last):
+    for i in range(first, last):
         # save to data cube
-        outfits[i].data = flux_data_cube_tmp[i-first,:,:]
-        outfits[i].header.set('CRVAL1', final_frame_wmin)
-        outfits[i].header.set('CDELT1', disp_ave)
-        outfits[i].header.set('NAXIS1', len(out_lambda))
-        outfits[i+25].data = var_data_cube_tmp[i-first,:,:]
-        outfits[i+50].data = dq_data_cube_tmp[i-first,:,:]
-    outfits[0].header.set('PYWIFES', __version__, 'PyWiFeS version')
+        outfits[i].data = flux_data_cube_tmp[i - first, :, :]
+        outfits[i].header.set("CRVAL1", final_frame_wmin)
+        outfits[i].header.set("CDELT1", disp_ave)
+        outfits[i].header.set("NAXIS1", len(out_lambda))
+        outfits[i + 25].data = var_data_cube_tmp[i - first, :, :]
+        outfits[i + 50].data = dq_data_cube_tmp[i - first, :, :]
+    outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return
-
-
 
 
 def generate_wifes_cube_multithread(
@@ -3417,7 +3416,7 @@ def generate_wifes_cube_multithread(
     frame_wmin = 0.0
     frame_wmax = 20000.0
     frame_wdisps = []
-    for i in range(first,last):
+    for i in range(first, last):
         f4 = pyfits.open(wsol_fn)
         wave = f4[i - first + 1].data
         f4.close()
@@ -3429,7 +3428,7 @@ def generate_wifes_cube_multithread(
         if curr_wmax < frame_wmax:
             frame_wmax = curr_wmax
         frame_wdisps.append(curr_wdisp)
-    
+
     if dw_set != None:
         disp_ave = dw_set
     else:
@@ -3462,11 +3461,11 @@ def generate_wifes_cube_multithread(
         wire_trans = f5[0].data
         f5.close()
     except:
-        wire_trans = numpy.zeros([ndy, ndx], dtype='d')+numpy.max(yarr)/2
-    wire_offset = float(offset_orig)/float(bin_y)
-    ny = ny_orig//bin_y
+        wire_trans = numpy.zeros([ndy, ndx], dtype="d") + numpy.max(yarr) / 2
+    wire_offset = float(offset_orig) / float(bin_y)
+    ny = ny_orig // bin_y
     nx = nslits
-    nlam=len(out_lambda)
+    nlam = len(out_lambda)
     # for each slitlet...
     init_out_y = numpy.arange(ny, dtype="d")
     out_y = init_out_y - numpy.median(init_out_y)
@@ -3508,7 +3507,7 @@ def generate_wifes_cube_multithread(
 
     tasks = []
 
-    for i in range(first,last):
+    for i in range(first, last):
         f4 = pyfits.open(wsol_fn)
         wave = f4[i - first + 1].data
         f4.close()
@@ -3522,7 +3521,7 @@ def generate_wifes_cube_multithread(
         full_dw[:, 1:] = dw
         full_dw[:, 0] = dw[:, 0]
         # and *y* to real y
-        curr_wire = wire_trans[i-first,:]
+        curr_wire = wire_trans[i - first, :]
         all_ypos = full_y - curr_wire - wire_offset
         # from the y-lambda-flux data, interpolate the flux
         # for the desired output y-lambda grid
@@ -3582,9 +3581,9 @@ def generate_wifes_cube_multithread(
     dq_data_cube_tmp = numpy.ones([nx, ny, nlam])
 
     for i in range(nslits):
-        flux_data_cube_tmp[i ,:,:] = results[3 * i]
-        var_data_cube_tmp[i,:,:] = results[3 * i + 1]
-        dq_data_cube_tmp[i ,:,:] = results[3 * i + 2]
+        flux_data_cube_tmp[i, :, :] = results[3 * i]
+        var_data_cube_tmp[i, :, :] = results[3 * i + 1]
+        dq_data_cube_tmp[i, :, :] = results[3 * i + 2]
 
     # ---------------------------
     # Second interpolation : x (=ADR)
@@ -3657,26 +3656,26 @@ def generate_wifes_cube_multithread(
             if verbose:
                 if i > 0:
                     sys.stdout.flush()
-                sys.stdout.write("\r\r %d" % ((i-first) / (nlam - 1.0) * 100.0) + "%")
+                sys.stdout.write("\r\r %d" % ((i - first) / (nlam - 1.0) * 100.0) + "%")
                 if i == nlam - 1:
                     sys.stdout.write("\n")
     # All done, at last ! Now, let's save it all ...
     outfits = pyfits.HDUList(f3)
-    for i in range(first,last):
+    for i in range(first, last):
         # save to data cube
-        outfits[i].data = flux_data_cube_tmp[i-first,:,:]
-        outfits[i].header.set('CRVAL1', final_frame_wmin)
-        outfits[i].header.set('CDELT1', disp_ave)
-        outfits[i].header.set('NAXIS1', len(out_lambda))
-        outfits[i+25].data = var_data_cube_tmp[i-first,:,:]
-        outfits[i+50].data = dq_data_cube_tmp[i-first,:,:]
+        outfits[i].data = flux_data_cube_tmp[i - first, :, :]
+        outfits[i].header.set("CRVAL1", final_frame_wmin)
+        outfits[i].header.set("CDELT1", disp_ave)
+        outfits[i].header.set("NAXIS1", len(out_lambda))
+        outfits[i + 25].data = var_data_cube_tmp[i - first, :, :]
+        outfits[i + 50].data = dq_data_cube_tmp[i - first, :, :]
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return
 
 
-#------------------------------------------------------------------------
+# ------------------------------------------------------------------------
 def generate_wifes_3dcube(inimg, outimg, halfframe):
     # load in data
     # assumes it is in pywifes format
@@ -3684,40 +3683,37 @@ def generate_wifes_3dcube(inimg, outimg, halfframe):
 
     f = pyfits.open(inimg)
     if len(f) == 76:
-            
-            if halfframe:
-                ny,nlam = numpy.shape(f[7].data)
-                nx=12
-                first = 7
-                last = 19
 
-            else:
-                ny,nlam = numpy.shape(f[1].data)
-                nx=25
-                first = 1
-                last = 26
+        if halfframe:
+            ny, nlam = numpy.shape(f[7].data)
+            nx = 12
+            first = 7
+            last = 19
 
+        else:
+            ny, nlam = numpy.shape(f[1].data)
+            nx = 25
+            first = 1
+            last = 26
 
-            lam0 = f[first].header['CRVAL1']
-            dlam = f[first].header['CDELT1']
+        lam0 = f[first].header["CRVAL1"]
+        dlam = f[first].header["CDELT1"]
 
-            lam_array = lam0+dlam*numpy.arange(nlam,dtype='d')
-            # get data, variance and data quality
-            obj_cube_data = numpy.zeros([nlam,ny,nx],dtype='d')
-            obj_cube_var  = numpy.zeros([nlam,ny,nx],dtype='d')
-            obj_cube_dq   = numpy.zeros([nlam,ny,nx],dtype='d')
+        lam_array = lam0 + dlam * numpy.arange(nlam, dtype="d")
+        # get data, variance and data quality
+        obj_cube_data = numpy.zeros([nlam, ny, nx], dtype="d")
+        obj_cube_var = numpy.zeros([nlam, ny, nx], dtype="d")
+        obj_cube_dq = numpy.zeros([nlam, ny, nx], dtype="d")
 
+        for index, i in enumerate(range(first, last)):
 
-            
-            for index, i in enumerate(range(first, last)):
+            curr_data = f[i].data
+            curr_var = f[i + 25].data
+            curr_dq = f[i + 50].data
 
-                curr_data = f[i].data
-                curr_var = f[i+25].data
-                curr_dq =f[i+50].data
-                
-                obj_cube_data[:,:,nx-index-1] = curr_data.T
-                obj_cube_var[:,:,nx-index-1] = curr_var.T
-                obj_cube_dq[:,:,nx-index-1] = curr_dq.T
+            obj_cube_data[:, :, nx - index - 1] = curr_data.T
+            obj_cube_var[:, :, nx - index - 1] = curr_var.T
+            obj_cube_dq[:, :, nx - index - 1] = curr_dq.T
 
     else:
         nlam, ny, nx = numpy.shape(f[1].data)
