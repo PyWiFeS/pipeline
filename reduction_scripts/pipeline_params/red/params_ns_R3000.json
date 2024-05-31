@@ -18,7 +18,7 @@
             "suffix": null,
             "args": {
                 "method": "row_med",
-                "plot": false,
+                "plot": true,
                 "verbose": false
             }
         },
@@ -28,7 +28,7 @@
             "suffix": "02",
             "args": {
                 "method": "subtract",
-                "plot": false,
+                "plot": true,
                 "verbose": false
             }
         },
@@ -64,7 +64,7 @@
                     "dome", "twi"
                 ],
                 "verbose": true,
-                "plot": false,
+                "plot": true,
                 "buffer": 4,
                 "offsets": [
                     0.4,
@@ -106,7 +106,7 @@
                 "verbose": true,
                 "method": "optical",
                 "doalphapfit": true,
-                "doplot": false,
+                "plot": true,
                 "shift_method": "xcorr_all",
                 "find_method": "mpfit",
                 "dlam_cut_start": 5.0,
@@ -185,8 +185,8 @@
             "run": true,
             "suffix": null,
             "args": {
-                "plot_stars": false,
-                "plot_sensf": false,
+                "plot_stars": true,
+                "plot_sensf": true,
                 "polydeg": 10,
                 "method": "smooth_SG",
                 "boxcar": 10,
@@ -213,7 +213,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "plot": false
+                "plot": true
             }
         },
         {

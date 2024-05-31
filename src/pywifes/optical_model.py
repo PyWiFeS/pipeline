@@ -18,6 +18,8 @@ import multiprocessing
 import pickle
 from pywifes.logger_config import custom_print
 import logging
+import matplotlib.gridspec as gridspec
+
 # Redirect print statements to logger
 logger = logging.getLogger('PyWiFeS')
 print = custom_print(logger)
@@ -99,34 +101,29 @@ def evaluate_optical_model(x, y, s, grating, bin_x, bin_y, params):
 
 def plotLines(title,allx,ally,save_fn=None):
   """ Do a plot of the lines used """
-  plt.figure()
+  plt.figure(1)
   plt.plot(allx,ally,'r.', markeredgecolor='w')
   plt.xlabel("x pixel")
   plt.ylabel("y pixel")
   plt.title(title)
-  if save_fn != None:
-    plt.savefig(save_fn)
-  plt.show()
+  plt.savefig(save_fn,dpi=300)
+  plt.close()
 
 def plotFunc(title,allx,ally,allarcs,f):
   """ Do a plot of the fit"""
   plt.figure()
   plt.plot(allx,f,'r.', markeredgecolor = 'w')
   plt.plot(allx,allarcs,'b.', markeredgecolor='w')
-  plt.xlabel("x pixel")
-  plt.ylabel(u"wavelength \u00C5")
-  #plt.plot(f,ally,'r.')
-  #plt.plot(allarcs,ally,'b.')
-  #plt.xlabel(u"wavelength \u00C5")
-  #plt.ylabel("y pixel")
+  plt.xlabel("X-axis [pixel]")
+  plt.ylabel(r"Wavelength [$\AA$]")
   plt.title(title)
-  plt.show()
+  return 
 
 def plotResidKeep(allx,ally,allarcs,resid,keepargs):
   """ Plot the residuals that are being kept, and those that are being
       automatically discarded """
   loseargs = np.logical_not(keepargs)
-  plt.figure()
+  plt.figure(1)
   plt.subplot(3,1,1)
   plt.plot(allx[loseargs],resid[loseargs],'r.')
   plt.plot(allx[keepargs],resid[keepargs],'b.')
@@ -150,26 +147,30 @@ def plotResidKeep(allx,ally,allarcs,resid,keepargs):
 
 def plotResid(title,allx,ally,allarcs,resid,save_fn=None):
   """ Plot the residuals against x, y, and wavelength """
-  plt.figure()
+  plt.figure(1)
+
   plt.subplot(3,1,1)
   plt.plot(allx,resid,'r.', markeredgecolor='w')
   plt.xlabel("x pixel")
   plt.ylabel(u"data-model \u00C5")
   plt.grid(True)
   plt.title(title)
+  
   plt.subplot(3,1,2)
   plt.plot(resid,ally,'r.', markeredgecolor='w')
   plt.xlabel(u"data-model \u00C5")
   plt.ylabel("y pixel")
   plt.grid(True)
+  
   plt.subplot(3,1,3)
   plt.plot(allarcs,resid,'r.',markeredgecolor='w')
   plt.xlabel(u"wavelength \u00C5")
   plt.ylabel(u"data-model \u00C5")
   plt.grid(True)
-  if save_fn != None:
-    plt.savefig(save_fn)
-  plt.show()
+
+
+  plt.savefig(save_fn,dpi=300)
+  plt.close()
 
 def mpfitfunc(p, fjac=None, s=None, y=None, x=None, grating=None, arc=None, err=None):
   # Parameter values are passed in "p"
@@ -561,14 +562,10 @@ def fitfunc(grating,p,alphap,s,y,x):
       count += 1
       # Calculate wavelength from the grating equation, using our best guess at alpha, beta, and gamma
       lambdaold = lambda1
-      # Avoid having to use inverse trig functions:
-      # sin(alpha + phi/2) = sin(alpha)*cos(phi/2) + cos(alpha)*sin(phi/2)
       sin_alpha_p_phi_on_2 = sinalpha*cosphi + cosalpha*sinphi
-      # sin(beta - phi/2) = sin(beta)*cos(phi/2) - cos(beta)*sin(phi/2)
       sin_beta_m_phi_on_2 = sinbeta*cosphi - cosbeta*sinphi
       lambda1 = a0 * (sin_alpha_p_phi_on_2 + sin_beta_m_phi_on_2)*cosgamma
       max_change = np.max(np.abs(lambda1 - lambdaold))
-      # print 'max change in lambda:', max_change
 
       # If the solution has converged to better than 1 Angstrom then this is our
       # last iteration
@@ -617,7 +614,7 @@ def extractArrays(lines, grating, bin_x, bin_y):
   return alls, ally, allx, allarcs
 
 # Automatically exclude lines that have large residuals
-def excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, doplot, verbose):
+def excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, plot, verbose):
   alls, ally, allx, allarcs = extractArrays(lines, grating, bin_x, bin_y)
   allrms = []
   for s in set(alls):
@@ -639,7 +636,55 @@ def excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, doplot, verbose):
       excludeargs = np.logical_and(alls==s, allarcs==a)
       keepargs = np.logical_and(keepargs, np.logical_not(excludeargs))
 
-  if (doplot):
+  if (plot):
     plotResidKeep(allx,ally,allarcs,resid,keepargs)
 
   return lines[keepargs]
+
+
+
+def final_wsol_plot(title,allx,ally,allarcs,resid, plot_path=None):
+
+    plt.close
+    fig = plt.figure(1,figsize=(10,5))
+    plt.suptitle(title)
+    # Define GridSpec (3 rows 2 columns) 
+    gs = gridspec.GridSpec(3, 2)
+
+    ax_left = fig.add_subplot(gs[:, 0])  # Subplot in the left column
+    ax_left.plot(allx, ally, 'r.', markeredgecolor='w',markeredgewidth=0.2)
+    ax_left.set_xlabel("x pixel")
+    ax_left.set_ylabel("y pixel")
+    # ax_left.set_title(title)
+
+    ax_top = fig.add_subplot(gs[0, 1])  # Top subplot in the right column
+    ax_top.plot(allx,resid,'r.', markeredgecolor='w',markeredgewidth=0.2)
+    ax_top.set_xlabel("x pixel")
+    ax_top.set_ylabel("data-model Å")
+    ax_top.yaxis.set_label_position("right")
+    ax_top.yaxis.tick_right()
+    ax_top.grid(True)
+    # ax_top.set_title("Residuals vs x pixel")
+
+    ax_middle = fig.add_subplot(gs[1, 1])  # Middle subplot in the right column
+    ax_middle.plot(resid, ally, 'r.', markeredgecolor='w',markeredgewidth=0.2)
+    ax_middle.set_xlabel("data-model Å")
+    ax_middle.set_ylabel("y pixel")
+    ax_middle.yaxis.set_label_position("right")
+    ax_middle.yaxis.tick_right()
+    ax_middle.grid(True)
+    # ax_middle.set_title("Residuals vs y pixel")
+
+    ax_bottom = fig.add_subplot(gs[2, 1])  # Bottom subplot in the right column
+    ax_bottom.plot(allarcs, resid, 'r.', markeredgecolor='w',markeredgewidth=0.2)
+    ax_bottom.set_xlabel("wavelength Å")
+    ax_bottom.set_ylabel("data-model Å")
+    ax_bottom.yaxis.set_label_position("right")
+    ax_bottom.yaxis.tick_right()
+    ax_bottom.grid(True)
+    # ax_bottom.set_title("Residuals vs wavelength Å")
+
+    plt.tight_layout()
+
+    plt.savefig(plot_path,dpi=300)
+    plt.close()

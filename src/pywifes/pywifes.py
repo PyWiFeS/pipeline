@@ -10,7 +10,6 @@ import sys
 import os
 import scipy.ndimage as ndimage
 import scipy.interpolate as interp
-import pylab
 import matplotlib.pyplot as plt
 import pylab
 import astropy.units as u
@@ -1254,11 +1253,8 @@ def subtract_wifes_interslit_bias(
 
 
 # ------------------------------------------------------------------------
-# NEW 2012-10-02
 # bias subtraction method
 
-
-# --------------------------- Fred's update ------------------------------
 def wifes_bias_model(p, x, camera):
     if camera == "WiFeSRed":
         model = p[0]
@@ -1273,17 +1269,19 @@ def wifes_bias_model(p, x, camera):
         model += p[8] * numpy.exp(-((p[9] * (x - p[10])) ** 2))
     return model
 
-
-# --------------------------- Fred's update ------------------------------
 def error_wifes_bias_model(p, x, z, err, camera, fjac=None):
     status = 0
     residual = (wifes_bias_model(p, x, camera) - z) / err
     return [status, residual]
 
-
-# --------------------------- Fred's update ------------------------------
 def generate_wifes_bias_fit(
-    bias_img, outimg, data_hdu=0, plot=False, verbose=False, method="row_med"
+    bias_img, 
+    outimg, arm, 
+    data_hdu=0, 
+    plot=False, 
+    plot_dir=".", 
+    verbose=False, 
+    method="row_med"
 ):
     # get object and bias data
     f1 = pyfits.open(bias_img)
@@ -1364,7 +1362,7 @@ def generate_wifes_bias_fit(
                 row_med[i] = numpy.mean(curr_col[good_inds])
             # row_med = numpy.median(curr_data, axis=0)
             bias_sub = row_med ** numpy.ones(numpy.shape(curr_data), dtype="d")
-            # Fred's update (bias fit) ------
+            # 's update (bias fit) ------
             # To remove the variations (some at least) along the
             # y-direction, let's smooth the residuals !
             residual = curr_data - bias_sub
@@ -1440,7 +1438,6 @@ def generate_wifes_bias_fit(
                 quiet=not verbose,
             )
             p1 = fit_result.params
-            # print p1
             if fit_result.status <= 0 or fit_result.status == 5:
                 print(" Fit may have failed : mpfit status:", fit_result.status)
                 print("I'll plot this one for sanity check...")
@@ -1451,8 +1448,13 @@ def generate_wifes_bias_fit(
             )
         # Plot for test purposes ...
         if plot:
-            plt.figure()
+            plt.figure(1)
             plt.plot(linx, curr_data.mean(axis=0), "k-", label="raw bias", lw=2)
+
+            # Avoid ploting outlier peaks
+            lower_limit = numpy.percentile(curr_data.mean(axis=0), 0.2)
+            upper_limit = numpy.percentile(curr_data.mean(axis=0), 99.8)
+
             if method == "row_med":
                 plt.plot(linx, out_data.mean(axis=0), "r-", label="row_med bias")
                 plt.plot(
@@ -1475,13 +1477,15 @@ def generate_wifes_bias_fit(
             plt.axhline(0, numpy.min(linx), numpy.max(linx), color="k")
             plt.xlabel("x [pixels]")
             plt.ylabel(" bias signal collapsed along y")
-            plt.legend(loc="lower left", fancybox=True, shadow=True)
+            plt.legend()
             plt.xlim([numpy.min(linx), numpy.max(linx)])
-            plt.ylim([-10, 10])
+            plt.ylim(lower_limit, upper_limit)
             plt.title("Fitting bias frame %s" % bias_img.split("/")[-1])
-            plt.show()
+            plot_path = os.path.join(plot_dir, f"bias.png")
+            plt.savefig(plot_path,dpi=300)
+            plt.close()
 
-        # ----------------------------------------------------
+    # ----------------------------------------------------
     # save it!
     outfits = pyfits.HDUList(f1)
     outfits[data_hdu].data = out_data
@@ -1611,8 +1615,6 @@ def derive_slitlet_profiles(
     f3.close()
     return
 
-
-# Fred's update (sag)
 def interslice_cleanup(
     input_fn,
     output_fn,
@@ -1626,7 +1628,7 @@ def interslice_cleanup(
     nsig_lim=5.0,
     verbose=False,
     plot=False,
-    savefigs=False,
+    plot_dir=".",
     save_prefix="cleanup_",
     method="2D",
 ):
@@ -1833,37 +1835,34 @@ def interslice_cleanup(
     if verbose:
         print(" Additive offset:", offset * numpy.mean(fitted))
     # 8) Plot anything ?
-    if plot or savefigs:
+    if plot:
         myvmax = numpy.max(fitted)
-        # ------------------
-        fig = pylab.figure()
-        pylab.imshow(data, vmin=0, vmax=myvmax, cmap="nipy_spectral", origin="lower")
-        pylab.title("Pre-corrected " + input_fn.split("/")[-1])
-        if savefigs:
-            save_fn = save_prefix + "flat_orig_data.png"
-            pylab.savefig(save_fn)
-        # ------------------
-        pylab.figure()
-        pylab.imshow(fitted, vmin=0, vmax=myvmax, cmap="nipy_spectral", origin="lower")
-        pylab.title("Fitted contamination for " + input_fn.split("/")[-1])
-        if savefigs:
-            save_fn = save_prefix + "flat_glow_data.png"
-            pylab.savefig(save_fn)
-        # ------------------
-        pylab.figure()
-        pylab.imshow(
-            data - fitted + offset * numpy.mean(fitted),
-            vmin=0,
-            vmax=myvmax,
-            cmap="nipy_spectral",
-            origin="lower",
-        )
-        pylab.title("Corrected " + output_fn.split("/")[-1])
-        if savefigs:
-            save_fn = save_prefix + "flat_sub_data.png"
-            pylab.savefig(save_fn)
-        if plot:
-            pylab.show()
+
+        # Create a figure with subplots
+        fig, axs = plt.subplots(3, 1, figsize=(11, 10))  # 3 row, 1 columns
+        text_size = 18
+        # Plot and save the first subplot
+        axs[0].imshow(data, vmin=0, vmax=myvmax, cmap="nipy_spectral", origin="lower",aspect='auto')
+        axs[0].set_title("Pre-corrected " + os.path.basename(input_fn),size=text_size)
+
+        # Plot and save the second subplot
+        axs[1].imshow(fitted, vmin=0, vmax=myvmax, cmap="nipy_spectral", origin="lower",aspect='auto')
+        axs[1].set_title("Fitted contamination for " + input_fn.split("/")[-1],size=text_size)
+        axs[1].set_ylabel('Y-axis [pixel]',size=text_size)
+
+        # Plot and save the third subplot
+        axs[2].imshow(data - fitted + offset * numpy.mean(fitted), vmin=0, vmax=myvmax, cmap="nipy_spectral", origin="lower",aspect='auto')
+        axs[2].set_title("Corrected " + os.path.basename(output_fn),size=text_size)
+        axs[2].set_xlabel('X-axis [pixel]',size=text_size)
+
+        # Adjust layout to prevent overlapping of titles    
+        plt.tight_layout()
+        fn_no_extension = os.path.splitext(os.path.basename(output_fn))[0]
+        plot_name = save_prefix + fn_no_extension + ".png"
+        plot_path = os.path.join(plot_dir, plot_name)
+        plt.savefig(plot_path, dpi=300)
+        plt.close()
+
     return
 
 
@@ -1968,8 +1967,6 @@ def wifes_slitlet_mef(
             curr_defs[2] - 1 - offset,
             curr_defs[3] - offset,
         ]
-        # print curr_defs, (curr_defs[3]-curr_defs[2]), init_curr_defs, (
-        #    init_curr_defs[3]-init_curr_defs[2])
         if halfframe and ((i + 1) > 18):
             new_data = numpy.zeros([86 // bin_y, 4096 // bin_x], dtype="d")
         else:
@@ -1982,7 +1979,6 @@ def wifes_slitlet_mef(
         new_hdu.header.set("TRIMSEC", dim_str)
         outfits.append(new_hdu)
         gc.collect()
-    # print squirrel
     # VARIANCE EXTENSIONS
     for i in range(25):
         init_curr_defs = slitlet_defs[str(i + 1)]
@@ -1998,8 +1994,6 @@ def wifes_slitlet_mef(
             curr_defs[1] -= 1
         if (curr_defs[3] - curr_defs[2] + 1) != (86 // bin_y):
             curr_defs[3] -= 1
-        # print curr_defs
-        # print squirrel
         # get the data
         dim_str = "[%d:%d,%d:%d]" % (
             curr_defs[0],
@@ -2060,12 +2054,6 @@ def wifes_slitlet_mef(
             dq_data = numpy.ones([ny, nx])
         else:
             dq_data = dq_img[mod_defs[2] : mod_defs[3], mod_defs[0] : mod_defs[1]]
-        # OLD METHOD
-        # if halfframe and ((i+1) > nslits):
-        #    dq_data = numpy.ones([ny,nx])
-        # else:
-        #    dq_data = numpy.zeros([ny,nx])
-        # create fits hdu
         hdu_name = "DQ%d" % (i + 1)
         new_hdu = pyfits.ImageHDU(dq_data, old_hdr, name=hdu_name)
         new_hdu.header.set("DETSEC", dim_str)
@@ -2208,7 +2196,6 @@ def wifes_slitlet_mef_ns(
         outfits_sky.append(sky_hdu)
         gc.collect()
     # ------------------------------------
-    # print squirrel
     # VARIANCE EXTENSIONS
     for i in range(nslits):
         init_curr_defs = slitlet_defs[str(i + 1)]
@@ -2520,7 +2507,7 @@ def wifes_2dim_response(
     wsol_fn=None,
     zero_var=True,
     plot=False,
-    savefigs=False,
+    plot_dir='.',
     save_prefix="response_",
     polydeg=7,
     resp_min=1.0e-6,
@@ -2627,9 +2614,7 @@ def wifes_2dim_response(
     spec_norm = curr_ff_rowwise_ave / (
         10.0 ** (numpy.polyval(smooth_poly, mid_lam_array))
     )
-    # pylab.figure()
-    # pylab.plot(mid_lam_array, spec_norm)
-    # pylab.show()
+    
     spat_interp = scipy.interpolate.interp1d(
         mid_lam_array, spatial_flat_spec / spec_norm, bounds_error=False, fill_value=0.0
     )
@@ -2699,8 +2684,6 @@ def wifes_2dim_response(
                 alt_y = rect_spat_data[q, :]
                 norm_func = alt_y / (alt_flat_spec * next_normed_data[q, :])
                 alt_interp_spat[q, :] = norm_func
-                # print len(new_data)
-                # print len(norm_func)
                 # norm_func = (alt_y / (
                 #    alt_flat_spec))
                 # sp1.plot(norm_func[500:-200])
@@ -2731,33 +2714,47 @@ def wifes_2dim_response(
     f1.close()
     f2.close()
     # ---------------------------------------------
-    # diagnostic plots!
-    if plot or savefigs:
-        # ------------------
+    # diagnostic plots! 
+    plot = True
+    if plot:
+        # Response plots
+
+        fig = plt.figure(figsize=(10, 5))
+        grid = fig.add_gridspec(1, 3)
+                
         # (1) spectral fit
-        pylab.figure()
-        pylab.plot(mid_lam_array, curr_ff_rowwise_ave, "b")
-        pylab.plot(
+        ax_left = fig.add_subplot(grid[0, 0:2])
+        ax_left.set_title('Spectral Flatfield Correction')
+        ax_left.plot(mid_lam_array, curr_ff_rowwise_ave, "C0",label='flat lamp spectrum')
+        ax_left.plot(
             mid_lam_array,
             10.0 ** (numpy.polyval(smooth_poly, mid_lam_array)),
-            color="g",
-            lw=3,
+            color="r",
+            ls='dashed',
+            label='smooth function fit ',
         )
-        if savefigs:
-            save_fn = save_prefix + "flat_spectrum.png"
-            pylab.savefig(save_fn)
-        # ------------------
+
+        ax_left.legend()
+        ax_left.set_xlabel(r'Wavelength [$\AA$]')
+        ax_left.set_ylabel(r'Log Flux')
+
+
         # (2) illumination correction
-        pylab.figure()
-        pylab.imshow(
-            illum, interpolation="nearest", origin="lower", cmap=pylab.cm.Greys_r
+        ax_right = fig.add_subplot(grid[0, 2])
+        ax_right.set_title('Illumination Correction')
+        ax_right.imshow(
+            illum, interpolation="nearest", origin="lower", cmap=plt.cm.Greys_r
         )
-        if savefigs:
-            save_fn = save_prefix + "flat_illumination.png"
-            pylab.savefig(save_fn)
-        # ------------------
-        if plot:
-            pylab.show()
+
+        ax_right.set_xlabel('Slitlet')
+        ax_right.set_ylabel('Detector Y')
+
+        plt.tight_layout()
+        plot_name = "flat_response.png"
+        plot_path = os.path.join(plot_dir, plot_name)
+        plt.savefig(plot_path, dpi=300)
+        plt.close()
+
     # ---------------------------------------------
     return
 
@@ -2806,7 +2803,6 @@ def wifes_illumination(
     for i in range(nslits):
         curr_hdu = i + 1
         orig_spat_data = f2[curr_hdu].data
-        # NEW 2012-04-20
         # rectify data!
         if wsol_fn != None:
             f3 = pyfits.open(wsol_fn)
@@ -2985,6 +2981,7 @@ def derive_wifes_wire_solution(
             fit_x_arr[good_inds], fit_y_arr[good_inds], wire_polydeg
         )
         trend_y = numpy.polyval(wire_trend, ccd_x)
+        # Plot wire solution
         # pylab.figure()
         # pylab.plot(fit_x_arr, fit_y_arr, 'b')
         # pylab.plot(ccd_x, trend_y, 'r')
@@ -3859,7 +3856,6 @@ def generate_wifes_3dcube(inimg, outimg, halfframe):
     dq_hdu.header.set("CTYPE3", ctype3, "Type of co-ordinate on axis 3")
     dq_hdu.header.set("CDELT3", dlam, "Wavelength step (Angstroms)")
     dq_hdu.header.set("CRPIX3", crpix3, "Reference pixel on wavelength (axis 3)")
-    # dq_hdu.header.set('PYWIFES',__version__, 'Pywifes version')
     outfits.append(dq_hdu)
 
     # SAVE IT

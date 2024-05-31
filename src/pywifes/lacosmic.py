@@ -16,6 +16,7 @@ import logging
 
 
 # ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
 # high-level functions to check if an observation is half-frame or N+S
 def _is_halfframe(hdus, data_hdu=0):
     detsec = hdus[data_hdu].header["DETSEC"]
@@ -71,11 +72,10 @@ def lacos_spec_data(
 
         # ------------------------------------
         # step 3 - take 2nd order derivative (laplacian) of input image
-        blkdata = blkrep(subbed_data, 2, 2)
-        init_conv_data = scipy.signal.convolve2d(blkdata, laplace_kernel)[1:-1, 1:-1]
+        blkdata = blkrep(subbed_data,2,2)
+        init_conv_data = scipy.signal.convolve2d(blkdata, laplace_kernel)[1:-1,1:-1]
         init_conv_data[numpy.nonzero(init_conv_data <= 0.0)] = 0.0
         conv_data = blkavg(init_conv_data, 2, 2)
-
         # ------------------------------------
         # step 4 - make noise model, create sigma map
         noise = (1.0 / gain) * ((gain * m5_model + rdnoise**2) ** 0.5)
@@ -86,12 +86,6 @@ def lacos_spec_data(
         # subtract large structure in sigma map
         sig_smooth = scipy.ndimage.median_filter(sigmap, size=[5, 5])
         sig_detrend = sigmap - sig_smooth
-        # plot_sig = sig_detrend[numpy.nonzero(sig_detrend < 1000)]
-        # print numpy.mean(plot_sig), numpy.std(plot_sig)
-        # import pylab
-        # pylab.hist(plot_sig.flatten(), bins=1000)
-        # pylab.show()
-        # print squirrel
 
         # ------------------------------------
         # step 5 - identify potential cosmic rays!!!!

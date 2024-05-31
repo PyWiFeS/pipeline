@@ -10,6 +10,7 @@ import matplotlib.colors as mcolors
 from matplotlib.patheffects import withStroke
 from astropy.wcs import WCS
 import os
+import re
 
 # Suppress the NoDetectionsWarning as we have set a warning for no detection
 import warnings
@@ -21,9 +22,18 @@ warnings.filterwarnings("ignore", category=NoDetectionsWarning)
 from pywifes.logger_config import custom_print
 import logging
 
+
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
 print = custom_print(logger)
+
+
+def extract_aperture_name(spec_name):
+    match = re.search(r"ap(\d)", spec_name)
+    if match:
+        aperture_number = match.group(1)
+        return f"Aperture {aperture_number}"
+    return None
 
 
 def extract_and_save(
@@ -374,8 +384,8 @@ def detect_extract_and_save(
     r_arcsec=2,
     border_width=3,
     sky_sub=False,
-    check_plot=False,
-    plot_output="detected_apertures_plot.pdf",
+    plot=False,
+    plot_path="detected_apertures_plot.png",
 ):
     # reading the data from cubes
     # Blue arm
@@ -388,6 +398,7 @@ def detect_extract_and_save(
     if blue_cube_data["sci"] is not None:
         binning_x = blue_cube_data["binning_x"]
         binning_y = blue_cube_data["binning_y"]
+        object = blue_sci_hdr["OBJECT"]
 
     # Red arm
     red_cube_data = read_cube_data(red_cube_path)
@@ -399,6 +410,7 @@ def detect_extract_and_save(
     if red_cube_data["sci"] is not None:
         binning_x = red_cube_data["binning_x"]
         binning_y = red_cube_data["binning_y"]
+        object = red_sci_hdr["OBJECT"]
 
     # Calculate pixel scale from binning
     pixel_scale_x = binning_x  # arcsec/pix
@@ -494,7 +506,8 @@ def detect_extract_and_save(
                 red_var_hdr,
             )
 
-        if check_plot:
+        if plot:
+            plt.suptitle(object)
             # Plot Red
             ax1 = plt.subplot(1, 2, 2, projection=red_wcs)
             plot_arm(
@@ -520,5 +533,67 @@ def detect_extract_and_save(
             )
 
             plt.tight_layout()
-            fig_output = os.path.join(output_dir, plot_output)
+            fig_output = os.path.join(output_dir, plot_path)
             plt.savefig(fig_output, bbox_inches="tight", dpi=300)
+            plt.close()
+
+
+# TODO Replace with a proper SpecUtils loader
+
+
+class SingleSpec(object):
+    """
+    Class representing a single spectrum for analysis
+    """
+
+    def __init__(self, fitsFILE):
+        self.flux, self.header = fits.getdata(fitsFILE, 0, header=True)
+        self.wl = (
+            np.arange(self.header["NAXIS1"]) - self.header["CRPIX1"] + 1
+        ) * self.header["CDELT1"] + self.header["CRVAL1"]
+        # Temporary
+        self.fluxvar = fits.getdata(fitsFILE, 1, header=False)
+        self.minWL = np.min(self.wl)
+        self.maxWL = np.max(self.wl)
+        return
+
+
+def plot_1D_spectrum(spec_path, plot_dir):
+
+    spec = SingleSpec(spec_path)
+    flux = spec.flux
+    wl = spec.wl
+    fluxvar = spec.fluxvar
+    # Calculate the error as the square root of the flux variance
+    flux_error = np.sqrt(fluxvar)
+
+    # Plot the spectrum with error bars
+    spec_name = os.path.basename(spec_path)
+    plot_name = spec_name.replace(".fits", ".png")
+    plot_path = os.path.join(plot_dir, plot_name)
+    aperture_name = extract_aperture_name(spec_name)
+
+    fig = plt.figure(figsize=(12, 5))
+
+    # Plot the error bars
+    plt.errorbar(
+        wl,
+        flux,
+        yerr=flux_error,
+        fmt="none",
+        ecolor="grey",
+        elinewidth=0.5,
+        capsize=1.5,
+    )
+
+    # Plot the step plot for the spectrum values
+    plt.step(wl, flux, where="mid", color="b")
+
+    # Customize the plot
+    plt.title(f"{spec_name} \n" + aperture_name)
+    plt.xlabel("Wavelength (Å)")
+    plt.ylabel("Flux")
+    plt.grid(True)
+
+    plt.savefig(plot_path, dpi=300)
+    plt.close()

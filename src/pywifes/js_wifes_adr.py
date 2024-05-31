@@ -82,18 +82,7 @@ def adr_x_y(wavelength_array,
     # get adr results
     eta = adr_eta(objha, tellat, objdec)
     eta2 = adr_eta2(objha, tellat, objdec) #JS: testing new definition of eta.
-    #obj_eta = numpy.radians(telpa) + eta + 0.5*numpy.pi
-    #obj_eta = numpy.radians(telpa) + eta - 0.5*numpy.pi #JS commented this out as telpa already in rad.
-#    obj_eta = telpa + eta - 0.5*numpy.pi  #JS: This was the original formula (without double radian for telpa). Does not seem to work very well.
-#    obj_eta = eta - telpa  #JS: This seems to be the correct one for some sources, but not for all HA, DEC, TELPA combinations.
     obj_eta = eta2 - telpa #JS: With new definition of eta, which seems to work fine.
-    #print "TELPAN, ETA, ETA2", telpa*180./numpy.pi, eta*180./numpy.pi, eta2*180./numpy.pi, JS: for test
-    #obj_eta = numpy.radians(telpa) - eta
-    #obj_eta = -numpy.radians(telpa) - eta
-    #obj_eta = eta - numpy.radians(telpa)
-    #obj_eta = eta + numpy.radians(telpa)
-    #obj_eta = eta - numpy.radians(telpa) - numpy.pi
-    #obj_eta = numpy.radians(telpa) - eta - numpy.pi
     n_pix = len(wavelength_array)
     adrx = numpy.zeros(n_pix, dtype = 'f')
     adry = numpy.zeros(n_pix, dtype = 'f')
