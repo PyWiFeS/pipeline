@@ -820,7 +820,6 @@ def xcorr_shift_single(flux_data, wave_guess, ref_interp):
     ##new_mask = numpy.concatenate([flux_data[init_shift:],
     ##                              flux_data[:init_shift]])
     ##pylab.plot(new_mask, color='g')
-    ##pylab.show()
     # ------------------
     if init_shift > corr_lim:
         shift = init_shift - 4096

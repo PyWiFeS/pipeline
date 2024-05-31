@@ -21,8 +21,6 @@ import logging
 def _is_halfframe(hdus, data_hdu=0):
     detsec = hdus[data_hdu].header["DETSEC"]
     ystart = int(float(detsec.split(",")[1].split(":")[0]))
-    detsec = hdus[data_hdu].header["DETSEC"]
-    ystart = int(float(detsec.split(",")[1].split(":")[0]))
     return ystart == 1029
 
 
@@ -78,10 +76,6 @@ def lacos_spec_data(
         init_conv_data = scipy.signal.convolve2d(blkdata, laplace_kernel)[1:-1,1:-1]
         init_conv_data[numpy.nonzero(init_conv_data <= 0.0)] = 0.0
         conv_data = blkavg(init_conv_data, 2, 2)
-
-        # ------------------------------------
-        conv_data = blkavg(init_conv_data, 2, 2)
-
         # ------------------------------------
         # step 4 - make noise model, create sigma map
         noise = (1.0 / gain) * ((gain * m5_model + rdnoise**2) ** 0.5)
@@ -89,7 +83,6 @@ def lacos_spec_data(
         noise_min = 0.00001
         noise[numpy.nonzero(noise <= noise_min)] = noise_min
         # div by 2 to correct convolution counting
-        sigmap = conv_data / (2.0 * noise)
         sigmap = conv_data / (2.0 * noise)
         # subtract large structure in sigma map
         sig_smooth = scipy.ndimage.median_filter(sigmap, size=[5, 5])
