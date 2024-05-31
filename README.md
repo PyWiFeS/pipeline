@@ -20,14 +20,14 @@ The automated Python data reduction pipeline for WiFeS.
 - New `.JSON` config files provided for each observing mode (`classic` and `nod-and-shuffle`) and grating. 
   - The pipeline chooses the template automatically.
   - Users don't need to set anything in generate metadata or reduction scripts anymore.
-  - Users can create their own `.JSON` file following the same structure with their preferred setup.
+  - Users can create their own `.JSON` file following the same structure as their preferred setup.
   - Another set of `.JSON` config files is provided for when the pipeline aims to generate the master calibration files only.
 - Logger file to track the data usage and pipeline performance.
 - Astrometry is now implemented in the data cubes although the accuracy is 
 - Extraction and splice of the spectra and splice of the 3D astrometrised cubes are now implemented.
 - Multiprocessing can be enabled so the pipeline can run faster (see caveats below). 
-- Multiple quality plots utomatically generated and saved.
-- Outputs organised in a new `/data_products` directory organised as per below.
+- Multiple quality plots are automatically generated and saved.
+- Outputs organised in a new `/data_products` directory as per below.
 
 
 ## User Manual
@@ -83,11 +83,11 @@ To perform data reduction using master calibration files from previous reduction
 
 `-skip-done`: Skip already completed steps. 
 
-`-just-calib`: Triggers the data reduction in absence of on-sky data (both science and calibration). It only produce basic calibration files.
+`-just-calib`: Triggers the data reduction in the absence of on-sky data (both science and calibration). It only produces basic calibration files.
 
 ### Extra usabilities
 #### Multiprocessing
-When multiprocessing is enabled, the pipeline *may* do the job faster. This will depend on the operative system used to run the pipeline. The multiprocessing setup is recomended for **Linux** users, as they will see a significative improvement in the computation time. On the other side, Mac OS users might get a similar running time (or just slightly faster) than in one-process mode. 
+When multiprocessing is enabled, the pipeline *may* do the job faster. This will depend on the operative system used to run the pipeline. The multiprocessing setup is recommended for **Linux** users, as they will see a significant improvement in the computation time. On the other side, Mac OS users might get a similar running time (or just slightly faster) than in one-process mode. 
 To enable the multithreading option, please follow these steps:
 
 1. Open the `.json` file that corresponds to your data observing mode and grating. That is, `reduction_scripts/pipeline_parms/params_class_<grating>.json` for classic mode, or `reduction_scripts/params_ns_<grating>.json` for nod-and-shuffle.
@@ -102,7 +102,7 @@ Some steps in the data reduction process can be skipped by setting `"run": false
 
 ### DATA REDUCED
 The pipeline will generate the `data_products` directory within the working directory 
-`/Users/.../working_directory` containing the reduced data, a logger file to track the information from the reduction process, and the following the structure: 
+`/Users/.../working_directory` containing the reduced data, a logger file to track the information from the reduction process, and the following structure: 
 
 - data_products
     - `pywifes_logger.log` 
@@ -150,8 +150,8 @@ The pipeline will generate the `data_products` directory within the working dire
         - `wifes_red_<master_calibration>_files.fits`
         - ...
 
-`data_products` contains the `plots` directory with the output figures and quality plots obtained during the data reduction, separated by arm when required. 
-Then, the `data_products/intermediate` directory with the calibration files generated during the data reduction process, saved separately for each red and blue arm. Also in `intermediate` there is the temporary directory `raw_data_temp` aimed to store the raw data and any pre-treated images (e.g. cut down calibration frames to stellar mode size, when needed) during the data reductions proces. `raw_data_temp` is automatically removed when the pipeline is successfully completed. 
+`data_products` contains the `plots` directory with the output figures and quality plots obtained during the data reduction, saved in a separated for in each arm when required (`data_products/plots/arm`). 
+Then, the `data_products/intermediate` directory with the calibration files generated during the data reduction process and saves the data separately for each red and blue arm. Also in `intermediate` there is the temporary directory `raw_data_temp` aimed to store the raw data and any pre-treated images (e.g. cut down calibration frames to stellar mode size, when needed) during the data reduction process. `raw_data_temp` is automatically removed when the pipeline is successfully completed. 
 
 Finally, we find `data_products/master_calib`, which is a directory with all master calibration files produced in the data reduction. They are stored to be used in further reductions if required.
 
