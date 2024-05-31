@@ -2654,12 +2654,13 @@ def wifes_2dim_response(
             next_normed_data = (
                 init_normed_data.T / numpy.median(norm_region, axis=1)
             ).T
-
+            next_normed_data[next_normed_data<=0] = numpy.nan
             # SPATIAL FLAT
 
             rect_spat_data = transform_data(orig_spat_data, wave, return_lambda=False)
             alt_dw = lam_array[1] - lam_array[0]
             alt_flat_spec = spat_interp(lam_array)
+            alt_flat_spec[alt_flat_spec<=0] = numpy.nan
             curr_interp_spat = numpy.zeros(numpy.shape(out_y_full), dtype="d")
             alt_interp_spat = numpy.zeros(numpy.shape(rect_spat_data), dtype="d")
             # f1 = pylab.figure()
