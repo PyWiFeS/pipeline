@@ -25,7 +25,6 @@ import logging
 
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
-logger = logging.getLogger("PyWiFeS")
 print = custom_print(logger)
 
 
@@ -536,7 +535,7 @@ def detect_extract_and_save(
             plt.tight_layout()
             fig_output = os.path.join(output_dir, plot_path)
             plt.savefig(fig_output, bbox_inches="tight", dpi=300)
-            plt.close("all")
+            plt.close()
 
 
 # TODO Replace with a proper SpecUtils loader

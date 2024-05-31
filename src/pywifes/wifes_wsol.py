@@ -153,8 +153,6 @@ def associate_linelists(
 # ------------------------------------------------------------------------
 # arc line fitting functions
 
-
-# Fred's update ... mpfit and multiprocessing
 def gauss_line(p, x):
     return p[0] * numpy.exp(-((x - p[1]) ** 2) / (2 * p[2] ** 2))
 
@@ -370,7 +368,7 @@ def quick_arcline_fit(
     deriv_threshold=40.0,
     width_guess=2.0,
     flux_saturation=50000.0,
-    prev_centers=None,  # Fred's update (wsol)
+    prev_centers=None,  
     multithread=False,
 ):
     N = len(arc_data)
@@ -401,7 +399,6 @@ def quick_arcline_fit(
     full_diffs[:-1] = ind_diffs
     potential_line_inds = init_inds[numpy.nonzero(ind_diffs != 1)[0]]
 
-    # Fred's update (wsol)
     # Ok, so roughly the same lines will be selected in each row.
     # 30-50% are rubbsih ... so, if we do it once, we could avoid to do it
     # again and again ...
@@ -542,7 +539,7 @@ def find_lines_and_guess_refs(
         print(" Slitlet", chosen_slitlet)
         print("  ... detecting arc lines with", find_method, "...")
         start = datetime.datetime.now()
-    # Fred's update (wsol)
+
     # Avoid running mpfit where it is unuseful.
     # Run it once for all detected line in the middle of the slice ...
     # then for all other slices, just re-fit the lines that are real.
@@ -649,7 +646,6 @@ def find_lines_and_guess_refs(
     # ---------
     # full xcorr version
     elif shift_method == "xcorr_all":
-        # Fred's update (wsol)
         # First, load the initial guess - currently, only for:
         # B3000, R3000, R7000 with NeAr lamp
         # B3000, R3000, B7000, I7000 with CuAr lamp
@@ -680,7 +676,6 @@ def find_lines_and_guess_refs(
         # Some quick tests showed that the 'Pool' approach is much faster than
         # simply pilling up many 'Process' ...
         #
-        # Fred, 04.2013
 
         # Stretch value is not varying much over 1 slice.
         # So, get it in the middle, and use it throughout.

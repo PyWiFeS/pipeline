@@ -560,14 +560,10 @@ def fitfunc(grating,p,alphap,s,y,x):
       count += 1
       # Calculate wavelength from the grating equation, using our best guess at alpha, beta, and gamma
       lambdaold = lambda1
-      # Avoid having to use inverse trig functions:
-      # sin(alpha + phi/2) = sin(alpha)*cos(phi/2) + cos(alpha)*sin(phi/2)
       sin_alpha_p_phi_on_2 = sinalpha*cosphi + cosalpha*sinphi
-      # sin(beta - phi/2) = sin(beta)*cos(phi/2) - cos(beta)*sin(phi/2)
       sin_beta_m_phi_on_2 = sinbeta*cosphi - cosbeta*sinphi
       lambda1 = a0 * (sin_alpha_p_phi_on_2 + sin_beta_m_phi_on_2)*cosgamma
       max_change = np.max(np.abs(lambda1 - lambdaold))
-      # print 'max change in lambda:', max_change
 
       # If the solution has converged to better than 1 Angstrom then this is our
       # last iteration

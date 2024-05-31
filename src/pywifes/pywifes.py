@@ -1253,11 +1253,8 @@ def subtract_wifes_interslit_bias(
 
 
 # ------------------------------------------------------------------------
-# NEW 2012-10-02
 # bias subtraction method
 
-
-# --------------------------- Fred's update ------------------------------
 def wifes_bias_model(p, x, camera):
     if camera == "WiFeSRed":
         model = p[0]
@@ -1272,15 +1269,11 @@ def wifes_bias_model(p, x, camera):
         model += p[8] * numpy.exp(-((p[9] * (x - p[10])) ** 2))
     return model
 
-
-# --------------------------- Fred's update ------------------------------
 def error_wifes_bias_model(p, x, z, err, camera, fjac=None):
     status = 0
     residual = (wifes_bias_model(p, x, camera) - z) / err
     return [status, residual]
 
-
-# --------------------------- Fred's update ------------------------------
 def generate_wifes_bias_fit(
     bias_img, 
     outimg, arm, 
@@ -1369,7 +1362,7 @@ def generate_wifes_bias_fit(
                 row_med[i] = numpy.mean(curr_col[good_inds])
             # row_med = numpy.median(curr_data, axis=0)
             bias_sub = row_med ** numpy.ones(numpy.shape(curr_data), dtype="d")
-            # Fred's update (bias fit) ------
+            # 's update (bias fit) ------
             # To remove the variations (some at least) along the
             # y-direction, let's smooth the residuals !
             residual = curr_data - bias_sub
@@ -1622,8 +1615,6 @@ def derive_slitlet_profiles(
     f3.close()
     return
 
-
-# Fred's update (sag)
 def interslice_cleanup(
     input_fn,
     output_fn,
@@ -2624,11 +2615,6 @@ def wifes_2dim_response(
         10.0 ** (numpy.polyval(smooth_poly, mid_lam_array))
     )
     
-    # pylab.figure()
-    # pylab.plot(mid_lam_array, spec_norm)
-    # pylab.show()
-    # input()
-    
     spat_interp = scipy.interpolate.interp1d(
         mid_lam_array, spatial_flat_spec / spec_norm, bounds_error=False, fill_value=0.0
     )
@@ -2817,7 +2803,6 @@ def wifes_illumination(
     for i in range(nslits):
         curr_hdu = i + 1
         orig_spat_data = f2[curr_hdu].data
-        # NEW 2012-04-20
         # rectify data!
         if wsol_fn != None:
             f3 = pyfits.open(wsol_fn)
@@ -3871,7 +3856,6 @@ def generate_wifes_3dcube(inimg, outimg, halfframe):
     dq_hdu.header.set("CTYPE3", ctype3, "Type of co-ordinate on axis 3")
     dq_hdu.header.set("CDELT3", dlam, "Wavelength step (Angstroms)")
     dq_hdu.header.set("CRPIX3", crpix3, "Reference pixel on wavelength (axis 3)")
-    # dq_hdu.header.set('PYWIFES',__version__, 'Pywifes version')
     outfits.append(dq_hdu)
 
     # SAVE IT

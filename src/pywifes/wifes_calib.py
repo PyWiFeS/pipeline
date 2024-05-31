@@ -371,7 +371,6 @@ def wifes_cube_divide(inimg, outimg, corr_wave, corr_flux):
     return
 
 
-# -------------------------- Fred's update ------------------------------
 def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     """
      Smooth (and optionally differentiate) data with a Savitzky-Golay filter.
@@ -822,8 +821,6 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         sort_order = calib_info["wave"].argsort()
         calib_x = calib_info["wave"][sort_order]
         calib_y = calib_info["cal"][sort_order]
-        # Fred's update 2 ... to account for the smooth method for B3000 ...
-        # That's to fix the ugly of the previous function ...
         this_f = scipy.interpolate.interp1d(
             calib_x, calib_y, bounds_error=False, fill_value=-100.0, kind="linear"
         )
@@ -853,9 +850,7 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         curr_flux = f3[i].data
         curr_var = f3[i + 25].data
         out_flux = curr_flux / (fcal_array * exptime * dwave)
-        # Fred's update 2 : add dwave !
         out_var = curr_var / ((fcal_array * exptime * dwave) ** 2)
-        # Fred'supadte 2 : add dwave !a
         # save to data cube
         outfits[i].data = out_flux
         outfits[i + 25].data = out_var
