@@ -3811,7 +3811,6 @@ def generate_wifes_3dcube(inimg, outimg, halfframe):
     cube_hdu.header.set("CTYPE3", ctype3, "Type of co-ordinate on axis 3")
     cube_hdu.header.set("CDELT3", dlam, "Wavelength step (Angstroms)")
     cube_hdu.header.set("CRPIX3", crpix3, "Reference pixel on wavelength (axis 3)")
-    # cube_hdu.header.set('PYWIFES',__version__, 'Pywifes version'))
     outfits = pyfits.HDUList([cube_hdu])
 
     # VARIANCE
@@ -3834,7 +3833,6 @@ def generate_wifes_3dcube(inimg, outimg, halfframe):
     var_hdu.header.set("CTYPE3", ctype3, "Type of co-ordinate on axis 3")
     var_hdu.header.set("CDELT3", dlam, "Wavelength step (Angstroms)")
     var_hdu.header.set("CRPIX3", crpix3, "Reference pixel on wavelength (axis 3)")
-    # var_hdu.header.set('PYWIFES',__version__, 'Pywifes version')
     outfits.append(var_hdu)
 
     # DQ

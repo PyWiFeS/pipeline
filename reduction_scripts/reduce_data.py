@@ -4,7 +4,6 @@
 # Initial set ups and import modules
 # ------------------------------------------------------------------------
   
-import sys
 import os
 import pickle
 from astropy.io import fits as pyfits

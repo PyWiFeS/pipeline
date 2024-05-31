@@ -52,8 +52,6 @@ def adr_r(lam, secz, p, t, f):
     return 206265.0 * nlam * tanz
 
 def adr_eta(ha, lat, dec):
-    # NOTE: bug discovered and fixed by Julia Scharwaechter
-    #       in version 0.7.0
     term1 = numpy.sin(numpy.radians(ha))
     term4 = (numpy.cos(numpy.radians(dec))
              * numpy.tan(numpy.radians(lat))
