@@ -94,11 +94,6 @@ def lacos_spec_data(
         # subtract large structure in sigma map
         sig_smooth = scipy.ndimage.median_filter(sigmap, size=[5, 5])
         sig_detrend = sigmap - sig_smooth
-        # plot_sig = sig_detrend[numpy.nonzero(sig_detrend < 1000)]
-        # print numpy.mean(plot_sig), numpy.std(plot_sig)
-        # import pylab
-        # pylab.hist(plot_sig.flatten(), bins=1000)
-        # pylab.show()
 
         # ------------------------------------
         # step 5 - identify potential cosmic rays!!!!

@@ -1457,6 +1457,11 @@ def generate_wifes_bias_fit(
         if plot:
             plt.figure(1)
             plt.plot(linx, curr_data.mean(axis=0), "k-", label="raw bias", lw=2)
+
+            # Avoid ploting ouliers peaks
+            lower_limit = numpy.percentile(curr_data.mean(axis=0), 0.2)
+            upper_limit = numpy.percentile(curr_data.mean(axis=0), 99.8)
+
             if method == "row_med":
                 plt.plot(linx, out_data.mean(axis=0), "r-", label="row_med bias")
                 plt.plot(
@@ -1479,8 +1484,9 @@ def generate_wifes_bias_fit(
             plt.axhline(0, numpy.min(linx), numpy.max(linx), color="k")
             plt.xlabel("x [pixels]")
             plt.ylabel(" bias signal collapsed along y")
-            plt.legend(loc="lower left", fancybox=True, shadow=True)
+            plt.legend()
             plt.xlim([numpy.min(linx), numpy.max(linx)])
+            plt.ylim(lower_limit, upper_limit)
             plt.title("Fitting bias frame %s" % bias_img.split("/")[-1])
             plot_path = os.path.join(plot_dir, f"bias.png")
             plt.savefig(plot_path,dpi=300)
@@ -1970,8 +1976,6 @@ def wifes_slitlet_mef(
             curr_defs[2] - 1 - offset,
             curr_defs[3] - offset,
         ]
-        # print curr_defs, (curr_defs[3]-curr_defs[2]), init_curr_defs, (
-        #    init_curr_defs[3]-init_curr_defs[2])
         if halfframe and ((i + 1) > 18):
             new_data = numpy.zeros([86 // bin_y, 4096 // bin_x], dtype="d")
         else:
@@ -1984,7 +1988,6 @@ def wifes_slitlet_mef(
         new_hdu.header.set("TRIMSEC", dim_str)
         outfits.append(new_hdu)
         gc.collect()
-    # print squirrel
     # VARIANCE EXTENSIONS
     for i in range(25):
         init_curr_defs = slitlet_defs[str(i + 1)]
@@ -2202,7 +2205,6 @@ def wifes_slitlet_mef_ns(
         outfits_sky.append(sky_hdu)
         gc.collect()
     # ------------------------------------
-    # print squirrel
     # VARIANCE EXTENSIONS
     for i in range(nslits):
         init_curr_defs = slitlet_defs[str(i + 1)]
@@ -2696,8 +2698,6 @@ def wifes_2dim_response(
                 alt_y = rect_spat_data[q, :]
                 norm_func = alt_y / (alt_flat_spec * next_normed_data[q, :])
                 alt_interp_spat[q, :] = norm_func
-                # print len(new_data)
-                # print len(norm_func)
                 # norm_func = (alt_y / (
                 #    alt_flat_spec))
                 # sp1.plot(norm_func[500:-200])

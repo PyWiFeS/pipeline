@@ -248,11 +248,9 @@ def _mpfit_gauss_line(packaged_args):
 
     my_fit = mpfit(err_gauss_line, functkw=fa, parinfo=parinfo, quiet=True)
     p1 = my_fit.params
-    # print p1, my_fit.status
 
     # plot for check purposes
     """
-    print my_fit.params, my_fit.status
     plt.figure()
     plt.plot(xfit,yfit,'ko-')
     plt.plot(xfit, gauss_line(my_fit.params,xfit),'ro-')
@@ -901,7 +899,6 @@ def xcorr_shift_grid(slitlet_data, wave_guess, ref_interp):
     # pylab.plot(y_samp, all_stretches, 'bo')
     # pylab.plot(fval_y, stretch_fvals, 'g')
     # pylab.show()
-    # print shift_poly, stretch_poly
     fval_y = numpy.arange(10 // bin_y, 80 // bin_y)
     best_stretch = numpy.median(all_stretches)
     good_inds = numpy.nonzero(all_stretches == best_stretch)[0]
@@ -912,12 +909,8 @@ def xcorr_shift_grid(slitlet_data, wave_guess, ref_interp):
     # pylab.plot(y_samp[good_inds], all_shifts[good_inds], 'bo')
     # pylab.plot(fval_y, shift_fvals, 'g')
     # pylab.show()
-    # print shift_poly, best_stretch
     # ------------------------------------
     return shift_poly, best_stretch
-
-
-# Fred's update (wsol)
 
 
 def _xcorr_shift_all(packaged_args):
@@ -1125,8 +1118,6 @@ def slitlet_wsol(
         + shift_coeffs[1]
         + shift_coeffs[0] * (init_y_array - 1)
     )
-    # print numpy.mean(temp_wave_array - init_wguess)
-    # print squirrel
     # ------------------------------
     # 3 - get starting wavelengths!
     init_winds = numpy.nonzero(temp_wave_array > 0.0)[0]
