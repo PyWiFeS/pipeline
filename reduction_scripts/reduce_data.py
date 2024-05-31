@@ -24,7 +24,7 @@ working_dir = os.getcwd()
 
 # Setup the logger.
 log_file = os.path.join(working_dir, "data_products/pywifes_logger.log")
-logger = setup_logger(file=log_file)
+logger = setup_logger(file=log_file, console_level=logging.WARNING, file_level=logging.INFO)
 
 # Redirect print statements to logger with different levels
 debug_print = custom_print(logger, logging.DEBUG)
@@ -42,6 +42,11 @@ from pywifes.lacosmic import lacos_wifes
 from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes import wifes_calib
+from pywifes.pywifes import is_halfframe
+from pywifes.pywifes import calib_to_half_frame
+import shutil
+import glob
+import argparse
 
 # ------------------------------------------------------------------------
 # Function definition
@@ -54,15 +59,20 @@ def move_files(src_dir_path, destination_dir_path, filenames):
         info_print(f"Moving file {src_file} to {dest_file}")
         shutil.move(src_file, dest_file)
 
+def copy_files(src_dir_path, destination_dir_path, filenames):
+    for file in filenames:
+        src_file = os.path.join(src_dir_path, file) 
+        dest_file = os.path.join(destination_dir_path, file)
+        shutil.copy(src_file, dest_file)
 
-def get_reduced_cube_name(src_dir_path, glob_pattern):
+
+def get_file_names(src_dir_path, glob_pattern):
     filepaths = glob.glob(os.path.join(src_dir_path, glob_pattern))
-    cube_names = []
+    names = []
     for filepath in filepaths:
         filename = os.path.basename(filepath)
-        cube_names.append(filename)
-    info_print(f"Reduced cube names: {cube_names}")
-    return cube_names
+        names.append(filename)
+    return names
 
 
 def load_config_file(filename):
@@ -176,7 +186,7 @@ def main():
     def run_overscan_sub(metadata, prev_suffix, curr_suffix):
         full_obs_list = get_full_obs_list(metadata)
         for fn in full_obs_list:
-            in_fn = os.path.join(data_dir, "%s.fits" % fn)
+            in_fn = os.path.join(temp_data_dir, "%s.fits" % fn)
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
             if skip_done and os.path.isfile(out_fn):
                 continue
@@ -899,6 +909,7 @@ def main():
             - knots: number of knots for the spline
         '''
         std_obs_list = get_primary_std_obs_list(metadata, type="flux")
+
         std_cube_list = [
             os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
             for fn in std_obs_list
@@ -970,11 +981,19 @@ def main():
         '''
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
+
+        # Check if is half-frame from the first sci image
+        sci_filename = temp_data_dir +  sci_obs_list[0] + ".fits"
+
+        halfframe = is_halfframe(sci_filename)
+        # now generate cubes
+
+
         for fn in sci_obs_list + std_obs_list:
             in_fn = os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
             out_fn = os.path.join(out_dir, f"{fn}.{curr_suffix}.fits")
             info_print(f"Saving 3D Data Cube for {os.path.basename(in_fn)}")
-            pywifes.generate_wifes_3dcube(in_fn, out_fn, **args)
+            pywifes.generate_wifes_3dcube(in_fn, out_fn, halfframe=halfframe, **args)
         return
 
     # --------------------------------------------
@@ -987,7 +1006,7 @@ def main():
     )
 
     # The raw data directory is a required positional argument
-    parser.add_argument("data_dir", type=str, help="Path to the raw data directory.")
+    parser.add_argument("user_data_dir", type=str, help="Path to the raw data directory.")
 
     # Option for specifying the path to the red parameters JSON file
     parser.add_argument(
@@ -1027,11 +1046,11 @@ def main():
 
     args = parser.parse_args()
 
-    # Validate and process the data_dir
-    data_dir = os.path.abspath(args.data_dir)
-    if not data_dir.endswith("/"):
-        data_dir += "/"
-    info_print(f"Processing data in directory: {data_dir}")
+    # Validate and process the user_data_dir
+    user_data_dir = os.path.abspath(args.user_data_dir)
+    if not user_data_dir.endswith("/"):
+        user_data_dir += "/"
+    info_print(f"Processing data in directory: {user_data_dir}")
 
     # Handling reduction parameters.
     params_path = {
@@ -1055,11 +1074,24 @@ def main():
     # Only basics master calibration.
     just_calib = args.just_calib
 
-    # Classify all raw data (red and blue arm)
-    obs_metadatas = classify(data_dir)
-
     # Set to skip already done files
     skip_done = args.skip_done
+
+    # Set paths
+    reduction_scripts_dir = os.path.dirname(__file__)
+    working_dir = os.getcwd()
+
+    # Creates a tempoarary data directory containning all raw data for reduction.
+    temp_data_dir = os.path.join(working_dir, f"data_products/intermediate/raw_data_temp/")
+    os.makedirs(temp_data_dir, exist_ok=True)
+
+    all_fits_names = get_file_names(user_data_dir, "*.fits")
+    # Copy raw data  from user's direcory into temporaty raw directory.
+    copy_files(user_data_dir, temp_data_dir, all_fits_names)
+
+
+    # Classify all raw data (red and blue arm)
+    obs_metadatas = classify(temp_data_dir)
 
     # Set grism_key dictionary due to different keyword names for red and blue arms.
     grism_key = {
@@ -1097,7 +1129,6 @@ def main():
             #      LOAD JSON FILE WITH USER DATA REDUCTION SETUP
             # ------------------------------------------------------------------------
             obs_metadata = obs_metadatas[arm]
-
             # Determine the grism and observing mode used in the first image of science, standard, or arc of the respective arm.
             # Skip reductions steps if no objects no standar star observations are present.
 
@@ -1111,16 +1142,23 @@ def main():
                 error_print("No science, standard, or arc files found in metadata.")
                 raise ValueError("No science, standard, or arc files found in metadata.")
 
-            # Check observing mode
-            if pywifes.is_nodshuffle(data_dir + reference_filename):
+            # Check observing mode 
+            if pywifes.is_nodshuffle(temp_data_dir + reference_filename):
                 obs_mode = "ns"
-            elif pywifes.is_subnodshuffle(data_dir + reference_filename):
+
+            elif pywifes.is_subnodshuffle(temp_data_dir + reference_filename):
                 obs_mode = "ns"
             else:
                 obs_mode = "class"
 
+            # Check if is half-frame
+            halfframe = is_halfframe(temp_data_dir + reference_filename)
+            if halfframe:
+                obs_metadata = calib_to_half_frame(obs_metadata,temp_data_dir) 
+
+
             # Grism
-            grism = pyfits.getheader(data_dir + reference_filename)[grism_key[arm]]
+            grism = pyfits.getheader(temp_data_dir + reference_filename)[grism_key[arm]]
 
             # Set the JSON file path and read it.
             if just_calib and (params_path[arm] is None):
@@ -1199,7 +1237,7 @@ def main():
                     )
                     if step_suffix != None:
                         prev_suffix = step_suffix
-    
+
                 else:
                     pass
 
@@ -1207,6 +1245,10 @@ def main():
             error_print("________________________________________________________________")
             error_print(f"{arm} arm skipped, an error occurred during processing: '{exc}'.")        
             error_print("________________________________________________________________")
+
+
+    # Delete temporary directory containing raw data.
+    shutil.rmtree(temp_data_dir)
 
     # ----------------------------------------------------------
     # Move reduce cube to the data_products directory
@@ -1219,13 +1261,13 @@ def main():
 
         # Red
         red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
-        red_cubes_file_name = get_reduced_cube_name(red_cubes_path, "*.cube.fits")
+        red_cubes_file_name = get_file_names(red_cubes_path, "*.cube.fits")
         # Move reduced cubes to the data_product
         move_files(red_cubes_path, destination_dir, red_cubes_file_name)
 
         # Blue
         blue_cubes_path = os.path.join(working_dir, "data_products/intermediate/blue/")
-        blue_cubes_file_name = get_reduced_cube_name(blue_cubes_path, "*.cube.fits")
+        blue_cubes_file_name = get_file_names(blue_cubes_path, "*.cube.fits")
         # Move reduced cubes to the data_product
         move_files(blue_cubes_path, destination_dir, blue_cubes_file_name)
 
@@ -1311,8 +1353,9 @@ def main():
     # ----------------------------------------------------------
     end_time = datetime.datetime.now()
     duration = end_time - start_time
-    info_print("All done in %.01f seconds." % duration.total_seconds())
-
-
+    messagge = "All done in %.01f seconds." % duration.total_seconds()
+    info_print(messagge)
+    print('\U0001F52D',messagge,'\u2B50')
+    
 if __name__ == "__main__":
     main()
