@@ -230,7 +230,7 @@ def extract_wifes_stdstar(
 
     # make a mask for halfframe
     if halfframe:
-        halfframe_mask = full_y < 12.5
+        halfframe_mask = full_y < 25
     else:
         halfframe_mask = full_y < 50
 
@@ -476,11 +476,23 @@ def derive_wifes_calibration(
         extinct_interp = scipy.interpolate.interp1d(
             ext_data[:, 0], ext_data[:, 1], bounds_error=False, fill_value=numpy.nan
         )
+        extinct_interp = scipy.interpolate.interp1d(
+            ext_data[:, 0], ext_data[:, 1], bounds_error=False, fill_value=numpy.nan
+        )
     # first extract stdstar spectra and compare to reference
     fratio_results = []
     for i in range(len(cube_fn_list)):
+
+        # Check half-frame
+        halfframe = is_halfframe(cube_fn_list[i])
+
+        if halfframe:
+            first = 7
+        else:
+            first = 1
+
         f = pyfits.open(cube_fn_list[i])
-        cube_hdr = f[1].header
+        cube_hdr = f[first].header
         f.close()
         # ------------------------------------
         # figure out which star it is
@@ -508,6 +520,7 @@ def derive_wifes_calibration(
         print("Found star " + star_name)
         if airmass_list != None:
             secz = airmass_list[i]
+
         else:
             try:
                 secz = cube_hdr["AIRMASS"]
@@ -518,6 +531,7 @@ def derive_wifes_calibration(
                     )
                 )
                 secz = 1.0
+
         # check if there is a calib spectrum...
         if ref_fname_list != None:
             ref_fname = ref_fname_list[i]
@@ -525,6 +539,7 @@ def derive_wifes_calibration(
             ref_fname = ref_fname_lookup[star_name]
         else:
             continue
+
         # get observed data
         if extract_in_list == None:
             obs_wave, obs_flux = extract_wifes_stdstar(cube_fn_list[i], ytrim=ytrim)
@@ -540,8 +555,7 @@ def derive_wifes_calibration(
         # get reference data
         ref_data = numpy.loadtxt(os.path.join(ref_dir, ref_fname))
         ref_interp = scipy.interpolate.interp1d(
-            ref_data[:, 0], ref_data[:, 1], bounds_error=False, fill_value=numpy.nan
-        )
+        ref_data[:,0], ref_data[:,1], bounds_error=False, fill_value=numpy.nan)
         ref_flux = ref_interp(obs_wave)
         std_ext = extinct_interp(obs_wave)
         good_inds = numpy.nonzero(
@@ -602,12 +616,18 @@ def derive_wifes_calibration(
         * (halpha_mask(init_full_x))
     )[0]
     # do a first fit
+
     next_full_y = init_full_y[init_good_inds]
+
     next_full_x = init_full_x[init_good_inds]
+
     sort_order = next_full_x.argsort()
+
     temp_full_x = next_full_x[sort_order]
+
     temp_full_y = next_full_y[sort_order]
 
+    # ----------- Fred's update 3 -------------------
     if method == "smooth_SG":
         # Savitzky-Golay requires continuous data. ->need to fill the 'holes'
         # It is a problem for red spectra (at this point at least)
@@ -660,9 +680,8 @@ def derive_wifes_calibration(
         )[boxcar:-boxcar]
         final_fvals = savitzky_golay(smooth_y, 101, 1, 0)
         this_f = scipy.interpolate.interp1d(
-            smooth_x, final_fvals, bounds_error=False, kind="linear"
-        )
-
+        smooth_x, final_fvals, bounds_error=False, kind="linear")
+        print("this_f", this_f)
         all_final_fvals = this_f(init_full_x)
         final_x = full_x
         final_y = this_f(final_x)
@@ -672,11 +691,6 @@ def derive_wifes_calibration(
 
     best_calib = numpy.polyfit(full_x, full_y, polydeg)
     this_f2 = numpy.poly1d(best_calib)
-
-    print("best_calib")
-    print(method)
-    print(stdstar_name_list)
-    print(best_calib)
 
     # Calculate the final result
     final_fvals = this_f(full_x)
@@ -787,6 +801,9 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
     # open data
     f3 = pyfits.open(inimg)
     # get the wavelength array
+    wave0 = f3[first].header["CRVAL1"]
+    dwave = f3[first].header["CDELT1"]
+    exptime = f3[first].header["EXPTIME"]
     wave0 = f3[first].header["CRVAL1"]
     dwave = f3[first].header["CDELT1"]
     exptime = f3[first].header["EXPTIME"]

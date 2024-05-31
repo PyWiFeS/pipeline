@@ -22,7 +22,9 @@ warnings.filterwarnings("ignore", category=NoDetectionsWarning)
 from pywifes.logger_config import custom_print
 import logging
 
+
 # Redirect print statements to logger
+logger = logging.getLogger("PyWiFeS")
 logger = logging.getLogger("PyWiFeS")
 print = custom_print(logger)
 
@@ -425,7 +427,7 @@ def detect_extract_and_save(
         border_width:-border_width, border_width:-border_width
     ]
     mean, median, std = sigma_clipped_stats(collapsed_cube_no_edge, sigma=5.0)
-    threshold = median + (1.5 * std)
+    threshold = median + (3 * std)
 
     detection = find_peaks(
         collapsed_cube,

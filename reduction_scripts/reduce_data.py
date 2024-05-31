@@ -927,6 +927,7 @@ def main():
             - knots: number of knots for the spline
         '''
         std_obs_list = get_primary_std_obs_list(metadata, type="flux")
+
         std_cube_list = [
             os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
             for fn in std_obs_list

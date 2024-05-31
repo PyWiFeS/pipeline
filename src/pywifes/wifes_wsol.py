@@ -1125,6 +1125,8 @@ def slitlet_wsol(
         + shift_coeffs[1]
         + shift_coeffs[0] * (init_y_array - 1)
     )
+    # print numpy.mean(temp_wave_array - init_wguess)
+    # print squirrel
     # ------------------------------
     # 3 - get starting wavelengths!
     init_winds = numpy.nonzero(temp_wave_array > 0.0)[0]
@@ -1572,51 +1574,50 @@ def _fit_optical_model(
             "err": err,
         }
 
-        for params in paramlist:
-            if verbose:
-                print("Fitting for parameters", params)
-            # Fix all parameters
-            for p in parinfo:
-                p["fixed"] = 1
-            # Unfix only those we want to fit this time around
-            for i in params:
-                parinfo[i]["fixed"] = 0
-            # Do the fit
-            fitdone = False
-            fitcount = 0
-            # Maximum number of times to repeat the fit
-            MAXFITS = 1
-            while not fitdone:
-                fitcount += 1
-                # Actually do the fit
-                m = mpfit(
-                    om.mpfitfunc, functkw=fa, parinfo=parinfo, iterfunct=None, ftol=FTOL
-                )
-                # Report on it
-                if verbose:
-                    print("status = ", m.status)
-                if m.status <= 0:
-                    print("error message = ", m.errmsg)
+    for params in paramlist:
+      for r in range(1):
+        if (verbose):
+          print('Fitting for parameters',params)
+        # Fix all parameters
+        for p in parinfo:
+          p['fixed'] = 1
+        # Unfix only those we want to fit this time around
+        for i in params:
+          parinfo[i]['fixed'] = 0
+        # Do the fit
+        fitdone = False
+        fitcount = 0
+        # Maximum number of times to repeat the fit
+        MAXFITS = 1
+        while (not fitdone):
+          fitcount += 1
+          # Actually do the fit
+          m = mpfit(om.mpfitfunc, functkw=fa, parinfo=parinfo, iterfunct=None, ftol=FTOL)
+          # Report on it
+          if (verbose):
+            print('status = ', m.status)
+          if (m.status <= 0):
+             print('error message = ', m.errmsg)
 
-                if verbose:
-                    # Work out the RMSE
-                    chisq = m.fnorm
-                    dof = len(allx) - len(m.params)
-                    rmse = numpy.sqrt(chisq / dof)
-                    print("RMSE", rmse)
+          if (verbose):
+            # Work out the RMSE
+            chisq = m.fnorm
+            dof=len(allx)-len(m.params)
+            rmse=numpy.sqrt(chisq/dof)
+            print("RMSE",rmse)
 
-                # Copy back fitted parameters into parinfo structure
-                for i, v in enumerate(m.params):
-                    parinfo[i]["value"] = v
-                    # Report the ones we just changed
-                    if (parinfo[i]["fixed"] == 0) and verbose:
-                        print(i, parinfo[i]["value"])
+          # Copy back fitted parameters into parinfo structure
+          for i,v in enumerate(m.params):
+            parinfo[i]['value'] = v
+            # Report the ones we just changed
+            if (parinfo[i]['fixed'] == 0) and verbose:
+              print(i, parinfo[i]['value'])
 
-                # Repeat the fit if we need more steps
-                if (m.status == 5) and (fitcount < MAXFITS):
-                    print("mpfit needs more steps; repeating fit")
-                else:
-                    fitdone = True
+          # Repeat the fit if we need more steps
+          if ((m.status == 5) and (fitcount < MAXFITS)):
+            print('mpfit needs more steps; repeating fit')
+          else:
+            fitdone = True
 
             # if plot:
             #   pl = numpy.asarray(m.params)[:om.nparams]
@@ -1659,22 +1660,20 @@ def _fit_optical_model(
         #   if (plot):
         #     om.plotResid(title,allx,ally,allarcs,resid)
 
-        # In automatic mode we select some of the lines to be removed
-        if automatic > 0:
-            lines = om.excludeAuto(
-                lines, grating, bin_x, bin_y, resid, sigma, plot, verbose
-            )
-            alls, ally, allx, allarcs = om.extractArrays(lines, grating, bin_x, bin_y)
-            err = numpy.ones_like(ally)
-            fa = {"s": alls, "y": ally, "x": allx, "arc": allarcs, "err": err}
-            automatic -= 1
+    # In automatic mode we select some of the lines to be removed
+    if automatic > 0:
+      lines = om.excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, doplot, verbose)
+      alls, ally, allx, allarcs = om.extractArrays(lines, grating, bin_x, bin_y)
+      err = numpy.ones_like(ally)
+      fa = {'s':alls, 'y':ally, 'x':allx, 'arc':allarcs, 'err':err}
+      automatic -= 1
 
-        if plot:
+    if plot:
 
-            #   # Final wavelenght solution
-            plot_name = f"final_wsol_{grating.upper()}.png"
-            plot_path = os.path.join(plot_dir, plot_name)
-            om.final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=plot_path)
+        #   # Final wavelenght solution
+        plot_name = f"final_wsol_{grating.upper()}.png"
+        plot_path = os.path.join(plot_dir, plot_name)
+        om.final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=plot_path)
 
     print("Final RMSE", rmse)
     return (allx, ally, alls, allarcs, pl)
