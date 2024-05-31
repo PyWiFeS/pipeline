@@ -495,9 +495,6 @@ def derive_wifes_calibration(
         f.close()
         # ------------------------------------
         # figure out which star it is
-        # NEW VERSION 0.7.0: smart star name lookup!
-        #
-        # top priority: user forces the name
         if stdstar_name_list != None:
             star_name = stdstar_name_list[i]
             # if you forced an unknown star name, reset name to None
@@ -766,9 +763,6 @@ def derive_wifes_calibration(
         pylab.savefig(plot_path, dpi=300)
         pylab.close()
 
-    # Fred's update ... now, careful, because that's dirty ...
-    # the function does not always return the same thing !
-    # SAVE IN THE PICKLE FILE THE WAVELENGTH AND CALIB FVAL ARRAYS
     save_calib = {"wave": final_x, "cal": final_y}
     f1 = open(calib_out_fn, "wb")
     pickle.dump(save_calib, f1)
@@ -800,9 +794,6 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
     # open data
     f3 = pyfits.open(inimg)
     # get the wavelength array
-    wave0 = f3[first].header["CRVAL1"]
-    dwave = f3[first].header["CDELT1"]
-    exptime = f3[first].header["EXPTIME"]
     wave0 = f3[first].header["CRVAL1"]
     dwave = f3[first].header["CDELT1"]
     exptime = f3[first].header["EXPTIME"]

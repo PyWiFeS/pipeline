@@ -18,6 +18,8 @@ import multiprocessing
 import pickle
 from pywifes.logger_config import custom_print
 import logging
+import matplotlib.gridspec as gridspec
+
 # Redirect print statements to logger
 logger = logging.getLogger('PyWiFeS')
 print = custom_print(logger)
@@ -640,7 +642,6 @@ def excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, plot, verbose):
   return lines[keepargs]
 
 
-import matplotlib.gridspec as gridspec
 
 def final_wsol_plot(title,allx,ally,allarcs,resid, plot_path=None):
 

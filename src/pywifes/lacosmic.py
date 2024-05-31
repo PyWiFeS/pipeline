@@ -79,7 +79,6 @@ def lacos_spec_data(
         # ------------------------------------
         # step 4 - make noise model, create sigma map
         noise = (1.0 / gain) * ((gain * m5_model + rdnoise**2) ** 0.5)
-        noise = (1.0 / gain) * ((gain * m5_model + rdnoise**2) ** 0.5)
         noise_min = 0.00001
         noise[numpy.nonzero(noise <= noise_min)] = noise_min
         # div by 2 to correct convolution counting

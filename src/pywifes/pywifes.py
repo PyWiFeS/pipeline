@@ -1451,7 +1451,7 @@ def generate_wifes_bias_fit(
             plt.figure(1)
             plt.plot(linx, curr_data.mean(axis=0), "k-", label="raw bias", lw=2)
 
-            # Avoid ploting ouliers peaks
+            # Avoid ploting outlier peaks
             lower_limit = numpy.percentile(curr_data.mean(axis=0), 0.2)
             upper_limit = numpy.percentile(curr_data.mean(axis=0), 99.8)
 
