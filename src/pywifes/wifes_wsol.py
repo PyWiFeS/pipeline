@@ -2,7 +2,6 @@ from __future__ import print_function
 import re
 from astropy.io import fits as pyfits
 import numpy
-import pylab
 import pickle
 import scipy.interpolate
 import math
@@ -205,18 +204,6 @@ def _lsq_gauss_line(args):
     else:
         cov = numpy.linalg.inv(fit.jac.T.dot(fit.jac))
         return args[0], fit.x[1], 1 / cov[1, 1], fit.x[2], 1 / cov[2, 2]
-
-
-def scipy_gauss_line(nline, guess_center, width_guess, xfit, yfit):
-    """
-    Parameters
-    ----------
-    nline: int
-        index of this line
-    guess_center: float
-        initial guess position
-    """
-    return None
 
 
 def _mpfit_gauss_line(packaged_args):

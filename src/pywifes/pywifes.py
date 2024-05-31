@@ -2654,12 +2654,13 @@ def wifes_2dim_response(
             next_normed_data = (
                 init_normed_data.T / numpy.median(norm_region, axis=1)
             ).T
-
+            next_normed_data[next_normed_data<=0] = numpy.nan
             # SPATIAL FLAT
 
             rect_spat_data = transform_data(orig_spat_data, wave, return_lambda=False)
             alt_dw = lam_array[1] - lam_array[0]
             alt_flat_spec = spat_interp(lam_array)
+            alt_flat_spec[alt_flat_spec<=0] = numpy.nan
             curr_interp_spat = numpy.zeros(numpy.shape(out_y_full), dtype="d")
             alt_interp_spat = numpy.zeros(numpy.shape(rect_spat_data), dtype="d")
             # f1 = pylab.figure()
@@ -3810,7 +3811,6 @@ def generate_wifes_3dcube(inimg, outimg, halfframe):
     cube_hdu.header.set("CTYPE3", ctype3, "Type of co-ordinate on axis 3")
     cube_hdu.header.set("CDELT3", dlam, "Wavelength step (Angstroms)")
     cube_hdu.header.set("CRPIX3", crpix3, "Reference pixel on wavelength (axis 3)")
-    # cube_hdu.header.set('PYWIFES',__version__, 'Pywifes version'))
     outfits = pyfits.HDUList([cube_hdu])
 
     # VARIANCE
@@ -3833,7 +3833,6 @@ def generate_wifes_3dcube(inimg, outimg, halfframe):
     var_hdu.header.set("CTYPE3", ctype3, "Type of co-ordinate on axis 3")
     var_hdu.header.set("CDELT3", dlam, "Wavelength step (Angstroms)")
     var_hdu.header.set("CRPIX3", crpix3, "Reference pixel on wavelength (axis 3)")
-    # var_hdu.header.set('PYWIFES',__version__, 'Pywifes version')
     outfits.append(var_hdu)
 
     # DQ

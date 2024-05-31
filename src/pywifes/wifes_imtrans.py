@@ -109,11 +109,6 @@ def detransform_data(new_data, orig_data, wave):
             bounds_error=False, fill_value=0.0)
         fixed_data = curr_interp(curr_wave)
         scaled_interp_data[i,:] = fixed_data
-    #scaled_interp_data = scipy.interpolate.griddata(
-    #    (out_lambda_full.flatten(), out_y_full.flatten()),
-    #    new_data.flatten(),
-    #    (wave, full_y),
-    #    method='linear')
     interp_data = scaled_interp_data*(full_dw/wdisp)
     bad_inds = numpy.nonzero(interp_data != interp_data)
     interp_data[bad_inds] = 0.0

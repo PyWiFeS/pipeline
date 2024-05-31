@@ -70,20 +70,15 @@ def saveResamplingData(fname, yrange, grating, bin_x, bin_y, pl,halfframe):
   for s in range(nslits):
     y0,y1 = yrange[s]
     xout = -1*np.ones((abs(y1-y0),xlen))
-    #yout = np.zeros((y1-y0+1,xlen))
     for y in range(y0,y1):
-      #yout[y-y0,:] = y
       # The wavelength solution was not applied at the good location because of
       # a shift along the y-indices (mismatch between the python [0,1,...] and
       # FITS [1,2,3, ....] way of referencing array elements ?)
-      #xout[y-y0,:] = fitfunc(grating, pl[:nparams], pl[nparams:], (s+1)*np.ones_like(xrnge), y*bin_y*np.ones_like(xrnge), xrnge)
       xout[y-y0,:] = fitfunc(grating, pl[:nparams], pl[nparams:], (s+1)*np.ones_like(xrnge), (y+1)*bin_y*np.ones_like(xrnge), xrnge)
 
 
     xhdu = pf.ImageHDU(header=None, data=xout)
-    #yhdu = pf.ImageHDU(header=None, data=yout)
     f.append(xhdu)
-  #f.append(yhdu)
   f.update_extend()
   f.writeto(fname, overwrite=True)
 

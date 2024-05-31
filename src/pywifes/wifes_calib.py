@@ -612,18 +612,12 @@ def derive_wifes_calibration(
         * (halpha_mask(init_full_x))
     )[0]
     # do a first fit
-
     next_full_y = init_full_y[init_good_inds]
-
     next_full_x = init_full_x[init_good_inds]
-
     sort_order = next_full_x.argsort()
-
     temp_full_x = next_full_x[sort_order]
-
     temp_full_y = next_full_y[sort_order]
 
-    # ----------- Fred's update 3 -------------------
     if method == "smooth_SG":
         # Savitzky-Golay requires continuous data. ->need to fill the 'holes'
         # It is a problem for red spectra (at this point at least)
@@ -660,7 +654,7 @@ def derive_wifes_calibration(
     )[0]
     full_x = temp_full_x[final_good_inds]
     full_y = temp_full_y[final_good_inds]
-    # ------------ Fred's update 3 ----------------
+
     if method == "smooth_SG":  # Fails if multiple stars ... need to order the array !
         X = numpy.copy(full_x)
         Y = numpy.copy(full_y)

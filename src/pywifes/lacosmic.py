@@ -208,12 +208,6 @@ def lacos_wifes(
     return
 
 
-# def _get_slit_indexes(slit_index):
-#     slit_hdu_index = slit_index + 1
-#     dq_hdu_index = slit_hdu_index + 50
-#     return slit_hdu_index, dq_hdu_index
-
-
 def lacos_wifes_oneproc(
     in_img_filepath,
     out_filepath,
