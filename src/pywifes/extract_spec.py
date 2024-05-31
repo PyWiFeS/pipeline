@@ -21,13 +21,14 @@ warnings.filterwarnings("ignore", category=NoDetectionsWarning)
 # Logger
 from pywifes.logger_config import custom_print
 import logging
+
 # Redirect print statements to logger
-logger = logging.getLogger('PyWiFeS')
+logger = logging.getLogger("PyWiFeS")
 print = custom_print(logger)
 
 
 def extract_aperture_name(spec_name):
-    match = re.search(r'ap(\d)', spec_name)
+    match = re.search(r"ap(\d)", spec_name)
     if match:
         aperture_number = match.group(1)
         return f"Aperture {aperture_number}"
@@ -396,7 +397,7 @@ def detect_extract_and_save(
     if blue_cube_data["sci"] is not None:
         binning_x = blue_cube_data["binning_x"]
         binning_y = blue_cube_data["binning_y"]
-        object = blue_sci_hdr['OBJECT']
+        object = blue_sci_hdr["OBJECT"]
 
     # Red arm
     red_cube_data = read_cube_data(red_cube_path)
@@ -408,7 +409,7 @@ def detect_extract_and_save(
     if red_cube_data["sci"] is not None:
         binning_x = red_cube_data["binning_x"]
         binning_y = red_cube_data["binning_y"]
-        object = red_sci_hdr['OBJECT']
+        object = red_sci_hdr["OBJECT"]
 
     # Calculate pixel scale from binning
     pixel_scale_x = binning_x  # arcsec/pix
@@ -533,11 +534,11 @@ def detect_extract_and_save(
             plt.tight_layout()
             fig_output = os.path.join(output_dir, plot_path)
             plt.savefig(fig_output, bbox_inches="tight", dpi=300)
-            plt.close('all')
-
+            plt.close("all")
 
 
 # TODO Replace with a proper SpecUtils loader
+
 
 class SingleSpec(object):
     """
@@ -556,8 +557,7 @@ class SingleSpec(object):
         return
 
 
-
-def plot_1D_spectrum(spec_path,plot_dir):
+def plot_1D_spectrum(spec_path, plot_dir):
 
     spec = SingleSpec(spec_path)
     flux = spec.flux
@@ -566,25 +566,32 @@ def plot_1D_spectrum(spec_path,plot_dir):
     # Calculate the error as the square root of the flux variance
     flux_error = np.sqrt(fluxvar)
 
-
     # Plot the spectrum with error bars
     spec_name = os.path.basename(spec_path)
-    plot_name = spec_name.replace('.fits', '.png')
-    plot_path = os.path.join(plot_dir,plot_name)
+    plot_name = spec_name.replace(".fits", ".png")
+    plot_path = os.path.join(plot_dir, plot_name)
     aperture_name = extract_aperture_name(spec_name)
 
-    fig = plt.figure(figsize=(12,5))
+    fig = plt.figure(figsize=(12, 5))
 
     # Plot the error bars
-    plt.errorbar(wl, flux, yerr=flux_error, fmt='none', ecolor='grey', elinewidth=0.5, capsize=1.5)
+    plt.errorbar(
+        wl,
+        flux,
+        yerr=flux_error,
+        fmt="none",
+        ecolor="grey",
+        elinewidth=0.5,
+        capsize=1.5,
+    )
 
     # Plot the step plot for the spectrum values
-    plt.step(wl, flux, where='mid', color='b')
+    plt.step(wl, flux, where="mid", color="b")
 
     # Customize the plot
-    plt.title(f'{spec_name} \n' + aperture_name)
-    plt.xlabel('Wavelength (Å)')
-    plt.ylabel('Flux')
+    plt.title(f"{spec_name} \n" + aperture_name)
+    plt.xlabel("Wavelength (Å)")
+    plt.ylabel("Flux")
     plt.grid(True)
 
     plt.savefig(plot_path, dpi=300)
