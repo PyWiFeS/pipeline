@@ -32,6 +32,9 @@ warning_print = custom_print(logger, logging.WARNING)
 error_print = custom_print(logger, logging.ERROR)
 critical_print = custom_print(logger, logging.CRITICAL)
 
+# Redirect warnings to logger
+#logging.captureWarnings(True)
+
 info_print("Starting PyWiFeS data reduction pipeline.")
 
 from pywifes.data_classifier import classify, cube_matcher
@@ -52,17 +55,24 @@ import argparse
 # ------------------------------------------------------------------------
 
 def move_files(src_dir_path, destination_dir_path, filenames):
-    for file in filenames:
-        src_file = os.path.join(src_dir_path, file)
-        dest_file = os.path.join(destination_dir_path, file)
-        info_print(f"Moving file {src_file} to {dest_file}")
-        shutil.move(src_file, dest_file)
+    try:
+        for file in filenames:
+            src_file = os.path.join(src_dir_path, file)
+            dest_file = os.path.join(destination_dir_path, file)
+            debug_print(f"Moving file {src_file} to {dest_file}")
+            shutil.move(src_file, dest_file)
+    except Exception as e:
+        error_print(f"Error moving files: {e}")
 
 def copy_files(src_dir_path, destination_dir_path, filenames):
-    for file in filenames:
-        src_file = os.path.join(src_dir_path, file) 
-        dest_file = os.path.join(destination_dir_path, file)
-        shutil.copy(src_file, dest_file)
+    try:
+        for file in filenames:
+            src_file = os.path.join(src_dir_path, file)
+            dest_file = os.path.join(destination_dir_path, file)
+            #debug_print(f"Copying file {src_file} to {dest_file}")
+            shutil.copy(src_file, dest_file)
+    except Exception as e:
+        error_print(f"Error copying files: {e}")
 
 
 def get_file_names(src_dir_path, glob_pattern):
@@ -114,15 +124,40 @@ def main():
         return full_obs_list
 
     def get_sci_obs_list(metadata):
+        """
+        Get a list of science observations from the metadata.
+
+        Parameters
+        ----------
+        metadata : dict
+            The metadata containing information about the observations.
+
+        Returns
+        -------
+        list
+            A list of science observation filenames.
+
+        """
         sci_obs_list = []
         for obs in metadata["sci"]:
             for fn in obs["sci"]:
                 if fn not in sci_obs_list:
                     sci_obs_list.append(fn)
-        info_print(f"Science observation list: {sci_obs_list}")
+        debug_print(f"Science observation list: {sci_obs_list}")
         return sci_obs_list
 
     def get_std_obs_list(metadata, type="all"):
+        """
+        Get a list of standard observations.
+
+        Parameters:
+        - metadata (dict): The metadata containing information about the observations.
+        - type (str, optional): The type of observations to include in the list. Default is "all".
+
+        Returns:
+        - std_obs_list (list): A list of standard observation filenames.
+
+        """
         std_obs_list = []
         for obs in metadata["std"]:
             for fn in obs["sci"]:
@@ -130,7 +165,7 @@ def main():
                     std_obs_list.append(fn)
                 if fn not in std_obs_list and (type in obs["type"]):
                     std_obs_list.append(fn)
-        info_print(f"Standard observation list ({type}): {std_obs_list}")
+        debug_print(f"Standard observation list ({type}): {std_obs_list}")
         return std_obs_list
 
     def get_sky_obs_list(metadata):
@@ -158,11 +193,40 @@ def main():
         return False
 
     def get_primary_sci_obs_list(metadata):
+        """
+        Get the list of primary science observations from the metadata.
+
+        Parameters
+        ----------
+        metadata : dict
+            The metadata containing information about the observations.
+
+        Returns
+        -------
+        list
+            The list of primary science observations.
+
+        """
         sci_obs_list = [obs["sci"][0] for obs in metadata["sci"]]
-        info_print(f"Primary science observation list: {sci_obs_list}")
+        debug_print(f"Primary science observation list: {sci_obs_list}")
         return sci_obs_list
 
     def get_primary_std_obs_list(metadata, type="all"):
+        """
+        Get the list of primary standard observations based on the given metadata and type.
+
+        Parameters:
+            metadata (dict): The metadata containing information about the observations.
+            type (str, optional): The type of standard star observations to include in the list.
+                Possible values are "all", "telluric", or "flux". Defaults to "all".
+
+        Returns:
+            list: The list of primary standard observations.
+
+        Raises:
+            ValueError: If the standard star type is not understood.
+
+        """
         if type == "all":
             std_obs_list = [obs["sci"][0] for obs in metadata["std"]]
         elif type == "telluric" or type == "flux":
@@ -174,7 +238,7 @@ def main():
             error_print("Standard star type not understood!")
             error_print("PyWiFeS Data Reduction pipeline will crash now ...")
             raise ValueError("Standard star type not understood")
-        info_print(f"Primary standard observation list ({type}): {std_obs_list}")
+        debug_print(f"Primary standard observation list ({type}): {std_obs_list}")
         return std_obs_list
 
     # ------------------------------------------------------------------------
@@ -243,6 +307,10 @@ def main():
         # generate local superbiases for any science frames
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
+        info_print('***************************************************')
+        info_print(f"Science observation list: {sci_obs_list}")
+        info_print(f"Standard observation list: {std_obs_list}")
+        info_print('***************************************************')
         for fn in sci_obs_list + std_obs_list:
             local_biases = get_associated_calib(metadata, fn, "bias")
             if local_biases:
@@ -768,6 +836,8 @@ def main():
         '''
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
+        info_print(f"Primary science observation list: {sci_obs_list}")
+        info_print(f"Primary standard observation list: {std_obs_list}")
         for fn in sci_obs_list + std_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
@@ -878,7 +948,7 @@ def main():
                         # Revert to using the first one instead
                         wsol_fn = os.path.join(out_dir, f"{local_arcs[0]}.wsol.fits")
                         info_print("(2 arcs found, but they do not bracket the Science frame!)")
-                        print(f"(Note: using {os.path.basename(wsol_fn)} as wsol file)")
+                        info_print(f"(Note: using {os.path.basename(wsol_fn)} as wsol file)")
                 else:
                     # IF Either 1 or more than two arcs present, only use the first one.
                     wsol_fn = os.path.join(out_dir, f"{local_arcs[0]}.wsol.fits")
@@ -1255,11 +1325,15 @@ def main():
 
                 # When master calibrations are in use, the steps listed in skip_steps will be skipped.
                 if step_name in extra_skip_steps:
+                    info_print('======================')
+                    info_print(f"Skipping step: {step_name}")
+                    info_print('======================')
                     continue
 
                 if step_run:
-                    debug_print('======================')
-                    debug_print(step_name)
+                    info_print('======================')
+                    info_print(step_name)
+                    info_print('======================')
 
                     func(
                         obs_metadata,
@@ -1272,7 +1346,6 @@ def main():
 
                 else:
                     pass
-                debug_print('======================')
 
 
         except Exception as exc:
@@ -1329,6 +1402,9 @@ def main():
             # ----------
             # Extraction
             # ----------
+            info_print('======================')
+            info_print('Extracting spectra')
+            info_print('======================')
             blue_cube_path = match_cubes["Blue"]
             red_cube_path = match_cubes["Red"]
             plot_name = match_cubes["file_name"].replace(".cube", "_detection_plot.png")
@@ -1352,6 +1428,10 @@ def main():
             # ------------------------------------
 
             if blue_cube_path is not None and red_cube_path is not None:
+                info_print('======================')
+                info_print('Splicing blue and red cubes')
+                info_print('======================')
+                
                 blue_cube_name = os.path.basename(blue_cube_path)
                 red_cube_name = os.path.basename(red_cube_path)
 

@@ -1742,7 +1742,7 @@ def derive_wifes_optical_wave_solution(
             ystart = y0
 
         # guess the reference wavelengths
-        print("arc name ....", arc_name)
+        # print("arc name ....", arc_name) 
         new_x, new_y, new_r = find_lines_and_guess_refs(
             f[i].data,
             i,

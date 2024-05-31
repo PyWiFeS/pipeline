@@ -20,6 +20,9 @@ import logging
 logger = logging.getLogger("PyWiFeS")
 print = custom_print(logger)
 
+# Set up warning redirection
+logging.captureWarnings(True)
+
 # CODE VERSION
 from .wifes_metadata import __version__
 
@@ -31,17 +34,19 @@ from .wifes_wsol import fit_wsol_poly, evaluate_wsol_poly
 from .wifes_adr import ha_degrees, dec_dms2dd, adr_x_y
 from .mpfit import mpfit
 
-# CODE VERSION
-from .wifes_metadata import __version__
-
 # ------------------------------------------------------------------------
 # NEED TO OPEN / ACCESS WIFES METADATA FILE!!
-f0 = open(os.path.join(metadata_dir, "basic_wifes_metadata.pkl"), "rb")
 try:
-    wifes_metadata = pickle.load(f0, fix_imports=True, encoding="latin")
-except:
-    wifes_metadata = pickle.load(f0)  # fix_imports doesn't work in python 2.7.
-f0.close()
+    f0 = open(os.path.join(metadata_dir, "basic_wifes_metadata.pkl"), "rb")
+    try:
+        wifes_metadata = pickle.load(f0, fix_imports=True, encoding="latin")
+    except:
+        wifes_metadata = pickle.load(f0)  # fix_imports doesn't work in python 2.7.
+    f0.close()
+except Exception as e:
+    logger.error(f"Failed to open or load wifes_metadata: {e}")
+    raise
+
 blue_slitlet_defs = wifes_metadata["blue_slitlet_defs"]
 red_slitlet_defs = wifes_metadata["red_slitlet_defs"]
 nslits = len(blue_slitlet_defs.keys())
@@ -103,6 +108,7 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
         dir_name, file_name = os.path.split(inimg_path)
 
         outimg_path = os.path.join(dir_name, outimg_prefix + file_name)
+        print("Writing the cut data to the new FITS file:", outimg_path)
 
         # Write the cut data to the new FITS file
         cut_hdu.writeto(outimg_path, overwrite=True)
@@ -189,69 +195,74 @@ def is_subnodshuffle(inimg, data_hdu=0):
 
 # ------------------------------------------------------------------------
 def imcombine(inimg_list, outimg, method="median", scale=None, data_hdu=0):
-    # read in data from inimg_list[0] to get image size
-    f = pyfits.open(inimg_list[0])
-    outfits = pyfits.HDUList(f)
-    orig_data = f[data_hdu].data
-    orig_hdr = f[data_hdu].header
-    f.close()
-    nimg = len(inimg_list)
-    ny, nx = numpy.shape(orig_data)
-    coadd_arr = numpy.zeros([ny, nx, nimg], dtype="d")
-    coadd_arr[:, :, 0] = orig_data
-    # gather data for all
-    exptime_list = []
-    airmass_list = []
-    for i in range(nimg):
-        f = pyfits.open(inimg_list[i])
-        new_data = f[data_hdu].data
-        exptime_list.append(f[data_hdu].header["EXPTIME"])
-        try:
-            airmass_list.append(f[data_hdu].header["AIRMASS"])
-        except:
-            airmass_list.append(1.0)
+    try:   
+        # read in data from inimg_list[0] to get image size
+        f = pyfits.open(inimg_list[0])
+        outfits = pyfits.HDUList(f)
+        orig_data = f[data_hdu].data
+        orig_hdr = f[data_hdu].header
         f.close()
-        if scale == None:
-            scale_factor = 1.0
-        elif scale == "median":
-            scale_factor = numpy.median(new_data)
-        elif scale == "median_nonzero":
-            nonzero_inds = numpy.nonzero(new_data > 100.0)
-            scale_factor = numpy.median(new_data[nonzero_inds])
-        elif scale == "exptime":
-            scale_factor = exptime_list[-1]
+        nimg = len(inimg_list)
+        ny, nx = numpy.shape(orig_data)
+        coadd_arr = numpy.zeros([ny, nx, nimg], dtype="d")
+        coadd_arr[:, :, 0] = orig_data
+        # gather data for all
+        exptime_list = []
+        airmass_list = []
+        for i in range(nimg):
+            f = pyfits.open(inimg_list[i])
+            new_data = f[data_hdu].data
+            exptime_list.append(f[data_hdu].header["EXPTIME"])
+            try:
+                airmass_list.append(f[data_hdu].header["AIRMASS"])
+            except Exception as air_err:
+                logger.warning(f"Failed to get airmass for image {inimg_list[i]}: {air_err}")
+                airmass_list.append(1.0)
+            f.close()
+            if scale == None:
+                scale_factor = 1.0
+            elif scale == "median":
+                scale_factor = numpy.median(new_data)
+            elif scale == "median_nonzero":
+                nonzero_inds = numpy.nonzero(new_data > 100.0)
+                scale_factor = numpy.median(new_data[nonzero_inds])
+            elif scale == "exptime":
+                scale_factor = exptime_list[-1]
+            else:
+                raise ValueError("scaling method not yet supported")
+            coadd_arr[:, :, i] = new_data / scale_factor
+            # later - scale data by some value, e.g. median or exptime
+            gc.collect()
+        # now do median (or something else - tbd later)
+        if method == "median":
+            coadd_data = numpy.nanmedian(coadd_arr, axis=2)
+        elif method == "sum":
+            coadd_data = numpy.nansum(coadd_arr, axis=2)
         else:
-            raise ValueError("scaling method not yet supported")
-        coadd_arr[:, :, i] = new_data / scale_factor
-        # later - scale data by some value, e.g. median or exptime
+            raise ValueError("combine method not yet supported")
+        outfits[data_hdu].data = coadd_data
+        # fix ephemeris data if images are co-added!!!
+        if method == "sum" and scale == None:
+            f1 = pyfits.open(inimg_list[0])
+            first_hdr = f1[data_hdu].header
+            f1.close()
+            f2 = pyfits.open(inimg_list[-1])
+            last_hdr = f2[data_hdu].header
+            f2.close()
+            # HAEND, ZDEND, EXPTIME
+            outfits[data_hdu].header.set("EXPTIME", sum(exptime_list))
+            outfits[data_hdu].header.set("LSTEND", last_hdr["LSTEND"])
+            outfits[data_hdu].header.set("UTCEND", last_hdr["UTCEND"])
+            outfits[data_hdu].header.set("HAEND", last_hdr["HAEND"])
+            outfits[data_hdu].header.set("ZDEND", last_hdr["ZDEND"])
+            outfits[data_hdu].header.set("AIRMASS", numpy.mean(numpy.array(airmass_list)))
+        # (5) write to outfile!
+        outfits[data_hdu].header.set("PYWIFES", __version__, "PyWiFeS version")
+        outfits.writeto(outimg, overwrite=True)
         gc.collect()
-    # now do median (or something else - tbd later)
-    if method == "median":
-        coadd_data = numpy.nanmedian(coadd_arr, axis=2)
-    elif method == "sum":
-        coadd_data = numpy.nansum(coadd_arr, axis=2)
-    else:
-        raise ValueError("combine method not yet supported")
-    outfits[data_hdu].data = coadd_data
-    # fix ephemeris data if images are co-added!!!
-    if method == "sum" and scale == None:
-        f1 = pyfits.open(inimg_list[0])
-        first_hdr = f1[data_hdu].header
-        f1.close()
-        f2 = pyfits.open(inimg_list[-1])
-        last_hdr = f2[data_hdu].header
-        f2.close()
-        # HAEND, ZDEND, EXPTIME
-        outfits[data_hdu].header.set("EXPTIME", sum(exptime_list))
-        outfits[data_hdu].header.set("LSTEND", last_hdr["LSTEND"])
-        outfits[data_hdu].header.set("UTCEND", last_hdr["UTCEND"])
-        outfits[data_hdu].header.set("HAEND", last_hdr["HAEND"])
-        outfits[data_hdu].header.set("ZDEND", last_hdr["ZDEND"])
-        outfits[data_hdu].header.set("AIRMASS", numpy.mean(numpy.array(airmass_list)))
-    # (5) write to outfile!
-    outfits[data_hdu].header.set("PYWIFES", __version__, "PyWiFeS version")
-    outfits.writeto(outimg, overwrite=True)
-    gc.collect()
+    except Exception as e:
+        logger.error(f"An error occurred in imcombine: {str(e)}")
+        raise
     return
 
 
@@ -3012,7 +3023,7 @@ def generate_wifes_cube(
     offset_orig=4,
     multithread=False,
     max_processes=-1,
-    verbose=True,
+    verbose=False,
     adr=False,
 ):
     if multithread:

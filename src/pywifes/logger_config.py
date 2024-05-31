@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 def custom_print(logger, level=logging.INFO):
-    def log_print(*args, **kwargs):
+    def log_print(*args):
         message = " ".join(map(str, args))
         logger.log(level, message)
     return log_print
@@ -20,21 +20,23 @@ def configure_logger(
         format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     formatter = logging.Formatter(format, datefmt=datefmt)
 
-    console_log = logging.StreamHandler()
-    console_log.setLevel(console_level)
-    console_log.setFormatter(formatter)
-    logger.addHandler(console_log)
+    # Check if handlers already exist to avoid duplicates
+    if not logger.handlers:
+        console_log = logging.StreamHandler()
+        console_log.setLevel(console_level)
+        console_log.setFormatter(formatter)
+        logger.addHandler(console_log)
 
-    if file is not None:
-        Path(file).parent.mkdir(parents=True, exist_ok=True)
-        try:
-            file_log = logging.FileHandler(str(file))
-        except (IsADirectoryError, PermissionError) as err:
-            raise RuntimeError(f"Error creating log file at '{str(file)}'") from err
-        file_log.setLevel(file_level)
-        file_log.setFormatter(formatter)
-        logger.addHandler(file_log)
-        logger.debug(f"Initialized file log output to {str(file)}.")
+        if file is not None:
+            Path(file).parent.mkdir(parents=True, exist_ok=True)
+            try:
+                file_log = logging.FileHandler(str(file))
+                file_log.setLevel(file_level)
+                file_log.setFormatter(formatter)
+                logger.addHandler(file_log)
+                logger.debug(f"Initialized file log output to {str(file)}.")
+            except (IsADirectoryError, PermissionError) as err:
+                logger.error(f"Error creating log file at '{str(file)}': {err}")
 
     return logger
 
@@ -48,7 +50,7 @@ def setup_logger(
 ):
     """Creates and configures a logger instance for use."""
     if name is None:
-        name = 'PyWiFeS'
+        name = "PyWiFeS"
     logger = logging.getLogger(name)
-    logger.setLevel(logging.WARNING)
+    logger.setLevel(logging.DEBUG)  # Set to lowest level to control through handlers
     return configure_logger(logger, console_level, file_level, file, format, datefmt)
