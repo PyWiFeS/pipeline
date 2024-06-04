@@ -2087,6 +2087,32 @@ def wifes_slitlet_mef_ns(
     nod_dy=80,
     slitlet_def_file=None,
 ):
+    """
+    Create multi-extension FITS files for object and sky data from a single input image.
+
+    Parameters
+    ----------
+    inimg : str
+        Path to the input FITS image.
+    outimg_obj : str
+        Path to the output FITS file for object data.
+    outimg_sky : str
+        Path to the output FITS file for sky data.
+    data_hdu : int, optional
+        Index of the HDU containing the data in the input FITS image. Default is 0.
+    bin_x : int, optional
+        Binning factor in the x-direction. If not specified, it will be read from the header.
+    bin_y : int, optional
+        Binning factor in the y-direction. If not specified, it will be read from the header.
+    nod_dy : int, optional
+        Offset in pixels between the object and sky slitlets in the y-direction. Default is 80.
+    slitlet_def_file : str, optional
+        Path to a file containing slitlet definitions. If not specified, baseline values will be used.
+
+    Returns
+    -------
+    None
+    """
     f = pyfits.open(inimg)
     outfits_obj = pyfits.HDUList([pyfits.PrimaryHDU(header=f[0].header)])
     outfits_sky = pyfits.HDUList([pyfits.PrimaryHDU(header=f[0].header)])
