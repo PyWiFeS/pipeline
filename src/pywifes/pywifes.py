@@ -200,7 +200,6 @@ def imcombine(inimg_list, outimg, method="median", scale=None, data_hdu=0):
         f = pyfits.open(inimg_list[0])
         outfits = pyfits.HDUList(f)
         orig_data = f[data_hdu].data
-        orig_hdr = f[data_hdu].header
         f.close()
         nimg = len(inimg_list)
         ny, nx = numpy.shape(orig_data)
@@ -212,13 +211,13 @@ def imcombine(inimg_list, outimg, method="median", scale=None, data_hdu=0):
         for i in range(nimg):
             f = pyfits.open(inimg_list[i])
             new_data = f[data_hdu].data
-            exptime_list.append(f[data_hdu].header["EXPTIME"])
-            try:
-                airmass_list.append(f[data_hdu].header["AIRMASS"])
-            except Exception as air_err:
-                logger.warning(f"Failed to get airmass for image {inimg_list[i]}: {air_err}")
-                airmass_list.append(1.0)
+            hdr = f[data_hdu].header
             f.close()
+            exptime_list.append(hdr["EXPTIME"])
+            try:
+                airmass_list.append(hdr["AIRMASS"])
+            except:
+                pass
             if scale == None:
                 scale_factor = 1.0
             elif scale == "median":
@@ -255,7 +254,8 @@ def imcombine(inimg_list, outimg, method="median", scale=None, data_hdu=0):
             outfits[data_hdu].header.set("UTCEND", last_hdr["UTCEND"])
             outfits[data_hdu].header.set("HAEND", last_hdr["HAEND"])
             outfits[data_hdu].header.set("ZDEND", last_hdr["ZDEND"])
-            outfits[data_hdu].header.set("AIRMASS", numpy.mean(numpy.array(airmass_list)))
+            if len(airmass_list) > 0:
+                outfits[data_hdu].header.set("AIRMASS", numpy.mean(numpy.array(airmass_list)))
         # (5) write to outfile!
         outfits[data_hdu].header.set("PYWIFES", __version__, "PyWiFeS version")
         outfits.writeto(outimg, overwrite=True)
