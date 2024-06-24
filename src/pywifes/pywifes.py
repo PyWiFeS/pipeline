@@ -1485,14 +1485,14 @@ def generate_wifes_bias_fit(
                     linx, wifes_bias_model(p1, linx, camera), "r", label="model fit"
                 )
 
-            plt.axhline(0, numpy.min(linx), numpy.max(linx), color="k")
-            plt.xlabel("x [pixels]")
-            plt.ylabel(" bias signal collapsed along y")
+            plt.axhline(0, numpy.min(linx), numpy.max(linx), color="k",lw=0.8)
+            plt.xlabel("X-axis [pixel]")
+            plt.ylabel(" bias signal collapsed along Y-axis")
             plt.legend()
             plt.xlim([numpy.min(linx), numpy.max(linx)])
             plt.ylim(lower_limit, upper_limit)
             plt.title("Fitting bias frame %s" % bias_img.split("/")[-1])
-            plot_path = os.path.join(plot_dir, f"bias.png")
+            plot_path = os.path.join(plot_dir, "bias.png")
             plt.savefig(plot_path,dpi=300)
             plt.close()
 
@@ -1869,7 +1869,12 @@ def interslice_cleanup(
         # Adjust layout to prevent overlapping of titles    
         plt.tight_layout()
         fn_no_extension = os.path.splitext(os.path.basename(output_fn))[0]
-        plot_name = save_prefix + fn_no_extension + ".png"
+
+        if 'domeflat' in fn_no_extension:
+            plot_name = "domeflat_cleanup.png"
+        if 'twiflat' in fn_no_extension:
+            plot_name = "twiflat_cleanup.png"
+
         plot_path = os.path.join(plot_dir, plot_name)
         plt.savefig(plot_path, dpi=300)
         plt.close()
@@ -2632,7 +2637,7 @@ def wifes_2dim_response(
 
     # ------------------------------------
     # ------------------------------------
-    illum = numpy.zeros([ndy, ndx], dtype="d")
+    illum = numpy.zeros([ndy, nslits], dtype="d")
     # divide rectified data by the smooth polynomial
     for i in range(first, last):
         curr_hdu = i

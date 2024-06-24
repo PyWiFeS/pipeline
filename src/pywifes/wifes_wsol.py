@@ -1643,7 +1643,7 @@ def _fit_optical_model(
     if plot:
 
         #   # Final wavelenght solution
-        plot_name = f"final_wsol_{grating.upper()}.png"
+        plot_name = "wavelenght_solution.png" # {grating.upper()}
         plot_path = os.path.join(plot_dir, plot_name)
         om.final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=plot_path)
 

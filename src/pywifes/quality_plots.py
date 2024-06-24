@@ -122,7 +122,9 @@ def flatfiled_plot(flat_image_path, slitlet_path, title, output_plot):
     y2_limits = ax2.get_ylim()
 
     # Add a light gray shaded area in ax2
-    ax2.fill_between(x_limits, 0, 20000, lw=0,facecolor='none', hatch='////', edgecolor='lightgray', label='Optimal range')
+    # ax2.fill_between(x_limits, 0, 20000, lw=0,facecolor='none', hatch='////', edgecolor='lightgray', label='Optimal range')
+    # ax2.legend(loc='upper right', framealpha=1.0)
+    # ax1.legend(loc='upper right', framealpha=1.0)
 
     # Ensure the x-limits of the 2D image are preserved
     ax1.set_xlim(x_limits)
@@ -131,18 +133,109 @@ def flatfiled_plot(flat_image_path, slitlet_path, title, output_plot):
 
     
     ax2.set_xlabel('X-axis [pixel]', size=15)
-    ax2.legend(loc='upper right', framealpha=1.0)
-    ax1.legend(loc='upper right', framealpha=1.0)
 
     # Adjust layout and show the plot
     plt.tight_layout()
     plt.savefig(output_plot, dpi=300)
     plt.close()
 
-# Example usage
-flat_image_path = 'data_products/master_calib/wifes_red_super_domeflat_raw.fits'
-slitlet_path = 'data_products/master_calib/wifes_red_slitlet_defs.pkl'
-output_plot = 'prueba.png'
 
-flatfiled_plot(flat_image_path, slitlet_path, 'Titulo', output_plot)
+
+
+
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import numpy as np
+
+
+
+
+def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
+
+    plt.close()  # Close any existing plots
+
+    fig = plt.figure(figsize=(10, 6))
+    plt.suptitle(title)
+
+    # Define GridSpec (3 rows 2 columns) 
+    gs = gridspec.GridSpec(3, 3, width_ratios=[3, 1, 0.5])  # Add width_ratios for the columns
+
+    ax_left_top = fig.add_subplot(gs[0:2, 0:1])  # Subplot in the left column
+    ax_left_top.plot(allx, ally, 'r.', markeredgecolor='w', markeredgewidth=0.2)
+    ax_left_top.set_xlabel("X-axis [pixel]")
+    ax_left_top.set_ylabel("Y-axis [pixel]")
+    ax_left_top.grid(True)
+
+
+    ax_left_bottom = fig.add_subplot(gs[2:, 0:2])  # Bottom subplot in the left column
+    ax_left_bottom.plot(allarcs, resid, 'r.', markeredgecolor='w', markeredgewidth=0.2)
+    ax_left_bottom.set_xlabel("Wavelength [Å]")
+    ax_left_bottom.set_ylabel("Residuals [Å]")
+    ax_left_bottom.yaxis.set_label_position("left")
+    ax_left_bottom.yaxis.tick_left()
+    ax_left_bottom.grid(True)
+
+
+    # Create histogram of resid on the right side
+    ax_hist = fig.add_subplot(gs[2, 2]) #, sharey=ax_left_bottom)  # Use sharey to share y-axis with ax_bottom
+    ax_hist.hist(resid, orientation='vertical', bins=40, color='red', density=True)
+    ax_hist.yaxis.set_label_position("right")
+    ax_hist.label_outer()
+    
+
+    # Compute mean and standard deviation of resid
+    mean_resid = np.mean(resid)
+    std_resid = np.std(resid)
+
+    # Plotting the 3-sigma marks
+    sigma_pos = mean_resid + std_resid
+    sigma_neg = mean_resid - std_resid
+
+    # Horizontal lines at ±3 sigma
+    ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--',label= f'±σ: {std_resid:.2f} Å')
+    ax_hist.axvline(sigma_neg, color='black', lw=0.8,  linestyle='--')
+
+    # ax_hist.text(1.1, sigma_pos, '+σ', va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=10)
+    # ax_hist.text(1.1, sigma_neg, '-σ', va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=10)
+
+    # ax_hist.text(0.5, mean_resid, 'σ = '+ str(std_resid), va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=12)
+    ax_hist.legend(bbox_to_anchor=(0.5, -0.3), loc='center', framealpha=1.0, handlelength=1.2, frameon=False)
+    ax_hist.grid(True)
+    ax_hist.set_yticklabels([])
+    ax_hist.set_yticks([])
+
+    ax_top = fig.add_subplot(gs[0, 1:])  # Top subplot in the right column
+    ax_top.plot(allx, resid, 'r.', markeredgecolor='w', markeredgewidth=0.2)
+    ax_top.set_xlabel("X-axis [pixel]")
+    ax_top.set_ylabel("Residuals [Å]")
+    ax_top.yaxis.set_label_position("right")
+    ax_top.yaxis.tick_right()
+    ax_top.grid(True)
+
+    ax_middle = fig.add_subplot(gs[1, 1:])  # Middle subplot in the right column
+    ax_middle.plot(resid, ally, 'r.', markeredgecolor='w', markeredgewidth=0.2)
+    ax_middle.set_xlabel("Residuals [Å]")
+    ax_middle.set_ylabel("Y-axis [pixel]")
+    ax_middle.yaxis.set_label_position("right")
+    ax_middle.yaxis.tick_right()
+    ax_middle.grid(True)
+
+
+
+    plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6,left=0.065,right=0.935,bottom=0.09)  # Adjust top to make room for suptitle
+
+    plt.savefig(plot_path, dpi=300)
+    plt.close()
+
+
+# Example usage:
+# Replace with your actual data paths and call the function
+title = 'Title of the Plot'
+allx = np.random.rand(100)
+ally = np.random.rand(100)
+allarcs = np.random.rand(100)
+resid = np.random.rand(100)
+plot_path = 'plot.png'
+
+final_wsol_plot(title, allx, ally, allarcs, resid, plot_path)
 

@@ -123,19 +123,19 @@ def plotResidKeep(allx,ally,allarcs,resid,keepargs):
   plt.plot(allx[loseargs],resid[loseargs],'r.')
   plt.plot(allx[keepargs],resid[keepargs],'b.')
   plt.xlabel("x pixel")
-  plt.ylabel(u"data-model \u00C5")
+  plt.ylabel(u"data-model [\u00C5]")
   plt.grid(True)
   plt.subplot(3,1,2)
   plt.plot(resid[loseargs],ally[loseargs],'r.')
   plt.plot(resid[keepargs],ally[keepargs],'b.')
-  plt.xlabel(u"data=model \u00C5")
+  plt.xlabel(u"data=model [\u00C5]")
   plt.ylabel("y pixel")
   plt.grid(True)
   plt.subplot(3,1,3)
   plt.plot(allarcs[loseargs],resid[loseargs],'r.')
   plt.plot(allarcs[keepargs],resid[keepargs],'b.')
-  plt.xlabel(u"wavelength \u00C5")
-  plt.ylabel(u"data-model \u00C5")
+  plt.xlabel(u"wavelength [\u00C5]")
+  plt.ylabel(u"data-model [\u00C5]")
   plt.grid(True)
   plt.title("Lose(Red) / Keep(Blue)")
   plt.show()
@@ -146,21 +146,21 @@ def plotResid(title,allx,ally,allarcs,resid,save_fn=None):
 
   plt.subplot(3,1,1)
   plt.plot(allx,resid,'r.', markeredgecolor='w')
-  plt.xlabel("x pixel")
-  plt.ylabel(u"data-model \u00C5")
+  plt.xlabel("X-axis [pixel]")
+  plt.ylabel(u"data-model [\u00C5]")
   plt.grid(True)
   plt.title(title)
   
   plt.subplot(3,1,2)
   plt.plot(resid,ally,'r.', markeredgecolor='w')
-  plt.xlabel(u"data-model \u00C5")
-  plt.ylabel("y pixel")
+  plt.xlabel(u"data-model [\u00C5]")
+  plt.xlabel("Y-axis [pixel]")
   plt.grid(True)
   
   plt.subplot(3,1,3)
   plt.plot(allarcs,resid,'r.',markeredgecolor='w')
-  plt.xlabel(u"wavelength \u00C5")
-  plt.ylabel(u"data-model \u00C5")
+  plt.xlabel(u"wavelength [\u00C5]")
+  plt.ylabel(u"data-model [\u00C5]")
   plt.grid(True)
 
 
@@ -637,49 +637,80 @@ def excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, plot, verbose):
   return lines[keepargs]
 
 
+def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
 
-def final_wsol_plot(title,allx,ally,allarcs,resid, plot_path=None):
+    plt.close()  # Close any existing plots
 
-    plt.close
-    fig = plt.figure(1,figsize=(10,5))
+    fig = plt.figure(figsize=(10, 6))
     plt.suptitle(title)
+
     # Define GridSpec (3 rows 2 columns) 
-    gs = gridspec.GridSpec(3, 2)
+    gs = gridspec.GridSpec(3, 3, width_ratios=[3, 1, 0.5])  # Add width_ratios for the columns
 
-    ax_left = fig.add_subplot(gs[:, 0])  # Subplot in the left column
-    ax_left.plot(allx, ally, 'r.', markeredgecolor='w',markeredgewidth=0.2)
-    ax_left.set_xlabel("x pixel")
-    ax_left.set_ylabel("y pixel")
-    # ax_left.set_title(title)
+    ax_left_top = fig.add_subplot(gs[0:2, 0:1])  # Subplot in the left column
+    ax_left_top.plot(allx, ally, 'r.', markeredgecolor='w', markeredgewidth=0.2)
+    ax_left_top.set_xlabel("X-axis [pixel]")
+    ax_left_top.set_ylabel("Y-axis [pixel]")
+    ax_left_top.grid(True)
 
-    ax_top = fig.add_subplot(gs[0, 1])  # Top subplot in the right column
-    ax_top.plot(allx,resid,'r.', markeredgecolor='w',markeredgewidth=0.2)
-    ax_top.set_xlabel("x pixel")
-    ax_top.set_ylabel("data-model Å")
+
+    ax_left_bottom = fig.add_subplot(gs[2:, 0:2])  # Bottom subplot in the left column
+    ax_left_bottom.plot(allarcs, resid, 'r.', markeredgecolor='w', markeredgewidth=0.2)
+    ax_left_bottom.set_xlabel("Wavelength [Å]")
+    ax_left_bottom.set_ylabel("Residuals [Å]")
+    ax_left_bottom.yaxis.set_label_position("left")
+    ax_left_bottom.yaxis.tick_left()
+    ax_left_bottom.grid(True)
+
+
+    # Create histogram of resid on the right side
+    ax_hist = fig.add_subplot(gs[2, 2]) #, sharey=ax_left_bottom)  # Use sharey to share y-axis with ax_bottom
+    ax_hist.hist(resid, orientation='vertical', bins=40, color='red', density=True)
+    ax_hist.yaxis.set_label_position("right")
+    ax_hist.label_outer()
+    
+
+    # Compute mean and standard deviation of resid
+    mean_resid = np.mean(resid)
+    std_resid = np.std(resid)
+
+    # Plotting the 3-sigma marks
+    sigma_pos = mean_resid + std_resid
+    sigma_neg = mean_resid - std_resid
+
+    # Horizontal lines at ±3 sigma
+    ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--',label= f'±σ: {std_resid:.2f} Å')
+    ax_hist.axvline(sigma_neg, color='black', lw=0.8,  linestyle='--')
+
+    # ax_hist.text(1.1, sigma_pos, '+σ', va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=10)
+    # ax_hist.text(1.1, sigma_neg, '-σ', va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=10)
+
+    # ax_hist.text(0.5, mean_resid, 'σ = '+ str(std_resid), va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=12)
+    ax_hist.legend(bbox_to_anchor=(0.5, -0.3), loc='center', framealpha=1.0, handlelength=1.2, frameon=False)
+    ax_hist.grid(True)
+    ax_hist.set_yticklabels([])
+    ax_hist.set_yticks([])
+
+    ax_top = fig.add_subplot(gs[0, 1:])  # Top subplot in the right column
+    ax_top.plot(allx, resid, 'r.', markeredgecolor='w', markeredgewidth=0.2)
+    ax_top.set_xlabel("X-axis [pixel]")
+    ax_top.set_ylabel("Residuals [Å]")
     ax_top.yaxis.set_label_position("right")
     ax_top.yaxis.tick_right()
     ax_top.grid(True)
-    # ax_top.set_title("Residuals vs x pixel")
 
-    ax_middle = fig.add_subplot(gs[1, 1])  # Middle subplot in the right column
-    ax_middle.plot(resid, ally, 'r.', markeredgecolor='w',markeredgewidth=0.2)
-    ax_middle.set_xlabel("data-model Å")
-    ax_middle.set_ylabel("y pixel")
+    ax_middle = fig.add_subplot(gs[1, 1:])  # Middle subplot in the right column
+    ax_middle.plot(resid, ally, 'r.', markeredgecolor='w', markeredgewidth=0.2)
+    ax_middle.set_xlabel("Residuals [Å]")
+    ax_middle.set_ylabel("Y-axis [pixel]")
     ax_middle.yaxis.set_label_position("right")
     ax_middle.yaxis.tick_right()
     ax_middle.grid(True)
-    # ax_middle.set_title("Residuals vs y pixel")
 
-    ax_bottom = fig.add_subplot(gs[2, 1])  # Bottom subplot in the right column
-    ax_bottom.plot(allarcs, resid, 'r.', markeredgecolor='w',markeredgewidth=0.2)
-    ax_bottom.set_xlabel("wavelength Å")
-    ax_bottom.set_ylabel("data-model Å")
-    ax_bottom.yaxis.set_label_position("right")
-    ax_bottom.yaxis.tick_right()
-    ax_bottom.grid(True)
-    # ax_bottom.set_title("Residuals vs wavelength Å")
 
-    plt.tight_layout()
 
-    plt.savefig(plot_path,dpi=300)
+    plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6,left=0.075,right=0.925,bottom=0.09)  # Adjust top to make room for suptitle
+
+    plt.savefig(plot_path, dpi=300)
     plt.close()
+
