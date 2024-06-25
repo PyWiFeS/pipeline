@@ -4,8 +4,8 @@
    :alt: PyWiFeS Logo
    :align: center
 
-Welcome to PyWiFeS Documentation
-================================
+Welcome to the PyWiFeS User Manual!
+===================================
 
 PyWiFeS is an automated Python data reduction pipeline for the Wide Field Spectrograp (WiFeS).
 
