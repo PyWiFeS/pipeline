@@ -1,6 +1,6 @@
 # PyWiFeS 
 
-The automated Python data reduction pipeline for WiFeS. 
+The automated Python data reduction pipeline for the Wide Field Spectrograp (WiFeS). 
 
 ### [May 2024 updates - use only AUTOMATION BRANCH]
 
@@ -23,7 +23,7 @@ The automated Python data reduction pipeline for WiFeS.
   - Users can create their own `.JSON` file following the same structure as their preferred setup.
   - Another set of `.JSON` config files is provided for when the pipeline aims to generate the master calibration files only.
 - Logger file to track the data usage and pipeline performance.
-- Astrometry is now implemented in the data cubes although the accuracy is 
+- Astrometry is now implemented in the data cubes. The accuracy could be low (< 2 arcsec) in some cases. 
 - Extraction and splice of the spectra and splice of the 3D astrometrised cubes are now implemented.
 - Multiprocessing can be enabled so the pipeline can run faster (see caveats below). 
 - Multiple quality plots are automatically generated and saved.
