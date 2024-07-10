@@ -3,7 +3,6 @@
 # ------------------------------------------------------------------------
 # Initial set ups and import modules
 # ------------------------------------------------------------------------
-  
 import os
 import pickle
 from astropy.io import fits as pyfits
@@ -16,6 +15,18 @@ import glob
 import argparse
 import logging
 from pywifes.logger_config import setup_logger, custom_print
+from pywifes.data_classifier import classify, cube_matcher
+from pywifes.extract_spec import detect_extract_and_save, plot_1D_spectrum
+from pywifes.splice import splice_spectra, splice_cubes
+from pywifes.lacosmic import lacos_wifes
+from pywifes import pywifes
+from pywifes import wifes_wsol
+from pywifes import wifes_calib
+from pywifes.pywifes import is_halfframe
+from pywifes.pywifes import calib_to_half_frame
+import shutil
+import glob
+import argparse
 
 # Set paths
 reduction_scripts_dir = os.path.dirname(__file__)
@@ -37,18 +48,6 @@ critical_print = custom_print(logger, logging.CRITICAL)
 
 info_print("Starting PyWiFeS data reduction pipeline.")
 
-from pywifes.data_classifier import classify, cube_matcher
-from pywifes.extract_spec import detect_extract_and_save, plot_1D_spectrum
-from pywifes.splice import splice_spectra, splice_cubes
-from pywifes.lacosmic import lacos_wifes
-from pywifes import pywifes
-from pywifes import wifes_wsol
-from pywifes import wifes_calib
-from pywifes.pywifes import is_halfframe
-from pywifes.pywifes import calib_to_half_frame
-import shutil
-import glob
-import argparse
 
 # ------------------------------------------------------------------------
 # Function definition
@@ -156,6 +155,205 @@ def load_config_file(filename):
     with open(file_path, "r") as f:
         return json.load(f)
 
+def get_full_obs_list(metadata):
+    """
+    Get the full observation list from the given metadata.
+
+    Parameters:
+    ----------
+        metadata : dict
+            A dictionary containing metadata information.
+
+    Returns:
+    -------
+        list
+            The full observation list.
+
+    """
+    full_obs_list = []
+    base_fn_list = (
+        metadata["bias"]
+        + metadata["arc"]
+        + metadata["wire"]
+        + metadata['dark']
+        + metadata["domeflat"]
+        + metadata["twiflat"]
+    )
+    for fn in base_fn_list:
+        if fn not in full_obs_list:
+            full_obs_list.append(fn)
+    for obs in metadata["sci"] + metadata["std"]:
+        for key in obs.keys():
+            if key != "type" and key != "name":
+                for fn in obs[key]:
+                    if fn not in full_obs_list:
+                        full_obs_list.append(fn)
+    debug_print(f"Full observation list: {full_obs_list}")
+    return full_obs_list
+
+
+
+def get_sci_obs_list(metadata):
+    """
+    Get a list of science observations from the metadata.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata containing information about the observations.
+
+    Returns
+    -------
+    list
+        A list of science observation filenames.
+
+    """
+    sci_obs_list = []
+    for obs in metadata["sci"]:
+        for fn in obs["sci"]:
+            if fn not in sci_obs_list:
+                sci_obs_list.append(fn)
+    debug_print(f"Science observation list: {sci_obs_list}")
+    return sci_obs_list
+
+def get_std_obs_list(metadata, type="all"):
+    """
+    Get a list of standard observations.
+
+    Parameters:
+    ----------
+    - metadata : dict
+        The metadata containing information about the observations.
+    - type : str, optional
+        The type of observations to include in the list. Default is "all".
+
+    Returns:
+    --------
+    - std_obs_list : list
+        A list of standard observation filenames.
+
+    """
+    std_obs_list = []
+    for obs in metadata["std"]:
+        for fn in obs["sci"]:
+            if fn not in std_obs_list and type == "all":
+                std_obs_list.append(fn)
+            if fn not in std_obs_list and (type in obs["type"]):
+                std_obs_list.append(fn)
+    debug_print(f"Standard observation list ({type}): {std_obs_list}")
+    return std_obs_list
+
+def get_sky_obs_list(metadata):
+    """
+    Get a list of sky observations from the metadata.
+
+    Parameters:
+    ----------
+        metadata : dict
+            The metadata containing information about the observations.
+
+    Returns:
+    --------
+        list
+            A list of sky observation filenames.
+
+    """
+    sky_obs_list = []
+    for obs in metadata["sci"] + metadata["std"]:
+        if "sky" not in obs.keys():
+            continue
+        for fn in obs["sky"]:
+            if fn not in sky_obs_list:
+                sky_obs_list.append(fn)
+    info_print(f"Sky observation list: {sky_obs_list}")            
+    return sky_obs_list
+
+def get_associated_calib(metadata, this_fn, type):
+    """
+    Get the associated calibration file for a given data file.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata dictionary containing information about the observations.
+    this_fn : str
+        The filename of the data file for which to find the associated calibration file.
+    type : str
+        The type of calibration file to search for.
+
+    Returns
+    -------
+    str or bool
+        The filename of the associated calibration file if found, or False if not found.
+    """
+    for obs in metadata["sci"] + metadata["std"]:
+        if "sky" in obs.keys():
+            sky = obs["sky"]
+        else:
+            sky = []
+        for fn in obs["sci"] + sky:
+            if fn == this_fn:
+                if type in obs.keys():
+                    if obs[type] != "":
+                        return obs[type]
+    return False
+
+def get_primary_sci_obs_list(metadata):
+    """
+    Get the list of primary science observations from the metadata.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata containing information about the observations.
+
+    Returns
+    -------
+    list
+        The list of primary science observations.
+
+    """
+    sci_obs_list = [obs["sci"][0] for obs in metadata["sci"]]
+    debug_print(f"Primary science observation list: {sci_obs_list}")
+    return sci_obs_list
+
+def get_primary_std_obs_list(metadata, type="all"):
+    """
+    Get the list of primary standard observations based on the given metadata and type.
+
+    Parameters:
+    ----------
+        metadata : dict
+            The metadata containing information about the observations.
+        type : str, optional
+            The type of standard star observations to include in the list.
+            Possible values are "all", "telluric", or "flux". Defaults to "all".
+
+    Returns:
+    --------
+        list
+            The list of primary standard observations.
+
+    Raises:
+    -------
+        ValueError 
+            If the standard star type is not understood.
+
+    """
+    if type == "all":
+        std_obs_list = [obs["sci"][0] for obs in metadata["std"]]
+    elif type == "telluric" or type == "flux":
+        std_obs_list = []
+        for obs in metadata["std"]:
+            if obs["sci"][0] not in std_obs_list and (type in obs["type"]):
+                std_obs_list.append(obs["sci"][0])
+    else:
+        error_print("Standard star type not understood!")
+        error_print("PyWiFeS Data Reduction pipeline will crash now ...")
+        raise ValueError("Standard star type not understood")
+    debug_print(f"Primary standard observation list ({type}): {std_obs_list}")
+    return std_obs_list
+
 # ------------------------------------------------------------------------
 
 
@@ -164,207 +362,9 @@ def main():
     info_print(f"Pipeline started at {start_time}")
 
     # ------------------------------------------------------------------------
-    # METADATA WRANGLING FUNCTIONS
-    # ------------------------------------------------------------------------
-    def get_full_obs_list(metadata):
-        """
-        Get the full observation list from the given metadata.
-
-        Parameters:
-        ----------
-            metadata : dict
-                A dictionary containing metadata information.
-
-        Returns:
-        -------
-            list
-                The full observation list.
-
-        """
-        full_obs_list = []
-        base_fn_list = (
-            metadata["bias"]
-            + metadata["arc"]
-            + metadata["wire"]
-            + metadata['dark']
-            + metadata["domeflat"]
-            + metadata["twiflat"]
-        )
-        for fn in base_fn_list:
-            if fn not in full_obs_list:
-                full_obs_list.append(fn)
-        for obs in metadata["sci"] + metadata["std"]:
-            for key in obs.keys():
-                if key != "type" and key != "name":
-                    for fn in obs[key]:
-                        if fn not in full_obs_list:
-                            full_obs_list.append(fn)
-        debug_print(f"Full observation list: {full_obs_list}")
-        return full_obs_list
-
-    def get_sci_obs_list(metadata):
-        """
-        Get a list of science observations from the metadata.
-
-        Parameters
-        ----------
-        metadata : dict
-            The metadata containing information about the observations.
-
-        Returns
-        -------
-        list
-            A list of science observation filenames.
-
-        """
-        sci_obs_list = []
-        for obs in metadata["sci"]:
-            for fn in obs["sci"]:
-                if fn not in sci_obs_list:
-                    sci_obs_list.append(fn)
-        debug_print(f"Science observation list: {sci_obs_list}")
-        return sci_obs_list
-
-    def get_std_obs_list(metadata, type="all"):
-        """
-        Get a list of standard observations.
-
-        Parameters:
-        ----------
-        - metadata : dict
-            The metadata containing information about the observations.
-        - type : str, optional
-            The type of observations to include in the list. Default is "all".
-
-        Returns:
-        --------
-        - std_obs_list : list
-            A list of standard observation filenames.
-
-        """
-        std_obs_list = []
-        for obs in metadata["std"]:
-            for fn in obs["sci"]:
-                if fn not in std_obs_list and type == "all":
-                    std_obs_list.append(fn)
-                if fn not in std_obs_list and (type in obs["type"]):
-                    std_obs_list.append(fn)
-        debug_print(f"Standard observation list ({type}): {std_obs_list}")
-        return std_obs_list
-
-    def get_sky_obs_list(metadata):
-        """
-        Get a list of sky observations from the metadata.
-
-        Parameters:
-        ----------
-            metadata : dict
-                The metadata containing information about the observations.
-
-        Returns:
-        --------
-            list
-                A list of sky observation filenames.
-
-        """
-        sky_obs_list = []
-        for obs in metadata["sci"] + metadata["std"]:
-            if "sky" not in obs.keys():
-                continue
-            for fn in obs["sky"]:
-                if fn not in sky_obs_list:
-                    sky_obs_list.append(fn)
-        info_print(f"Sky observation list: {sky_obs_list}")            
-        return sky_obs_list
-
-    def get_associated_calib(metadata, this_fn, type):
-        """
-        Get the associated calibration file for a given data file.
-
-        Parameters
-        ----------
-        metadata : dict
-            The metadata dictionary containing information about the observations.
-        this_fn : str
-            The filename of the data file for which to find the associated calibration file.
-        type : str
-            The type of calibration file to search for.
-
-        Returns
-        -------
-        str or bool
-            The filename of the associated calibration file if found, or False if not found.
-        """
-        for obs in metadata["sci"] + metadata["std"]:
-            if "sky" in obs.keys():
-                sky = obs["sky"]
-            else:
-                sky = []
-            for fn in obs["sci"] + sky:
-                if fn == this_fn:
-                    if type in obs.keys():
-                        if obs[type] != "":
-                            return obs[type]
-        return False
-
-    def get_primary_sci_obs_list(metadata):
-        """
-        Get the list of primary science observations from the metadata.
-
-        Parameters
-        ----------
-        metadata : dict
-            The metadata containing information about the observations.
-
-        Returns
-        -------
-        list
-            The list of primary science observations.
-
-        """
-        sci_obs_list = [obs["sci"][0] for obs in metadata["sci"]]
-        debug_print(f"Primary science observation list: {sci_obs_list}")
-        return sci_obs_list
-
-    def get_primary_std_obs_list(metadata, type="all"):
-        """
-        Get the list of primary standard observations based on the given metadata and type.
-
-        Parameters:
-        ----------
-            metadata : dict
-                The metadata containing information about the observations.
-            type : str, optional
-                The type of standard star observations to include in the list.
-                Possible values are "all", "telluric", or "flux". Defaults to "all".
-
-        Returns:
-        --------
-            list
-                The list of primary standard observations.
-
-        Raises:
-        -------
-            ValueError 
-                If the standard star type is not understood.
-
-        """
-        if type == "all":
-            std_obs_list = [obs["sci"][0] for obs in metadata["std"]]
-        elif type == "telluric" or type == "flux":
-            std_obs_list = []
-            for obs in metadata["std"]:
-                if obs["sci"][0] not in std_obs_list and (type in obs["type"]):
-                    std_obs_list.append(obs["sci"][0])
-        else:
-            error_print("Standard star type not understood!")
-            error_print("PyWiFeS Data Reduction pipeline will crash now ...")
-            raise ValueError("Standard star type not understood")
-        debug_print(f"Primary standard observation list ({type}): {std_obs_list}")
-        return std_obs_list
-
-    # ------------------------------------------------------------------------
     # DEFINE THE PROCESSING STEPS
+    # ------------------------------------------------------------------------
+
     # ------------------------------------------------------------------------
     # Overscan subtraction
     # ------------------------------------------------------------------------
@@ -392,7 +392,7 @@ def main():
             if skip_done and os.path.isfile(out_fn):
                 continue
             info_print(f"Subtracting Overscan for {in_fn.split('/')[-1]}")
-            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu)
+            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=0)
         return
 
     # ------------------------------------------------------
@@ -426,11 +426,11 @@ def main():
             info_print(f"Repairing {arm} bad pixels for {input_filename}")
             if arm == "red":
                 pywifes.repair_red_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu
+                    input_filepath, output_filepath, data_hdu=0
                 )
             if arm == "blue":
                 pywifes.repair_blue_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu
+                    input_filepath, output_filepath, data_hdu=0
                 )
 
     # ------------------------------------------------------
@@ -462,12 +462,12 @@ def main():
             for x in metadata["bias"]
         ]
         info_print("Calculating Global Superbias")
-        pywifes.imcombine(bias_list, superbias_fn, data_hdu=my_data_hdu)
+        pywifes.imcombine(bias_list, superbias_fn, data_hdu=0)
         if method == "fit" or method == "row_med":
             pywifes.generate_wifes_bias_fit(
                 superbias_fn,
                 superbias_fit_fn,
-                data_hdu=my_data_hdu,
+                data_hdu=0,
                 method=method,
                 plot_dir=plot_dir_arm,
                 arm=arm, 
@@ -501,14 +501,14 @@ def main():
                     for x in local_biases
                 ]
                 pywifes.imcombine(
-                    local_biases_filename, local_superbias, data_hdu=my_data_hdu
+                    local_biases_filename, local_superbias, data_hdu=0
                 )
                 # step 2 - generate fit
                 if method == "fit" or method == "row_med":
                     pywifes.generate_wifes_bias_fit(
                         local_superbias,
                         local_superbias_fit,
-                        data_hdu=my_data_hdu,
+                        data_hdu=0,
                         method=method,
                         **args,
                     )
@@ -566,7 +566,7 @@ def main():
             if method == "copy":
                 pywifes.imcopy(in_fn, out_fn)
             else:
-                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=my_data_hdu)
+                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=0)
         return
 
     # ------------------------------------------------------
@@ -627,7 +627,7 @@ def main():
             return
         info_print(f"Generating co-add {source} flat")
         pywifes.imcombine(
-            flat_list, out_fn, data_hdu=my_data_hdu, scale=scale, method=method
+            flat_list, out_fn, data_hdu=0, scale=scale, method=method
         )
         return
 
@@ -740,7 +740,7 @@ def main():
             flatfield_fn = super_dflat_raw
         output_fn = slitlet_def_fn
         pywifes.derive_slitlet_profiles(
-            flatfield_fn, output_fn, data_hdu=my_data_hdu, **args
+            flatfield_fn, output_fn, data_hdu=0, **args
         )
         return
 
@@ -811,7 +811,7 @@ def main():
         # run it!
         info_print(f"Generating MEF {source} flat")
         pywifes.wifes_slitlet_mef(
-            in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
+            in_fn, out_fn, data_hdu=0, slitlet_def_file=slitlet_fn
         )
         return
 
@@ -861,12 +861,12 @@ def main():
                     in_fn,
                     out_fn,
                     sky_fn,
-                    data_hdu=my_data_hdu,
+                    data_hdu=0,
                     slitlet_def_file=slitlet_fn,
                 )
             else:
                 pywifes.wifes_slitlet_mef(
-                    in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
+                    in_fn, out_fn, data_hdu=0, slitlet_def_file=slitlet_fn
                 )
 
             gc.collect()
@@ -1478,8 +1478,10 @@ def main():
                 in_fn, save_fn=out_fn, save_mode="ascii", **args
             )
         return
-
+    
+    # ------------------------------------------------------
     # Sensitivity Function fit
+    # ------------------------------------------------------
     def run_derive_calib(metadata, prev_suffix, curr_suffix, method="poly", **args):
         ''' 
         Derive the sensitivity function from the extracted standard stars.
@@ -1840,9 +1842,6 @@ def main():
             os.makedirs(out_dir, exist_ok=True)
 
             calib_prefix = f"wifes_{arm}"
-
-            # WiFeS specific parameter
-            my_data_hdu = 0
 
             # Creates a directory for diagnisis plots (one per arm).
             plot_dir_arm = os.path.join(plot_dir, arm)
