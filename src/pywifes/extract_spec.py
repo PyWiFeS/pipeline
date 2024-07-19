@@ -1,27 +1,25 @@
 import astropy.io.fits as fits
-import numpy as np
-import matplotlib.pyplot as plt
 from astropy.stats import sigma_clipped_stats
-from photutils.detection import find_peaks
-from photutils.centroids import centroid_com
-from photutils.aperture import EllipticalAperture
-from photutils.aperture import EllipticalAnnulus
+from astropy.wcs import WCS
 import matplotlib.colors as mcolors
 from matplotlib.patheffects import withStroke
-from astropy.wcs import WCS
+import matplotlib.pyplot as plt
+import numpy
 import os
+from photutils.aperture import EllipticalAperture, EllipticalAnnulus
+from photutils.centroids import centroid_com
+from photutils.detection import find_peaks
 import re
 
 # Suppress the NoDetectionsWarning as we have set a warning for no detection
 import warnings
 from photutils.utils.exceptions import NoDetectionsWarning
 
-warnings.filterwarnings("ignore", category=NoDetectionsWarning)
-
 # Logger
 from pywifes.logger_config import custom_print
 import logging
 
+warnings.filterwarnings("ignore", category=NoDetectionsWarning)
 
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
@@ -51,18 +49,18 @@ def extract_and_save(
         write_1D_spec(flux, var, sci_hdr, var_hdr, output_path)
 
 
-def plot_arm(ax, cube_path, sci, title, source_apertures, sky_aps, border_width):
+def plot_arm(ax, cube_path, sci, title, source_apertures, sky_aps, border_width, bin_y):
     ax.set_title(title)
     if cube_path is not None:
         plot_apertures(
-            sci, source_apertures, sky_aps=sky_aps, border_width=border_width
+            sci, source_apertures, sky_aps=sky_aps, border_width=border_width, bin_y=bin_y
         )
         ax.set_xlabel("Right Ascension")
         ax.set_ylabel("Declination ")
     else:
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
-        text = f"No {title.lower()} arm data"
+        text = f"No {title.lower()} data"
         ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=12, color="black")
         ax.set_xticks([])
         ax.set_yticks([])
@@ -96,9 +94,9 @@ def collapse_cube(*data_cubes):
     if len(valid_data_cubes) == 1:
         joined_cubes = valid_data_cubes[0]
     else:
-        joined_cubes = np.concatenate(valid_data_cubes, axis=0)
+        joined_cubes = numpy.concatenate(valid_data_cubes, axis=0)
 
-    median = np.nanmedian(joined_cubes, axis=0)
+    median = numpy.nanmedian(joined_cubes, axis=0)
 
     return median
 
@@ -167,41 +165,47 @@ def spect_extract(sci_cube, var_cube, source_ap, sky_ap=None):
     it calculates and subtracts the corresponding sky values.
 
     """
-    # Extract the pixels inside the aperture for all the wavelentghs
-    fl = []
-    var = []
+    # Extract the pixels inside the aperture for all the wavelengths
+    fl = numpy.zeros(sci_cube.shape[0], dtype=float)
+    var = numpy.zeros(sci_cube.shape[0], dtype=float)
 
     for layer in range(sci_cube.shape[0]):
         sci_section = sec_image(source_ap, sci_cube[layer])
         var_section = sec_image(source_ap, var_cube[layer])
         area = source_ap.area_overlap(sci_cube[layer], method="center")
 
-        average = np.average(
-            sci_section,
-            weights=np.reciprocal(var_section),
+        sci_ma_section = numpy.ma.array(sci_section, mask=(numpy.isnan(sci_section)), fill_value=0)
+        var_ma_section = numpy.ma.array(var_section, mask=(numpy.isnan(sci_section)), fill_value=65535.**2)
+
+        average = numpy.ma.average(
+            sci_ma_section,
+            weights=numpy.reciprocal(var_ma_section),
         )
 
-        error = np.reciprocal(np.sum(np.reciprocal(var_section)))
+        error = numpy.reciprocal(numpy.ma.sum(numpy.reciprocal(var_ma_section)))
 
         if sky_ap is not None:
             sky_section = sec_image(sky_ap, sci_cube[layer])
             sky_var_section = sec_image(sky_ap, var_cube[layer])
 
-            sky_average = np.average(
-                sky_section,
-                weights=np.reciprocal(sky_var_section),
+            sky_ma_section = numpy.ma.array(sky_section, mask=(numpy.isnan(sky_section)), fill_value=0)
+            sky_var_ma_section = numpy.ma.array(sky_var_section, mask=(numpy.isnan(sky_section)), fill_value=65535.**2)
+
+            sky_average = numpy.ma.average(
+                sky_ma_section,
+                weights=numpy.reciprocal(sky_var_ma_section),
             )
 
-            sky_error = np.reciprocal(np.sum(np.reciprocal(sky_var_section)))
+            sky_error = numpy.reciprocal(numpy.ma.sum(numpy.reciprocal(sky_var_ma_section)))
 
-            fl.append((average - sky_average) * area)
-            var.append((error + sky_error) * area)
+            fl[layer] = (average - sky_average) * area
+            var[layer] = (error + sky_error) * area
 
         else:
-            fl.append(average * area)
-            var.append(error * area)
+            fl[layer] = average * area
+            var[layer] = error * area
 
-    return np.array(fl), np.array(var)
+    return fl, var
 
 
 def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
@@ -280,7 +284,7 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
     hdulist.close()
 
 
-def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0):
+def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0, bin_y=1):
     """
     Plot apertures on a collapsed data cube image.
 
@@ -299,6 +303,10 @@ def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0):
         Width of the border to exclude from the image when calculating the image contrast.
         Default is 0.
 
+    bin_y : int, optional
+        Binning of y-axis, to preserve real on-sky shape.
+        Detaulf is 1.
+
     Returns
     -------
     None
@@ -308,10 +316,11 @@ def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0):
 
     # Collapse cube in the waevelenght dimesion for obtaing a median image
     collapsed_cube = collapse_cube(data_cube)
+    cc_shape = collapsed_cube.shape
 
-    # Improbe ccontrats on the image usefull for see faint sources
-    vmin, vmax = np.percentile(
-        collapsed_cube[border_width:-border_width, border_width:-border_width], (5, 95)
+    # Improve contrast on the image - useful to see faint sources
+    vmin, vmax = numpy.nanpercentile(
+        collapsed_cube[border_width:cc_shape[0] - border_width, border_width:cc_shape[1] - border_width], (2, 95)
     )
     # Show collapsed image
     plt.imshow(collapsed_cube, vmin=vmin, vmax=vmax)
@@ -323,8 +332,8 @@ def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0):
     for index, source_ap in enumerate(source_apertures):
         ap_index = index + 1
         # Plot a overlaped transparent area
-        mask = source_ap.to_mask(method="center").to_image(np.shape(collapsed_cube))
-        mask[mask == 0] = np.nan
+        mask = source_ap.to_mask(method="center").to_image(cc_shape)
+        mask[mask == 0] = numpy.nan
         plt.imshow(mask, alpha=alpha, cmap=cmap)
         # Plot theoretical aperture contourngit
         source_ap.plot(color="white", lw=0.8, ls="--")
@@ -343,11 +352,14 @@ def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0):
     if sky_aps is not None:
         for sky_ap in sky_aps:
             # Plot a overlaped transparent area
-            mask = sky_ap.to_mask(method="center").to_image(np.shape(collapsed_cube))
-            mask[mask == 0] = np.nan
+            mask = sky_ap.to_mask(method="center").to_image(cc_shape)
+            mask[mask == 0] = numpy.nan
             plt.imshow(mask, alpha=alpha, cmap=cmap)
             # Plot theoretical aperture contourn
             sky_ap.plot(color="white", lw=0.8, ls="--")
+
+    # Set axis proportions to right values
+    plt.gca().set_aspect(0.5 * bin_y)
 
 
 def read_cube_data(cube_path):
@@ -365,7 +377,7 @@ def read_cube_data(cube_path):
         sci, sci_hdr = fits.getdata(cube_path, 0, header=True)
         var, var_hdr = fits.getdata(cube_path, 1, header=True)
         wcs = WCS(sci_hdr).celestial
-        binning_x, binning_y = np.int_(sci_hdr["CCDSUM"].split())
+        binning_x, binning_y = int(sci_hdr["CCDSUM"].split())
         cube_data["sci"] = sci
         cube_data["sci_hdr"] = sci_hdr
         cube_data["var"] = var
@@ -444,7 +456,7 @@ def detect_extract_and_save(
         detection.sort("peak_value", reverse=True)
 
         # Detected sources positions
-        positions = np.transpose((detection["x_peak"], detection["y_peak"]))
+        positions = numpy.transpose((detection["x_peak"], detection["y_peak"]))
 
         # Set the annulus
         a = r_arcsec / pixel_scale_x
@@ -511,25 +523,27 @@ def detect_extract_and_save(
             # Plot Red
             ax1 = plt.subplot(1, 2, 2, projection=red_wcs)
             plot_arm(
-                ax1,
-                red_cube_path,
-                red_sci,
-                "Red arm",
-                source_apertures,
-                sky_aps,
-                border_width,
+                ax=ax1,
+                cube_path=red_cube_path,
+                sci=red_sci,
+                title="Red arm",
+                source_apertures=source_apertures,
+                sky_aps=sky_aps,
+                border_width=border_width,
+                bin_y=binning_y,
             )
 
             # Plot Blue
             ax0 = plt.subplot(1, 2, 1, projection=blue_wcs)
             plot_arm(
-                ax0,
-                blue_cube_path,
-                blue_sci,
-                "Blue arm",
-                source_apertures,
-                sky_aps,
-                border_width,
+                ax=ax0,
+                cube_path=blue_cube_path,
+                sci=blue_sci,
+                title="Blue arm",
+                source_apertures=source_apertures,
+                sky_aps=sky_aps,
+                border_width=border_width,
+                bin_y=binning_y,
             )
 
             plt.tight_layout()
@@ -549,12 +563,12 @@ class SingleSpec(object):
     def __init__(self, fitsFILE):
         self.flux, self.header = fits.getdata(fitsFILE, 0, header=True)
         self.wl = (
-            np.arange(self.header["NAXIS1"]) - self.header["CRPIX1"] + 1
+            numpy.arange(self.header["NAXIS1"]) - self.header["CRPIX1"] + 1
         ) * self.header["CDELT1"] + self.header["CRVAL1"]
         # Temporary
         self.fluxvar = fits.getdata(fitsFILE, 1, header=False)
-        self.minWL = np.min(self.wl)
-        self.maxWL = np.max(self.wl)
+        self.minWL = numpy.min(self.wl)
+        self.maxWL = numpy.max(self.wl)
         return
 
 
@@ -565,7 +579,7 @@ def plot_1D_spectrum(spec_path, plot_dir):
     wl = spec.wl
     fluxvar = spec.fluxvar
     # Calculate the error as the square root of the flux variance
-    flux_error = np.sqrt(fluxvar)
+    flux_error = numpy.sqrt(fluxvar)
 
     # Plot the spectrum with error bars
     spec_name = os.path.basename(spec_path)
@@ -573,7 +587,7 @@ def plot_1D_spectrum(spec_path, plot_dir):
     plot_path = os.path.join(plot_dir, plot_name)
     aperture_name = extract_aperture_name(spec_name)
 
-    fig = plt.figure(figsize=(12, 5))
+    # fig = plt.figure(figsize=(12, 5))
 
     # Plot the error bars
     plt.errorbar(
@@ -590,6 +604,7 @@ def plot_1D_spectrum(spec_path, plot_dir):
     plt.step(wl, flux, where="mid", color="b")
 
     # Customize the plot
+    plt.ylim(numpy.nanpercentile(flux - flux_error, 2), numpy.nanpercentile(flux + flux_error, 98))
     plt.title(f"{spec_name} \n" + aperture_name)
     plt.xlabel("Wavelength (Å)")
     plt.ylabel("Flux")

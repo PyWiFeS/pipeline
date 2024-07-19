@@ -1,11 +1,13 @@
 import logging
 from pathlib import Path
 
+
 def custom_print(logger, level=logging.INFO):
     def log_print(*args):
         message = " ".join(map(str, args))
         logger.log(level, message)
     return log_print
+
 
 def configure_logger(
     logger,
@@ -39,6 +41,7 @@ def configure_logger(
                 logger.error(f"Error creating log file at '{str(file)}': {err}")
 
     return logger
+
 
 def setup_logger(
     name=None,

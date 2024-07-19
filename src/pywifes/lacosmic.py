@@ -3,25 +3,16 @@ import numpy
 import scipy.signal
 import scipy.ndimage
 import scipy.interpolate
-from pywifes.logger_config import custom_print
+
+from .logger_config import custom_print
 import logging
+from .multiprocessing_utils import get_task, map_tasks
+from .wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
+from .wifes_utils import arguments, is_halfframe, is_taros
 
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
 print = custom_print(logger)
-
-from .multiprocessing_utils import get_task, map_tasks
-from .wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
-import logging
-
-
-# ------------------------------------------------------------------------
-# ------------------------------------------------------------------------
-# high-level functions to check if an observation is half-frame or N+S
-def _is_halfframe(hdus, data_hdu=0):
-    detsec = hdus[data_hdu].header["DETSEC"]
-    ystart = int(float(detsec.split(",")[1].split(":")[0]))
-    return ystart == 1029
 
 
 # -----------------------------------------------------------------------------
@@ -32,6 +23,7 @@ growth_kernel = numpy.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]])
 
 def lacos_spec_data(
     data,
+    input_dq=None,
     gain=1.0,
     rdnoise=0.0,
     wave=None,
@@ -46,16 +38,15 @@ def lacos_spec_data(
     ny, nx = numpy.shape(data)
     x_mg, y_mg = numpy.meshgrid(numpy.arange(nx), numpy.arange(ny))
     # set up bad pix mask that will persist through multiple iterations
-    global_bpm = numpy.zeros(numpy.shape(data))
+    # retain previously flagged bad pixels if mask if supplied
+    global_bpm = numpy.zeros(numpy.shape(data)) if input_dq is None else input_dq
+    clean_data = 1.0 * data
 
     # ------------------------------------------------------------------------
     # MULTIPLE ITERATIONS
-    clean_data = 1.0 * data
-    # if verbose: print 'Beginning cosmic ray search'
     for i in range(niter):
         # ------------------------------------
         # step 1 - subtract sky lines
-        # if verbose: print 'Generating model of sky background for iteration %d' % (i+1)
         if wave is None:
             sky_model = scipy.ndimage.median_filter(clean_data, size=[7, 1])
             m5_model = scipy.ndimage.median_filter(clean_data, size=[5, 5])
@@ -72,8 +63,8 @@ def lacos_spec_data(
 
         # ------------------------------------
         # step 3 - take 2nd order derivative (laplacian) of input image
-        blkdata = blkrep(subbed_data,2,2)
-        init_conv_data = scipy.signal.convolve2d(blkdata, laplace_kernel)[1:-1,1:-1]
+        blkdata = blkrep(subbed_data, 2, 2)
+        init_conv_data = scipy.signal.convolve2d(blkdata, laplace_kernel)[1:-1, 1:-1]
         init_conv_data[numpy.nonzero(init_conv_data <= 0.0)] = 0.0
         conv_data = blkavg(init_conv_data, 2, 2)
         # ------------------------------------
@@ -136,7 +127,7 @@ def lacos_spec_data(
             import pdb
 
             pdb.set_trace()
-        # if no new CRs found, exit loop
+        # if no new CRs found, exit loop with no new pixels to interpolate over
         if len(new_bpix[0]) == 0:
             break
 
@@ -152,7 +143,8 @@ def lacos_spec_data(
                 * (numpy.abs(x_mg - bpx) <= n_nx)
                 * (global_bpm == 0)
             )
-            clean_data[bpy, bpx] = numpy.median(data[n_inds])
+            clean_data[bpy, bpx] = numpy.nanmedian(data[n_inds])
+        clean_data[numpy.isnan(clean_data)] = data[numpy.isnan(clean_data)]
 
     # ------------------------------------------------------
     # RETURN FINAL RESULT
@@ -175,7 +167,10 @@ def lacos_wifes(
     n_ny=5,
     is_multithread=False,
     max_processes=-1,
+    debug=False
 ):
+    if debug:
+        arguments()
     if is_multithread:
         lacos_wifes_multithread(
             inimg,
@@ -223,31 +218,32 @@ def lacos_wifes_oneproc(
 ):
 
     hdus = pyfits.open(in_img_filepath)
-    halfframe = _is_halfframe(hdus)
+    halfframe = is_halfframe(hdus)
 
     if halfframe:
-        nslits = 12
-        first = 7
-        last = 19
+        if is_taros(hdus):
+            nslits = 12
+        else:
+            nslits = 13
     else:
         nslits = 25
-        first = 1
-        last = 26
 
     outfits = pyfits.HDUList(hdus)
     if wsol_filepath:
         wsol_hdus = pyfits.open(wsol_filepath)
 
-    for i in range(first, last):
-
-        orig_data = hdus[i].data
+    for i in range(nslits):
+        curr_hdu = i + 1
+        orig_data = hdus[curr_hdu].data
+        orig_dq = hdus[curr_hdu + 2 * nslits].data
 
         if wsol_filepath:
-            wave = wsol_hdus[i - first + 1].data
+            wave = wsol_hdus[curr_hdu].data
         else:
             wave = None
         clean_data, global_bpm = lacos_spec_data(
             orig_data,
+            input_dq=orig_dq,
             gain=gain,
             rdnoise=rdnoise,
             wave=wave,
@@ -260,9 +256,14 @@ def lacos_wifes_oneproc(
             verbose=False,
         )
         # update the data hdu
-        outfits[i].data = clean_data
+        outfits[curr_hdu].data = clean_data.astype("float32", casting="same_kind")
+        outfits[curr_hdu].scale("float32")
         # save the bad pixel mask in the DQ extentions
-        outfits[i + 50].data = global_bpm
+        # trim data beyond range
+        global_bpm[global_bpm > 32767] = 32767
+        global_bpm[global_bpm < -32768] = -32768
+        outfits[curr_hdu + 2 * nslits].data = global_bpm.astype("int16", casting="unsafe")
+        outfits[curr_hdu + 2 * nslits].scale("int16")
     if wsol_filepath:
         wsol_hdus.close()
 
@@ -286,28 +287,31 @@ def lacos_wifes_multithread(
     max_processes=-1,
 ):
     hdus = pyfits.open(in_img_filepath)
-    halfframe = _is_halfframe(hdus)
+    halfframe = is_halfframe(hdus)
+
     if halfframe:
-        nslits = 12
-        first = 7
-        last = 19
+        if is_taros(hdus):
+            nslits = 12
+        else:
+            nslits = 13
     else:
         nslits = 25
-        first = 1
-        last = 26
 
     tasks = []
     if wsol_filepath:
         wsol_hdus = pyfits.open(wsol_filepath)
-    for i in range(first, last):
-        orig_data = hdus[i].data
+    for i in range(nslits):
+        curr_hdu = i + 1
+        orig_data = hdus[curr_hdu].data
+        orig_dq = hdus[curr_hdu + 2 * nslits].data
         if wsol_filepath:
-            wave = wsol_hdus[i - first + 1].data
+            wave = wsol_hdus[curr_hdu].data
         else:
             wave = None
         task = get_task(
             lacos_spec_data,
             orig_data,
+            input_dq=orig_dq,
             gain=gain,
             rdnoise=rdnoise,
             wave=wave,
@@ -327,12 +331,18 @@ def lacos_wifes_multithread(
 
     outfits = pyfits.HDUList(hdus)
     for i, (clean_data, global_bpm) in enumerate(results):
-        i_slit = first + i
-        i_dq_slit = first + 50 + i
+        i_slit = i + 1
+        i_dq_slit = i_slit + 2 * nslits
+
         # update the data hdu
-        outfits[i_slit].data = clean_data
-        # save the bad pixel mask in the DQ extention
-        outfits[i_dq_slit].data = global_bpm
+        outfits[i_slit].data = clean_data.astype("float32", casting="same_kind")
+        outfits[i_slit].scale("float32")
+        # save the bad pixel mask in the DQ extentions
+        # trim data beyond range
+        global_bpm[global_bpm > 32767] = 32767
+        global_bpm[global_bpm < -32768] = -32768
+        outfits[i_dq_slit].data = global_bpm.astype("int16", casting="unsafe")
+        outfits[i_dq_slit].scale("int16")
 
     outfits.writeto(out_filepath, overwrite=True)
     hdus.close()

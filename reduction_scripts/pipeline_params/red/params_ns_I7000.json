@@ -50,6 +50,14 @@
             }
         },
         {
+            "step": "superflat",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "wire"
+            }
+        },
+        {
             "step": "slitlet_profile",
             "run": true,
             "suffix": null,
@@ -88,6 +96,14 @@
             "suffix": null,
             "args": {
                 "source": "twi"
+            }
+        },
+        {
+            "step": "superflat_mef",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "wire"
             }
         },
         {

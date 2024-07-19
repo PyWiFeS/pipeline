@@ -34,12 +34,12 @@ def get_obs_metadata(filenames, data_dir):
         - 'arc': List of filenames of arc frames.
         - 'wire': List of filenames of wire frames.
         - 'sci': List of dictionaries, each containing information about science observations. Each dictionary has the following keys:
-        - 'sci': List of filenames of science observations.
-        - 'sky': Empty list (not used in this function).
+            - 'sci': List of filenames of science observations.
+            - 'sky': Empty list (not used in this function).
         - 'std': List of dictionaries, each containing information about standard star observations. Each dictionary has the following keys:
-        - 'sci': List of filenames of standard star observations.
-        - 'name': Name of the standard star.
-        - 'type': List of strings indicating the type of observation ('flux','telluric').
+            - 'sci': List of filenames of standard star observations.
+            - 'name': Name of the standard star.
+            - 'type': List of strings indicating the type of observation ('flux','telluric').
 
     """
     stdstar_list = wifes_calib.ref_fname_lookup.keys()
@@ -72,7 +72,7 @@ def get_obs_metadata(filenames, data_dir):
             pass
         # ---------------------------
         # 1 - bias frames
-        if imagetype == "BIAS":
+        if imagetype == "BIAS" or imagetype == "ZERO":
             bias.append(basename)
         # 2 - quartz flats
         if imagetype == "FLAT":
@@ -118,7 +118,8 @@ def get_obs_metadata(filenames, data_dir):
     sci_obs = []
 
     for obj_name in science.keys():
-        obs_list = science[obj_name]
+        # sort to ensure coaddds get identical names in each arm
+        obs_list = sorted(science[obj_name])
         sci_obs.append({"sci": obs_list, "sky": []})
 
     # ------------------
@@ -126,7 +127,8 @@ def get_obs_metadata(filenames, data_dir):
     std_obs = []
 
     for obj_name in stdstar.keys():
-        obs_list = stdstar[obj_name]
+        # sort to ensure coaddds get identical names in each arm
+        obs_list = sorted(stdstar[obj_name])
         std_obs.append(
             {"sci": obs_list, "name": obj_name, "type": ["flux", "telluric"]}
         )
@@ -145,8 +147,7 @@ def get_obs_metadata(filenames, data_dir):
     return obs_metadata
 
 
-
-def classify(data_dir, naxis2_to_process = 0):
+def classify(data_dir, naxis2_to_process=0):
     """
     Classify FITS files in the specified directory based on the CAMERA keyword in the header. It filters files into blue and red (arms) observations, extracting metadata for each. It returns a dictionary containing metadata for the blue and red observations.
 
