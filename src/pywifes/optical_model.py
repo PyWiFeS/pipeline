@@ -202,14 +202,16 @@ def mperrfunc_alphap(alphap, arg):
     return (a - m) / err
 
 
-def mpfitfunc_alphap(alphap, fjac=None, alls=None, ally=None, allx=None, gratings=None, allarc=None, allp=None, allerr=None):
+def mpfitfunc_alphap(alphap, fjac=None, alls=None, ally=None, allx=None, gratings=None,
+                     allarc=None, allp=None, allerr=None, verbose=False):
     # Parameter values are passed in "p"
     # If fjac==None then partial derivatives should not
     # computed.  It will always be None if MPFIT is called with default
     # flag.
     n_cpus = multiprocessing.cpu_count()
     p = multiprocessing.Pool(int(math.ceil(n_cpus / 2)))
-    print('p=', p)
+    if verbose:
+        print('p=', p)
     partial_mperrfunc = functools.partial(mperrfunc_alphap, alphap)
     out = p.map(partial_mperrfunc, list(zip(gratings, alls, ally, allx, allarc, allp, allerr)))
     p.close()
@@ -300,7 +302,7 @@ def defaultParams(grating):
     return plorig
 
 
-def printParams(grating, p, alphap):
+def printParams(p, alphap):
     # Extract parameters (and ignore any extras we might be given)
     (d0, input_alpha, phi, xoc, yoc, r1, r2, r3, fcamera, theta_x, theta_y, xdc, ydc, lambda0, Afront, Aback, rx, ry) = p[:nparams]
     print('d0=', d0)

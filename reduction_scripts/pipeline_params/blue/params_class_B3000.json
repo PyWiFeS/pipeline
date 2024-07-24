@@ -71,7 +71,7 @@
                 "type": [
                     "dome", "twi"
                 ],
-                "verbose": true,
+                "verbose": false,
                 "plot": true,
                 "offsets": [
                     0.4,
@@ -125,7 +125,7 @@
                 "doalphapfit": true,
                 "plot": true,
                 "dlam_cut_start": 5.0,
-                "multithread": false
+                "multithread": true
             }
         },
         {
@@ -148,7 +148,7 @@
             "suffix": "04",
             "args": {
                 "ns": false,
-                "multithread": false,
+                "multithread": true,
                 "max_processes": -1
             }
         },

@@ -1140,7 +1140,8 @@ def derive_wifes_polynomial_wave_solution(
     # MUST HAVE MEF FILE AS INPUT
     a = pyfits.open(inimg)
     arc_hdr = a[0].header
-    print(f"Poly: arc_hdr: {arc_hdr}")
+    if verbose:
+        print(f"Poly: arc_hdr: {arc_hdr}")
     outfits = pyfits.HDUList([pyfits.PrimaryHDU(header=arc_hdr)])
     ndy, ndx = numpy.shape(a[1].data)
     xarr = numpy.arange(ndx)
@@ -1232,7 +1233,8 @@ def save_found_lines(
     # MUST HAVE MEF FILE AS INPUT
     a = pyfits.open(inimg)
     arc_hdr = a[0].header
-    print(f"SaveFoundLines: arc_hdr: {arc_hdr}")
+    if verbose:
+        print(f"SaveFoundLines: arc_hdr: {arc_hdr}")
     ndy, ndx = numpy.shape(a[1].data)
     xarr = numpy.arange(ndx)
     yarr = numpy.arange(ndy)
@@ -1345,13 +1347,14 @@ def derive_wifes_skyline_solution(
 FTOL = 1e-3
 
 
-def excludeLines(lines, exclude, index=3, epsilon=0.05):
+def excludeLines(lines, exclude, index=3, epsilon=0.05, verbose=False):
     """Work out if any of the lines we read in are to be excluded
     We do this by constructing a matrix of differences between the input lines
     and the exclude lines, then determining whether any are close enough to
     count as a match.  We then exclude those."""
     if (exclude is not None) and len(exclude) > 0:
-        print(f"Excluding {exclude} with tolerance of {epsilon}")
+        if verbose:
+            print(f"Excluding {exclude} with tolerance of {epsilon}")
         exclude = numpy.asarray(exclude)
         nlines = lines.shape[0]
         nexclude = exclude.shape[0]
@@ -1394,7 +1397,8 @@ def _fit_optical_model(
     alls, ally, allx, allarcs = om.extractArrays(lines, grating, bin_x, bin_y)
 
     lambda0 = plorig[13]
-    print(f"lambda0={lambda0}")
+    if verbose:
+        print(f"lambda0={lambda0}")
 
     # Get sensible values for xdc and ydc
     # by looking at the central slitlet
@@ -1410,10 +1414,12 @@ def _fit_optical_model(
             left = numpy.argmax(tmparcs[largs])
             right = numpy.argmin(tmparcs[rargs])
             plorig[11] = (allx[args][largs][left] + allx[args][rargs][right]) / 2
-            print(f"xdc={plorig[11]}")
+            if verbose:
+                print(f"xdc={plorig[11]}")
 
         plorig[12] = (ally[args].max() + ally[args].min()) / 2.0
-        print(f"ydc={plorig[12]}")
+        if verbose:
+            print(f"ydc={plorig[12]}")
 
     # Initial residuals
     resid = om.errfunc(grating, plorig, alphap, alls, ally, allx, allarcs)
@@ -1422,7 +1428,8 @@ def _fit_optical_model(
     var = numpy.sum(resid**2) / len(allx)
     bias = numpy.sum(resid) / len(allx)
     rmse = math.sqrt(var + bias**2)
-    print(f"Initial diagnostics: var={var}, bias={bias}, RMSE={rmse}")
+    if verbose:
+        print(f"Initial diagnostics: var={var}, bias={bias}, RMSE={rmse}")
 
     # Set up parameter info ready for fitting
     parinfo = [
@@ -1547,7 +1554,7 @@ def _fit_optical_model(
             pl = numpy.asarray(m.params)
             if verbose:
                 print("Fit complete")
-                om.printParams(grating, pl[: om.nparams], pl[om.nparams:])
+                om.printParams(pl[: om.nparams], pl[om.nparams:])
 
             # Generate the final residuals
             resid = om.errfunc(
@@ -1756,7 +1763,8 @@ def derive_wifes_optical_wave_solution(
     if alphapfile is not None:
         try:
             alphap = numpy.loadtxt(alphapfile)
-            print("Using alphap", alphap)
+            if verbose:
+                print("Using alphap", alphap)
         except IOError:
             pass
 

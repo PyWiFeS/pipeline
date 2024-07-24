@@ -5,7 +5,7 @@ import astropy.units as u
 import gc
 import logging
 import matplotlib.pyplot as plt
-from matplotlib import colormaps as cm
+from matplotlib import colormaps as cm, colors
 import numpy
 import os
 import pickle
@@ -181,7 +181,7 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
             f = pyfits.open(inimg_list[i])
             new_data = f[data_hdu].data
             exptime_list.append(f[data_hdu].header["EXPTIME"])
-            if f[data_hdu].header["IMAGETYP"].upper() in ["BIAS", "FLAT", "ARC", "WIRE"]:
+            if f[data_hdu].header["IMAGETYP"].upper() in ["ARC", "BIAS", "FLAT", "SKYFLAT", "WIRE", "ZERO"]:
                 airmass_list.append(1.0)
             else:
                 try:
@@ -318,7 +318,8 @@ def imcombine_mef(
         for i in range(nimg):
             f2 = pyfits.getheader(inimg_list[i], ext=1)
             try:
-                airmass_list.append(f2["AIRMASS"])
+                if "AIRMASS" in f2:
+                    airmass_list.append(f2["AIRMASS"])
             except:
                 pass
             exptime_list.append(f2["EXPTIME"])
@@ -923,7 +924,7 @@ def make_overscan_mask(dflat, omask, data_hdu=0):
     hdu.writeto(omask, overwrite=True)
 
 
-def correct_readout_shift(indata, verbose=True):
+def correct_readout_shift(indata, verbose=False):
     """In the early period of Automated Observations, the red arm readout was
     sometimes affected by a problem of extra pixels early in the data stream,
     which shifted the pixels positions throughout the recorded image.
@@ -963,7 +964,7 @@ def subtract_overscan(
     omaskfile=None,
     omask_threshold=1000.,  # per-row mean ADU relative to row with lowest mean
     interactive_plot=False,
-    verbose=True,
+    verbose=False,
     debug=False,
 ):
     if debug:
@@ -1019,7 +1020,7 @@ def subtract_overscan(
         # Check for red arm pixel shifts in early non-TAROS readouts. Correct, if present
         if verbose:
             print(f"Checking {inimg} for pixel shift")
-        orig_data = correct_readout_shift(orig_data, verbose=True)
+        orig_data = correct_readout_shift(orig_data, verbose=verbose)
 
     # (2) create data array - MUST QUERY FOR HALF-FRAME
     halfframe = is_halfframe(inimg, data_hdu=data_hdu)
@@ -1118,7 +1119,8 @@ def subtract_overscan(
 
 
 # ------------------------------------------------------------------------
-def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, interactive_plot=False, debug=False):
+def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1,
+                        interactive_plot=False, verbose=False, debug=False):
     """Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
     calibration frames, but sets bad pixels to NaN for STANDARD and OBJECT frames. The NaN
     pixels can be interpolated across in same way after the VAR and DQ extensions are created,
@@ -1149,7 +1151,7 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, interactive
     y_veryfirst, y_verylast = [int(pix) - 1 for pix in detsec.split(",")[1].rstrip(']').split(":")]
 
     # bad_data = [[yfirst, ylast, xfirst, xlast], [...]]
-    # Uses unbinned, 0-indexed pixels after overscan trimming, e.g., p00.fits
+    # Uses unbinned, full-frame, 0-indexed pixels after overscan trimming, e.g., p00.fits
     # Limits are inclusive of the bad pixels on both ends of range
     bad_data = [[746, 4095, 1525, 1531],
                 [2693, 3104, 3944, 3944],
@@ -1167,9 +1169,13 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, interactive
         if method == 'interp':
             slice_lo = orig_data[yfirst:ylast + 1, xfirst - 1]
             slice_hi = orig_data[yfirst:ylast + 1, xlast + 1]
+            if verbose:
+                print(f"Interpolating from ({yfirst}:{ylast + 1}, {xfirst - 1}) to ({yfirst}:{ylast + 1}, {xlast + 1})")
             for this_x in numpy.arange(xfirst, xlast + 1):
                 interp_data[yfirst:ylast + 1, this_x] = (slice_hi - slice_lo) / ((xlast + 1.) - (xfirst - 1.)) * (this_x - (xfirst - 1.)) + slice_lo
         elif method == 'nan':
+            if verbose:
+                print(f"NaN-ing ({yfirst}:{ylast + 1},{xfirst}:{xlast + 1})")
             interp_data[yfirst:ylast + 1, xfirst:xlast + 1] = numpy.nan
     if interactive_plot:
         fig, axs = plt.subplots(1, 2, figsize=(16, 8))
@@ -1184,7 +1190,8 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, interactive
     return
 
 
-def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, interactive_plot=False, debug=False):
+def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1,
+                       interactive_plot=False, verbose=False, debug=False):
     """Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
     calibration frames, but sets bad pixels to NaN for STANDARD and OBJECT frames. The NaN
     pixels can be interpolated across in same way after the VAR and DQ extensions are created,
@@ -1215,10 +1222,10 @@ def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, interactive_
     y_veryfirst, y_verylast = [int(pix) - 1 for pix in detsec.split(",")[1].rstrip(']').split(":")]
 
     # bad_data = [[yfirst, ylast, xfirst, xlast], [...]]
-    # Uses unbinned, 0-indexed pixels after overscan trimming, e.g., p00.fits
+    # Uses unbinned, full-frame, 0-indexed pixels after overscan trimming, e.g., p00.fits
     # Limits are inclusive of the bad pixels on both ends of range
-    bad_data = [[0, 2707, 10, 10],
-                [0, 3280, 774, 775],
+    bad_data = [[0, 2707, 9, 11],
+                [0, 3280, 773, 775],
                 [0, 4095, 901, 904],
                 [3978, 3986, 897, 906],
                 [0, 3387, 939, 939],
@@ -1226,6 +1233,10 @@ def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, interactive_
                 ]
     interp_data = 1.0 * orig_data
     for yfirst, ylast, xfirst, xlast in bad_data:
+        if is_taros(inimg) and yfirst == 0:
+            # TAROS uses an amplifier on the other edge of the CCD
+            yfirst = 0 if ylast == 4095 else ylast
+            ylast = 4095
         yfirst = max(min(yfirst - y_veryfirst, y_verylast - y_veryfirst), 0)
         ylast = min(max(ylast - y_veryfirst, 0), y_verylast - y_veryfirst)
         if yfirst == (y_verylast - y_veryfirst) or ylast == 0:
@@ -1237,9 +1248,13 @@ def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, interactive_
         if method == 'interp':
             slice_lo = orig_data[yfirst:ylast + 1, xfirst - 1]
             slice_hi = orig_data[yfirst:ylast + 1, xlast + 1]
+            if verbose:
+                print(f"Interpolating from ({yfirst}:{ylast + 1}, {xfirst - 1}) to ({yfirst}:{ylast + 1}, {xlast + 1})")
             for this_x in numpy.arange(xfirst, xlast + 1):
                 interp_data[yfirst:ylast + 1, this_x] = (slice_hi - slice_lo) / ((xlast + 1.) - (xfirst - 1.)) * (this_x - (xfirst - 1.)) + slice_lo
         elif method == 'nan':
+            if verbose:
+                print(f"NaN-ing ({yfirst}:{ylast + 1},{xfirst}:{xlast + 1})")
             interp_data[yfirst:ylast + 1, xfirst:xlast + 1] = numpy.nan
     if interactive_plot:
         fig, axs = plt.subplots(1, 2, figsize=(16, 8))
@@ -1539,7 +1554,7 @@ def generate_wifes_bias_fit(
     outimg,
     arm,
     data_hdu=0,
-    plot=False,
+    plot=True,
     plot_dir=".",
     save_prefix='bias',
     verbose=False,
@@ -1765,7 +1780,8 @@ def derive_slitlet_profiles(
     flatfield_fn,
     output_fn,
     data_hdu=0,
-    verbose=True,
+    verbose=False,
+    buffer=1,
     shift_global=True,
     interactive_plot=False,
     bin_x=None,
@@ -1803,9 +1819,9 @@ def derive_slitlet_profiles(
     y_shift_vals = []
     if halfframe:
         if is_taros(flatfield_fn):
-            nslits = 12
+            nslits = 13  # Only using 12, but need slit definitions for half-slit in interslice cleanup
             first_slit = 1
-            offset = 2048 // bin_y
+            offset = 2056 // bin_y
         else:
             nslits = 13
             first_slit = 7
@@ -1841,18 +1857,19 @@ def derive_slitlet_profiles(
 
         # center = halfway between edges where it drops below 10 percent of peak
         bright_inds = numpy.nonzero(y_prof > 0.1)[0]
-        new_ymin = bright_inds[0] - 1
-        new_ymax = bright_inds[-1] + 1
+        new_ymin = bright_inds[0] - 1 - buffer
+        new_ymax = bright_inds[-1] + 1 + buffer
         orig_ctr = 0.5 * float(len(y_prof))
         new_ctr = 0.5 * (new_ymin + new_ymax)
+        # now adjust the slitlet definitions!
+        y_shift = bin_y * int(new_ctr - orig_ctr)
         if interactive_plot:
             plt.figure()
             plt.plot(y_prof, color="b")
             plt.axvline(orig_ctr, color="r")
             plt.axvline(new_ctr, color="g")
+            plt.title("Slitlet {i}")
             plt.show()
-        # now adjust the slitlet definitions!
-        y_shift = bin_y * int(new_ctr - orig_ctr)
         if verbose:
             print(
                 "Fitted shift of %d (unbinned) pixels for slitlet %d" % (y_shift, i)
@@ -1865,6 +1882,10 @@ def derive_slitlet_profiles(
             init_curr_defs[3] + y_shift,
         ]
         new_slitlet_defs[str(i)] = final_defs
+    if interactive_plot:
+        plt.imshow(flat_data, norm=colors.LogNorm(), origin="lower")
+        # More elements added in loop below
+
     # finally, use a single global shift if requested
     if shift_global:
         best_shift = int(numpy.nanmean(numpy.array(y_shift_vals)))
@@ -1882,6 +1903,11 @@ def derive_slitlet_profiles(
             final_slitlet_defs[str(i)] = final_defs
     else:
         final_slitlet_defs = new_slitlet_defs
+    if interactive_plot:
+        for i in range(first_slit, first_slit + nslits):
+            plt.axhline(final_slitlet_defs[str(i)][2] // bin_y - offset, color="k")
+            plt.axhline(final_slitlet_defs[str(i)][3] // bin_y - offset, color="k")
+        plt.show()
     # save it!
     f3 = open(output_fn, "wb")
     pickle.dump(final_slitlet_defs, f3)
@@ -1967,7 +1993,7 @@ def interslice_cleanup(
     # unbinned pixels.
     if halfframe:
         if taros:
-            nslits = 12
+            nslits = 13  # only keeping 12 but want the definitions for the half-slit
             first_slit = 1
             frame_offset = 2056
         else:
@@ -3327,7 +3353,7 @@ def generate_wifes_cube(
     offset_orig=4,
     multithread=False,
     max_processes=-1,
-    verbose=True,
+    verbose=False,
     adr=False,
     debug=False,
 ):
@@ -3391,7 +3417,7 @@ def generate_wifes_cube_oneproc(
     bin_y=None,
     ny_orig=76,
     offset_orig=4,
-    verbose=True,
+    verbose=False,
     adr=False,
     debug=False,
 ):
@@ -3719,7 +3745,7 @@ def generate_wifes_cube_multithread(
     ny_orig=76,
     offset_orig=4,
     max_processes=-1,
-    verbose=True,
+    verbose=False,
     adr=False,
     debug=False,
 ):
@@ -4037,17 +4063,23 @@ def generate_wifes_cube_multithread(
 
 
 # ------------------------------------------------------------------------
-def generate_wifes_3dcube(inimg, outimg, halfframe, debug=False):
+def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, debug=False):
     # load in data
     # assumes it is in pywifes format
     # otherwise why are you using this function
     if debug:
         print(arguments())
     f = pyfits.open(inimg)
-    if len(f) == 76 or len(f) == 40:  # full frame or half
+    # full frame or half
+    if len(f) == 76 or (
+        halfframe and (
+            (taros and len(f) == 37)
+            or (not taros and len(f) == 40)
+        )
+    ):
         ny, nlam = numpy.shape(f[1].data)
         if halfframe:
-            if is_taros(inimg):
+            if taros:
                 nx = 12
             else:
                 nx = 13

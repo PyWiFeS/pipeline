@@ -45,7 +45,7 @@ What's been done:
 
 - edits for code legibility and (most) PEP8 style conventions
 
-Tested with 1x2 Full Frame (B/R3000), 1x1 Full Frame (B/R3000), 1x2 Full Frame Nod & Shuffle (B/R3000), 1x2 Stellar (B/R3000), 1x2 TAROS Full Frame (B/R3000)
+Tested with 1x2 Full Frame (B/R3000), 1x1 Full Frame (B/R3000), 1x2 Full Frame Nod & Shuffle (B/R3000), 1x2 Stellar (B/R3000), 1x2 TAROS Full Frame (B/R3000), 1x2 TAROS Stellar (B/R3000)
 
 
 ***Future Development Underway***
@@ -54,11 +54,15 @@ Tested with 1x2 Full Frame (B/R3000), 1x1 Full Frame (B/R3000), 1x2 Full Frame N
 
 - additional backwards compatibility with TAROS data
 
+- add time domain to the bad pixel mask
+
 - add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
 
 - allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
 
 - modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
+
+- apply charge transfer inefficiency (CTI) correction
 
 - test additional gratings, beam-splitters, observing modes
 
