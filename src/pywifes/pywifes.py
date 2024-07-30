@@ -308,7 +308,6 @@ def imcombine(inimg_list, outimg, method="median", scale=None, data_hdu=0):
         f = pyfits.open(inimg_list[0])
         outfits = pyfits.HDUList(f)
         orig_data = f[data_hdu].data
-        orig_hdr = f[data_hdu].header
         f.close()
         nimg = len(inimg_list)
         ny, nx = numpy.shape(orig_data)
@@ -320,13 +319,13 @@ def imcombine(inimg_list, outimg, method="median", scale=None, data_hdu=0):
         for i in range(nimg):
             f = pyfits.open(inimg_list[i])
             new_data = f[data_hdu].data
-            exptime_list.append(f[data_hdu].header["EXPTIME"])
-            try:
-                airmass_list.append(f[data_hdu].header["AIRMASS"])
-            except Exception as air_err:
-                logger.warning(f"Failed to get airmass for image {inimg_list[i]}: {air_err}")
-                airmass_list.append(1.0)
+            hdr = f[data_hdu].header
             f.close()
+            exptime_list.append(hdr["EXPTIME"])
+            try:
+                airmass_list.append(hdr["AIRMASS"])
+            except:
+                pass
             if scale == None:
                 scale_factor = 1.0
             elif scale == "median":
@@ -363,7 +362,8 @@ def imcombine(inimg_list, outimg, method="median", scale=None, data_hdu=0):
             outfits[data_hdu].header.set("UTCEND", last_hdr["UTCEND"])
             outfits[data_hdu].header.set("HAEND", last_hdr["HAEND"])
             outfits[data_hdu].header.set("ZDEND", last_hdr["ZDEND"])
-            outfits[data_hdu].header.set("AIRMASS", numpy.mean(numpy.array(airmass_list)))
+            if len(airmass_list) > 0:
+                outfits[data_hdu].header.set("AIRMASS", numpy.mean(numpy.array(airmass_list)))
         # (5) write to outfile!
         outfits[data_hdu].header.set("PYWIFES", __version__, "PyWiFeS version")
         outfits.writeto(outimg, overwrite=True)
@@ -1657,14 +1657,14 @@ def generate_wifes_bias_fit(
                     linx, wifes_bias_model(p1, linx, camera), "r", label="model fit"
                 )
 
-            plt.axhline(0, numpy.min(linx), numpy.max(linx), color="k")
-            plt.xlabel("x [pixels]")
-            plt.ylabel(" bias signal collapsed along y")
+            plt.axhline(0, numpy.min(linx), numpy.max(linx), color="k",lw=0.8)
+            plt.xlabel("X-axis [pixel]")
+            plt.ylabel(" bias signal collapsed along Y-axis")
             plt.legend()
             plt.xlim([numpy.min(linx), numpy.max(linx)])
             plt.ylim(lower_limit, upper_limit)
             plt.title("Fitting bias frame %s" % bias_img.split("/")[-1])
-            plot_path = os.path.join(plot_dir, f"bias.png")
+            plot_path = os.path.join(plot_dir, "bias.png")
             plt.savefig(plot_path,dpi=300)
             plt.close()
 
@@ -2042,7 +2042,12 @@ def interslice_cleanup(
         # Adjust layout to prevent overlapping of titles    
         plt.tight_layout()
         fn_no_extension = os.path.splitext(os.path.basename(output_fn))[0]
-        plot_name = save_prefix + fn_no_extension + ".png"
+
+        if 'domeflat' in fn_no_extension:
+            plot_name = "domeflat_cleanup.png"
+        if 'twiflat' in fn_no_extension:
+            plot_name = "twiflat_cleanup.png"
+
         plot_path = os.path.join(plot_dir, plot_name)
         plt.savefig(plot_path, dpi=300)
         plt.close()
@@ -2831,7 +2836,7 @@ def wifes_2dim_response(
 
     # ------------------------------------
     # ------------------------------------
-    illum = numpy.zeros([ndy, ndx], dtype="d")
+    illum = numpy.zeros([ndy, nslits], dtype="d")
     # divide rectified data by the smooth polynomial
     for i in range(first, last):
         curr_hdu = i

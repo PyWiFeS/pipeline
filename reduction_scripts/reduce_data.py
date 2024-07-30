@@ -1917,6 +1917,28 @@ def main():
                 else:
                     pass
 
+            # Extra Data Reduction Quality Plots:
+
+            # Dome Flats    
+            try:
+                title = 'Dome Flatfield'            
+                output_plot = os.path.join(plot_dir_arm, "raw_domeflat_check.png")
+
+                flat_image_path = os.path.join(master_dir, f"wifes_{arm}_super_domeflat_raw.fits")
+                slitlet_path = os.path.join(master_dir, f"wifes_{arm}_slitlet_defs.pkl")
+                flatfiled_plot(flat_image_path, slitlet_path, title, output_plot)
+            except:
+                pass
+
+            # Twilight Flats
+            try:
+                title = 'Twilight Flatfield'            
+                output_plot = os.path.join(plot_dir_arm, "raw_twiflat_check.png")
+                flat_image_path = os.path.join(master_dir, f"wifes_{arm}_super_twiflat_raw.fits")
+                slitlet_path = os.path.join(master_dir, f"wifes_{arm}_slitlet_defs.pkl")
+                flatfiled_plot(flat_image_path, slitlet_path, title, output_plot)
+            except:
+                pass
 
         except Exception as exc:
             warning_print("________________________________________________________________")

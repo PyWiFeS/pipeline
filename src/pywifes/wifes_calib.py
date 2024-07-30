@@ -7,6 +7,8 @@ import scipy.interpolate
 from math import factorial
 import pylab
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
 from pywifes.logger_config import custom_print
 import logging
 
@@ -770,68 +772,141 @@ def derive_wifes_calibration(
     # Plot Sensitivity function
     if plot_sensf:
 
-        pylab.figure(figsize=(8, 6))
+        # pylab.figure(figsize=(8, 6))
+        # # MC update - raw fit on top
+        # pylab.axes([0.10, 0.35, 0.85, 0.60])
+
+        # pylab.plot(
+        #     temp_full_x,
+        #     temp_full_y,
+        #     "r.",
+        #     markerfacecolor="none",
+        #     markeredgecolor="r",
+        #     label="Raw sensitivity (initial regions)",
+        # )
+
+        # pylab.plot(full_x, full_y, color="b", label="Raw sensitivity (valid regions)")
+
+        # pylab.plot(temp_full_x, temp_fvals, color=r"#FF6103", lw=2, label="Initial fit")
+
+        # if method == "smooth_SG":
+        #     pylab.plot(
+        #         means[:, 0],
+        #         means[:, 1],
+        #         color="b",
+        #         label="Mean sensitivity (valid regions, all stars)",
+        #     )
+        #     pylab.plot(
+        #         smooth_x, smooth_y, color=r"#7f007f", label="Smoothed mean sensitivity"
+        #     )
+        # else:
+        #     pylab.plot(
+        #         full_x, full_y, color="b", label="Raw sensitivity (valid regions)"
+        #     )
+        # pylab.plot(full_x, final_fvals, color=r"#00FF00", lw=2, label="Final fit")
+
+        # pylab.xlim([numpy.min(full_x), numpy.max(full_x)])
+        # curr_ylim = pylab.ylim()
+        # curr_xlim = pylab.xlim()
+        # pylab.ylim(curr_ylim[::-1])
+
+        # pylab.ylabel("Counts-to-Flux Ratio [mag]")
+
+        # pylab.title("Derived sensitivity function")
+        # pylab.legend(loc="lower right", fancybox=True, shadow=True)
+        # # lower plot - residuals!
+        # pylab.axes([0.10, 0.10, 0.85, 0.25])
+        # pylab.plot(
+        #     full_x,
+        #     full_y - final_fvals,
+        #     "k.",
+        #     mec=r"#666666",
+        #     markerfacecolor="none",
+        #     label="Residuals",
+        # )
+        # pylab.axhline(0.0, color="k")
+        # pylab.xlim(curr_xlim)
+        # pylab.ylim([-0.2, 0.2])
+        # pylab.xlabel(r"Wavelength [$\AA$]")
+        # pylab.ylabel("Residuals")
+
+        # plot_name = "flux_calibration_solution.png"
+        # plot_path = os.path.join(plot_dir, plot_name)
+        # pylab.savefig(plot_path, dpi=300)
+        # pylab.close()
+
+
+        # Plotting
+        fig = plt.figure(figsize=(10, 6.5))
+        gs = gridspec.GridSpec(2, 2, height_ratios=[3, 1], width_ratios=[1,0.3], hspace=0.1, )
+
         # MC update - raw fit on top
-        pylab.axes([0.10, 0.35, 0.85, 0.60])
+        ax1 = fig.add_subplot(gs[0,:1], xticklabels=[])
 
-        pylab.plot(
-            temp_full_x,
-            temp_full_y,
-            "r.",
-            markerfacecolor="none",
-            markeredgecolor="r",
-            label="Raw sensitivity (initial regions)",
-        )
+        ax1.plot(temp_full_x, temp_full_y, "r.", markerfacecolor="none", markeredgecolor="r", label="Raw data ( initial regions)")
+        ax1.plot(full_x, full_y, color="b", label="Raw data (valid regions)")
+        ax1.plot(temp_full_x, temp_fvals, color="#FF6103", lw=2, label="Initial fit")
 
-        pylab.plot(full_x, full_y, color="b", label="Raw sensitivity (valid regions)")
-
-        pylab.plot(temp_full_x, temp_fvals, color=r"#FF6103", lw=2, label="Initial fit")
 
         if method == "smooth_SG":
-            pylab.plot(
-                means[:, 0],
-                means[:, 1],
-                color="b",
-                label="Mean sensitivity (valid regions, all stars)",
-            )
-            pylab.plot(
-                smooth_x, smooth_y, color=r"#7f007f", label="Smoothed mean sensitivity"
-            )
+            ax1.plot(means[:, 0], means[:, 1], color="b", label="Mean (valid regions, all stars)")
+            ax1.plot(smooth_x, smooth_y, color="#7f007f", label="Smoothed mean ")
         else:
-            pylab.plot(
-                full_x, full_y, color="b", label="Raw sensitivity (valid regions)"
-            )
-        pylab.plot(full_x, final_fvals, color=r"#00FF00", lw=2, label="Final fit")
+            ax1.plot(full_x, full_y, color="b", label="Raw data (valid regions)")
 
-        pylab.xlim([numpy.min(full_x), numpy.max(full_x)])
-        curr_ylim = pylab.ylim()
-        curr_xlim = pylab.xlim()
-        pylab.ylim(curr_ylim[::-1])
+        ax1.plot(full_x, final_fvals, color="#00FF00", lw=2, label="Final fit")
 
-        pylab.ylabel("Counts-to-Flux Ratio [mag]")
+        ax1.set_xlim([numpy.min(full_x), numpy.max(full_x)])
+        curr_ylim = ax1.get_ylim()
+        curr_xlim = ax1.get_xlim()
+        ax1.set_ylim(curr_ylim[::-1])
 
-        pylab.title("Derived sensitivity function")
-        pylab.legend(loc="lower right", fancybox=True, shadow=True)
-        # lower plot - residuals!
-        pylab.axes([0.10, 0.10, 0.85, 0.25])
-        pylab.plot(
-            full_x,
-            full_y - final_fvals,
-            "k.",
-            mec=r"#666666",
-            markerfacecolor="none",
-            label="Residuals",
-        )
-        pylab.axhline(0.0, color="k")
-        pylab.xlim(curr_xlim)
-        pylab.ylim([-0.2, 0.2])
-        pylab.xlabel(r"Wavelength [$\AA$]")
-        pylab.ylabel("Residuals")
+        ax1.set_ylabel("Counts-to-Flux Ratio [mag]")
+        ax1.set_title("Derived sensitivity function")
+        ax1.legend(bbox_to_anchor=(1.34, 1), framealpha=1.0, fontsize='small', markerscale=0.8, frameon=False)
+
+        # Lower plot - residuals
+        ax2 = fig.add_subplot(gs[1,:1], sharex=ax1)
+        residuals = full_y - final_fvals
+        ax2.plot(full_x, residuals, "k.", mec="C0", markerfacecolor="none", label="Residuals")
+        ax2.axhline(0.0, color="k",lw=0.8)
+        ax2.set_xlim(curr_xlim)
+        ax2.set_ylim([-0.2, 0.2])
+
+        ax2.set_xlabel(r"Wavelength [$\AA$]")
+        ax2.set_ylabel("Residuals")
+
+
+
+
+        # Create histogram of resid on the right side
+        ax_hist = fig.add_subplot(gs[1, 1])
+        ax_hist.hist(residuals, orientation='vertical', bins=40, color='C0', density=True)
+        ax_hist.yaxis.set_label_position("right")
+        ax_hist.label_outer()
+
+
+        # Compute mean and standard deviation of resid
+        mean_resid = numpy.mean(residuals)
+        std_resid = numpy.std(residuals)
+
+        # Plotting the 3-sigma marks
+        sigma_pos = mean_resid + std_resid
+        sigma_neg = mean_resid - std_resid
+
+        # Horizontal lines at ±3 sigma
+        ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--',label= f'±σ: {std_resid:.2f}')
+        ax_hist.axvline(sigma_neg, color='black', lw=0.8,  linestyle='--')
+        ax_hist.legend(bbox_to_anchor=(0.5, 1.2), loc='center', framealpha=1.0, handlelength=1.2, frameon=False)
+
+            
+        plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6,left=0.09,right=0.99,bottom=0.09)  # Adjust top to make room for suptitle
 
         plot_name = "flux_calibration_solution.png"
         plot_path = os.path.join(plot_dir, plot_name)
-        pylab.savefig(plot_path, dpi=300)
-        pylab.close()
+        plt.savefig(plot_path, dpi=300)
+        plt.close()
+
 
     save_calib = {"wave": final_x, "cal": final_y}
     f1 = open(calib_out_fn, "wb")
