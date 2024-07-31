@@ -1186,6 +1186,48 @@ def derive_wifes_polynomial_wave_solution(
     deriv_threshold_nsig=1.0,
     verbose=False,
 ):
+    """
+    Derives the polynomial wave solution for WiFeS data. The wave solution is derived by fitting the arc lines in each slitlet and then fitting a polynomial to the derived wavelengths. The derived wave solution is saved to the specified output file.
+
+    Parameters
+    ----------
+    inimg : str
+        Input MEF file name.
+    out_file : str
+        Output file name for the derived wave solution.
+    dlam_cut_start : float, optional
+        Starting wavelength cut in Angstroms for the derivative calculation (default is 7.0).
+    dlam_cut : float, optional
+        Wavelength cut in Angstroms for the derivative calculation (default is 3.0).
+    ref_arclines : array-like, optional
+        Reference arc lines for wavelength calibration (default is None).
+    ref_arcline_file : str, optional
+        File name containing reference arc lines for wavelength calibration (default is None).
+    arc_name : str, optional
+        Name of the arc lamp used for calibration (default is None).
+    grating : str, optional
+        Grating used for calibration (default is None).
+    bin_x : int, optional
+        Binning factor in the x-direction (default is None).
+    bin_y : int, optional
+        Binning factor in the y-direction (default is None).
+    x_polydeg : int, optional
+        Degree of the polynomial fit in the x-direction (default is 4).
+    y_polydeg : int, optional
+        Degree of the polynomial fit in the y-direction (default is 2).
+    flux_threshold_nsig : float, optional
+        Flux threshold in number of standard deviations for peak detection (default is 3.0).
+    deriv_threshold_nsig : float, optional
+        Derivative threshold in number of standard deviations for peak detection (default is 1.0).
+    verbose : bool, optional
+        Whether to print verbose output (default is False).
+
+    Returns
+    -------
+    None
+        The derived wave solution is saved to the specified output file.
+
+    """
     # check if halfframe
     halfframe = is_halfframe(inimg)
     # MUST HAVE MEF FILE AS INPUT
@@ -1677,14 +1719,63 @@ def derive_wifes_optical_wave_solution(
     plot_dir=".",
     multithread=True,
 ):
-    """The main user-callable function that performs the fit"""
-    # ------------------------------------------------------
-    # *** Mike's edits: operate on PyWiFeS MEF files ***
-    # ------------------------------------------------------
+    """
+    This function reads the input image, finds the lines, and fits the optical model to the lines. The derived wave solution is saved to the specified output file.
+
+    Parameters
+    ----------
+    inimg : str
+        Path to the input image.
+    outfn : str
+        Path to save the output file.
+    arc_name : str, optional
+        Name of the arc.
+    ref_arclines : array-like, optional
+        Reference arcline wavelengths.
+    ref_arcline_file : str, optional
+        Path to the file containing reference arcline wavelengths.
+    dlam_cut_start : float, optional
+        Starting wavelength cut-off for line finding.
+    flux_threshold_nsig : float, optional
+        Flux threshold in terms of number of standard deviations.
+    find_method : str, optional
+        Method for finding lines.
+    shift_method : str, optional
+        Method for shifting lines.
+    exclude_from : str, optional
+        Path to the file containing lines to exclude.
+    exclude : array-like, optional
+        Lines to exclude.
+    epsilon : float, optional
+        Tolerance for excluding lines.
+    doalphapfit : bool, optional
+        Whether to perform alphap fitting.
+    automatic : bool, optional
+        Whether to perform automatic fitting.
+    verbose : bool, optional
+        Whether to print verbose output.
+    decimate : bool, optional
+        Whether to decimate the data.
+    sigma : float, optional
+        Sigma value for fitting.
+    alphapfile : str, optional
+        Path to the file containing alphap values.
+    plot : bool, optional
+        Whether to plot the results.
+    plot_dir : str, optional
+        Directory to save the plots.
+    multithread : bool, optional
+        Whether to use multithreading.
+
+    Returns
+    -------
+    None
+    """
+
     # step 1 - gather metadata from header
     f = pyfits.open(
         inimg, ignore_missing_end=True
-    )  # MZ: added ignore_missing_end=True, but this is supposed to work only for python 2 but not 3.
+    )  
 
     # check if halfframe
     halfframe = is_halfframe(inimg)
@@ -1871,6 +1962,33 @@ def derive_wifes_optical_wave_solution(
 
 # ------------------------------------------------------------------------
 def derive_wifes_wave_solution(inimg, out_file, method="optical", **args):
+    """
+    Derives the wavelength solution for WiFeS data. The derived wave solution is saved to the specified output file.
+    The method to use for deriving the wavelength solution can be specified using the 'method' parameter. The following methods are available: 
+    
+    - 'poly' for polynomial fitting: The wave solution is derived by fitting the arc lines in each slitlet and then fitting a polynomial to the derived wavelengths.   
+    
+    - 'optical' for optical fitting.  The wave solution is derived by finding the lines, and fitting the WiFeS optical model to the lines (model provided in the sub-module 'optical_model.py').
+
+    Parameters
+    ----------
+    inimg : str
+        The input image file path.
+    out_file : str
+        The output file path to save the wavelength solution.
+    method : str, optional
+        The method to use for deriving the wavelength solution.
+        Possible values are 'poly' for polynomial fitting and 'optical' for optical fitting.
+        Default is 'optical'.
+    **args : dict
+        Additional keyword arguments to be passed to the wavelength solution derivation functions.
+
+    Raises
+    ------
+    ValueError
+        If the wavelength solution method is not recognized.
+
+    """
     if method == "poly":
         derive_wifes_polynomial_wave_solution(
             inimg,

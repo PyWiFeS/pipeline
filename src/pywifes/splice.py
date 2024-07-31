@@ -169,7 +169,34 @@ def join_spectra(blueSpec, redSpec):
 
 def splice_spectra(blue_spec_path, red_spec_path, output_path):
     """
-    The main routine
+    Main routine to splice two spectra together. 
+
+    Parameters
+    ----------
+    blue_spec_path : str
+        Path to the blue spectrum FITS file.
+    red_spec_path : str
+        Path to the red spectrum FITS file.
+    output_path : str
+        Path to save the spliced spectrum FITS file.
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    This function reads two spectra from FITS files, joins them together, and saves the spliced spectrum to a new FITS file.
+
+    The splicing process involves combining the flux data from the blue and red spectra, and updating the header information of the red spectrum to match the blue spectrum.
+
+    If there is no spectral overlap between the blue and red spectra, a message will be printed indicating the lack of overlap.
+
+    The spliced spectrum is saved as a FITS file with the provided output path.
+
+    Examples
+    --------
+    >>> splice_spectra('blue_spectrum.fits', 'red_spectrum.fits', 'spliced_spectrum.fits')
     """
     # Create to instances of SingleSpec
     blueSpec = SingleSpec(blue_spec_path)
@@ -317,9 +344,39 @@ def join_cubes(blue_path, red_path):
 
 def splice_cubes(blue_path, red_path, output_path):
     """
-    Main routine
-    """
+    Main function to splice two previously generated cubes from both WiFeS arms together. 
 
+    Parameters
+    ----------
+    blue_path : str
+        Path to the blue cube FITS file.
+    red_path : str
+        Path to the red cube FITS file.
+    output_path : str
+        Path to save the spliced cube FITS file.
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    This function joins the blue and red cubes together, and saves the spliced cube
+    to the specified output path. It uses the header information from the red cube
+    as a starting point and adds additional blue CCD keywords as required.
+
+    If there is no spectral overlap between the cubes, a message will be printed.
+
+    The spliced cube is saved in FITS format with the following extensions:
+    - Primary HDU: Contains the spliced flux data.
+    - Extension HDU: Contains the variance data.
+
+    The wavelength information is added to the header of both HDUs.
+
+    Examples
+    --------
+    >>> splice_cubes('blue_cube.fits', 'red_cube.fits', 'spliced_cube.fits')
+    """
     red_header = fits.getheader(red_path, 0)
     blue_header = fits.getheader(blue_path, 0)
 
@@ -329,9 +386,7 @@ def splice_cubes(blue_path, red_path, output_path):
 
     if flux is None:
         print("No spectral overlap between the cubes.")
-
     else:
-
         # Write out the results. Use the header in red arm to start with then add additional blue CCD keywords as required
         hdulist = fits.HDUList(fits.PrimaryHDU())
         hdulist[0].data = flux

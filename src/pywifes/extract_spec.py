@@ -387,6 +387,32 @@ def detect_extract_and_save(
     plot=False,
     plot_path="detected_apertures_plot.png",
 ):
+    """
+    Detects sources in the input cubes, extracts and saves their spectra. Optionally, it can plot the extracted spurces and the detected apertures around them.
+
+    Parameters:
+    -----------
+    blue_cube_path : str, optional
+        Path to the blue cube file.
+    red_cube_path : str, optional
+        Path to the red cube file.
+    output_dir : str, optional
+        Directory where the extracted spectra will be saved.
+    r_arcsec : float, optional
+        Radius of the circular aperture in arcseconds.
+    border_width : int, optional
+        Width of the border to be excluded from the statistics.
+    sky_sub : bool, optional
+        Flag indicating whether to perform sky subtraction.
+    plot : bool, optional
+        Flag indicating whether to generate a plot of the detected apertures.
+    plot_path : str, optional
+        Path to save the plot.
+
+    Returns:
+    --------
+    None
+    """
     # reading the data from cubes
     # Blue arm
     blue_cube_data = read_cube_data(blue_cube_path)
@@ -426,7 +452,7 @@ def detect_extract_and_save(
         border_width:-border_width, border_width:-border_width
     ]
     mean, median, std = sigma_clipped_stats(collapsed_cube_no_edge, sigma=5.0)
-    threshold = median + (3 * std)
+    threshold = median + (1.5 * std)
 
     detection = find_peaks(
         collapsed_cube,
@@ -559,7 +585,22 @@ class SingleSpec(object):
 
 
 def plot_1D_spectrum(spec_path, plot_dir):
+    """
+    Plot a 1D spectrum with error bars and save the plot as a PNG file in the provided directory.
 
+    Parameters
+    ----------
+    spec_path : str
+        The path to the spectrum file.
+    plot_dir : str
+        The directory where the plot will be saved.
+
+    Returns
+    -------
+    None
+        This function does not return anything.
+
+    """
     spec = SingleSpec(spec_path)
     flux = spec.flux
     wl = spec.wl

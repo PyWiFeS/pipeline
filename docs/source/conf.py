@@ -10,6 +10,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath('../src/pywifes/'))
+sys.path.insert(0, os.path.abspath('../../reduction_scripts/'))
 
 
 # -- Project information -----------------------------------------------------
@@ -22,7 +23,8 @@ author = 'Automation Team'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['sphinx.ext.autodoc']
+extensions = ['sphinx.ext.autodoc',
+              'sphinx.ext.napoleon']
 
 templates_path = ['_templates']
 exclude_patterns = []

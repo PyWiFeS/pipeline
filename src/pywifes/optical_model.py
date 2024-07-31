@@ -83,7 +83,7 @@ def saveResamplingData(fname, yrange, grating, bin_x, bin_y, pl,halfframe):
   f.writeto(fname, overwrite=True)
 
 #------------------------------------------------------------------------
-# new function from Mike to evaluate optical model
+# new function to evaluate optical model
 def evaluate_optical_model(x, y, s, grating, bin_x, bin_y, params):
   return fitfunc(grating,
                  params[:nparams],

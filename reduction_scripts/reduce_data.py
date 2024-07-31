@@ -3,7 +3,6 @@
 # ------------------------------------------------------------------------
 # Initial set ups and import modules
 # ------------------------------------------------------------------------
-  
 import os
 import pickle
 from astropy.io import fits as pyfits
@@ -16,6 +15,18 @@ import glob
 import argparse
 import logging
 from pywifes.logger_config import setup_logger, custom_print
+from pywifes.data_classifier import classify, cube_matcher
+from pywifes.extract_spec import detect_extract_and_save, plot_1D_spectrum
+from pywifes.splice import splice_spectra, splice_cubes
+from pywifes.lacosmic import lacos_wifes
+from pywifes import pywifes
+from pywifes import wifes_wsol
+from pywifes import wifes_calib
+from pywifes.pywifes import is_halfframe
+from pywifes.pywifes import calib_to_half_frame
+import shutil
+import glob
+import argparse
 from pywifes.quality_plots import flatfiled_plot
 
 # Set paths
@@ -38,24 +49,30 @@ critical_print = custom_print(logger, logging.CRITICAL)
 
 info_print("Starting PyWiFeS data reduction pipeline.")
 
-from pywifes.data_classifier import classify, cube_matcher
-from pywifes.extract_spec import detect_extract_and_save, plot_1D_spectrum
-from pywifes.splice import splice_spectra, splice_cubes
-from pywifes.lacosmic import lacos_wifes
-from pywifes import pywifes
-from pywifes import wifes_wsol
-from pywifes import wifes_calib
-from pywifes.pywifes import is_halfframe
-from pywifes.pywifes import calib_to_half_frame
-import shutil
-import glob
-import argparse
 
 # ------------------------------------------------------------------------
 # Function definition
 # ------------------------------------------------------------------------
 
 def move_files(src_dir_path, destination_dir_path, filenames):
+    """
+    Move files from the source directory to the destination directory.
+
+    Parameters
+    ----------
+    src_dir_path : str
+        The path of the source directory.
+    destination_dir_path : str
+        The path of the destination directory.
+    filenames : list of str
+        The list of filenames to be moved.
+
+    Raises
+    ------
+    Exception
+        If an error occurs while moving the files.
+
+    """
     try:
         for file in filenames:
             src_file = os.path.join(src_dir_path, file)
@@ -66,6 +83,24 @@ def move_files(src_dir_path, destination_dir_path, filenames):
         error_print(f"Error moving files: {e}")
 
 def copy_files(src_dir_path, destination_dir_path, filenames):
+    """
+    Copy files from the source directory to the destination directory.
+
+    Parameters
+    ----------
+    src_dir_path : str
+        The path to the source directory.
+    destination_dir_path : str
+        The path to the destination directory.
+    filenames : list
+        A list of filenames to be copied.
+
+    Raises
+    ------
+    Exception
+        If there is an error while copying the files.
+
+    """
     try:
         for file in filenames:
             src_file = os.path.join(src_dir_path, file)
@@ -75,8 +110,24 @@ def copy_files(src_dir_path, destination_dir_path, filenames):
     except Exception as e:
         error_print(f"Error copying files: {e}")
 
-
 def get_file_names(src_dir_path, glob_pattern):
+    """
+    Get the names of files in a directory that match a given search query in a glob pattern.
+
+    Parameters
+    ----------
+    src_dir_path : str
+        The path to the source directory.
+
+    glob_pattern : str
+        The glob pattern (search query) to match the filenames.
+
+    Returns
+    -------
+    list
+        A list of filenames that match the glob pattern.
+
+    """
     filepaths = glob.glob(os.path.join(src_dir_path, glob_pattern))
     names = []
     for filepath in filepaths:
@@ -84,13 +135,225 @@ def get_file_names(src_dir_path, glob_pattern):
         names.append(filename)
     return names
 
-
 def load_config_file(filename):
+    """
+    Load a configuration file in JSON format.
+
+    Parameters
+    ----------
+    filename : str
+        The name of the configuration file.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the loaded configuration data.
+
+    """
     reduction_scripts_dir = os.path.dirname(__file__)
     file_path = os.path.join(reduction_scripts_dir, filename)
     info_print(f"Loading configuration file: {file_path}")
     with open(file_path, "r") as f:
         return json.load(f)
+
+def get_full_obs_list(metadata):
+    """
+    Get the full observation list from the given metadata.
+
+    Parameters:
+    ----------
+        metadata : dict
+            A dictionary containing metadata information.
+
+    Returns:
+    -------
+        list
+            The full observation list.
+
+    """
+    full_obs_list = []
+    base_fn_list = (
+        metadata["bias"]
+        + metadata["arc"]
+        + metadata["wire"]
+        + metadata['dark']
+        + metadata["domeflat"]
+        + metadata["twiflat"]
+    )
+    for fn in base_fn_list:
+        if fn not in full_obs_list:
+            full_obs_list.append(fn)
+    for obs in metadata["sci"] + metadata["std"]:
+        for key in obs.keys():
+            if key != "type" and key != "name":
+                for fn in obs[key]:
+                    if fn not in full_obs_list:
+                        full_obs_list.append(fn)
+    debug_print(f"Full observation list: {full_obs_list}")
+    return full_obs_list
+
+
+
+def get_sci_obs_list(metadata):
+    """
+    Get a list of science observations from the metadata.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata containing information about the observations.
+
+    Returns
+    -------
+    list
+        A list of science observation filenames.
+
+    """
+    sci_obs_list = []
+    for obs in metadata["sci"]:
+        for fn in obs["sci"]:
+            if fn not in sci_obs_list:
+                sci_obs_list.append(fn)
+    debug_print(f"Science observation list: {sci_obs_list}")
+    return sci_obs_list
+
+def get_std_obs_list(metadata, type="all"):
+    """
+    Get a list of standard observations.
+
+    Parameters:
+    ----------
+    - metadata : dict
+        The metadata containing information about the observations.
+    - type : str, optional
+        The type of observations to include in the list. Default is "all".
+
+    Returns:
+    --------
+    - std_obs_list : list
+        A list of standard observation filenames.
+
+    """
+    std_obs_list = []
+    for obs in metadata["std"]:
+        for fn in obs["sci"]:
+            if fn not in std_obs_list and type == "all":
+                std_obs_list.append(fn)
+            if fn not in std_obs_list and (type in obs["type"]):
+                std_obs_list.append(fn)
+    debug_print(f"Standard observation list ({type}): {std_obs_list}")
+    return std_obs_list
+
+def get_sky_obs_list(metadata):
+    """
+    Get a list of sky observations from the metadata.
+
+    Parameters:
+    ----------
+        metadata : dict
+            The metadata containing information about the observations.
+
+    Returns:
+    --------
+        list
+            A list of sky observation filenames.
+
+    """
+    sky_obs_list = []
+    for obs in metadata["sci"] + metadata["std"]:
+        if "sky" not in obs.keys():
+            continue
+        for fn in obs["sky"]:
+            if fn not in sky_obs_list:
+                sky_obs_list.append(fn)
+    info_print(f"Sky observation list: {sky_obs_list}")            
+    return sky_obs_list
+
+def get_associated_calib(metadata, this_fn, type):
+    """
+    Get the associated calibration file for a given data file.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata dictionary containing information about the observations.
+    this_fn : str
+        The filename of the data file for which to find the associated calibration file.
+    type : str
+        The type of calibration file to search for.
+
+    Returns
+    -------
+    str or bool
+        The filename of the associated calibration file if found, or False if not found.
+    """
+    for obs in metadata["sci"] + metadata["std"]:
+        if "sky" in obs.keys():
+            sky = obs["sky"]
+        else:
+            sky = []
+        for fn in obs["sci"] + sky:
+            if fn == this_fn:
+                if type in obs.keys():
+                    if obs[type] != "":
+                        return obs[type]
+    return False
+
+def get_primary_sci_obs_list(metadata):
+    """
+    Get the list of primary science observations from the metadata.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata containing information about the observations.
+
+    Returns
+    -------
+    list
+        The list of primary science observations.
+
+    """
+    sci_obs_list = [obs["sci"][0] for obs in metadata["sci"]]
+    debug_print(f"Primary science observation list: {sci_obs_list}")
+    return sci_obs_list
+
+def get_primary_std_obs_list(metadata, type="all"):
+    """
+    Get the list of primary standard observations based on the given metadata and type.
+
+    Parameters:
+    ----------
+        metadata : dict
+            The metadata containing information about the observations.
+        type : str, optional
+            The type of standard star observations to include in the list.
+            Possible values are "all", "telluric", or "flux". Defaults to "all".
+
+    Returns:
+    --------
+        list
+            The list of primary standard observations.
+
+    Raises:
+    -------
+        ValueError 
+            If the standard star type is not understood.
+
+    """
+    if type == "all":
+        std_obs_list = [obs["sci"][0] for obs in metadata["std"]]
+    elif type == "telluric" or type == "flux":
+        std_obs_list = []
+        for obs in metadata["std"]:
+            if obs["sci"][0] not in std_obs_list and (type in obs["type"]):
+                std_obs_list.append(obs["sci"][0])
+    else:
+        error_print("Standard star type not understood!")
+        error_print("PyWiFeS Data Reduction pipeline will crash now ...")
+        raise ValueError("Standard star type not understood")
+    debug_print(f"Primary standard observation list ({type}): {std_obs_list}")
+    return std_obs_list
 
 # ------------------------------------------------------------------------
 
@@ -100,154 +363,29 @@ def main():
     info_print(f"Pipeline started at {start_time}")
 
     # ------------------------------------------------------------------------
-    # METADATA WRANGLING FUNCTIONS
-    # ------------------------------------------------------------------------
-    def get_full_obs_list(metadata):
-        full_obs_list = []
-        base_fn_list = (
-            metadata["bias"]
-            + metadata["arc"]
-            + metadata["wire"]
-            + metadata['dark']
-            + metadata["domeflat"]
-            + metadata["twiflat"]
-        )
-        for fn in base_fn_list:
-            if fn not in full_obs_list:
-                full_obs_list.append(fn)
-        for obs in metadata["sci"] + metadata["std"]:
-            for key in obs.keys():
-                if key != "type" and key != "name":
-                    for fn in obs[key]:
-                        if fn not in full_obs_list:
-                            full_obs_list.append(fn)
-        debug_print(f"Full observation list: {full_obs_list}")
-        return full_obs_list
-
-    def get_sci_obs_list(metadata):
-        """
-        Get a list of science observations from the metadata.
-
-        Parameters
-        ----------
-        metadata : dict
-            The metadata containing information about the observations.
-
-        Returns
-        -------
-        list
-            A list of science observation filenames.
-
-        """
-        sci_obs_list = []
-        for obs in metadata["sci"]:
-            for fn in obs["sci"]:
-                if fn not in sci_obs_list:
-                    sci_obs_list.append(fn)
-        debug_print(f"Science observation list: {sci_obs_list}")
-        return sci_obs_list
-
-    def get_std_obs_list(metadata, type="all"):
-        """
-        Get a list of standard observations.
-
-        Parameters:
-        - metadata (dict): The metadata containing information about the observations.
-        - type (str, optional): The type of observations to include in the list. Default is "all".
-
-        Returns:
-        - std_obs_list (list): A list of standard observation filenames.
-
-        """
-        std_obs_list = []
-        for obs in metadata["std"]:
-            for fn in obs["sci"]:
-                if fn not in std_obs_list and type == "all":
-                    std_obs_list.append(fn)
-                if fn not in std_obs_list and (type in obs["type"]):
-                    std_obs_list.append(fn)
-        debug_print(f"Standard observation list ({type}): {std_obs_list}")
-        return std_obs_list
-
-    def get_sky_obs_list(metadata):
-        sky_obs_list = []
-        for obs in metadata["sci"] + metadata["std"]:
-            if "sky" not in obs.keys():
-                continue
-            for fn in obs["sky"]:
-                if fn not in sky_obs_list:
-                    sky_obs_list.append(fn)
-        info_print(f"Sky observation list: {sky_obs_list}")            
-        return sky_obs_list
-
-    def get_associated_calib(metadata, this_fn, type):
-        for obs in metadata["sci"] + metadata["std"]:
-            if "sky" in obs.keys():
-                sky = obs["sky"]
-            else:
-                sky = []
-            for fn in obs["sci"] + sky:
-                if fn == this_fn:
-                    if type in obs.keys():
-                        if obs[type] != "":
-                            return obs[type]
-        return False
-
-    def get_primary_sci_obs_list(metadata):
-        """
-        Get the list of primary science observations from the metadata.
-
-        Parameters
-        ----------
-        metadata : dict
-            The metadata containing information about the observations.
-
-        Returns
-        -------
-        list
-            The list of primary science observations.
-
-        """
-        sci_obs_list = [obs["sci"][0] for obs in metadata["sci"]]
-        debug_print(f"Primary science observation list: {sci_obs_list}")
-        return sci_obs_list
-
-    def get_primary_std_obs_list(metadata, type="all"):
-        """
-        Get the list of primary standard observations based on the given metadata and type.
-
-        Parameters:
-            metadata (dict): The metadata containing information about the observations.
-            type (str, optional): The type of standard star observations to include in the list.
-                Possible values are "all", "telluric", or "flux". Defaults to "all".
-
-        Returns:
-            list: The list of primary standard observations.
-
-        Raises:
-            ValueError: If the standard star type is not understood.
-
-        """
-        if type == "all":
-            std_obs_list = [obs["sci"][0] for obs in metadata["std"]]
-        elif type == "telluric" or type == "flux":
-            std_obs_list = []
-            for obs in metadata["std"]:
-                if obs["sci"][0] not in std_obs_list and (type in obs["type"]):
-                    std_obs_list.append(obs["sci"][0])
-        else:
-            error_print("Standard star type not understood!")
-            error_print("PyWiFeS Data Reduction pipeline will crash now ...")
-            raise ValueError("Standard star type not understood")
-        debug_print(f"Primary standard observation list ({type}): {std_obs_list}")
-        return std_obs_list
-
-    # ------------------------------------------------------------------------
     # DEFINE THE PROCESSING STEPS
+    # ------------------------------------------------------------------------
+
     # ------------------------------------------------------------------------
     # Overscan subtraction
     # ------------------------------------------------------------------------
     def run_overscan_sub(metadata, prev_suffix, curr_suffix):
+        """
+        Subtract overscan from the input FITS files and save the results.
+
+        Parameters
+        ----------
+        metadata : dict
+            A dictionary containing metadata information of the FITS files.
+        prev_suffix : str
+            The suffix of the previous FITS files.
+        curr_suffix : str
+            The suffix of the current FITS files.
+
+        Returns
+        -------
+        None
+        """
         full_obs_list = get_full_obs_list(metadata)
         for fn in full_obs_list:
             in_fn = os.path.join(temp_data_dir, "%s.fits" % fn)
@@ -255,13 +393,29 @@ def main():
             if skip_done and os.path.isfile(out_fn):
                 continue
             info_print(f"Subtracting Overscan for {in_fn.split('/')[-1]}")
-            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu)
+            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=0)
         return
 
     # ------------------------------------------------------
     # repair bad pixels!
     # ------------------------------------------------------
     def run_bpm_repair(metadata, prev_suffix, curr_suffix):
+        """
+        Repairs bad pixels in the input FITS files and saves the repaired files.
+
+        Parameters
+        ----------
+        metadata : dict
+            A dictionary containing metadata information of the FITS files.
+        prev_suffix : str
+            The suffix of the previous version of the FITS files.
+        curr_suffix : str
+            The suffix of the current version of the FITS files.
+
+        Returns
+        -------
+        None
+        """
         full_obs_list = get_full_obs_list(metadata)
         for basename in full_obs_list:
             input_filename = f"{basename}.p{prev_suffix}.fits"
@@ -273,31 +427,48 @@ def main():
             info_print(f"Repairing {arm} bad pixels for {input_filename}")
             if arm == "red":
                 pywifes.repair_red_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu
+                    input_filepath, output_filepath, data_hdu=0
                 )
             if arm == "blue":
                 pywifes.repair_blue_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu
+                    input_filepath, output_filepath, data_hdu=0
                 )
 
     # ------------------------------------------------------
     # Generate super-bias
     # ------------------------------------------------------
     def run_superbias(metadata, prev_suffix, curr_suffix, method="row_med", **args):
-        '''Generate superbias for the entire dataset and for each science frame.
-        Fit a smart surface to the bias or take the median of each row.
+        '''
+        Generate superbias for the entire dataset and for each science frame.
+        
+        Parameters:
+        - metadata: dict
+            Metadata containing information about the dataset.
+        - prev_suffix: str
+            Previous suffix used in the filenames.
+        - curr_suffix: str
+            Current suffix to be used in the filenames.
+        - method: str, optional
+            Method to generate the superbias. 
+            Fit a smart surface to the bias or take the median of each row.
+            Default is "row_med".
+        - **args: dict
+            Additional arguments to be passed to the generate_wifes_bias_fit function.
+        
+        Returns:
+        None
         '''
         bias_list = [
             os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
             for x in metadata["bias"]
-            ]
+        ]
         info_print("Calculating Global Superbias")
-        pywifes.imcombine(bias_list, superbias_fn, data_hdu=my_data_hdu)
+        pywifes.imcombine(bias_list, superbias_fn, data_hdu=0)
         if method == "fit" or method == "row_med":
             pywifes.generate_wifes_bias_fit(
                 superbias_fn,
                 superbias_fit_fn,
-                data_hdu=my_data_hdu,
+                data_hdu=0,
                 method=method,
                 plot_dir=plot_dir_arm,
                 arm=arm, 
@@ -331,14 +502,14 @@ def main():
                     for x in local_biases
                 ]
                 pywifes.imcombine(
-                    local_biases_filename, local_superbias, data_hdu=my_data_hdu
+                    local_biases_filename, local_superbias, data_hdu=0
                 )
                 # step 2 - generate fit
                 if method == "fit" or method == "row_med":
                     pywifes.generate_wifes_bias_fit(
                         local_superbias,
                         local_superbias_fit,
-                        data_hdu=my_data_hdu,
+                        data_hdu=0,
                         method=method,
                         **args,
                     )
@@ -350,6 +521,27 @@ def main():
     # Subtract bias
     # ----------------------------------------------------
     def run_bias_sub(metadata, prev_suffix, curr_suffix, method="sub", **args):
+        """
+        Subtract bias from all the input data FITS files.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata dictionary containing information about the FITS files of the observations.
+        prev_suffix : str
+            Previous suffix of the data files.
+        curr_suffix : str
+            Current suffix of the data files.
+        method : str, optional
+            Method for bias subtraction. Default is subtraction "sub".
+            The other option is "copy" for copying the files without subtraction.
+        **args : dict
+            Additional keyword arguments.
+
+        Returns
+        -------
+        None
+        """
         full_obs_list = get_full_obs_list(metadata)
         for fn in full_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
@@ -375,7 +567,7 @@ def main():
             if method == "copy":
                 pywifes.imcopy(in_fn, out_fn)
             else:
-                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=my_data_hdu)
+                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=0)
         return
 
     # ------------------------------------------------------
@@ -384,6 +576,36 @@ def main():
     def run_superflat(
         metadata, prev_suffix, curr_suffix, source, scale=None, method="median"
     ):
+        """
+        Generate a co-add superflat for a given type, either "dome" or "twi".
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the FITS files from which extract the flats.
+        prev_suffix : str
+            Previous suffix of the input files.
+        curr_suffix : str
+            Current suffix of the output files.
+        source : str
+            Type of flatfield frame ("dome" or "twi").
+        scale : float, optional
+            Scale factor for the flatfield generation.
+            Default is None.
+        method : str, optional
+            Method for combining the flatfield images.
+            Default is "median".
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If the flatfield type is not recognized.
+
+        """
         if source == "dome":
             flat_list = [
                 os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
@@ -406,7 +628,7 @@ def main():
             return
         info_print(f"Generating co-add {source} flat")
         pywifes.imcombine(
-            flat_list, out_fn, data_hdu=my_data_hdu, scale=scale, method=method
+            flat_list, out_fn, data_hdu=0, scale=scale, method=method
         )
         return
 
@@ -423,6 +645,26 @@ def main():
     ):
         '''
         Make the master domeflat and twilight flat corrections.
+
+        Parameters
+        ----------
+        metadata : str
+            The metadata information for the flat cleanup.
+        prev_suffix : str
+            The previous suffix.
+        curr_suffix : str
+            The current suffix.
+        type : list, optional
+            The types of flats to correct (default is ["dome", "twi"]).
+        offsets : list, optional
+            The offsets for each type of flat (default is [0.0, 0.0]).
+        **args : dict, optional
+            Additional keyword arguments.
+
+        Returns
+        -------
+        None
+        
         '''
         # check the slitlet definition file
         if os.path.isfile(slitlet_def_fn):
@@ -466,14 +708,40 @@ def main():
     def run_slitlet_profile(metadata, prev_suffix, curr_suffix, **args):
         ''' 
         Fit the slitlet profiles to the flatfield.
-        ''' 
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata information.
+        prev_suffix : str
+            Previous suffix.
+        curr_suffix : str
+            Current suffix.
+        **args : dict
+            Additional keyword arguments.
+
+        Returns
+        -------
+        None
+            This function does not return anything.
+
+        Notes
+        -----
+        If the super_dflat_fn file exists, it uses it as the flatfield_fn. Otherwise, it uses super_dflat_raw as the flatfield_fn.
+
+        The slitlet profiles are derived using the flatfield_fn and saved to the output_fn.
+
+        Examples
+        --------
+        >>> run_slitlet_profile(metadata, prev_suffix, curr_suffix, arg1=value1, arg2=value2)
+        '''
         if os.path.isfile(super_dflat_fn):
             flatfield_fn = super_dflat_fn
         else:
             flatfield_fn = super_dflat_raw
         output_fn = slitlet_def_fn
         pywifes.derive_slitlet_profiles(
-            flatfield_fn, output_fn, data_hdu=my_data_hdu, **args
+            flatfield_fn, output_fn, data_hdu=0, **args
         )
         return
 
@@ -481,6 +749,39 @@ def main():
     # Create MEF files
     # ------------------------------------------------------
     def run_superflat_mef(metadata, prev_suffix, curr_suffix, source):
+        """
+        Generate a Multi-Extension FITS (MEF) file for dome or twilight flat.
+
+        Parameters
+        ----------
+        metadata : str
+            The metadata information.
+        prev_suffix : str
+            The previous suffix.
+        curr_suffix : str
+            The current suffix.
+        source : str
+            The source of the flatfield (dome or twi).
+
+        Returns
+        -------
+        None
+            This function does not return anything.
+
+        Raises
+        ------
+        ValueError
+            If the flatfield type is not recognized.
+
+        Notes
+        -----
+        This function generates a Multi-Extension FITS (MEF) file for dome or twilight flat.
+        It checks for the existence of the master dome or twilight flat file and generates the MEF file accordingly.
+        If the master flat file is not found, it prints a warning message and skips the MEF generation.
+        The slitlet definition file is also checked and used if available.
+        Finally, the MEF file is generated using the `pywifes.wifes_slitlet_mef` function.
+
+        """
         if source == "dome":
             if os.path.isfile(super_dflat_fn):
                 in_fn = super_dflat_fn
@@ -511,41 +812,66 @@ def main():
         # run it!
         info_print(f"Generating MEF {source} flat")
         pywifes.wifes_slitlet_mef(
-            in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
+            in_fn, out_fn, data_hdu=0, slitlet_def_file=slitlet_fn
         )
         return
 
     def run_slitlet_mef(metadata, prev_suffix, curr_suffix, ns=False):
+        """
+        Create a Multi-Extension Fits (MEF) file for each observation in the metadata.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the fits file.
+        curr_suffix : str
+            Current suffix of the fits file.
+        ns : bool, optional
+            Flag indicating whether to process non-standard observations, by default False.
+
+        Returns
+        -------
+        None
+        """
         full_obs_list = get_full_obs_list(metadata)
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
         sky_obs_list = get_sky_obs_list(metadata)
         ns_proc_list = sci_obs_list + std_obs_list
+
         # check the slitlet definition file
         if os.path.isfile(slitlet_def_fn):
             slitlet_fn = slitlet_def_fn
         else:
             slitlet_fn = None
+
         for fn in full_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
+
             if skip_done and os.path.isfile(out_fn):
                 continue
+
             info_print(f"Creating MEF file for {os.path.basename(in_fn)}")
+
             if ns and fn in ns_proc_list:
                 sky_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, curr_suffix))
                 pywifes.wifes_slitlet_mef_ns(
                     in_fn,
                     out_fn,
                     sky_fn,
-                    data_hdu=my_data_hdu,
+                    data_hdu=0,
                     slitlet_def_file=slitlet_fn,
                 )
             else:
                 pywifes.wifes_slitlet_mef(
-                    in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
+                    in_fn, out_fn, data_hdu=0, slitlet_def_file=slitlet_fn
                 )
+
             gc.collect()
+
         return
 
     # ------------------------------------------------------
@@ -553,12 +879,30 @@ def main():
     # ------------------------------------------------------
     def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
         '''
+        Wavelength Solution:
         Generate the master arc solution, based on generic arcs at first.
         Then looks for the local wavelength solutions for science or standards (sky not required at this stage).
         Check if the file has a dedicated arc associated with it.
         If two arcs are present, find a solution for both to later interpolate between them.
         Restrict it to the first two arcs in the list (in case the feature is
         being unknowingly used).
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata information for the data.
+        prev_suffix : str
+            Previous suffix of the file.
+        curr_suffix : str
+            Current suffix of the file.
+        **args : dict
+            Additional keyword arguments.
+
+        Returns
+        -------
+        None
+            This function does not return anything.
+
         '''
         wsol_in_fn = os.path.join(
             out_dir, "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
@@ -599,7 +943,20 @@ def main():
     # ------------------------------------------------------
     def run_wire_soln(metadata, prev_suffix, curr_suffix):
         ''' 
-        Global wire solution first, then local wire solutions for any specific obsevations.
+        Derive global wire solution first, then local wire solutions for any specific observations.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix used in the file names.
+        curr_suffix : str
+            Current suffix to be used in the file names.
+
+        Returns
+        -------
+        None
         '''
         # Global wire solution
         wire_in_fn = os.path.join(
@@ -607,7 +964,8 @@ def main():
         )
         info_print(f"Deriving global wire solution from {os.path.basename(wire_in_fn)}")
         pywifes.derive_wifes_wire_solution(wire_in_fn, wire_out_fn)
-        # Wire solutions for any specific obsevations
+        
+        # Wire solutions for any specific observations
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
         for fn in sci_obs_list + std_obs_list:
@@ -640,6 +998,25 @@ def main():
     ):
         ''' 
         Clean cosmic rays on all science and standard frames.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the FITS file to apply the correction (input).
+        curr_suffix : str
+            Current suffix of the FITS file with the correction alredy applied (output).
+        ns : bool, optional
+            Flag indicating whether to clean cosmics in the non-science frames (default is False).
+        multithread : bool, optional
+            Flag indicating whether to use multithreading for cosmic ray cleaning (default is False).
+        max_processes : int, optional
+            Maximum number of processes to use for multithreading (default is -1, which uses all available processes).
+
+        Returns
+        -------
+        None
         '''
         # now run ONLY ON SCIENCE TARGETS AND STANDARDS
         sci_obs_list = get_sci_obs_list(metadata)
@@ -718,7 +1095,20 @@ def main():
     # ------------------------------------------------------
     def run_sky_sub_ns(metadata, prev_suffix, curr_suffix):
         '''
-        Subtract sky frames from science objects.
+        Subtract sky frames from science objects in nod-and-shuffle mode.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the file names (input).
+        curr_suffix : str
+            Current suffix of the file names (output).
+
+        Returns
+        -------
+        None
         '''
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
@@ -732,6 +1122,25 @@ def main():
         return
 
     def run_sky_sub(metadata, prev_suffix, curr_suffix, ns=False):
+        """
+        Subtract sky frames from science objects.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the file names (input).
+        curr_suffix : str
+            Current suffix of the file names (output).
+        ns : bool, optional
+            Flag indicating whether to run sky subtraction in non-and-shuffle mode.
+            Default is False.
+
+        Returns
+        -------
+        None
+        """
         if ns:
             run_sky_sub_ns(metadata, prev_suffix, curr_suffix)
         else:
@@ -777,6 +1186,23 @@ def main():
     def run_obs_coadd(metadata, prev_suffix, curr_suffix, method="sum", scale=None):
         '''
         Coadd science and standard frames.
+
+        Parameters
+        ----------
+        metadata : dict
+            Dictionary containing metadata information of the FITS files.
+        prev_suffix : str
+            Previous suffix of the file name (input).
+        curr_suffix : str
+            Current suffix of the file name (output).
+        method : str, optional
+            Method used for coadding the frames. Options are "median" or "sum" (default is "sum").
+        scale : float, optional
+            Scale factor applied to the frames during coaddition (default is None).
+
+        Returns
+        -------
+        None
         '''
         for obs in metadata["sci"] + metadata["std"]:
             # If just one, then copy it
@@ -806,8 +1232,29 @@ def main():
     # ------------------------------------------------------
     def run_flat_response(metadata, prev_suffix, curr_suffix, mode="all"):
         '''
-        Generate the flatfield response function.
+        Generate the flatfield response function for each flat type, either dome or both (dome and twi).
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the data FITS files.
+        prev_suffix : str
+            Suffix of the previous data.
+        curr_suffix : str
+            Suffix of the current data.
+        mode : str, optional
+            Mode for generating the response function ("dome" or "all"). Default is "all".
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If the requested response mode is not recognized.
         '''
+
         # Fit the desired style of response function
         info_print("Generating flatfield response function")
         if mode == "all":
@@ -833,7 +1280,20 @@ def main():
     # ------------------------------------------------------
     def run_flatfield(metadata, prev_suffix, curr_suffix):
         ''' 
-        Flat-field correction to science and standard frames.
+        Apply flat-field correction (division) to science and standard frames.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the FITS files of the observations.
+        prev_suffix : str
+            Previous suffix of the file names (input).
+        curr_suffix : str
+            Current suffix of the file names (output).
+
+        Returns
+        -------
+        None
         '''
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
@@ -854,6 +1314,22 @@ def main():
     def run_cube_gen(metadata, prev_suffix, curr_suffix, **args):
         ''' 
         Generate data cubes for science and standard frames.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata dictionary containing information about the FITS of the observations.
+        prev_suffix : str
+            Previous suffix used in the file names (input).
+        curr_suffix : str
+            Current suffix to be used in the file names (output).
+        **args : dict
+            Additional keyword arguments to be passed to the `generate_wifes_cube` function. 
+            Includes multithread setup or the wavelegnth range.
+
+        Returns
+        -------
+        None
         '''
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
@@ -966,7 +1442,7 @@ def main():
                 ny_orig=76,
                 offset_orig=2.0,
                 **args,
-                )
+            )
         return
 
     # ------------------------------------------------------
@@ -975,6 +1451,23 @@ def main():
     def run_extract_stars(metadata, prev_suffix, curr_suffix, type="all", **args):
         '''
         Extract standard stars spectrum.
+
+        Parameters
+        ----------
+        metadata : dict
+            The metadata containing information about the FITS files of the observations.
+        prev_suffix : str
+            The suffix of the previous data files.
+        curr_suffix : str
+            The suffix of the current data files.
+        type : str, optional
+            The type of standard stars to extract. Default is "all".
+        **args
+            Additional keyword arguments.
+
+        Returns
+        -------
+        None
         '''
         # For each std, extract spectrum as desired
         std_obs_list = get_primary_std_obs_list(metadata, type=type)
@@ -986,15 +1479,31 @@ def main():
                 in_fn, save_fn=out_fn, save_mode="ascii", **args
             )
         return
-
+    
+    # ------------------------------------------------------
     # Sensitivity Function fit
+    # ------------------------------------------------------
     def run_derive_calib(metadata, prev_suffix, curr_suffix, method="poly", **args):
         ''' 
         Derive the sensitivity function from the extracted standard stars.
-        kwargs:
-            - method: 'poly' or 'spline'
-            - order: polynomial order
-            - knots: number of knots for the spline
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the standard stars.
+        prev_suffix : str
+            Previous suffix of the file names.
+        curr_suffix : str
+            Current suffix of the file names.
+        method : str, optional
+            Method for deriving the sensitivity function. Options "smooth_SG" or "poly". 
+            Default is "poly".
+        **args : dict
+            Additional keyword arguments for the calibration function.
+
+        Returns
+        -------
+        None
         '''
         std_obs_list = get_primary_std_obs_list(metadata, type="flux")
 
@@ -1016,17 +1525,35 @@ def main():
     # Flux Calibration
     # ------------------------------------------------------
     def run_flux_calib(metadata, prev_suffix, curr_suffix, mode="pywifes", **args):
-        '''
-        Flux calibrate all science and standard observations.
-        ''' 
-        sci_obs_list = get_primary_sci_obs_list(metadata)
-        std_obs_list = get_primary_std_obs_list(metadata)
-        for fn in sci_obs_list + std_obs_list:
-            in_fn = os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
-            out_fn = os.path.join(out_dir, f"{fn}.p{curr_suffix}.fits")
-            info_print(f"Flux-calibrating cube {os.path.basename(in_fn)}")
-            wifes_calib.calibrate_wifes_cube(in_fn, out_fn, calib_fn, mode)
-        return
+            '''
+            Flux calibrate all science and standard observations.
+
+            Parameters
+            ----------
+            metadata : dict
+                Metadata containing information about the observations.
+            prev_suffix : str
+                Previous suffix of the file name (input).
+            curr_suffix : str
+                Current suffix of the file name (output).
+            mode : str, optional
+                Calibration mode. Options "iraf" or "pywifes". 
+                Default is "pywifes".
+            **args : dict
+                Additional keyword arguments.
+
+            Returns
+            -------
+            None
+            '''
+            sci_obs_list = get_primary_sci_obs_list(metadata)
+            std_obs_list = get_primary_std_obs_list(metadata)
+            for fn in sci_obs_list + std_obs_list:
+                in_fn = os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
+                out_fn = os.path.join(out_dir, f"{fn}.p{curr_suffix}.fits")
+                info_print(f"Flux-calibrating cube {os.path.basename(in_fn)}")
+                wifes_calib.calibrate_wifes_cube(in_fn, out_fn, calib_fn, mode)
+            return
 
     # ------------------------------------------------------
     # Telluric - derive
@@ -1034,6 +1561,21 @@ def main():
     def run_derive_telluric(metadata, prev_suffix, curr_suffix, **args):
         '''
         Derive the telluric correction from the standard star.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix used in the file names.
+        curr_suffix : str
+            Current suffix to be used in the file names.
+        **args : dict
+            Additional keyword arguments for plotting options.
+
+        Returns
+        -------
+        None
         '''
         std_obs_list = get_primary_std_obs_list(metadata, "telluric")
         std_cube_list = [
@@ -1048,24 +1590,56 @@ def main():
         wifes_calib.derive_wifes_telluric(
             std_cube_list, tellcorr_fn, extract_in_list=extract_list, plot_dir=plot_dir_arm, **args
         )
-        return  
+        return
 
     def run_telluric_corr(metadata, prev_suffix, curr_suffix, **args):
-        '''
-        Apply telluric correction for all science and standard observations.
-        '''
-        sci_obs_list = get_primary_sci_obs_list(metadata)
-        std_obs_list = get_primary_std_obs_list(metadata)
-        for fn in sci_obs_list + std_obs_list:
-            in_fn = os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
-            out_fn = os.path.join(out_dir, f"{fn}.p{curr_suffix}.fits")
-            info_print(f"Correcting telluric in {os.path.basename(in_fn)}")
-            wifes_calib.apply_wifes_telluric(in_fn, out_fn, tellcorr_fn)
-        return
+            '''
+            Apply telluric correction for all science and standard observations.
+
+            Parameters
+            ----------
+            metadata : dict
+                Metadata containing information about the observations.
+            prev_suffix : str
+                Previous suffix of the file name (input).
+            curr_suffix : str
+                Current suffix of the file name (output). 
+            **args : dict
+                Additional keyword arguments.
+
+            Returns
+            -------
+            None
+            '''
+            sci_obs_list = get_primary_sci_obs_list(metadata)
+            std_obs_list = get_primary_std_obs_list(metadata)
+            for fn in sci_obs_list + std_obs_list:
+                in_fn = os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
+                out_fn = os.path.join(out_dir, f"{fn}.p{curr_suffix}.fits")
+                info_print(f"Correcting telluric in {os.path.basename(in_fn)}")
+                wifes_calib.apply_wifes_telluric(in_fn, out_fn, tellcorr_fn)
+            return
 
     def run_save_3dcube(metadata, prev_suffix, curr_suffix, **args):
         '''
         Save 3D Data Cube for all science and standard observations.
+        Final data product.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the file name (input).
+        curr_suffix : str
+            Current suffix of the file name.
+            Saves final "*.cube.fits" file (output).
+        **args : dict
+            Additional keyword arguments to be passed to the `generate_wifes_3dcube` function.
+
+        Returns
+        -------
+        None
         '''
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
@@ -1074,9 +1648,8 @@ def main():
         sci_filename = temp_data_dir +  sci_obs_list[0] + ".fits"
 
         halfframe = is_halfframe(sci_filename)
+        
         # now generate cubes
-
-
         for fn in sci_obs_list + std_obs_list:
             in_fn = os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
             out_fn = os.path.join(out_dir, f"{fn}.{curr_suffix}.fits")
@@ -1270,9 +1843,6 @@ def main():
             os.makedirs(out_dir, exist_ok=True)
 
             calib_prefix = f"wifes_{arm}"
-
-            # WiFeS specific parameter
-            my_data_hdu = 0
 
             # Creates a directory for diagnisis plots (one per arm).
             plot_dir_arm = os.path.join(plot_dir, arm)

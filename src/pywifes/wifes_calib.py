@@ -198,6 +198,41 @@ def extract_wifes_stdstar(
     save_mode=None,
     save_fn=None,
 ):
+    """
+    Extracts the standard star spectrum from a WiFeS data cube. The standard star spectrum is extracted by performing apperture photometry for each frame along the wavelenght axis within a circular aperture centered on the standard star centroid. The sky background is estimated by taking the median flux within an annulus centered on the standard star centroid.
+
+    Parameters
+    ----------
+    cube_fn : str
+        The filename of the WiFeS data cube.
+    x_ctr : float, optional
+        The x-coordinate of the standard star centroid. If not provided, the centroid will be determined automatically.
+    y_ctr : float, optional
+        The y-coordinate of the standard star centroid. If not provided, the centroid will be determined automatically.
+    extract_radius : float, optional
+        The radius (in arcseconds) within which to extract the standard star spectrum.
+    sky_radius : float, optional
+        The radius (in arcseconds) outside which to estimate the sky background.
+    ytrim : int, optional
+        The number of pixels to trim from the top and bottom of the data cube in the y-direction.
+    save_mode : str, optional
+        The mode for saving the extracted spectrum. Valid options are 'ascii' and 'iraf'.
+    save_fn : str, optional
+        The filename to save the extracted spectrum.
+
+    Returns
+    -------
+    filtered_lam_array : numpy.ndarray
+        The wavelength array of the extracted spectrum.
+    filtered_std_flux : numpy.ndarray
+        The flux values of the extracted spectrum. 
+
+    Raises
+    ------
+    ValueError
+        If the save_mode is not recognized.
+
+    """
     # check if halfframe
     halfframe = is_halfframe(cube_fn)
 
@@ -236,20 +271,6 @@ def extract_wifes_stdstar(
     else:
         halfframe_mask = full_y < 50
 
-    # MZ: Uncommented
-    # centroid version
-    # ~ if x_ctr == None:
-    # ~ std_x = numpy.sum(numpy.sum(
-    # ~ obj_cube_data*cube_x,axis=1),axis=1)/flux
-    # ~ else:
-    # ~ std_x = x_ctr*numpy.ones(nlam, dtype='d')
-    # ~ if y_ctr == None:
-    # ~ std_y = numpy.sum(numpy.sum(
-    # ~ obj_cube_data*cube_y,axis=2),axis=1)/flux
-    # ~ else:
-    # ~ std_y = y_ctr*numpy.ones(nlam, dtype='d')
-
-    # MZ: Commented out
     if x_ctr == None or y_ctr == None:
         cube_im = numpy.nansum(obj_cube_data, axis=0)
         maxind = numpy.nonzero(
@@ -339,10 +360,6 @@ def extract_wifes_stdstar(
     else:
         f.close()
         raise ValueError("Standard Star save format not recognized")
-
-
-# here write wrapper function to save the extracted star spectrum
-
 
 # ------------------------------------------------------------------------
 # simple function to divide a cube by some spectrum
@@ -472,6 +489,62 @@ def derive_wifes_calibration(
     ytrim=5,
     boxcar=11,
 ):
+    """
+    Derives the calibration solution for WiFeS data. The calibration solution is derived by comparing the observed standard star spectra to reference data. The calibration solution is then used to correct the observed spectra for instrumental effects.
+
+    Parameters
+    ----------
+    cube_fn_list : list
+        List of file paths to the WiFeS data cubes.
+    calib_out_fn : str
+        File path to save the calibration output.
+    stdstar_name_list : list, optional
+        List of standard star names corresponding to each cube.
+    extract_in_list : list, optional
+        List of file paths to the extracted spectra.
+    airmass_list : list, optional
+        List of airmass values corresponding to each cube.
+    ref_dir : str, optional
+        Directory path to the reference data.
+    ref_fname_list : list, optional
+        List of file names of the reference data corresponding to each cube.
+    plot_stars : bool, optional
+        Whether to plot the stars during the calibration process.
+    plot_sensf : bool, optional
+        Whether to plot the sensitivity function.
+    plot_dir : str, optional
+        Directory path to save the plots.
+    save_prefix : str, optional
+        Prefix for the saved calibration files.
+    norm_stars : bool, optional
+        Whether to normalize the stars.
+    method : str, optional
+        Method for fitting the calibration solution.
+    polydeg : int, optional
+        Degree of the polynomial for fitting the calibration solution.
+    excise_cut : float, optional
+        Cut-off value for excising outliers.
+    wave_min : float, optional
+        Minimum wavelength for the calibration solution.
+    wave_max : float, optional
+        Maximum wavelength for the calibration solution.
+    extinction_fn : str, optional
+        File path to the extinction curve data.
+    ytrim : int, optional
+        Number of pixels to trim from the edges of the extracted spectra.
+    boxcar : int, optional
+        Size of the boxcar filter for smoothing the sensitivity function.
+
+    Raises
+    ------
+    Exception
+        If calibration data for any stars cannot be found.
+
+    Returns
+    -------
+    None
+    """
+
     # get extinction curve
     if extinction_fn == None:
         extinct_interp = sso_extinct_interp
@@ -844,6 +917,59 @@ def derive_wifes_calibration(
 
 # ------------------------------------------------------------------------
 def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=None):
+    """
+    Calibrates the WiFeS cube by applying flux calibration and extinction correction. The calibration is performed using the provided calibration file containing the flux calibration information. The extinction curve is retrieved based on the provided extinction file path. 
+    The calibrated WiFeS cube is saved to the specified output file path.
+
+    Parameters
+    ----------
+    inimg : str
+        Input FITS file path of the WiFeS cube.
+    outimg : str
+        Output FITS file path for the calibrated WiFeS cube.
+    calib_fn : str
+        Calibration file path containing the flux calibration information.
+    mode : str, optional
+        Calibration mode. Possible values are 'pywifes' and 'iraf'. Default is 'pywifes'.
+    extinction_fn : str, optional
+        Extinction file path containing the extinction curve information. Default is None.
+
+    Returns
+    -------
+    None
+        The calibrated WiFeS cube is saved to the specified output file path.
+
+    Raises
+    ------
+    ValueError
+        If the calibration mode is not defined.
+
+    Notes
+    -----
+    This function performs the following steps:
+
+    1. Determines the wavelength array based on the input WiFeS cube.
+    
+    2. Retrieves the extinction curve based on the provided extinction file path.
+    
+    3. Opens the input WiFeS cube file.
+    
+    4. Calculates the flux calibration array based on the calibration mode.
+    
+    5. Calculates the extinction curve for the observed airmass.
+    
+    6. Applies the flux calibration and extinction correction to the data.
+    
+    7. Saves the calibrated WiFeS cube to the output file path.
+
+    The function assumes that the input WiFeS cube file follows the FITS format and contains
+    the necessary header keywords for wavelength, exposure time, and airmass.
+
+    Examples
+    --------
+    >>> calibrate_wifes_cube('input.fits', 'output.fits', 'calibration.dat', mode='pywifes')
+
+    """
 
     # get wavelength array
     halfframe = is_halfframe(inimg)
@@ -942,6 +1068,47 @@ def derive_wifes_telluric(
     polydeg=4,
     ytrim=3,
 ):
+    """
+    Derives the telluric correction spectra for a list of cube files. The telluric correction spectra are derived by comparing the observed spectra to the telluric regions in the standard star data. 
+    The telluric correction spectra are saved to the specified output file.
+
+    Parameters
+    ----------
+    cube_fn_list : list
+        List of cube file names.
+    out_fn : str
+        Output file name to save the telluric correction information.
+    plot : bool, optional
+        Flag indicating whether to generate and save a plot of the telluric correction function.
+    plot_stars : bool, optional
+        Flag indicating whether to plot the individual O2 and H2O corrections for each star.
+    plot_dir : str, optional
+        Directory to save the plot file.
+    save_prefix : str, optional
+        Prefix for the saved plot file.
+    extract_in_list : list, optional
+        List of extracted spectrum file names.
+    airmass_list : list, optional
+        List of airmass values for each cube file. If not provided, the airmass values will be extracted from the cube headers.
+    telluric_threshold : float, optional
+        Threshold value for the telluric correction. Regions with a correction ratio above this threshold will be set to 1.0.
+    fit_wmin : float, optional
+        Minimum wavelength for fitting the smooth polynomial to non-telluric regions.
+    fit_wmax : float, optional
+        Maximum wavelength for fitting the smooth polynomial to non-telluric regions.
+    H2O_power : float, optional
+        Power value for the H2O correction.
+    O2_power : float, optional
+        Power value for the O2 correction.
+    polydeg : int, optional
+        Degree of the polynomial used for fitting the smooth continuum.
+    ytrim : int, optional
+        Number of pixels to trim from the top and bottom of the extracted spectrum.
+
+    Returns
+    -------
+    None
+    """
     # ---------------------------------------------
     # for each star, get its airmass if not specified in input
     if airmass_list == None:
@@ -1111,6 +1278,31 @@ def derive_wifes_telluric(
 
 
 def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
+    """
+    Apply telluric correction to the input image. The telluric correction is applied using the telluric correction file previously obtained in 'derive_wifes_telluric()'. The correction is based on the airmass value and the wavelength-dependent correction factors. 
+    The corrected image is saved to the specified output file.
+
+    Parameters
+    ----------
+    inimg : str
+        Path to the input image file.
+    outimg : str
+        Path to save the output image file.
+    tellcorr_fn : str
+        Path to the telluric correction file.
+    airmass : float, optional
+        Airmass value for the correction. If not provided, it will be extracted from the input image header.
+
+    Returns
+    -------
+    None
+        The corrected image is saved to the specified output file.
+
+    Raises
+    ------
+    None
+
+    """
     # get wavelength array
     halfframe = is_halfframe(inimg)
 

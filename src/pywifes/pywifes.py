@@ -53,7 +53,7 @@ nslits = len(blue_slitlet_defs.keys())
 
 
 # ------------------------------------------------------------------------
-def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
+def cut_fits_to_half_frame(inimg_path, outimg_prefix='cut_'):
     """
     Cuts a FITS file to half-frame size and saves the output with a specified prefix.
 
@@ -62,7 +62,7 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
     inimg_path : str
         Path to the input FITS file.
     outimg_prefix : str, optional
-        Prefix for the output FITS file. Default is "cut_".
+        Prefix for the output FITS file. Default is 'cut_'.
 
     Returns
     -------
@@ -71,13 +71,14 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
 
     Notes
     -----
-    This function:
-    - Opens the input FITS file.
-    - Extracts the primary HDU (Header/Data Unit).
-    - Considers binning specified in the 'CCDSUM' header.
-    - Cuts the data to a section defined by the specified coordinates.
-    - Updates the 'DETSEC' keyword in the header.
-    - Writes the cut data to a new FITS file with the specified prefix.
+    This function performs the following steps:
+    
+    1. Opens the input FITS file.
+    2. Extracts the primary HDU (Header/Data Unit).
+    3. Considers binning specified in the 'CCDSUM' header.
+    4. Cuts the data to a section defined by the specified coordinates.
+    5. Updates the 'DETSEC' keyword in the header.
+    6. Writes the cut data to a new FITS file with the specified prefix.
     """
 
     # Open the input FITS file
@@ -116,6 +117,26 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
 
 # ------------------------------------------------------------------------
 def calib_to_half_frame(obs_metadata, temp_data_dir):
+    """
+    Convert calibration files to half-frame format.
+
+    This function takes the observation metadata and temporary data directory as input.
+    It converts the calibration files to half-frame format by cutting them in half.
+    The calibration types that can be converted are domeflat, twiflat, wire, and arc.
+    The converted files are saved with a prefix 'cut_' added to their names.
+
+    Parameters
+    ----------
+    obs_metadata : dict
+        The observation metadata containing calibration file information.
+    temp_data_dir : str
+        The temporary data directory where the calibration files are located.
+
+    Returns
+    -------
+    dict
+        The updated observation metadata with the converted calibration file names.
+    """
 
     # A list of calibration types that need to be half-frame for the pipeline to work properly in the half-frame scenario.
     calib_types = ["domeflat", "twiflat", "wire", "arc"]
@@ -143,10 +164,31 @@ def calib_to_half_frame(obs_metadata, temp_data_dir):
 
 
 # ------------------------------------------------------------------------
-# functions that operate on data rather than images
+# Functions that operate on data rather than images
 def single_centroid_prof_fit(
     y, x=None, ctr_guess=None, width_guess=None, return_width=False
 ):
+    ''''
+    Fit a single Gaussian to a 1D profile to determine the centroid.
+    
+    Parameters
+    ----------
+    y : numpy.ndarray
+        The 1D profile data.
+    x : numpy.ndarray, optional
+        The x-axis data. Default is None.
+    ctr_guess : float, optional
+        The initial guess for the centroid. Default is None.
+    width_guess : float, optional
+        The initial guess for the width. Default is None.
+    return_width : bool, optional
+        If True, the function returns the width of the Gaussian. Default is False.
+        
+    Returns
+    -------
+    float
+        The centroid of the Gaussian.
+    '''
     N = len(y)
     if x is None:
         x = numpy.arange(N, dtype="d")
@@ -172,6 +214,21 @@ def single_centroid_prof_fit(
 # ------------------------------------------------------------------------
 # high-level functions to check if an observation is half-frame or N+S
 def is_halfframe(inimg, data_hdu=0):
+    """
+    Check if the input image is a half-frame.
+
+    Parameters
+    ----------
+    inimg : str
+        The path to the input image file.
+    data_hdu : int, optional
+        The HDU index of the data extension in the FITS file. Default is 0.
+
+    Returns
+    -------
+    bool
+        True if the image is a half-frame, False otherwise.
+    """
     f = pyfits.open(inimg)
     detsec = f[data_hdu].header["DETSEC"]
     f.close()
@@ -180,6 +237,21 @@ def is_halfframe(inimg, data_hdu=0):
 
 
 def is_nodshuffle(inimg, data_hdu=0):
+    """
+    Check if the given image is acquired using the Nod and Shuffle technique.
+
+    Parameters:
+    -----------
+    inimg : str
+        The path to the input FITS image.
+    data_hdu : int, optional
+        The HDU index of the data to be checked. Default is 0.
+
+    Returns:
+    --------
+    bool
+        True if the image is acquired using Nod and Shuffle, False otherwise.
+    """
     f = pyfits.open(inimg)
     ns = f[data_hdu].header["WIFESOBS"]
     f.close()
@@ -187,6 +259,21 @@ def is_nodshuffle(inimg, data_hdu=0):
 
 
 def is_subnodshuffle(inimg, data_hdu=0):
+    """
+    Check if the given image is acquired using the Nod and Shuffle Subapperture technique.
+
+    Parameters
+    ----------
+    inimg : str
+        The path to the input FITS image.
+    data_hdu : int, optional
+        The HDU index of the data to be checked. Default is 0.
+
+    Returns
+    -------
+    bool
+        True if the image is acquired using Nod and Shuffle Subapperture, False otherwise.
+    """
     f = pyfits.open(inimg)
     sns = f[data_hdu].header["WIFESOBS"]
     f.close()
@@ -195,6 +282,27 @@ def is_subnodshuffle(inimg, data_hdu=0):
 
 # ------------------------------------------------------------------------
 def imcombine(inimg_list, outimg, method="median", scale=None, data_hdu=0):
+    """
+    Combine multiple images into a single image using a specified method.
+
+    Parameters
+    ----------
+    inimg_list : list
+        A list of input image paths.
+    outimg : str
+        The path to the output image.
+    method : str, optional
+        The method 'median' or 'sum' to be used for combining the images. Default is 'median'.
+    scale : str, optional
+        The scaling method to be used, 'median', 'median_nonzero', 'exptime' or None. Default is None.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+    
+    Returns
+    -------
+    None
+        This function does not return any value. It writes the combined image to the output file.
+    """ 
     try:   
         # read in data from inimg_list[0] to get image size
         f = pyfits.open(inimg_list[0])
@@ -275,6 +383,31 @@ def imcombine_mef(
     scale=None,
     method="median",
 ):
+    """
+    Combine multiple images into a single image using a specified method.
+    
+    Parameters
+    ----------
+    inimg_list : list
+        A list of input image paths.
+    outimg : str
+        The path to the output image.
+    data_hdu_list : list, optional
+        A list of HDU indices for the data extensions in the input images. Default is list(range(1, 26)).
+    var_hdu_list : list, optional
+        A list of HDU indices for the variance extensions in the input images. Default is list(range(26, 51)).
+    dq_hdu_list : list, optional
+        A list of HDU indices for the data quality extensions in the input images. Default is list(range(51, 76)).
+    scale : str, optional
+        The scaling method to be used. Default is None.
+    method : str, optional
+        The method 'median' or 'sum' to be used for combining the images. Default is 'median'.
+    
+    Returns
+    -------
+    None
+        This function does not return any value. It writes the combined image to the output file.
+    """    
     nimg = len(inimg_list)
     # read in data from inimg_list[0] to get image size
     f = pyfits.open(inimg_list[0])
@@ -359,6 +492,24 @@ def imcombine_mef(
 
 # ------------------------------------------------------------------------
 def imarith_mef(inimg1, operator, inimg2, outimg):
+    '''
+    Performs arithmetic operations between two images.
+    
+    Parameters
+    ----------
+    inimg1 : str
+        The path to the first input image.
+    operator : str
+        The operator to be used for combining the images. Options are '+', '-', '*', and '/'.
+    inimg2 : str
+        The path to the second input image.
+    outimg : str
+        The path to the output image.
+        
+    Returns
+    -------
+    None
+        This function does not return any value. It writes the combined image to the output file.'''
     # check if halfframe
     halfframe = is_halfframe(inimg1)
     if halfframe:
@@ -437,6 +588,27 @@ def imarith_mef(inimg1, operator, inimg2, outimg):
 
 
 def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None):
+    '''
+    Combine two images using a specified operator and a scaling factor.
+    
+    Parameters
+    ----------
+    inimg1 : str
+        The path to the first input image.
+    operator : str
+        The operator to be used for combining the images. Options are '+', '-', '*', and '/'.
+    inimg2 : str
+        The path to the second input image.
+    outimg : str
+        The path to the output image.
+    scale : float or str
+        The scaling factor to be used. Options are 'exptime' or a float value. Default is None.
+    
+    Returns
+    -------
+    None
+        This function does not return any value. It writes the combined image to the output file.
+    '''
     # check if halfframe
     halfframe = is_halfframe(inimg1)
     if halfframe:
@@ -1487,7 +1659,7 @@ def generate_wifes_bias_fit(
 
             plt.axhline(0, numpy.min(linx), numpy.max(linx), color="k",lw=0.8)
             plt.xlabel("X-axis [pixel]")
-            plt.ylabel(" bias signal collapsed along Y-axis")
+            plt.ylabel("Bias collapsed along Y-axis")
             plt.legend()
             plt.xlim([numpy.min(linx), numpy.max(linx)])
             plt.ylim(lower_limit, upper_limit)
@@ -1642,21 +1814,22 @@ def interslice_cleanup(
     plot_dir=".",
     save_prefix="cleanup_",
     method="2D",
-):
-    """Uses the dark interslice regions of the detector to interpolate the
+    ):
+    """
+    Uses the dark interslice regions of the detector to interpolate the
     scattered light over the entire detector.
 
     Note that setting nsig_lim to 3 (as it historically has been) can cause
     problems by sigma clipping the scattered light, not just cosmic rays. For
     a halframe detector with y binning 2, there are 1024 x 4096 pixels.
     With sigma values as follows, this is how many pixels lie above:
-     - 3.0 sigma (99.73%): ~11,323 px
-     - 4.0 sigma (99.994%): ~265 px
-     - 4.5 sigma (99.9993%): ~28 px
-     - 5.0 sigma (99.99994%): ~2 px
+    - 3.0 sigma (99.73%): ~11,323 px
+    - 4.0 sigma (99.994%): ~265 px
+    - 4.5 sigma (99.9993%): ~28 px
+    - 5.0 sigma (99.99994%): ~2 px
 
-     (This however assumes a Gaussian distribution, which isn't at all the case
-     but still useful as a guide/metric.)
+    (This however assumes a Gaussian distribution, which isn't at all the case
+    but still useful as a guide/metric.)
     """
     # ------------------------------------
     # 1) Open the flat field
@@ -2092,6 +2265,32 @@ def wifes_slitlet_mef_ns(
     nod_dy=80,
     slitlet_def_file=None,
 ):
+    """
+    Create multi-extension FITS files for object and sky data from a single input image.
+
+    Parameters
+    ----------
+    inimg : str
+        Path to the input FITS image.
+    outimg_obj : str
+        Path to the output FITS file for object data.
+    outimg_sky : str
+        Path to the output FITS file for sky data.
+    data_hdu : int, optional
+        Index of the HDU containing the data in the input FITS image. Default is 0.
+    bin_x : int, optional
+        Binning factor in the x-direction. If not specified, it will be read from the header.
+    bin_y : int, optional
+        Binning factor in the y-direction. If not specified, it will be read from the header.
+    nod_dy : int, optional
+        Offset in pixels between the object and sky slitlets in the y-direction. Default is 80.
+    slitlet_def_file : str, optional
+        Path to a file containing slitlet definitions. If not specified, baseline values will be used.
+
+    Returns
+    -------
+    None
+    """
     f = pyfits.open(inimg)
     outfits_obj = pyfits.HDUList([pyfits.PrimaryHDU(header=f[0].header)])
     outfits_sky = pyfits.HDUList([pyfits.PrimaryHDU(header=f[0].header)])

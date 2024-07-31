@@ -227,15 +227,3 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     plt.savefig(plot_path, dpi=300)
     plt.close()
 
-
-# Example usage:
-# Replace with your actual data paths and call the function
-title = 'Title of the Plot'
-allx = np.random.rand(100)
-ally = np.random.rand(100)
-allarcs = np.random.rand(100)
-resid = np.random.rand(100)
-plot_path = 'plot.png'
-
-final_wsol_plot(title, allx, ally, allarcs, resid, plot_path)
-
