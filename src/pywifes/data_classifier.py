@@ -2,7 +2,7 @@ import os
 from astropy.io import fits as pyfits
 import pandas as pd
 from . import wifes_calib
-
+import numpy as np
 
 def get_obs_metadata(filenames, data_dir):
     """
@@ -118,7 +118,8 @@ def get_obs_metadata(filenames, data_dir):
     sci_obs = []
 
     for obj_name in science.keys():
-        obs_list = science[obj_name]
+        # Sort the list to prevent issues with coadding routines
+        obs_list = np.sort(science[obj_name]).tolist()
         sci_obs.append({"sci": obs_list, "sky": []})
 
     # ------------------
@@ -126,18 +127,27 @@ def get_obs_metadata(filenames, data_dir):
     std_obs = []
 
     for obj_name in stdstar.keys():
-        obs_list = stdstar[obj_name]
+        # Sort the list to prevent issues with coadding routines
+        obs_list = np.sort(stdstar[obj_name]).tolist()
         std_obs.append(
             {"sci": obs_list, "name": obj_name, "type": ["flux", "telluric"]}
         )
 
+    # Sort the list to prevent issues with coadding routines
+    bias = np.sort(bias).tolist()
+    domeflat = np.sort(domeflat).tolist()
+    twiflat = np.sort(twiflat).tolist()
+    dark = np.sort(dark).tolist()
+    wire = np.sort(wire).tolist()
+    arc = np.sort(arc).tolist()
+
     obs_metadata = {
-        "bias": bias,
-        "domeflat": domeflat,
-        "twiflat": twiflat,
-        "dark": dark,
-        "wire": wire,
-        "arc": arc,
+        "bias": np.sort(bias).tolist(),
+        "domeflat": np.sort(domeflat).tolist(),
+        "twiflat": np.sort(twiflat).tolist(),
+        "dark": np.sort(dark).tolist(),
+        "wire": np.sort(wire).tolist(),
+        "arc": np.sort(arc).tolist(),
         "sci": sci_obs,
         "std": std_obs,
     }

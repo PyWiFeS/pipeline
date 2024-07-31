@@ -124,7 +124,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "mode": "dome"
+                "mode": "all"
             }
         },
         {
