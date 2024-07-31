@@ -22,7 +22,6 @@ This documentation will guide you through installation, usage, main features and
    installation
    usage
    features
-   pipeline_steps
    directories
    data_quality
    modules/modules
