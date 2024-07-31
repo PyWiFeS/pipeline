@@ -31,25 +31,35 @@ This plot shows the observed standard star (in red) scaled to the standard star 
 Flux Calibration: flux_calibration_solution.png
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Flux calibration solution (solid green line) derived from flux-to-counts ratio (in magnitudes) observed in data (red dots).
+
 .. image:: _static/flux_calibration_solution.png 
    :alt: Flux Calibration
    :align: center
 
 
 
-Dome Flat: domeflat_cleanup.png
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Raw Dome/Twilight Flat: raw_domeflat_check.png / raw_twiflat_check.png
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. image:: _static/domeflat_cleanup.png 
-   :alt: Dome Flat
+This plot displays the counts in raw (super) flat-field images (dome or twilight) and shows all the defined slitlets. The colored numbers on the slitlets are consistent between the two plots: the 1-D collapsed plot and the 2-D raw image.
+
+
+.. image:: _static/raw_domeflat_check.png 
+   :alt: Raw Dome Flat
    :align: center
 
 
-Twilight Flat: twiflat_cleanup.png
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Dome/Twilight Flat Cleanup: domeflat_cleanup.png/twiflat_cleanup.png
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Cleaning Flatfield. Top: Raw master lamp flat. The internal internal reflection is clearly visible in the center 
+of the image. Middle: reconstructed internal reflection and diffuse glow from the interslit regions. 
+Bottom: cleaned master flat image.
 
-.. image:: _static/twiflat_cleanup.png 
-   :alt: Twilight Flat
+
+
+.. image:: _static/domeflat_cleanup.png 
+   :alt: Dome Flat
    :align: center
 
 
@@ -61,7 +71,6 @@ Left: Fit of a smooth function (dashed red) to the flat lamp spectrum (blue), co
 Right: Illumination correction derived from sky flat data, before adjusting for vertical offsets between slitlets.
 
 
-
 .. image:: _static/flat_response.png 
    :alt: Flat Response   
    :align: center
@@ -71,6 +80,12 @@ Right: Illumination correction derived from sky flat data, before adjusting for 
 
 Wavelenght Solution: wavelenght_solution.png
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Top Left: All detected arc lines in the detector plane, illustrating the curved shape of the WiFeS wavelength solution.
+Top Right: Residuals of fitted emission line centers compared to the predictions from the best-fit optical model, plotted as a function of detector X and Y.
+Bottom Left: Residuals of fitted emission line centers as a function of wavelength.
+Bottom Right: Histogram of the residuals, showing their distribution.
+
 
 .. image:: _static/wavelenght_solution.png 
    :alt: Wavelenght Solution
@@ -98,3 +113,7 @@ Collapsed data cube images for both arms. This plot shows the automatically dete
 .. image:: _static/OBK-124224-WiFeS-UT20240324T092437-4_detection_plot.png 
    :alt: Telluric Correction
    :align: center
+
+
+
+
