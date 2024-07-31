@@ -27,6 +27,7 @@ from pywifes.pywifes import calib_to_half_frame
 import shutil
 import glob
 import argparse
+from pywifes.quality_plots import flatfiled_plot
 
 # Set paths
 reduction_scripts_dir = os.path.dirname(__file__)

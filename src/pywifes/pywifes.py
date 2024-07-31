@@ -1659,7 +1659,7 @@ def generate_wifes_bias_fit(
 
             plt.axhline(0, numpy.min(linx), numpy.max(linx), color="k",lw=0.8)
             plt.xlabel("X-axis [pixel]")
-            plt.ylabel(" bias signal collapsed along Y-axis")
+            plt.ylabel("Bias collapsed along Y-axis")
             plt.legend()
             plt.xlim([numpy.min(linx), numpy.max(linx)])
             plt.ylim(lower_limit, upper_limit)
