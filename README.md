@@ -179,6 +179,9 @@ The problem is that the functions are called dynamically in the loop (line ~1880
     
     One solution could be to modify the JSON files for including the specific parameters for each function. Then, move the function definitions outside the `main()` function, ensuring they got the necessary parameters as arguments. This will make the code more modular and maintainable.
 
+- The pipeline currently depends on scipy==1.9.1 and numpy<2.0. Upgrading to numpy 2.0 would require redefining some functions in the code and addressing the fact that numpy 2.0 is incompatible with scipy 1.9.1. Therefore, updating to numpy 2.0 would also necessitate upgrading SciPy and redefining some functions throughout the pipeline.
+
+
 
 ## Reporting Issues or Suggestions
 If you encounter any issues or have suggestions for improving the pipeline, please [**open a new issue**](https://github.com/PyWiFeS/pipeline/issues) in the `issues` tab and fill out the provided template. Your feedback is very valuable!

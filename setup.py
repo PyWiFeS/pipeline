@@ -11,7 +11,7 @@ setup(
         "setuptools",
         "astropy",
         "scipy==1.9.1",
-        "numpy",
+        "numpy<2.0",
         "matplotlib",
         "photutils==1.8.0",
         "pandas",
