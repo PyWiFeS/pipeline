@@ -107,20 +107,22 @@ def main():
     # ------------------------------------------------------------------------
     # METADATA WRANGLING FUNCTIONS
     # ------------------------------------------------------------------------
-    def get_full_obs_list(metadata):
+    def get_full_obs_list(metadata, exclude=None):
+        keep_type = ["bias", "arc", "wire", "dark", "domeflat", "twiflat"]
+        # Allow types to be excluded
+        if exclude is not None:
+            keep_type = [t for t in keep_type if t not in exclude]
         full_obs_list = []
-        base_fn_list = (
-            metadata["bias"]
-            + metadata["arc"]
-            + metadata["wire"]
-            + metadata['dark']
-            + metadata["domeflat"]
-            + metadata["twiflat"]
-        )
+        base_fn_list = [fn for t in keep_type for fn in metadata[t]]
         for fn in base_fn_list:
             if fn not in full_obs_list:
                 full_obs_list.append(fn)
-        for obs in metadata["sci"] + metadata["std"]:
+
+        keep_type = ["sci", "std"]
+        # Allow types to be excluded
+        if exclude is not None:
+            keep_type = [t for t in keep_type if t not in exclude]
+        for obs in [fdict for t in keep_type for fdict in metadata[t]]:
             for key in obs.keys():
                 if key != "type" and key != "name":
                     for fn in obs[key]:
@@ -254,9 +256,7 @@ def main():
     # ------------------------------------------------------------------------
     def run_overscan_sub(metadata, prev_suffix, curr_suffix):
         full_obs_list = get_full_obs_list(metadata)
-        # Find a domeflat to generate mask for overscan
-        dflat = os.path.join(temp_data_dir, "%s.fits" % metadata["domeflat"][0])
-        pywifes.make_overscan_mask(dflat, overscanmask_fn, data_hdu=my_data_hdu)
+        first = True
         for fn in full_obs_list:
             in_fn = os.path.join(temp_data_dir, "%s.fits" % fn)
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
@@ -264,13 +264,22 @@ def main():
                 # cannot check mtime here because of fresh copy to raw_data_temp
                 continue
             info_print(f"Subtracting Overscan for {in_fn.split('/')[-1]}")
-            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu, omaskfile=overscanmask_fn)
+            if first:
+                # Find a domeflat to generate mask for overscan
+                if metadata["domeflat"]:
+                    dflat = os.path.join(temp_data_dir, "%s.fits" % metadata["domeflat"][0])
+                    pywifes.make_overscan_mask(dflat, omask=overscanmask_fn, data_hdu=my_data_hdu)
+                    oscanmask = overscanmask_fn
+                else:
+                    oscanmask = None
+                first = False
+            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu, omaskfile=oscanmask)
         return
 
     # ------------------------------------------------------
     # repair bad pixels!
     # ------------------------------------------------------
-    def run_bpm_repair(metadata, prev_suffix, curr_suffix):
+    def run_bpm_repair(metadata, prev_suffix, curr_suffix, **args):
         full_obs_list = get_full_obs_list(metadata)
         for basename in full_obs_list:
             input_filename = f"{basename}.p{prev_suffix}.fits"
@@ -283,11 +292,11 @@ def main():
             info_print(f"Repairing {arm} bad pixels for {input_filename}")
             if arm == "red":
                 pywifes.repair_red_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu
+                    input_filepath, output_filepath, data_hdu=my_data_hdu, **args
                 )
             if arm == "blue":
                 pywifes.repair_blue_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu
+                    input_filepath, output_filepath, data_hdu=my_data_hdu, **args
                 )
 
     # ------------------------------------------------------
@@ -303,7 +312,8 @@ def main():
         if not (skip_done and os.path.isfile(superbias_fn) and os.path.isfile(superbias_fit_fn)
                 and os.path.getmtime(superbias_fn) < os.path.getmtime(superbias_fit_fn)):
             info_print("Calculating Global Superbias")
-            pywifes.imcombine(bias_list, superbias_fn, data_hdu=my_data_hdu)
+            pywifes.imcombine(bias_list, superbias_fn, data_hdu=my_data_hdu,
+                              kwstring="BIASN", commstring="bias")
             if method == "fit" or method == "row_med":
                 pywifes.generate_wifes_bias_fit(
                     superbias_fn,
@@ -343,7 +353,8 @@ def main():
                     for x in local_biases
                 ]
                 pywifes.imcombine(
-                    local_biases_filename, local_superbias, data_hdu=my_data_hdu
+                    local_biases_filename, local_superbias, data_hdu=my_data_hdu,
+                    kwstring="LOCBN", commstring="local bias"
                 )
                 # step 2 - generate fit
                 if method == "fit" or method == "row_med":
@@ -389,11 +400,14 @@ def main():
         return
 
     # ------------------------------------------------------
-    # Generate super-flat
+    # Generate super-flat/wire/arc
     # ------------------------------------------------------
     def run_superflat(
-        metadata, prev_suffix, curr_suffix, source, scale=None, method="median"
+        metadata, prev_suffix, curr_suffix, source, **args
     ):
+        kwstring = None
+        commstring = None
+        outvarimg = None
         if source == "dome":
             out_fn = super_dflat_raw
             flat_list = [
@@ -404,6 +418,9 @@ def main():
                     and os.path.getmtime(flat_list[0]) < os.path.getmtime(out_fn):
                 return
             info_print(f"List of {source} flats: {flat_list}")
+            kwstring = "FLATN"
+            commstring = "lamp flat"
+            outvarimg = os.path.join(master_dir, f"wifes_{arm}_super_domeflat_raw_var.fits")
         elif source == "twi":
             out_fn = super_tflat_raw
             flat_list = [
@@ -414,6 +431,8 @@ def main():
                     and os.path.getmtime(flat_list[0]) < os.path.getmtime(out_fn):
                 return
             info_print(f"List of {source} flats: {flat_list}")
+            kwstring = "TWIN"
+            commstring = "twilight flat"
         elif source == "wire":
             out_fn = super_wire_raw
             flat_list = [
@@ -424,15 +443,30 @@ def main():
                     and os.path.getmtime(flat_list[0]) < os.path.getmtime(out_fn):
                 return
             info_print(f"List of wire frames: {flat_list}")
+            kwstring = "WIREN"
+            commstring = "wire"
+        elif source == "arc":
+            out_fn = super_arc_raw
+            flat_list = [
+                os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
+                for x in metadata["arc"]
+            ]
+            if skip_done and os.path.isfile(out_fn) \
+                    and os.path.getmtime(flat_list[0]) < os.path.getmtime(out_fn):
+                return
+            info_print(f"List of arc frames: {flat_list}")
+            kwstring = "ARCN"
+            commstring = "arc"
         else:
-            error_print("Flatfield type not recognized")
-            raise ValueError("Flatfield type not recognized")
+            error_print(f"Calibration type '{source}' not recognised")
+            raise ValueError(f"Calibration type '{source}' not recognised")
         if not flat_list:
             warning_print(f"No {source} flats found. Skipping the superflat generation for {source}.")
             return
         info_print(f"Generating co-add {source} flat")
         pywifes.imcombine(
-            flat_list, out_fn, data_hdu=my_data_hdu, scale=scale, method=method
+            flat_list, out_fn, data_hdu=my_data_hdu, kwstring=kwstring, commstring=commstring,
+            outvarimg=outvarimg, **args
         )
         return
 
@@ -460,7 +494,7 @@ def main():
                     and os.path.getmtime(super_dflat_raw) < os.path.getmtime(super_dflat_fn):
                 return
             if os.path.isfile(super_dflat_raw):
-                info_print(f"Correcting master domeflat {os.path.basename(super_dflat_fn)}")
+                info_print(f"Correcting master domeflat {os.path.basename(super_dflat_raw)}")
                 pywifes.interslice_cleanup(
                     super_dflat_raw,
                     super_dflat_fn,
@@ -478,7 +512,7 @@ def main():
                     and os.path.getmtime(super_tflat_raw) < os.path.getmtime(super_tflat_fn):
                 return
             if os.path.isfile(super_tflat_raw):
-                info_print(f"Correcting master twilight flat {os.path.basename(super_tflat_fn)}")
+                info_print(f"Correcting master twilight flat {os.path.basename(super_tflat_raw)}")
                 pywifes.interslice_cleanup(
                     super_tflat_raw,
                     super_tflat_fn,
@@ -544,9 +578,17 @@ def main():
                 return
             out_fn = super_wire_mef
 
+        elif source == "arc":
+            if os.path.isfile(super_arc_raw):
+                in_fn = super_arc_raw
+            else:
+                warning_print("No master arc frame found. Skipping MEF generation for arc.")
+                return
+            out_fn = super_arc_mef
+
         else:
-            error_print("Flatfield type not recognized")
-            raise ValueError("Flatfield type not recognized")
+            error_print(f"Calibration type '{source}' not recognised")
+            raise ValueError(f"Calibration type '{source}'' not recognised")
 
         # check the slitlet definition file
         if os.path.isfile(slitlet_def_fn):
@@ -564,7 +606,9 @@ def main():
         return
 
     def run_slitlet_mef(metadata, prev_suffix, curr_suffix, ns=False):
-        full_obs_list = get_full_obs_list(metadata)
+        # Do not need MEF versions of individual frames for those with supercals (and with no "locals")
+        excl_list = ["bias", "dark", "domeflat", "twiflat"]
+        full_obs_list = get_full_obs_list(metadata, exclude=excl_list)
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
         # sky_obs_list = get_sky_obs_list(metadata)
@@ -609,14 +653,19 @@ def main():
         Restrict it to the first two arcs in the list (in case the feature is
         being unknowingly used).
         '''
-        wsol_in_fn = os.path.join(
-            out_dir, "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
-        )
+        # Global arc solution
+        if os.path.isfile(super_arc_mef):
+            wsol_in_fn = super_arc_mef
+        else:
+            wsol_in_fn = os.path.join(
+                out_dir, "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
+            )
         if not (skip_done and os.path.isfile(wsol_out_fn)
                 and os.path.getmtime(wsol_in_fn) < os.path.getmtime(wsol_out_fn)):
             info_print(f"Deriving master wavelength solution from {os.path.basename(wsol_in_fn)}")
             wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, plot_dir=plot_dir_arm, **args)
 
+        # Arc solutions for any specific obsevations
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
 
@@ -664,7 +713,10 @@ def main():
         if not (skip_done and os.path.isfile(wire_out_fn)
                 and os.path.getmtime(wire_in_fn) < os.path.getmtime(wire_out_fn)):
             info_print(f"Deriving global wire solution from {os.path.basename(wire_in_fn)}")
-            pywifes.derive_wifes_wire_solution(wire_in_fn, wire_out_fn, **args)
+            pywifes.derive_wifes_wire_solution(wire_in_fn,
+                                               wire_out_fn,
+                                               plot_dir=plot_dir_arm,
+                                               **args)
 
         # Wire solutions for any specific obsevations
         sci_obs_list = get_sci_obs_list(metadata)
@@ -684,7 +736,11 @@ def main():
                         and os.path.getmtime(local_wire_fn) < os.path.getmtime(local_wire_out_fn):
                     continue
                 info_print(f"Deriving local wire solution for {local_wires[0]}")
-                pywifes.derive_wifes_wire_solution(local_wire_fn, local_wire_out_fn, **args)
+                pywifes.derive_wifes_wire_solution(local_wire_fn,
+                                                   local_wire_out_fn,
+                                                   plot_dir=plot_dir_arm,
+                                                   save_prefix='local_wire_fit_params',
+                                                   **args)
         return
 
     # ------------------------------------------------------
@@ -906,7 +962,7 @@ def main():
     # ------------------------------------------------------
     # Flatfield: Response
     # ------------------------------------------------------
-    def run_flat_response(metadata, prev_suffix, curr_suffix, mode="all"):
+    def run_flat_response(metadata, prev_suffix, curr_suffix, mode="all", **args):
         '''
         Generate the flatfield response function.
         '''
@@ -923,14 +979,15 @@ def main():
                 wsol_fn=wsol_out_fn,
                 plot=True,
                 plot_dir=plot_dir_arm,
+                **args
             )
         elif mode == "dome":
             pywifes.wifes_response_poly(
                 super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
             )
         else:
-            error_print("Requested response mode not recognized")
-            raise ValueError("Requested response mode not recognized")
+            error_print("Requested response mode not recognised")
+            raise ValueError("Requested response mode not recognised")
         return
 
     # ------------------------------------------------------
@@ -948,7 +1005,8 @@ def main():
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
             if skip_done and os.path.isfile(out_fn) \
-                    and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
+                    and os.path.getmtime(in_fn) < os.path.getmtime(out_fn) \
+                    and os.path.getmtime(flat_resp_fn) < os.path.getmtime(out_fn):
                 continue
             info_print(f"Flat-fielding image {os.path.basename(in_fn)}")
             pywifes.imarith_mef(in_fn, "/", flat_resp_fn, out_fn)
@@ -973,10 +1031,6 @@ def main():
         for fn in sci_obs_list + std_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
-            if skip_done and os.path.isfile(out_fn) \
-                    and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
-                continue
-            info_print(f"Generating Data Cube for {os.path.basename(in_fn)}")
             # decide whether to use global or local wsol and wire files
             local_wires = get_associated_calib(metadata, fn, "wire")
             if local_wires:
@@ -1070,7 +1124,13 @@ def main():
                     info_print(f"(Note: using {os.path.basename(wsol_fn)} as wsol file)")
             else:
                 wsol_fn = wsol_out_fn
+            if skip_done and os.path.isfile(out_fn) \
+                    and os.path.getmtime(in_fn) < os.path.getmtime(out_fn) \
+                    and os.path.getmtime(wire_fn) < os.path.getmtime(out_fn) \
+                    and os.path.getmtime(wsol_fn) < os.path.getmtime(out_fn):
+                continue
 
+            info_print(f"Generating Data Cube for {os.path.basename(in_fn)}")
             # All done, let's generate the cube
             pywifes.generate_wifes_cube(
                 in_fn,
@@ -1327,7 +1387,7 @@ def main():
     os.makedirs(temp_data_dir, exist_ok=True)
 
     all_fits_names = get_file_names(user_data_dir, "*.fits*")
-    # Copy raw data  from user's direcory into temporaty raw directory.
+    # Copy raw data from user's direcory into temporaty raw directory.
     copy_files(user_data_dir, temp_data_dir, all_fits_names)
 
     # Creates a directory for plot.
@@ -1445,18 +1505,24 @@ def main():
             superbias_fn = os.path.join(master_dir, "%s_superbias.fits" % calib_prefix)
             superbias_fit_fn = os.path.join(master_dir, "%s_superbias_fit.fits" % calib_prefix)
 
-            # Flat Master Files
-            # Dome
+            # Dome Master Files
             super_dflat_raw = os.path.join(master_dir, "%s_super_domeflat_raw.fits" % calib_prefix)
             super_dflat_fn = os.path.join(master_dir, "%s_super_domeflat.fits" % calib_prefix)
             super_dflat_mef = os.path.join(master_dir, "%s_super_domeflat_mef.fits" % calib_prefix)
-            # Twilight
+
+            # Twilight Master Files
             super_tflat_raw = os.path.join(master_dir, "%s_super_twiflat_raw.fits" % calib_prefix)
             super_tflat_fn = os.path.join(master_dir, "%s_super_twiflat.fits" % calib_prefix)
             super_tflat_mef = os.path.join(master_dir, "%s_super_twiflat_mef.fits" % calib_prefix)
-            # Wire
+
+            # Wire Master Files
             super_wire_raw = os.path.join(master_dir, "%s_super_wire_raw.fits" % calib_prefix)
             super_wire_mef = os.path.join(master_dir, "%s_super_wire_mef.fits" % calib_prefix)
+
+            # Arc Master Files
+            super_arc_raw = os.path.join(master_dir, "%s_super_arc_raw.fits" % calib_prefix)
+            super_arc_mef = os.path.join(master_dir, "%s_super_arc_mef.fits" % calib_prefix)
+
             # Slitlet definition
             slitlet_def_fn = os.path.join(master_dir, "%s_slitlet_defs.pkl" % calib_prefix)
             wsol_out_fn = os.path.join(master_dir, "%s_wave_soln.fits" % calib_prefix)

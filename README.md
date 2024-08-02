@@ -2,12 +2,66 @@
 
 The automated Python data reduction pipeline for WiFeS. 
 
-## [July 2024 updates for this fork of the automation branch]
+## [Updates for this fork of the automation branch]
 
 Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024
 
 
-What's been done:
+What's been done [20240802]:
+
+- add very cold pixels (typically having counts at least ~4x lower than neighbors) to bad pixel mask
+
+- optional masking of Littrow ghosts in dome and sky flats
+
+- dome flats can vary in counts by up to ~1000 within a triplet, so scale them to effectively use median-stacking
+
+- twilight flats have scattered light up to several hundred, so modify the cleanup threshold
+
+- twilight flats can vary in color from night to night, but stacking near the middle is hopefully sufficient to constrain the illumination
+
+- wires likely vary in the same way as dome flats, so scale them before stacking
+
+- increase buffer and nsig_lim in flat_cleanup to avoid clipping real scattered light
+
+- chunk the imcombine process into x-sections if equivalent of > 5 unbinned images
+
+- add creation of superarc to improve S/N
+
+- add keywords for number of images imcombined
+
+- add option to set flux pixels to NaN if masked in DQ extenstion
+
+- avoid making unnecessary MEF files (bias, flat, dark)
+
+- enable diagnostic plots for flat combination; useful because:
+  - there are distinct amounts of x-axis shifts in fringe pattern of red dome flats
+  - there are distinct families of red-end behavior of blue dome flats
+
+
+***Future Development Underway***
+
+- improve fitting of flatfield and standard star shapes
+
+- explore improving fitting and removal of fringing
+
+- additional backwards compatibility with TAROS data
+
+- add time domain to the bad pixel mask
+
+- enable use of darks if present
+
+- add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
+
+- allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
+
+- modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
+
+- apply charge transfer inefficiency (CTI) correction
+
+- test additional gratings, beam-splitters, observing modes
+
+
+### Previously ###
 
 - updated bad pixel mask and simplified code to add more in the future; wait to interpolate over bad pixels in STD and OBJECT frames until VAR and DQ extensions are created and can be flagged with bad pixels
 
@@ -46,25 +100,6 @@ What's been done:
 - edits for code legibility and (most) PEP8 style conventions
 
 Tested with 1x2 Full Frame (B/R3000), 1x1 Full Frame (B/R3000), 1x2 Full Frame Nod & Shuffle (B/R3000), 1x2 Stellar (B/R3000), 1x2 TAROS Full Frame (B/R3000), 1x2 TAROS Stellar (B/R3000)
-
-
-***Future Development Underway***
-
-- improve fitting of flatfield and standard star shapes
-
-- additional backwards compatibility with TAROS data
-
-- add time domain to the bad pixel mask
-
-- add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
-
-- allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
-
-- modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
-
-- apply charge transfer inefficiency (CTI) correction
-
-- test additional gratings, beam-splitters, observing modes
 
 
 ### [May 2024 updates - use only AUTOMATION BRANCH]

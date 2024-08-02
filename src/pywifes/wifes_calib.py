@@ -174,7 +174,9 @@ def extract_wifes_stdstar(
     y_ctr=None,
     extract_radius=5.0,
     sky_radius=8.0,
-    ytrim=0,
+    xtrim=4,
+    ytrim=8,
+    wmask=500,  # mask wavelength extremes when peak-finding
     save_mode=None,
     save_fn=None,
     debug=False,
@@ -183,18 +185,25 @@ def extract_wifes_stdstar(
         print(arguments())
 
     slice_size_arcsec = 1.0
+    if is_halfframe(cube_fn) and not is_taros(cube_fn):
+        first = 7
+    else:
+        first = 1
+
     # check spatial binning!
     f = pyfits.open(cube_fn)
     exptime = float(f[1].header["EXPTIME"])
-    bin_y = int(f[1].header["CCDSUM"].split()[1])
+    bin_w, bin_y = [int(b) for b in f[1].header["CCDSUM"].split()]
+    wmask = wmask // bin_w
+    ytrim = ytrim // bin_y
     pix_size_arcsec = bin_y * 0.5
 
     # load the cube data
     init_obj_cube_data, init_obj_cube_var, lam_array = load_wifes_cube(cube_fn)
 
     inlam, iny, inx = numpy.shape(init_obj_cube_data)
-    obj_cube_data = init_obj_cube_data[:, ytrim:iny - ytrim, :]
-    obj_cube_var = init_obj_cube_var[:, ytrim:iny - ytrim, :]
+    obj_cube_data = init_obj_cube_data[:, ytrim:iny - ytrim, xtrim:inx - xtrim]
+    obj_cube_var = init_obj_cube_var[:, ytrim:iny - ytrim, xtrim:inx - xtrim]
     nlam, ny, nx = numpy.shape(obj_cube_data)
 
     # get stdstar centroid
@@ -203,17 +212,18 @@ def extract_wifes_stdstar(
     full_x, full_y = numpy.meshgrid(lin_x, lin_y)
 
     if x_ctr is None or y_ctr is None:
-        cube_im = numpy.nansum(obj_cube_data, axis=0)
+        cube_im = numpy.nansum(obj_cube_data[wmask:nlam - wmask, :, :], axis=0)
         maxind = numpy.nonzero(
             cube_im == cube_im.max()
         )  # numpy.nonzero returns indices of nonzero elements
-        yc = maxind[0][0]
-        xc = maxind[1][0]
-        std_x = xc * numpy.ones(nlam, dtype="d")
-        std_y = yc * numpy.ones(nlam, dtype="d")
+        y_ctr = maxind[0][0]
+        x_ctr = maxind[1][0]
+        std_x = x_ctr * numpy.ones(nlam, dtype="d")
+        std_y = y_ctr * numpy.ones(nlam, dtype="d")
     else:
         std_x = x_ctr * numpy.ones(nlam, dtype="d")
         std_y = y_ctr * numpy.ones(nlam, dtype="d")
+    print(f"Extracting STD from IFU (x,y) = ({x_ctr + 1 + first}, {y_ctr + 1})")
     # now extract
     std_flux = numpy.zeros(nlam, dtype="d")
     sky_flux = numpy.zeros(nlam, dtype="d")
@@ -230,7 +240,7 @@ def extract_wifes_stdstar(
         curr_var = obj_cube_var[i, :, :]
         # find mean sky spectrum outside sky radius
         sky_pix = numpy.nonzero((pix_dists >= sky_radius))
-        curr_sky_flux = numpy.median(curr_data[sky_pix])
+        curr_sky_flux = numpy.nanmedian(curr_data[sky_pix])
         # subtract sky and sum up obj flux
         obj_pix = numpy.nonzero((pix_dists <= extract_radius))
         obj_flux = numpy.sum(curr_data[obj_pix] - curr_sky_flux)
@@ -284,9 +294,6 @@ def extract_wifes_stdstar(
     else:
         f.close()
         raise ValueError("Standard Star save format not recognized")
-
-
-# here write wrapper function to save the extracted star spectrum
 
 
 # ------------------------------------------------------------------------
@@ -718,7 +725,7 @@ def derive_wifes_calibration(
 
 
 # ------------------------------------------------------------------------
-def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=None):
+def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=None, interactive_plot=False):
 
     # get wavelength array
     if is_halfframe(inimg):
@@ -757,13 +764,13 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         calib_info = pickle.load(f1)
         f1.close()
         sort_order = calib_info["wave"].argsort()
-        calib_x = calib_info["wave"][sort_order]
-        calib_y = calib_info["cal"][sort_order]
+        calib_wave = calib_info["wave"][sort_order]
+        calib_flux = calib_info["cal"][sort_order]
         std_file = calib_info["std_file"]
-        this_f = scipy.interpolate.interp1d(
-            calib_x, calib_y, bounds_error=False, fill_value=-100.0, kind="linear"
+        calib_interp = scipy.interpolate.interp1d(
+            calib_wave, calib_flux, bounds_error=False, fill_value=-100.0, kind="linear"
         )
-        all_final_fvals = this_f(wave_array)
+        all_final_fvals = calib_interp(wave_array)
         inst_fcal_array = 10.0 ** (-0.4 * all_final_fvals)
     elif mode == "iraf":
         f = pyfits.open(calib_fn)
@@ -779,6 +786,12 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         std_file = os.path.basename(calib_fn)
     else:
         raise ValueError("Calibration mode not defined")
+    if interactive_plot:
+        plt.plot(calib_wave, calib_flux, label='calib')
+        plt.scatter(wave_array, inst_fcal_array, label='interpolated')
+        plt.title(f"Standard star - {std_file}")
+        plt.legend()
+        plt.show()
     # calculate extinction curve for observed airmass
     obj_ext = 10.0 ** (-0.4 * ((secz - 1.0) * extinct_interp(wave_array)))
     fcal_array = inst_fcal_array * obj_ext

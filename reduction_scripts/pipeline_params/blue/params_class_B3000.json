@@ -10,7 +10,9 @@
             "step": "bpm_repair",
             "run": true,
             "suffix": "01",
-            "args": {}
+            "args": {
+                "flat_littrow": true
+            }
         },
         {
             "step": "superbias",
@@ -37,7 +39,8 @@
             "run": true,
             "suffix": null,
             "args": {
-                "source": "dome"
+                "source": "dome",
+                "scale": "midrow_ratio"
             }
         },
         {
@@ -46,7 +49,7 @@
             "suffix": null,
             "args": {
                 "source": "twi",
-                "scale": "median_nonzero"
+                "scale": "midrow_ratio"
             }
         },
         {
@@ -54,7 +57,17 @@
             "run": true,
             "suffix": null,
             "args": {
-                "source": "wire"
+                "source": "wire",
+                "scale": "percentile90"
+            }
+        },
+        {
+            "step": "superflat",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "arc",
+                "scale": "exptime"
             }
         },
         {
@@ -73,12 +86,13 @@
                 ],
                 "verbose": false,
                 "plot": true,
+                "buffer": 2,
                 "offsets": [
                     0.4,
                     0.4
                 ],
                 "radius": 10.0,
-                "nsig_lim": 3.0
+                "nsig_lim": 5.0
             }
         },
         {
@@ -103,6 +117,14 @@
             "suffix": null,
             "args": {
                 "source": "wire"
+            }
+        },
+        {
+            "step": "superflat_mef",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "arc"
             }
         },
         {
@@ -132,7 +154,9 @@
             "step": "wire_soln",
             "run": true,
             "suffix": null,
-            "args": {}
+            "args": {
+                "plot": true
+            }
         },
         {
             "step": "flat_response",
@@ -191,7 +215,6 @@
             "run": true,
             "suffix": null,
             "args": {
-                "ytrim": 4,
                 "type": "flux"
             }
         },
@@ -219,7 +242,9 @@
             "step": "save_3dcube",
             "run": true,
             "suffix": "cube",
-            "args": {}
+            "args": {
+                "nan_bad_pixels": true
+            }
         }
     ]
 

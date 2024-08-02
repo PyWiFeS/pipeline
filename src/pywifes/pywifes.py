@@ -9,6 +9,7 @@ from matplotlib import colormaps as cm, colors
 import numpy
 import os
 import pickle
+import re
 import scipy.ndimage as ndimage
 import scipy.interpolate as interp
 import sys
@@ -163,83 +164,255 @@ def single_centroid_prof_fit(
 
 
 # ------------------------------------------------------------------------
-def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=None, data_hdu=0):
-    try:
-        # read in data from inimg_list[0] to get image size
-        f = pyfits.open(inimg_list[0])
-        outfits = pyfits.HDUList(f)
-        orig_data = f[data_hdu].data
-        f.close()
-        nimg = len(inimg_list)
-        ny, nx = numpy.shape(orig_data)
-        coadd_arr = numpy.zeros([ny, nx, nimg], dtype="d")
-        coadd_arr[:, :, 0] = orig_data
-        # gather data for all
-        exptime_list = []
-        airmass_list = []
-        for i in range(nimg):
-            f = pyfits.open(inimg_list[i])
-            new_data = f[data_hdu].data
-            exptime_list.append(f[data_hdu].header["EXPTIME"])
-            if f[data_hdu].header["IMAGETYP"].upper() in ["ARC", "BIAS", "FLAT", "SKYFLAT", "WIRE", "ZERO"]:
-                airmass_list.append(1.0)
-            else:
-                try:
-                    airmass_list.append(f[data_hdu].header["AIRMASS"])
-                except Exception as air_err:
-                    logger.warning(
-                        f"Failed to get airmass for {f[data_hdu].header['IMAGETYP'].upper()} image {inimg_list[i]}: {air_err}"
-                    )
+def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=None, data_hdu=0,
+              kwstring=None, commstring=None, outvarimg=None, sregion=None,
+              debug=False, interactive_plot=False):
+    if debug:
+        print(arguments())
+
+    inimg_list.sort()
+    # read in data from inimg_list[0] to get image size
+    f = pyfits.open(inimg_list[0])
+    outfits = pyfits.HDUList(f)
+    orig_data = f[data_hdu].data
+    bin_x, bin_y = [int(b) for b in f[data_hdu].header["CCDSUM"].split()]
+    f.close()
+
+    nimg = len(inimg_list)
+    # if too many inputs, do the combining by chunks
+    if nimg > 5 * bin_x * bin_y:
+        print(f"List has {nimg} images, combining by chunks")
+        coadd_data, var_arr = imcombine_chunks(inimg_list, outimg, method=method,
+                                               nonzero_thresh=nonzero_thresh, scale=scale,
+                                               data_hdu=data_hdu, kwstring=kwstring,
+                                               commstring=commstring, outvarimg=outvarimg,
+                                               sregion=sregion, debug=debug,
+                                               interactive_plot=interactive_plot)
+    else:
+        try:
+            if scale == "midrow_ratio":
+                midrow_shift = 80 // bin_y if is_taros(inimg_list[0]) else 0
+                midrow = orig_data[orig_data.shape[0] // 2 - midrow_shift, :]
+            ny, nx = numpy.shape(orig_data)
+            coadd_arr = numpy.zeros([ny, nx, nimg], dtype="d")
+            coadd_arr[:, :, 0] = orig_data
+            if outvarimg is not None:
+                var_arr = numpy.zeros_like(orig_data)
+            # gather data for all
+            exptime_list = []
+            airmass_list = []
+            for i in range(nimg):
+                f = pyfits.open(inimg_list[i])
+                new_data = f[data_hdu].data
+                exptime_list.append(f[data_hdu].header["EXPTIME"])
+                if f[data_hdu].header["IMAGETYP"].upper() in ["ARC", "BIAS", "FLAT", "SKYFLAT", "WIRE", "ZERO"]:
                     airmass_list.append(1.0)
-            f.close()
-            if scale is None:
-                scale_factor = 1.0
-            elif scale == "median":
-                scale_factor = numpy.nanmedian(new_data)
-            elif scale == "median_nonzero":
-                nonzero_inds = numpy.nonzero(new_data > nonzero_thresh)
-                scale_factor = numpy.nanmedian(new_data[nonzero_inds])
-            elif scale == "exptime":
-                scale_factor = exptime_list[-1]
+                else:
+                    try:
+                        airmass_list.append(f[data_hdu].header["AIRMASS"])
+                    except Exception as air_err:
+                        logger.warning(
+                            f"Failed to get airmass for {f[data_hdu].header['IMAGETYP'].upper()} image {inimg_list[i]}: {air_err}"
+                        )
+                        airmass_list.append(1.0)
+                f.close()
+                if scale is None:
+                    scale_factor = 1.0
+                else:
+                    if sregion is None:
+                        sreg_min = 0
+                        sreg_max = new_data.shape[1]
+                    else:
+                        sreg_min, sreg_max = [int(s) for s in sregion.split(":")]
+                    if scale == "median":
+                        scale_factor = numpy.nanmedian(new_data[:, sreg_min:sreg_max], )
+                    elif scale == "median_nonzero":
+                        nonzero_inds = numpy.nonzero(new_data[:, sreg_min:sreg_max] > nonzero_thresh)
+                        scale_factor = numpy.nanmedian(new_data[:, sreg_min:sreg_max][nonzero_inds])
+                    elif scale == "exptime":
+                        scale_factor = exptime_list[-1]
+                    elif re.match("percentile", scale):
+                        perc = float(scale.split("percentile")[1])
+                        scale_factor = numpy.nanpercentile(new_data[:, sreg_min:sreg_max], perc)
+                    elif scale == "midrow_ratio":
+                        if i == 0:
+                            scale_factor = 1.0
+                        else:
+                            scale_factor = numpy.nanmedian(new_data[new_data.shape[0] // 2 - midrow_shift, :] / midrow)
+                    else:
+                        raise ValueError("scaling method not yet supported")
+                    if debug:
+                        print(f"Scaling down image {inimg_list[i]} by {scale_factor}")
+                coadd_arr[:, :, i] = new_data / scale_factor
+                # later - scale data by some value, e.g. median or exptime
+                gc.collect()
+            if interactive_plot:
+                fig = plt.figure()
+                ax1 = fig.add_subplot(2, 1, 1)
+                ax2 = fig.add_subplot(2, 1, 2)
+                for i in range(coadd_arr.shape[2]):
+                    ax1.plot(coadd_arr[ny // 2, :, i] + 0.05 * i)
+                    ax2.plot(coadd_arr[ny // 2, :, i])
+                ax2.set_xlabel("pixel")
+                plt.show()
+            # now combine
+            if method == "median":
+                coadd_data = numpy.nanmedian(coadd_arr, axis=2)
+            elif method == "sum":
+                coadd_data = numpy.nansum(coadd_arr, axis=2)
+            elif method == "mean":
+                coadd_data = numpy.nanmean(coadd_arr, axis=2)
             else:
-                raise ValueError("scaling method not yet supported")
-            coadd_arr[:, :, i] = new_data / scale_factor
-            # later - scale data by some value, e.g. median or exptime
-            gc.collect()
-        # now do median (or something else - tbd later)
-        if method == "median":
-            coadd_data = numpy.nanmedian(coadd_arr, axis=2)
-        elif method == "sum":
-            coadd_data = numpy.nansum(coadd_arr, axis=2)
-        else:
-            raise ValueError("combine method not yet supported")
-        outfits[data_hdu].data = coadd_data.astype("float32", casting="same_kind")
+                raise ValueError("combine method not yet supported")
+            # Create and output the variance image, if requested
+            if outvarimg is not None:
+                var_arr = numpy.nanvar(coadd_arr, axis=2, dtype="float64")
+        except Exception as e:
+            logger.error(f"An error occurred in imcombine: {str(e)}")
+            raise
+
+    outfits[data_hdu].data = coadd_data.astype("float32", casting="same_kind")
+    outfits[data_hdu].scale("float32")
+    # fix ephemeris data if images are co-added!!!
+    if method == "sum" and scale is None:
+        f1 = pyfits.open(inimg_list[0])
+        # first_hdr = f1[data_hdu].header
+        f1.close()
+        f2 = pyfits.open(inimg_list[-1])
+        last_hdr = f2[data_hdu].header
+        f2.close()
+        # HAEND, ZDEND, EXPTIME
+        outfits[data_hdu].header.set("EXPTIME", sum(exptime_list))
+        outfits[data_hdu].header.set("LSTEND", last_hdr["LSTEND"])
+        outfits[data_hdu].header.set("UTCEND", last_hdr["UTCEND"])
+        outfits[data_hdu].header.set("HAEND", last_hdr["HAEND"])
+        outfits[data_hdu].header.set("ZDEND", last_hdr["ZDEND"])
+        outfits[data_hdu].header.set("AIRMASS", numpy.nanmean(numpy.array(airmass_list)))
+    # (5) write to outfile!
+    outfits[data_hdu].header.set("PYWIFES", __version__, "PyWiFeS version")
+    if kwstring is not None and commstring is not None:
+        outfits[data_hdu].header.set(f"PYW{kwstring[:5].upper()}", nimg, f"PyWiFeS: number of {commstring[:30]} exposures combined")
+    outfits.writeto(outimg, overwrite=True)
+    # write the variance image, if requested
+    if outvarimg is not None:
+        outfits[data_hdu].data = var_arr.astype("float32", casting="same_kind")
         outfits[data_hdu].scale("float32")
-        # fix ephemeris data if images are co-added!!!
-        if method == "sum" and scale is None:
-            f1 = pyfits.open(inimg_list[0])
-            # first_hdr = f1[data_hdu].header
-            f1.close()
-            f2 = pyfits.open(inimg_list[-1])
-            last_hdr = f2[data_hdu].header
-            f2.close()
-            # HAEND, ZDEND, EXPTIME
-            outfits[data_hdu].header.set("EXPTIME", sum(exptime_list))
-            outfits[data_hdu].header.set("LSTEND", last_hdr["LSTEND"])
-            outfits[data_hdu].header.set("UTCEND", last_hdr["UTCEND"])
-            outfits[data_hdu].header.set("HAEND", last_hdr["HAEND"])
-            outfits[data_hdu].header.set("ZDEND", last_hdr["ZDEND"])
-            outfits[data_hdu].header.set("AIRMASS", numpy.nanmean(numpy.array(airmass_list)))
-        # (5) write to outfile!
-        outfits[data_hdu].header.set("PYWIFES", __version__, "PyWiFeS version")
-        outfits.writeto(outimg, overwrite=True)
-        gc.collect()
-    except Exception as e:
-        logger.error(f"An error occurred in imcombine: {str(e)}")
-        raise
+        outfits.writeto(outvarimg, overwrite=True)
+    gc.collect()
     return
 
 
+# ------------------------------------------------------------------------
+def imcombine_chunks(inimg_list, outimg, method="median", nonzero_thresh=100., scale=None,
+                     data_hdu=0, kwstring=None, commstring=None, outvarimg=None, sregion=None,
+                     debug=False, interactive_plot=False):
+    if debug:
+        print(arguments())
+    nimg = len(inimg_list)
+    try:
+        # read in data from inimg_list[0] to get image size
+        f = pyfits.open(inimg_list[0])
+        orig_data = f[data_hdu].data
+        bin_y = int(f[data_hdu].header["CCDSUM"].split()[1])
+        f.close()
+        scale_factor = numpy.ones(nimg)
+        if scale is not None:
+            # Do a preliminary loop over the images to determine scale factors
+            # (which may rely on whole image)
+            if scale == "midrow_ratio":
+                midrow_shift = 80 // bin_y if is_taros(inimg_list[0]) else 0
+                midrow = orig_data[orig_data.shape[0] // 2 - midrow_shift, :]  # needed if scale == "midrow_ratio"
+            for i in range(nimg):
+                f = pyfits.open(inimg_list[i])
+                new_data = f[data_hdu].data
+                if sregion is None:
+                    sreg_min = 0
+                    sreg_max = new_data.shape[1]
+                else:
+                    sreg_min, sreg_max = [int(s) for s in sregion.split(":")]
+                if scale == "median":
+                    scale_factor[i] = numpy.nanmedian(new_data[:, sreg_min:sreg_max], )
+                elif scale == "median_nonzero":
+                    nonzero_inds = numpy.nonzero(new_data[:, sreg_min:sreg_max] > nonzero_thresh)
+                    scale_factor[i] = numpy.nanmedian(new_data[:, sreg_min:sreg_max][nonzero_inds])
+                elif scale == "exptime":
+                    scale_factor[i] = f[data_hdu].header["EXPTIME"]
+                elif re.match("percentile", scale):
+                    perc = float(scale.split("percentile")[1])
+                    scale_factor[i] = numpy.nanpercentile(new_data[:, sreg_min:sreg_max], perc)
+                elif scale == "midrow_ratio":
+                    if i == 0:
+                        scale_factor[i] = 1.0
+                    else:
+                        scale_factor[i] = numpy.nanmedian(new_data[new_data.shape[0] // 2 - midrow_shift, :] / midrow)
+                else:
+                    raise ValueError("scaling method not yet supported")
+                if debug:
+                    print(f"Scaling down image {inimg_list[i]} by {scale_factor[i]}")
+        ny, nx = numpy.shape(orig_data)
+        # chunk in x-axis
+        chunks = int(numpy.ceil(nimg / 10.))
+        coadd_data = numpy.zeros_like(orig_data)
+        if outvarimg is not None:
+            var_arr = numpy.zeros_like(orig_data)
+        else:
+            var_arr = None
+        # gather data for all
+        exptime_list = []
+        airmass_list = []
+        for ch in range(chunks):
+            xmin = ch * nx // chunks
+            xmax = min((ch + 1) * nx // chunks, nx)
+            if debug:
+                print(f"Chunk {ch+1}: xrange=[{xmin}:{xmax}]")
+            coadd_arr = numpy.zeros([ny, xmax - xmin, nimg], dtype="d")
+            for i in range(nimg):
+                f = pyfits.open(inimg_list[i])
+                new_data = f[data_hdu].data[:, xmin:xmax]
+                if ch == 0:
+                    exptime_list.append(f[data_hdu].header["EXPTIME"])
+                    if f[data_hdu].header["IMAGETYP"].upper() in ["ARC", "BIAS", "FLAT", "SKYFLAT", "WIRE", "ZERO"]:
+                        airmass_list.append(1.0)
+                    else:
+                        try:
+                            airmass_list.append(f[data_hdu].header["AIRMASS"])
+                        except Exception as air_err:
+                            logger.warning(
+                                f"Failed to get airmass for {f[data_hdu].header['IMAGETYP'].upper()} image {inimg_list[i]}: {air_err}"
+                            )
+                            airmass_list.append(1.0)
+                f.close()
+                coadd_arr[:, :, i] = new_data / scale_factor[i]
+                gc.collect()
+            if interactive_plot:
+                fig = plt.figure()
+                ax1 = fig.add_subplot(2, 1, 1)
+                ax2 = fig.add_subplot(2, 1, 2)
+                for i in range(coadd_arr.shape[2]):
+                    ax1.plot(coadd_arr[ny // 2, :, i] + 0.05 * i)
+                    ax2.plot(coadd_arr[ny // 2, :, i])
+                ax2.set_xlabel("pixel")
+                plt.show()
+            # now combine
+            if method == "median":
+                coadd_data[:, xmin:xmax] = numpy.nanmedian(coadd_arr, axis=2)
+            elif method == "sum":
+                coadd_data[:, xmin:xmax] = numpy.nansum(coadd_arr, axis=2)
+            elif method == "mean":
+                coadd_data[:, xmin:xmax] = numpy.nanmean(coadd_arr, axis=2)
+            else:
+                raise ValueError("combine method not yet supported")
+            # Create the variance image, if requested
+            if outvarimg is not None:
+                var_arr[:, xmin:xmax] = numpy.nanvar(coadd_arr, axis=2, dtype="float64")
+
+        return coadd_data, var_arr
+    except Exception as e:
+        logger.error(f"An error occurred in imcombine: {str(e)}")
+        raise
+
+
+# ------------------------------------------------------------------------
 def imcombine_mef(
     inimg_list,
     outimg,
@@ -897,7 +1070,7 @@ def convert_ccd_to_bindata_pix(pix_defs, bin_x, bin_y):
     return mod_pix_defs
 
 
-def make_overscan_mask(dflat, omask, data_hdu=0):
+def make_overscan_mask(dflat, omask, data_hdu=0, debug=False):
     # From a domeflat, get the slice y-axis locations from a median cut
     # through the centre. Then use the mean of the illuminated and
     # non-illuminated pixels to define a threshold. Rows above the
@@ -905,7 +1078,8 @@ def make_overscan_mask(dflat, omask, data_hdu=0):
     # due to elevated counts in those rows. Note that the output FITS
     # image has a single axis, so gets treated by many tools as having
     # only an x-axis extent.
-
+    if debug:
+        print(arguments())
     fdata = pyfits.getdata(dflat, ext=data_hdu)
     ysize, xsize = fdata.shape
     fslice = numpy.nanmedian(fdata[:, int(0.33 * xsize):int(0.67 * xsize)], axis=1)
@@ -1119,7 +1293,7 @@ def subtract_overscan(
 
 
 # ------------------------------------------------------------------------
-def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1,
+def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littrow=False,
                         interactive_plot=False, verbose=False, debug=False):
     """Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
     calibration frames, but sets bad pixels to NaN for STANDARD and OBJECT frames. The NaN
@@ -1155,7 +1329,55 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1,
     # Limits are inclusive of the bad pixels on both ends of range
     bad_data = [[746, 4095, 1525, 1531],
                 [2693, 3104, 3944, 3944],
+                # cold pixels
+                [3974, 4053, 900, 900],
+                [2387, 2388, 2197, 2197],
+                [909, 913, 1064, 1066],
                 ]
+    # Optionally mask the Littrow ghosts (one per slitlet) in flats, to be interpolated over
+    # Regions are generous to accommodate lamp vs sky and thermal shifts
+    if flat_littrow and orig_hdr['IMAGETYP'].upper() in ['FLAT', 'SKYFLAT']:
+        littrow_data = [
+            [3965, 4040, 3115, 3140],
+            [3805, 3880, 3116, 3141],
+            [3647, 3722, 3118, 3143],
+            [3492, 3567, 3119, 3144],
+            [3336, 3411, 3120, 3145],
+            [3178, 3253, 3123, 3148],
+            [3018, 3093, 3124, 3149],
+            [2858, 2933, 3126, 3151],
+            [2697, 2772, 3128, 3153],
+            [2537, 2612, 3130, 3155],
+            [2377, 2452, 3131, 3156],
+            [2217, 2292, 3133, 3158],
+            [2056, 2131, 3135, 3160],
+            [1897, 1972, 3138, 3163],
+            [1736, 1811, 3140, 3165],
+            [1575, 1650, 3143, 3168],
+            [1415, 1490, 3145, 3170],
+            [1255, 1330, 3146, 3171],
+            [1095, 1170, 3148, 3173],
+            [934, 1009, 3150, 3175],
+            [774, 849, 3153, 3178],
+            [614, 689, 3157, 3182],
+            [454, 529, 3159, 3184],
+            [294, 369, 3162, 3187],
+            [134, 209, 3164, 3189],
+        ]
+        if orig_hdr['GRATINGB'] == 'B7000':
+            for ll in littrow_data:
+                ll[0] -= 30
+                ll[1] -= 30
+                ll[2] -= 1050
+                ll[3] -= 1050
+        elif orig_hdr['GRATINGB'] == 'U7000':
+            for ll in littrow_data:
+                ll[0] -= 25
+                ll[1] -= 25
+                ll[2] -= 1015
+                ll[3] -= 1015
+        bad_data.extend(littrow_data)
+
     interp_data = 1.0 * orig_data
     for yfirst, ylast, xfirst, xlast in bad_data:
         yfirst = max(min(yfirst - y_veryfirst, y_verylast - y_veryfirst), 0)
@@ -1190,7 +1412,7 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1,
     return
 
 
-def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1,
+def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littrow=False,
                        interactive_plot=False, verbose=False, debug=False):
     """Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
     calibration frames, but sets bad pixels to NaN for STANDARD and OBJECT frames. The NaN
@@ -1230,7 +1452,76 @@ def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1,
                 [3978, 3986, 897, 906],
                 [0, 3387, 939, 939],
                 [0, 1787, 2273, 2273],
+                # cold pixels
+                [3759, 3762, 257, 260],
+                [3373, 3376, 2382, 2385],
+                [3323, 3323, 2511, 2511],
+                [3319, 3319, 728, 728],
+                [3114, 3120, 1402, 1407],
+                [2944, 2949, 3702, 3706],
+                [2966, 2968, 3747, 3749],
+                [2684, 2685, 756, 757],
+                [2361, 2361, 1489, 1489],
+                [2249, 2251, 898, 899],
+                [2013, 2016, 1149, 1153],
+                [2017, 2017, 1151, 1153],
+                [2045, 2045, 1262, 1263],
+                [2037, 2039, 1825, 1826],
+                [2040, 2040, 1826, 1826],
+                [2036, 2036, 1826, 1826],
+                [1558, 1558, 2430, 2430],
+                [705, 708, 2184, 2189],
+                [632, 635, 905, 905],
+                [634, 636, 906, 906],
                 ]
+    # Optionally mask the Littrow ghosts (one per slitlet) in flats, to be interpolated over
+    # Regions are generous to accommodate lamp vs sky and thermal shifts
+    if flat_littrow and orig_hdr['IMAGETYP'].upper() in ['FLAT', 'SKYFLAT']:
+        littrow_data = [
+            [3963, 4038, 1502, 1532],
+            [3785, 3860, 1505, 1535],
+            [3637, 3712, 1506, 1535],
+            [3484, 3559, 1510, 1540],
+            [3329, 3404, 1505, 1535],
+            [3169, 3244, 1504, 1536],
+            [3009, 3084, 1507, 1537],
+            [2852, 2927, 1504, 1536],
+            [2691, 2766, 1504, 1536],
+            [2533, 2608, 1505, 1537],
+            [2374, 2449, 1505, 1535],
+            [2214, 2289, 1505, 1535],
+            [2055, 2130, 1500, 1530],
+            [1896, 1971, 1497, 1527],
+            [1737, 1812, 1498, 1528],
+            [1577, 1652, 1495, 1525],
+            [1418, 1493, 1495, 1525],
+            [1256, 1331, 1493, 1523],
+            [1099, 1174, 1487, 1517],
+            [938, 1013, 1486, 1516],
+            [778, 853, 1480, 1510],
+            [615, 690, 1478, 1508],
+            [458, 533, 1473, 1503],
+            [289, 364, 1470, 1500],
+            [108, 183, 1465, 1495],
+        ]
+        if orig_hdr['GRATINGR'] == 'R7000':
+            # Falls completely on science slits and strongly resolved into two peaks
+            # Could use more sophisticated treatment
+            for ll in littrow_data:
+                ll[0] -= 30
+                ll[1] -= 30
+                ll[2] += 555
+                ll[3] += 555
+        elif orig_hdr['GRATINGR'] == 'I7000':
+            # Falls completely on science slits and strongly resolved into two peaks
+            # Could use more sophisticated treatment
+            for ll in littrow_data:
+                ll[0] -= 30
+                ll[1] -= 30
+                ll[2] += 530
+                ll[3] += 530
+        bad_data.extend(littrow_data)
+
     interp_data = 1.0 * orig_data
     for yfirst, ylast, xfirst, xlast in bad_data:
         if is_taros(inimg) and yfirst == 0:
@@ -1460,7 +1751,6 @@ def fit_wifes_interslit_bias(
     # ---------------------------
     # (4) return it!
     return out_data
-    return
 
 
 def save_wifes_interslit_bias(
@@ -1932,6 +2222,7 @@ def interslice_cleanup(
     save_prefix="cleanup_",
     method="2D",
     debug=False,
+    interactive_plot=False,
 ):
     """Uses the dark interslice regions of the detector to interpolate the
     scattered light over the entire detector.
@@ -2056,12 +2347,23 @@ def interslice_cleanup(
         tmp[data[symin:symax, xmin:xmax] < (median + nsig_lim * std)] = data[
             symin:symax, xmin:xmax
         ][data[symin:symax, xmin:xmax] < (median + nsig_lim * std)]
+
+        if interactive_plot:
+            plt.imshow(tmp, aspect='auto', origin='lower')
+            plt.title(f"Slitlet {slit}: tmp[{symin}:{symax}, {xmin}:{xmax}] = data < {median} + {nsig_lim} * {std}")
+            plt.show()
+        # Perform smoothing
         if method == "2D":
             inter_smooth[symin:symax, xmin:xmax] = ndimage.gaussian_filter(
                 tmp, sigma=[radius, radius]
             )
         elif method == "1D":
             inter_smooth[symin:symax, xmin:xmax] += numpy.nanmedian(tmp)
+        if interactive_plot:
+            plt.imshow(inter_smooth[symin:symax, xmin:xmax], aspect='auto', origin='lower')
+            plt.title(f"Slitlet {slit}: inter_smooth[{symin}:{symax}, {xmin}:{xmax}]")
+            plt.show()
+
         # And don't forget below the last slice
         if slit == last_slit:
             symin = 1
@@ -2072,6 +2374,11 @@ def interslice_cleanup(
                 )
             elif method == "1D":
                 inter_smooth[symin:symax, xmin:xmax] += numpy.nanmedian(tmp)
+            if interactive_plot:
+                plt.imshow(inter_smooth[symin:symax, xmin:xmax], aspect='auto', origin='lower')
+                plt.title(f"Slitlet {slit}: extra inter_smooth[{symin}:{symax}, {xmin}:{xmax}]")
+                plt.show()
+
     # ------------------------------------
     # 5) Great, now we can interpolate this and reconstruct the contamination
     # Do each slitlet individually to avoid overloading the memory
@@ -2134,17 +2441,27 @@ def interslice_cleanup(
         else:
             func = interp.RectBivariateSpline(y, x, grid, kx=1, ky=1)
             fitted[y1:y4, xmin:xmax] = func(yall, xall)
+        if interactive_plot:
+            plt.imshow(grid, aspect='auto', origin='lower')
+            plt.title(f"Slitlet {slit} - grid[{y1}:{y4}, {xmin}:{xmax}]")
+            plt.show()
+            plt.imshow(fitted[y1:y4, xmin:xmax], aspect='auto', origin='lower')
+            plt.title(f"Slitlet {slit} - fitted[{y1}:{y4}, {xmin}:{xmax}]")
+            plt.show()
 
     # ------------------------------------
     # 7) All done ! Let's save it all ...
     f = pyfits.open(input_fn)
     f[0].data = fitted
+    # Save the corretion image separately just in case
     f.writeto(
         input_fn[:-5] + "_corr.fits", overwrite=True
-    )  # Save the corretion image separately just in case
-    f[0].data = data - fitted + offset * numpy.nanmean(fitted)
+    )
+    # Add back in a small offset to avoid the flat approaching zero
+    applied_offset = numpy.round(offset * numpy.nanmedian(fitted), 1)
+    f[0].data = data - fitted + applied_offset
     f[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    f[0].header.set("PYWICOFF", offset, "PyWiFeS: interslice cleanup offset")
+    f[0].header.set("PYWICOFF", applied_offset, "PyWiFeS: interslice cleanup additive offset")
     f[0].header.set("PYWICBUF", buffer, "PyWiFeS: interslice clenaup buffer")
     f[0].header.set("PYWICRAD", radius, "PyWiFeS: interslice cleanup radius")
     f[0].header.set("PYWICSLM", nsig_lim, "PyWiFeS: interslice cleanup nsig_lim")
@@ -2185,10 +2502,13 @@ def interslice_cleanup(
 
 
 def wifes_slitlet_mef(
-    inimg, outimg, data_hdu=0, bin_x=None, bin_y=None, slitlet_def_file=None, interp_nan=True, debug=False,
+    inimg, outimg, data_hdu=0, bin_x=None, bin_y=None, slitlet_def_file=None, interp_nan=True,
+    replace_nan=False, repl_val=0, debug=False,
 ):
     if debug:
         print(arguments())
+    if interp_nan and replace_nan:
+        raise ValueError(f"Conflicting NaN-treatment instructions in wifes_slitlet_mef for image {inimg}")
     f = pyfits.open(inimg)
     outfits = pyfits.HDUList([pyfits.PrimaryHDU(header=f[0].header)])
     old_hdr = f[data_hdu].header
@@ -2241,6 +2561,9 @@ def wifes_slitlet_mef(
                 if numpy.any(numpy.isnan(full_data[row, :])):
                     nans, x = nan_helper(full_data[row, :])
                     full_data[row, :][nans] = numpy.interp(x(nans), x(~nans), full_data[row, :][~nans])
+        # Replace NaNs with indicated value
+        if replace_nan:
+            full_data[numpy.isnan(full_data)] = repl_val
 
     # ---------------------------
     # for each slitlet, save it to a single header extension
@@ -2892,7 +3215,7 @@ def wifes_2dim_response(
     plot_dir='.',
     save_prefix="flat_response",
     polydeg=7,
-    resp_min=1.0e-6,
+    resp_min=1.0e-4,
     debug=False,
 ):
     if debug:
@@ -3155,7 +3478,7 @@ def derive_wifes_wire_solution(
     bin_x=None,
     bin_y=None,
     fit_zones=[16, 26, 54, 70],
-    flux_threshold=0.05,
+    flux_threshold=0.001,
     wire_polydeg=1,
     xlims="default",
     interactive_plot=False,
@@ -3168,16 +3491,15 @@ def derive_wifes_wire_solution(
         print(arguments())
     # note: later have these parameters as user-input kwargs
     # SOME PARAMTERS FOR THE FITTING
-    init_nave = 10
+    init_nave = 100  # number of unbinned x-pixels to average together
     bg_polydeg = 3
-    # ctr_polydeg = 15
     xlim_defaults = {
         "U7000": [1, 2500],
         "B7000": [1, 4096],
         "R7000": [1000, 3000],
         "I7000": [1, 4096],
-        "B3000": [200, 3300],
-        "R3000": [850, 3000],
+        "B3000": [100, 3300],
+        "R3000": [500, 3700],
     }
     # define region for fitting light profile
     init_fit_pmin_1 = fit_zones[0]
@@ -3221,8 +3543,8 @@ def derive_wifes_wire_solution(
         xmin = (xlim_defaults[grating][0] - 1) // bin_x
         xmax = (xlim_defaults[grating][1] - 1) // bin_x
     else:
-        xmin = xlims[0]
-        xmax = xlims[1]
+        xmin = xlims[0] // bin_x
+        xmax = xlims[1] // bin_x
     # adjust the fit regions accordingly
     nave = init_nave // bin_x
     fit_pmin_1 = init_fit_pmin_1 // bin_y
@@ -4063,7 +4385,7 @@ def generate_wifes_cube_multithread(
 
 
 # ------------------------------------------------------------------------
-def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, debug=False):
+def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_pixels=False, debug=False):
     # load in data
     # assumes it is in pywifes format
     # otherwise why are you using this function
@@ -4118,6 +4440,8 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, debug=Fal
             curr_data = f[1].data[:, :, i]
             curr_var = f[2].data[:, :, i]
             curr_dq = f[3].data[:, :, i]
+            if nan_bad_pixels:
+                curr_data[curr_dq > 0] = numpy.nan
             obj_cube_data[:, :, nx - i - 1] = curr_data
             obj_cube_var[:, :, nx - i - 1] = curr_var
             obj_cube_dq[:, :, nx - i - 1] = curr_dq

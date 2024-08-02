@@ -166,8 +166,8 @@ def classify(data_dir, naxis2_to_process=0):
 
     """
 
-    # Get list of all fits files in directory
-    filenames = os.listdir(data_dir)
+    # Get list of all fits files in directory and sort to ensure repeatability
+    filenames = sorted(os.listdir(data_dir))
 
     # Filtering the data as per blue and red arm
     blue_filenames = []

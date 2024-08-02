@@ -133,7 +133,7 @@ def lacos_spec_data(
 
         # ------------------------------------
         # step 7 - interpolate over neighboring pixels to fill the bad CR pix
-        all_bpix = numpy.nonzero(global_bpm)
+        all_bpix = numpy.nonzero(new_bpm)  # tends to spread original bad pixels if looping over global_bpm here
         n_bpix = len(all_bpix[0])
         for i in range(n_bpix):
             bpy = all_bpix[0][i]
