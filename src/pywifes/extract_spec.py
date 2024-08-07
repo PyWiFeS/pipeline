@@ -561,7 +561,7 @@ def detect_extract_and_save(
             plt.tight_layout()
             fig_output = os.path.join(output_dir, plot_path)
             plt.savefig(fig_output, bbox_inches="tight", dpi=300)
-            plt.close()
+            plt.close('all')
 
 
 # TODO Replace with a proper SpecUtils loader
@@ -637,4 +637,4 @@ def plot_1D_spectrum(spec_path, plot_dir):
     plt.grid(True)
 
     plt.savefig(plot_path, dpi=300)
-    plt.close()
+    plt.close('all')

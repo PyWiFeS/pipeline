@@ -666,7 +666,7 @@ def derive_wifes_calibration(
             plot_name = f"{star_name}.png"
             plot_path = os.path.join(plot_dir, plot_name)
             plt.savefig(plot_path, dpi=300)
-            plt.close()
+            plt.close('all')
 
     # from all comparisons, derive a calibration solution
     # EVENTUALLY WILL FIT AN EXTINCTION TERM TOO
@@ -905,7 +905,7 @@ def derive_wifes_calibration(
         plot_name = "flux_calibration_solution.png"
         plot_path = os.path.join(plot_dir, plot_name)
         plt.savefig(plot_path, dpi=300)
-        plt.close()
+        plt.close('all')
 
 
     save_calib = {"wave": final_x, "cal": final_y}
@@ -1260,7 +1260,7 @@ def derive_wifes_telluric(
         plot_name = "telluric_correction.png"
         plot_path = os.path.join(plot_dir, plot_name)
         plt.savefig(plot_path, dpi=300)
-        plt.close()
+        plt.close('all')
 
     # ---------------------------------------------
     # save to output file!

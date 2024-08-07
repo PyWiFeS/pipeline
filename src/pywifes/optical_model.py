@@ -52,7 +52,7 @@ def saveResamplingData(fname, yrange, grating, bin_x, bin_y, pl,halfframe):
       and one for y."""
 
   if halfframe:
-    nslits = 12
+    nslits = 12  
   else:
     nslits = 25  
 
@@ -102,7 +102,7 @@ def plotLines(title,allx,ally,save_fn=None):
   plt.ylabel("y pixel")
   plt.title(title)
   plt.savefig(save_fn,dpi=300)
-  plt.close()
+  plt.close('all')
 
 def plotFunc(title,allx,ally,allarcs,f):
   """ Do a plot of the fit"""
@@ -165,7 +165,7 @@ def plotResid(title,allx,ally,allarcs,resid,save_fn=None):
 
 
   plt.savefig(save_fn,dpi=300)
-  plt.close()
+  plt.close('all')
 
 def mpfitfunc(p, fjac=None, s=None, y=None, x=None, grating=None, arc=None, err=None):
   # Parameter values are passed in "p"
@@ -639,8 +639,6 @@ def excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, plot, verbose):
 
 def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
 
-    plt.close()  # Close any existing plots
-
     fig = plt.figure(figsize=(10, 6))
     plt.suptitle(title)
 
@@ -712,5 +710,5 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6,left=0.075,right=0.925,bottom=0.09)  # Adjust top to make room for suptitle
 
     plt.savefig(plot_path, dpi=300)
-    plt.close()
+    plt.close('all')
 

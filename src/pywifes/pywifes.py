@@ -96,7 +96,7 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix='cut_'):
         bin_y = int(float(bins[1]))
 
         # Cut the data according to the specified sectionclear
-        cut_data = data[int(1028 / bin_y) : int(3084 / bin_y), :]
+        cut_data = data[ 1028 // bin_y : 3084 // bin_y, :]
 
         # Update the DETSEC in the header
         header["DETSEC"] = "[1:4202,1029:3084]"

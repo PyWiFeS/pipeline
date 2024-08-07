@@ -3,18 +3,25 @@ import pickle
 from photutils.aperture import RectangularAperture
 from astropy.io import fits
 import numpy as np
+from pywifes.pywifes import is_halfframe
 
 def slitlet_cutout(image, aperture):
     mask = aperture.to_mask(method="center")
     cutout = mask.cutout(image)
     return cutout
 
-def slitlet_aperture(boundaries, bin_x=1, bin_y=2):
+def slitlet_aperture(boundaries, halfframe, bin_x=1, bin_y=2):
     xmin, xmax, ymin, ymax = boundaries
     xmin = np.round(xmin // bin_x)
     xmax = np.round(xmax // bin_x)
-    ymin = np.round(ymin // bin_y)
-    ymax = np.round(ymax // bin_y)
+    
+    if halfframe:
+        ymin = np.round(ymin // bin_y) - (1028 // bin_y)
+        ymax = np.round(ymax // bin_y) - (1028 // bin_y)
+    else:
+        ymin = np.round(ymin // bin_y) 
+        ymax = np.round(ymax // bin_y) 
+
     center_x = (xmin + xmax) / 2
     center_y = (ymin + ymax) / 2
     width = xmax - xmin
@@ -27,14 +34,23 @@ def read_pkl(path_pkl):
         data = pickle.load(file)
     return data
 
-def plot_slitlet(ax, path_slitlet):
+def plot_slitlet(ax, path_slitlet, halfframe):
+
+    if halfframe:
+        first = 7
+        last = 19
+    else:
+        first = 1
+        last = 26
+
     slitlets = read_pkl(path_slitlet)
     # Toy plot for labeling
     ax.plot(0,0, color ='red', lw=1, ls='--',label='Slitlet boundary',zorder=-1)
 
-    for slit_number in slitlets:
+    for index in range(first, last):
+        slit_number = str(index)
         boundaries = slitlets[slit_number]
-        aperture = slitlet_aperture(boundaries, bin_x=1, bin_y=2)
+        aperture = slitlet_aperture(boundaries, halfframe, bin_x=1, bin_y=2)
         aperture.plot(ax=ax, color='red', lw=1, ls='--')
 
 def plot_fits(ax, image_path, min=5, max=95, cmap="nipy_spectral"):
@@ -53,15 +69,31 @@ def plot_collapsed_slitlets(ax, path_slitlet, image_path):
         median_slitlet = np.median(cutout, axis=0)
         ax.plot(median_slitlet)
 
-def slitlet_yticks(path_slitlet,bin_x=1, bin_y=2):
+def slitlet_yticks(path_slitlet,halfframe, bin_x=1, bin_y=2):
     slitlets = read_pkl(path_slitlet)
     y_centers = []
     slit_numbers = []
-    for slit_number in slitlets:
+
+    if halfframe:
+        first = 7
+        last = 19
+    else:
+        first = 1
+        last = 26
+
+
+    for index in range(first, last):
+        slit_number = str(index)
         boundaries = slitlets[slit_number]
         xmin, xmax, ymin, ymax = boundaries
-        ymin = np.round(ymin // bin_y)
-        ymax = np.round(ymax // bin_y)
+
+        if halfframe:
+            ymin = np.round(ymin // bin_y) - (1028 // bin_y)
+            ymax = np.round(ymax // bin_y) - (1028 // bin_y)
+        else:
+            ymin = np.round(ymin // bin_y) 
+            ymax = np.round(ymax // bin_y) 
+
         center_y = (ymin + ymax) / 2
 
         y_centers.append(center_y)
@@ -89,7 +121,19 @@ def flatfiled_plot(flat_image_path, slitlet_path, title, output_plot):
     # Plot slitlets over 2D flatfield on the top
     img = plot_fits(ax1, flat_image_path, cmap='viridis')
     x_limits = ax1.get_xlim()
-    plot_slitlet(ax1, slitlet_path)
+
+    # Check if is half frame
+    halfframe = is_halfframe(flat_image_path)
+
+    if halfframe:
+        first = 7
+        last = 19
+    else:
+        first = 1
+        last = 26
+
+
+    plot_slitlet(ax1, slitlet_path, halfframe)
     ax1.label_outer()  # Hide x-tick labels for the top subplot
 
     # Add color bar to the top of ax1
@@ -97,19 +141,22 @@ def flatfiled_plot(flat_image_path, slitlet_path, title, output_plot):
     cbar.set_label('Count [e$^{-1}$]', size=15)
 
     # Set yticks and labels for ax1
-    y_centers, slit_numbers = slitlet_yticks(slitlet_path, bin_x=1, bin_y=2)
+    y_centers, slit_numbers = slitlet_yticks(slitlet_path,halfframe, bin_x=1, bin_y=2)
     ax1.set_yticks(y_centers)
     ax1.set_yticklabels(slit_numbers)
     ax1.set_ylabel('Slitlet number', size=15)
 
     # Plot collapsed slitlet on the bottom
     slitlets = read_pkl(slitlet_path)
-    for i, slit_number in enumerate(slitlets):
+
+
+    for i, index in enumerate(range(first, last)):
+        slit_number = str(index)
+        color = colors[index % len(colors)]  # Use color from the list, cycle if more slitlets than colors
         boundaries = slitlets[slit_number]
-        aperture = slitlet_aperture(boundaries, bin_x=1, bin_y=2)
+        aperture = slitlet_aperture(boundaries,halfframe, bin_x=1, bin_y=2)
         cutout = slitlet_cutout(fits.getdata(flat_image_path), aperture)
         median_slitlet = np.median(cutout, axis=0)
-        color = colors[i % len(colors)]  # Use color from the list, cycle if more slitlets than colors
         ax2.plot(median_slitlet, color=color)
 
         # Set the corresponding tick label color in ax1
@@ -124,7 +171,7 @@ def flatfiled_plot(flat_image_path, slitlet_path, title, output_plot):
     # Add a light gray shaded area in ax2
     # ax2.fill_between(x_limits, 0, 20000, lw=0,facecolor='none', hatch='////', edgecolor='lightgray', label='Optimal range')
     # ax2.legend(loc='upper right', framealpha=1.0)
-    # ax1.legend(loc='upper right', framealpha=1.0)
+    ax1.legend(loc='upper right', framealpha=1.0)
 
     # Ensure the x-limits of the 2D image are preserved
     ax1.set_xlim(x_limits)
@@ -135,9 +182,9 @@ def flatfiled_plot(flat_image_path, slitlet_path, title, output_plot):
     ax2.set_xlabel('X-axis [pixel]', size=15)
 
     # Adjust layout and show the plot
-    plt.tight_layout()
     plt.savefig(output_plot, dpi=300)
-    plt.close()
+    
+    plt.close('all')
 
 
 
@@ -152,7 +199,6 @@ import numpy as np
 
 def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
 
-    plt.close()  # Close any existing plots
 
     fig = plt.figure(figsize=(10, 6))
     plt.suptitle(title)
@@ -225,5 +271,5 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6,left=0.065,right=0.935,bottom=0.09)  # Adjust top to make room for suptitle
 
     plt.savefig(plot_path, dpi=300)
-    plt.close()
+    plt.close('all')
 
