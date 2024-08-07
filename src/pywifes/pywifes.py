@@ -875,6 +875,19 @@ default_detector_values = {
         "gain": [1.0],
         "rdnoise": [7.0],
     },
+    "B5": {
+        "det_regs": [
+            [1, 4096, 54, 4149],
+        ],
+        "ovs_regs": [
+            [1, 4096, 6, 53],
+        ],
+        "sci_regs": [
+            [1, 4096, 1, 4096],
+        ],
+        "gain": [0.72],
+        "rdnoise": [3.5],
+    },
     "R1": {
         "det_regs": [
             [1, 2048, 22, 2069],
@@ -952,6 +965,19 @@ default_detector_values = {
         "gain": [1.0],
         "rdnoise": [7.0],
     },
+    "R5": {
+        "det_regs": [
+            [1, 4096, 54, 4149],
+        ],
+        "ovs_regs": [
+            [1, 4096, 6, 53],
+        ],
+        "sci_regs": [
+            [1, 4096, 1, 4096],
+        ],
+        "gain": [0.68],
+        "rdnoise": [3.5],
+    },
 }
 
 
@@ -971,17 +997,22 @@ def determine_detector_epoch(inimg, data_hdu=0):
             epoch = "R3"
         elif utc_date < 20130322:
             epoch = "R4a"
-        else:
+        elif utc_date < 20230308: 
             epoch = "R4"
-    else:
+        else:
+            epoch = "R5"
+
+    if camera == "WiFeSBlue":
         if utc_date < 20100511:
             epoch = "B1"
         elif utc_date < 20110616:
             epoch = "B2"
         elif utc_date < 20130522:
             epoch = "B3"
-        else:
+        elif utc_date < 20230308: 
             epoch = "B4"
+        else:
+            epoch = "B5"
     return epoch
 
 
