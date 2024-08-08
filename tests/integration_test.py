@@ -5,15 +5,6 @@ import shutil
 import logging
 
 
-# def setup_logging(log_file):
-#     logging.basicConfig(
-#         level=logging.INFO,
-#         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-#         handlers=[
-#             logging.FileHandler(log_file),
-#             logging.StreamHandler()
-#         ]
-#     )
 def setup_logging(log_file):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -46,7 +37,6 @@ def setup_test_environment():
 
     # Define the data processing flavours to be tested: Classical, Nod-and-Shuffle, and Half-Frame
     data_flavours = ['class_B3000_R3000', 'ns_B3000_R3000', 'hf_B3000_R3000']
-    data_flavours = ['hf_B3000_R3000']
 
     # Initialize the list to store test case details
     test_cases = []
@@ -69,8 +59,6 @@ def test_pipeline_integration(setup_test_environment, caplog):
 
         # Ensure the script path is correct
         assert os.path.exists(script_path), f"{script_path} does not exist"
-
-
 
         # Setup logging
         log_file = os.path.join(current_dir, "test_log.log")
