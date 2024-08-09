@@ -1413,7 +1413,11 @@ def main():
     os.makedirs(plot_dir, exist_ok=True)
 
     # Classify all raw data (red and blue arm)
-    obs_metadatas = classify(temp_data_dir, greedy_stds=args.greedy_stds, coadd_mode=args.coadd_mode)
+    mode_save_fn = os.path.join(working_dir, "data_products/coadd_mode.json")
+    obs_metadatas = classify(temp_data_dir,
+                             greedy_stds=args.greedy_stds,
+                             coadd_mode=args.coadd_mode,
+                             mode_save_fn=mode_save_fn)
 
     # Set grism_key dictionary due to different keyword names for red and blue arms.
     grism_key = {

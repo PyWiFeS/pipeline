@@ -214,7 +214,7 @@ The default pipeline behaviour is to coadd exposures that share the same OBJECT 
     `none`: treat all IMAGETYP='OBJECT' exposures separately;
     `prompt`: prompt the user to select which exposures to coadd together.
 
-With the `prompt` option, the user makes the choice independently for each arm, and (at present) must make the choice each time the pipeline is restarted.
+With the `prompt` option, the user makes the choice independently for each arm. The choices are saved for the next time the pipeline is run with that dataset.
 
 Example:
 

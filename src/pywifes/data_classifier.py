@@ -1,11 +1,13 @@
 import os
 from astropy.io import fits as pyfits
+from itertools import chain
+import json
 import pandas as pd
 
 from . import wifes_calib
 
 
-def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all"):
+def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", mode_save_fn=None, camera="blue"):
     """
     Retrieve metadata for observed data files.
 
@@ -26,6 +28,10 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all"):
     coadd_mode : str
         Whether to group together OBJECT frames for the same target. Options:
         'all' (default), 'none', 'prompt' (user-selected).
+    mode_save_fn : str
+        Filename for saving grouping of images to coadd if coadd_mode = 'prompt'.
+    camera : str
+        Which camera, for parsing of coadd association dictionary. Allowed values: "blue", "red".
 
     Returns
     -------
@@ -131,12 +137,51 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all"):
                         science[obj_name] = [basename]
 
     if coadd_mode == "prompt":
-        while True:
+        create_new = True
+        old_science_full = None
+        if os.path.isfile(mode_save_fn):
+            try:
+                with open(mode_save_fn, "r") as f:
+                    old_science_full = json.load(f)
+                print(f"\nRead coadd association file {os.path.basename(mode_save_fn)}")
+                if camera in old_science_full:
+                    old_science = old_science_full[camera]
+                else:
+                    print(f"Could not find arm '{camera}' in coadd association file.")
+                    raise
+                # Check for any new files in directory
+                old_list = list(chain.from_iterable(old_science.values()))
+                new_list = list(chain.from_iterable(science.values()))
+                if sorted(old_list) == sorted(new_list):
+                    print("Existing coadd associations:")
+                    for i, (k, v) in enumerate(sorted(old_science.items())):
+                        v.sort()
+                        print(f"{i} - OBJECT: {k}  -  {v}")
+                    print()
+                    while True:
+                        confirm = input("Use this set of associations? (Y/N): ")
+                        if confirm.upper() == "Y" or confirm.upper() == "YES":
+                            create_new = False
+                            science = old_science
+                            print()
+                            break
+                        elif confirm.upper() == "N" or confirm.upper() == "NO":
+                            print()
+                            break
+                        else:
+                            print("** Invalid input. Try again. **")
+                else:
+                    print("Input files have changed since definition of previous coadd association file.")
+                    raise
+            except:
+                print("Will create a new file.")
+                pass
+        while create_new:
             obs_dict = {}
             print("\nSelect observation numbers to be coadded for an object (one object at a time):\n")
             for i, (k, v) in enumerate(sorted(science.items())):
                 v.sort()
-                print(f"{i} - OBJECT: {k:30s} - {v}")
+                print(f"{i} - OBJECT: {k}  -  {v}")
                 obs_dict[str(i)] = [k, v]
             print()
             try:
@@ -158,6 +203,15 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all"):
             except ValueError:
                 print("\n** Received inappropriate input! **\nTry again or hit return to exit\n")
                 continue
+        if create_new:
+            if old_science_full is None:
+                old_science_full = {}
+            old_science_full[camera] = science
+            try:
+                with open(mode_save_fn, "w") as f:
+                    json.dump(old_science_full, f)
+            except:
+                raise IOError(f"Could not write coadd association file {mode_save_fn}")
 
     # #------------------
     # science dictionay
@@ -194,7 +248,7 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all"):
     return obs_metadata
 
 
-def classify(data_dir, naxis2_to_process=0, greedy_stds=False, coadd_mode='all'):
+def classify(data_dir, naxis2_to_process=0, greedy_stds=False, coadd_mode='all', mode_save_fn=None):
     """
     Classify FITS files in the specified directory based on the CAMERA keyword in the header. It filters files into blue and red (arms) observations, extracting metadata for each. It returns a dictionary containing metadata for the blue and red observations.
 
@@ -207,6 +261,11 @@ def classify(data_dir, naxis2_to_process=0, greedy_stds=False, coadd_mode='all')
         The value of the NAXIS2 keyword to filter files by. Defaults to 0 (no filtering).
     greedy_stds : bool
         Whether to treat OBJECT images near known standard stars as STANDARDs
+    coadd_mode : str
+        Whether to group together OBJECT frames for the same target. Options:
+        'all' (default), 'none', 'prompt' (user-selected).
+    mode_save_fn : str
+        Filename for saving grouping of images to coadd if coadd_mode = 'prompt'.
 
     Returns
     -------
@@ -243,8 +302,10 @@ def classify(data_dir, naxis2_to_process=0, greedy_stds=False, coadd_mode='all')
             else:
                 red_filenames.append(filename)
 
-    blue_obs_metadata = get_obs_metadata(blue_filenames, data_dir, greedy_stds=greedy_stds, coadd_mode=coadd_mode)
-    red_obs_metadata = get_obs_metadata(red_filenames, data_dir, greedy_stds=greedy_stds, coadd_mode=coadd_mode)
+    blue_obs_metadata = get_obs_metadata(blue_filenames, data_dir, greedy_stds=greedy_stds,
+                                         coadd_mode=coadd_mode, mode_save_fn=mode_save_fn, camera="blue")
+    red_obs_metadata = get_obs_metadata(red_filenames, data_dir, greedy_stds=greedy_stds,
+                                        coadd_mode=coadd_mode, mode_save_fn=mode_save_fn, camera="red")
 
     return {"blue": blue_obs_metadata, "red": red_obs_metadata}
 
