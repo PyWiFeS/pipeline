@@ -1,10 +1,11 @@
 import os
 from astropy.io import fits as pyfits
 import pandas as pd
+
 from . import wifes_calib
 
 
-def get_obs_metadata(filenames, data_dir):
+def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all"):
     """
     Retrieve metadata for observed data files.
 
@@ -20,6 +21,11 @@ def get_obs_metadata(filenames, data_dir):
         List of filenames of observed data files.
     data_dir : str
         Directory path where the data files are located.
+    greedy_stds : bool
+        Whether to treat OBJECT exposures near known standard stars as STANDARDs.
+    coadd_mode : str
+        Whether to group together OBJECT frames for the same target. Options:
+        'all' (default), 'none', 'prompt' (user-selected).
 
     Returns
     -------
@@ -62,11 +68,11 @@ def get_obs_metadata(filenames, data_dir):
         obj_name = f[0].header["OBJECT"]
         f.close()
         # ---------------------------
-        # check if it is within a close distance to a standard star
-        # if so, fix the object name to be the good one from the list!
+        # Check if it is within a close distance to a standard star.
+        # If so and greedy_stds is True, fix the object name to be the good one from the list
         try:
             near_std, std_dist = wifes_calib.find_nearest_stdstar(data_dir + filename)
-            if std_dist < 100.0:
+            if (greedy_stds or imagetype == "STANDARD") and std_dist < 100.0:
                 obj_name = near_std
         except:
             pass
@@ -75,42 +81,83 @@ def get_obs_metadata(filenames, data_dir):
         if imagetype == "BIAS" or imagetype == "ZERO":
             bias.append(basename)
         # 2 - quartz flats
-        if imagetype == "FLAT":
+        elif imagetype == "FLAT":
             domeflat.append(basename)
         # 3 - twilight flats
-        if imagetype == "SKYFLAT":
+        elif imagetype == "SKYFLAT":
             twiflat.append(basename)
         # 4 - dark frames
-        if imagetype == "DARK":
+        elif imagetype == "DARK":
             dark.append(basename)
         # 5 - arc frames
-        if imagetype == "ARC":
+        elif imagetype == "ARC":
             arc.append(basename)
         # 6 - wire frames
-        if imagetype == "WIRE":
+        elif imagetype == "WIRE":
             wire.append(basename)
         # 7 - standard star
-        if imagetype == "STANDARD":
+        elif imagetype == "STANDARD":
             # group standard obs together!
             if obj_name in stdstar.keys():
                 stdstar[obj_name].append(basename)
             else:
                 stdstar[obj_name] = [basename]
 
-        # all else are science targets (also consider standar star in imagety = OBJECT)
-        if imagetype == "OBJECT":
-            if obj_name in stdstar_list:
+        # all else are science targets (also allow for standard stars in imagetype = OBJECT)
+        elif imagetype == "OBJECT":
+            if greedy_stds and obj_name in stdstar_list:
                 # group standard obs together!
                 if obj_name in stdstar.keys():
                     stdstar[obj_name].append(basename)
                 else:
                     stdstar[obj_name] = [basename]
             else:
-                # group science obs together!
-                if obj_name in science.keys():
-                    science[obj_name].append(basename)
+                # group science obs together, if desired
+                if coadd_mode == "all":
+                    if obj_name in science.keys():
+                        science[obj_name].append(basename)
+                    else:
+                        science[obj_name] = [basename]
                 else:
-                    science[obj_name] = [basename]
+                    if obj_name in science.keys():
+                        cnt = 2
+                        while True:
+                            if obj_name.rstrip() + f"_visit{cnt}" in science.keys():
+                                cnt += 1
+                            else:
+                                science[obj_name.rstrip() + f"_visit{cnt}"] = [basename]
+                                break
+                    else:
+                        science[obj_name] = [basename]
+
+    if coadd_mode == "prompt":
+        while True:
+            obs_dict = {}
+            print("\nSelect observation numbers to be coadded for an object (one object at a time):\n")
+            for i, (k, v) in enumerate(sorted(science.items())):
+                v.sort()
+                print(f"{i} - OBJECT: {k:30s} - {v}")
+                obs_dict[str(i)] = [k, v]
+            print()
+            try:
+                prompt_list = input("Enter comma- or space-delimited list of observation numbers to coadd "
+                                    "(hit return when done): ")
+                if prompt_list:
+                    prompt_list = [int(x.strip()) for y in prompt_list.split(',') for x in y.split()]
+                    if any(pl < 0 for pl in prompt_list) or any(pl > len(obs_dict) - 1 for pl in prompt_list):
+                        print("\n** Values outside of range **")
+                        raise ValueError
+                    if len(prompt_list) != len(set(prompt_list)):
+                        print("\n** No duplicate values allowed **")
+                        raise ValueError
+                    for obsnum in prompt_list[1:]:
+                        science[obs_dict[str(prompt_list[0])][0]].extend(obs_dict[str(obsnum)][1])
+                        del science[obs_dict[str(obsnum)][0]]
+                else:
+                    break
+            except ValueError:
+                print("\n** Received inappropriate input! **\nTry again or hit return to exit\n")
+                continue
 
     # #------------------
     # science dictionay
@@ -147,7 +194,7 @@ def get_obs_metadata(filenames, data_dir):
     return obs_metadata
 
 
-def classify(data_dir, naxis2_to_process=0):
+def classify(data_dir, naxis2_to_process=0, greedy_stds=False, coadd_mode='all'):
     """
     Classify FITS files in the specified directory based on the CAMERA keyword in the header. It filters files into blue and red (arms) observations, extracting metadata for each. It returns a dictionary containing metadata for the blue and red observations.
 
@@ -158,6 +205,8 @@ def classify(data_dir, naxis2_to_process=0):
         The directory containing FITS files to classify.
     naxis2_to_process : int, optional
         The value of the NAXIS2 keyword to filter files by. Defaults to 0 (no filtering).
+    greedy_stds : bool
+        Whether to treat OBJECT images near known standard stars as STANDARDs
 
     Returns
     -------
@@ -194,8 +243,8 @@ def classify(data_dir, naxis2_to_process=0):
             else:
                 red_filenames.append(filename)
 
-    blue_obs_metadata = get_obs_metadata(blue_filenames, data_dir)
-    red_obs_metadata = get_obs_metadata(red_filenames, data_dir)
+    blue_obs_metadata = get_obs_metadata(blue_filenames, data_dir, greedy_stds=greedy_stds, coadd_mode=coadd_mode)
+    red_obs_metadata = get_obs_metadata(red_filenames, data_dir, greedy_stds=greedy_stds, coadd_mode=coadd_mode)
 
     return {"blue": blue_obs_metadata, "red": red_obs_metadata}
 

@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import numpy
 import os
 import pickle
-import pylab
 import scipy.interpolate
 
 from .logger_config import custom_print
@@ -136,7 +135,7 @@ def halpha_mask(wave_array):
 
 
 # ------------------------------------------------------------------------
-def load_wifes_cube(cube_fn, ytrim=[0, 0]):
+def load_wifes_cube(cube_fn, ytrim=[0, 0], return_dq=False):
     f = pyfits.open(cube_fn)
 
     # get wavelength array
@@ -154,6 +153,8 @@ def load_wifes_cube(cube_fn, ytrim=[0, 0]):
     # get data and variance
     obj_cube_data = numpy.zeros([nlam, ny - sum(ytrim), nx], dtype="d")
     obj_cube_var = numpy.zeros([nlam, ny - sum(ytrim), nx], dtype="d")
+    if return_dq:
+        obj_cube_dq = numpy.zeros([nlam, ny - sum(ytrim), nx], dtype="d")
 
     for i in range(nx):
         curr_hdu = i + 1
@@ -162,9 +163,17 @@ def load_wifes_cube(cube_fn, ytrim=[0, 0]):
 
         obj_cube_data[:, :, i] = curr_data.T
         obj_cube_var[:, :, i] = curr_var.T
+
+        if return_dq:
+            curr_dq = f[curr_hdu + 2 * nx].data[ytrim[0]:ny - ytrim[1], :]
+            obj_cube_dq[:, :, i] = curr_dq.T
     f.close()
-    # return flux, variance, wavelength
-    return obj_cube_data, obj_cube_var, lam_array
+    if return_dq:
+        # return flux, variance, wavelength, dq
+        return obj_cube_data, obj_cube_var, lam_array, obj_cube_dq
+    else:
+        # return flux, variance, wavelength
+        return obj_cube_data, obj_cube_var, lam_array
 
 
 # ------------------------------------------------------------------------
@@ -180,6 +189,7 @@ def extract_wifes_stdstar(
     save_mode=None,
     save_fn=None,
     debug=False,
+    interactive_plot=False,
 ):
     if debug:
         print(arguments())
@@ -199,12 +209,14 @@ def extract_wifes_stdstar(
     pix_size_arcsec = bin_y * 0.5
 
     # load the cube data
-    init_obj_cube_data, init_obj_cube_var, lam_array = load_wifes_cube(cube_fn)
+    init_obj_cube_data, init_obj_cube_var, lam_array, init_obj_cube_dq = load_wifes_cube(cube_fn, return_dq=True)
 
     inlam, iny, inx = numpy.shape(init_obj_cube_data)
     obj_cube_data = init_obj_cube_data[:, ytrim:iny - ytrim, xtrim:inx - xtrim]
     obj_cube_var = init_obj_cube_var[:, ytrim:iny - ytrim, xtrim:inx - xtrim]
+    obj_cube_dq = init_obj_cube_dq[:, ytrim:iny - ytrim, xtrim:inx - xtrim]
     nlam, ny, nx = numpy.shape(obj_cube_data)
+    obj_cube_data[numpy.logical_or(numpy.isnan(obj_cube_dq), obj_cube_dq > 0)] = numpy.nan
 
     # get stdstar centroid
     lin_x = numpy.arange(nx, dtype="d")
@@ -218,36 +230,32 @@ def extract_wifes_stdstar(
         )  # numpy.nonzero returns indices of nonzero elements
         y_ctr = maxind[0][0]
         x_ctr = maxind[1][0]
-        std_x = x_ctr * numpy.ones(nlam, dtype="d")
-        std_y = y_ctr * numpy.ones(nlam, dtype="d")
-    else:
-        std_x = x_ctr * numpy.ones(nlam, dtype="d")
-        std_y = y_ctr * numpy.ones(nlam, dtype="d")
-    print(f"Extracting STD from IFU (x,y) = ({x_ctr + 1 + first}, {y_ctr + 1})")
-    # now extract
-    std_flux = numpy.zeros(nlam, dtype="d")
-    sky_flux = numpy.zeros(nlam, dtype="d")
-    std_var = numpy.zeros(nlam, dtype="d")
+    print(f"Extracting STD from IFU (x,y) = ({x_ctr + first + xtrim}, {y_ctr + 1 + ytrim})")
 
-    # THERE IS A FASTER WAY TO DO THIS WITH MASKING...
-    for i in range(nlam):
-        # get *distance* of each pixels from stdstar center x/y
-        pix_dists = (
-            (slice_size_arcsec * (full_x - std_x[i])) ** 2
-            + (pix_size_arcsec * (full_y - std_y[i])) ** 2
-        ) ** 0.5
-        curr_data = obj_cube_data[i, :, :]
-        curr_var = obj_cube_var[i, :, :]
-        # find mean sky spectrum outside sky radius
-        sky_pix = numpy.nonzero((pix_dists >= sky_radius))
-        curr_sky_flux = numpy.nanmedian(curr_data[sky_pix])
-        # subtract sky and sum up obj flux
-        obj_pix = numpy.nonzero((pix_dists <= extract_radius))
-        obj_flux = numpy.sum(curr_data[obj_pix] - curr_sky_flux)
-        obj_var = numpy.sum(curr_var[obj_pix])
-        std_flux[i] = obj_flux
-        sky_flux[i] = curr_sky_flux
-        std_var[i] = obj_var
+    # get *distance* of each pixels from stdstar center x/y
+    pix_dists = (
+        (slice_size_arcsec * (full_x - x_ctr)) ** 2
+        + (pix_size_arcsec * (full_y - y_ctr)) ** 2
+    ) ** 0.5
+    sky_pix = numpy.nonzero((pix_dists >= sky_radius))
+    obj_pix = numpy.nonzero((pix_dists <= extract_radius))
+
+    sky_flux = numpy.nanmedian(obj_cube_data[:, sky_pix[0], sky_pix[1]], axis=1)
+    std_flux = numpy.sum(obj_cube_data[:, obj_pix[0], obj_pix[1]], axis=1) - sky_flux * len(obj_pix[0])
+    std_var = numpy.sum(obj_cube_var[:, obj_pix[0], obj_pix[1]], axis=1)
+
+    # Enforce a S/N > 10 limit
+    std_flux[std_flux / numpy.sqrt(std_var) < 10] = numpy.nan
+    if interactive_plot:
+        plt.plot(lam_array, sky_flux, label='sky_flux')
+        plt.plot(lam_array, std_flux, label='std_flux')
+        plt.plot(lam_array, std_var, label='std_var')
+        plt.plot(lam_array, std_flux / numpy.sqrt(std_var), label='S/N')
+        plt.legend()
+        plt.yscale('log')
+        plt.title(os.path.basename(cube_fn))
+        plt.show()
+        plt.close()
 
     # DIVIDE FLUX BY EXPTIME AND BIN SIZE!!!
     dlam = lam_array[1] - lam_array[0]
@@ -541,8 +549,8 @@ def derive_wifes_calibration(
             plt.legend()
 
             # Set y-limits to exclude peaks
-            lower_limit = numpy.percentile(scaled_flux, 0.2)
-            upper_limit = numpy.percentile(scaled_flux, 99.8)
+            lower_limit = min(numpy.nanpercentile(scaled_flux, 0.2), numpy.nanmin(ref_flux))
+            upper_limit = max(numpy.nanpercentile(scaled_flux, 99.8), numpy.nanmax(ref_flux))
             plt.ylim(lower_limit, upper_limit)
             plt.ylabel(r"Scaled Flux ")
 
@@ -654,11 +662,11 @@ def derive_wifes_calibration(
     # Plot Sensitivity function
     if plot_sensf:
 
-        pylab.figure(figsize=(8, 6))
+        plt.figure(figsize=(8, 6))
         # MC update - raw fit on top
-        pylab.axes([0.10, 0.35, 0.85, 0.60])
+        plt.axes([0.10, 0.35, 0.85, 0.60])
 
-        pylab.plot(
+        plt.plot(
             temp_full_x,
             temp_full_y,
             "r.",
@@ -667,38 +675,38 @@ def derive_wifes_calibration(
             label="Raw sensitivity (initial regions)",
         )
 
-        pylab.plot(full_x, full_y, color="b", label="Raw sensitivity (valid regions)")
+        plt.plot(full_x, full_y, color="b", label="Raw sensitivity (valid regions)")
 
-        pylab.plot(temp_full_x, temp_fvals, color=r"#FF6103", lw=2, label="Initial fit")
+        plt.plot(temp_full_x, temp_fvals, color=r"#FF6103", lw=2, label="Initial fit")
 
         if method == "smooth_SG":
-            pylab.plot(
+            plt.plot(
                 means[:, 0],
                 means[:, 1],
                 color="b",
                 label="Mean sensitivity (valid regions, all stars)",
             )
-            pylab.plot(
+            plt.plot(
                 smooth_x, smooth_y, color=r"#7f007f", label="Smoothed mean sensitivity"
             )
         else:
-            pylab.plot(
+            plt.plot(
                 full_x, full_y, color="b", label="Raw sensitivity (valid regions)"
             )
-        pylab.plot(full_x, final_fvals, color=r"#00FF00", lw=2, label="Final fit")
+        plt.plot(full_x, final_fvals, color=r"#00FF00", lw=2, label="Final fit")
 
-        pylab.xlim([numpy.min(full_x), numpy.max(full_x)])
-        curr_ylim = pylab.ylim()
-        curr_xlim = pylab.xlim()
-        pylab.ylim(curr_ylim[::-1])
+        plt.xlim([numpy.min(full_x), numpy.max(full_x)])
+        curr_ylim = plt.ylim()
+        curr_xlim = plt.xlim()
+        plt.ylim(curr_ylim[::-1])
 
-        pylab.ylabel("Counts-to-Flux Ratio [mag]")
+        plt.ylabel("Counts-to-Flux Ratio [mag]")
 
-        pylab.title("Derived sensitivity function")
-        pylab.legend(loc="lower right", fancybox=True, shadow=True)
+        plt.title("Derived sensitivity function")
+        plt.legend(loc="lower right", fancybox=True, shadow=True)
         # lower plot - residuals!
-        pylab.axes([0.10, 0.10, 0.85, 0.25])
-        pylab.plot(
+        plt.axes([0.10, 0.10, 0.85, 0.25])
+        plt.plot(
             full_x,
             full_y - final_fvals,
             "k.",
@@ -706,16 +714,16 @@ def derive_wifes_calibration(
             markerfacecolor="none",
             label="Residuals",
         )
-        pylab.axhline(0.0, color="k")
-        pylab.xlim(curr_xlim)
-        pylab.ylim([-0.2, 0.2])
-        pylab.xlabel(r"Wavelength [$\AA$]")
-        pylab.ylabel("Residuals")
+        plt.axhline(0.0, color="k")
+        plt.xlim(curr_xlim)
+        plt.ylim([-0.2, 0.2])
+        plt.xlabel(r"Wavelength [$\AA$]")
+        plt.ylabel("Residuals")
 
         plot_name = "flux_calibration_solution.png"
         plot_path = os.path.join(plot_dir, plot_name)
-        pylab.savefig(plot_path, dpi=300)
-        pylab.close()
+        plt.savefig(plot_path, dpi=300)
+        plt.close()
 
     save_calib = {"wave": final_x, "cal": final_y, "std_file": ref_fname}
     f1 = open(calib_out_fn, "wb")

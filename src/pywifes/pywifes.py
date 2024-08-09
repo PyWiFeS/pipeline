@@ -10,8 +10,8 @@ import numpy
 import os
 import pickle
 import re
-import scipy.ndimage as ndimage
 import scipy.interpolate as interp
+import scipy.ndimage as ndimage
 import sys
 
 from .logger_config import custom_print
@@ -164,12 +164,24 @@ def single_centroid_prof_fit(
 
 
 # ------------------------------------------------------------------------
-def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=None, data_hdu=0,
-              kwstring=None, commstring=None, outvarimg=None, sregion=None,
-              debug=False, interactive_plot=False):
+def blockwise_mean_3D(A, S):
+    """From https://stackoverflow.com/questions/37532184/downsize-3d-matrix-by-averaging-in-numpy-or-alike/73078468
+
+    A is the 3D input array
+    S is the blocksize on which averaging is to be performed (list or 1D array)
+    """
+    m, n, r = numpy.array(A.shape) // S
+    return A.reshape(m, S[0], n, S[1], r, S[2]).mean((1, 3, 5))
+
+
+# ------------------------------------------------------------------------
+def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=None,
+              data_hdu=0, kwstring=None, commstring=None, outvarimg=None, sregion=None,
+              plot=False, plot_dir='.', save_prefix='imcombine_inputs',
+              interactive_plot=False, debug=False,
+              ):
     if debug:
         print(arguments())
-
     inimg_list.sort()
     # read in data from inimg_list[0] to get image size
     f = pyfits.open(inimg_list[0])
@@ -179,146 +191,10 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
     f.close()
 
     nimg = len(inimg_list)
-    # if too many inputs, do the combining by chunks
-    if nimg > 5 * bin_x * bin_y:
-        print(f"List has {nimg} images, combining by chunks")
-        coadd_data, var_arr = imcombine_chunks(inimg_list, outimg, method=method,
-                                               nonzero_thresh=nonzero_thresh, scale=scale,
-                                               data_hdu=data_hdu, kwstring=kwstring,
-                                               commstring=commstring, outvarimg=outvarimg,
-                                               sregion=sregion, debug=debug,
-                                               interactive_plot=interactive_plot)
-    else:
-        try:
-            if scale == "midrow_ratio":
-                midrow_shift = 80 // bin_y if is_taros(inimg_list[0]) else 0
-                midrow = orig_data[orig_data.shape[0] // 2 - midrow_shift, :]
-            ny, nx = numpy.shape(orig_data)
-            coadd_arr = numpy.zeros([ny, nx, nimg], dtype="d")
-            coadd_arr[:, :, 0] = orig_data
-            if outvarimg is not None:
-                var_arr = numpy.zeros_like(orig_data)
-            # gather data for all
-            exptime_list = []
-            airmass_list = []
-            for i in range(nimg):
-                f = pyfits.open(inimg_list[i])
-                new_data = f[data_hdu].data
-                exptime_list.append(f[data_hdu].header["EXPTIME"])
-                if f[data_hdu].header["IMAGETYP"].upper() in ["ARC", "BIAS", "FLAT", "SKYFLAT", "WIRE", "ZERO"]:
-                    airmass_list.append(1.0)
-                else:
-                    try:
-                        airmass_list.append(f[data_hdu].header["AIRMASS"])
-                    except Exception as air_err:
-                        logger.warning(
-                            f"Failed to get airmass for {f[data_hdu].header['IMAGETYP'].upper()} image {inimg_list[i]}: {air_err}"
-                        )
-                        airmass_list.append(1.0)
-                f.close()
-                if scale is None:
-                    scale_factor = 1.0
-                else:
-                    if sregion is None:
-                        sreg_min = 0
-                        sreg_max = new_data.shape[1]
-                    else:
-                        sreg_min, sreg_max = [int(s) for s in sregion.split(":")]
-                    if scale == "median":
-                        scale_factor = numpy.nanmedian(new_data[:, sreg_min:sreg_max], )
-                    elif scale == "median_nonzero":
-                        nonzero_inds = numpy.nonzero(new_data[:, sreg_min:sreg_max] > nonzero_thresh)
-                        scale_factor = numpy.nanmedian(new_data[:, sreg_min:sreg_max][nonzero_inds])
-                    elif scale == "exptime":
-                        scale_factor = exptime_list[-1]
-                    elif re.match("percentile", scale):
-                        perc = float(scale.split("percentile")[1])
-                        scale_factor = numpy.nanpercentile(new_data[:, sreg_min:sreg_max], perc)
-                    elif scale == "midrow_ratio":
-                        if i == 0:
-                            scale_factor = 1.0
-                        else:
-                            scale_factor = numpy.nanmedian(new_data[new_data.shape[0] // 2 - midrow_shift, :] / midrow)
-                    else:
-                        raise ValueError("scaling method not yet supported")
-                    if debug:
-                        print(f"Scaling down image {inimg_list[i]} by {scale_factor}")
-                coadd_arr[:, :, i] = new_data / scale_factor
-                # later - scale data by some value, e.g. median or exptime
-                gc.collect()
-            if interactive_plot:
-                fig = plt.figure()
-                ax1 = fig.add_subplot(2, 1, 1)
-                ax2 = fig.add_subplot(2, 1, 2)
-                for i in range(coadd_arr.shape[2]):
-                    ax1.plot(coadd_arr[ny // 2, :, i] + 0.05 * i)
-                    ax2.plot(coadd_arr[ny // 2, :, i])
-                ax2.set_xlabel("pixel")
-                plt.show()
-            # now combine
-            if method == "median":
-                coadd_data = numpy.nanmedian(coadd_arr, axis=2)
-            elif method == "sum":
-                coadd_data = numpy.nansum(coadd_arr, axis=2)
-            elif method == "mean":
-                coadd_data = numpy.nanmean(coadd_arr, axis=2)
-            else:
-                raise ValueError("combine method not yet supported")
-            # Create and output the variance image, if requested
-            if outvarimg is not None:
-                var_arr = numpy.nanvar(coadd_arr, axis=2, dtype="float64")
-        except Exception as e:
-            logger.error(f"An error occurred in imcombine: {str(e)}")
-            raise
-
-    outfits[data_hdu].data = coadd_data.astype("float32", casting="same_kind")
-    outfits[data_hdu].scale("float32")
-    # fix ephemeris data if images are co-added!!!
-    if method == "sum" and scale is None:
-        f1 = pyfits.open(inimg_list[0])
-        # first_hdr = f1[data_hdu].header
-        f1.close()
-        f2 = pyfits.open(inimg_list[-1])
-        last_hdr = f2[data_hdu].header
-        f2.close()
-        # HAEND, ZDEND, EXPTIME
-        outfits[data_hdu].header.set("EXPTIME", sum(exptime_list))
-        outfits[data_hdu].header.set("LSTEND", last_hdr["LSTEND"])
-        outfits[data_hdu].header.set("UTCEND", last_hdr["UTCEND"])
-        outfits[data_hdu].header.set("HAEND", last_hdr["HAEND"])
-        outfits[data_hdu].header.set("ZDEND", last_hdr["ZDEND"])
-        outfits[data_hdu].header.set("AIRMASS", numpy.nanmean(numpy.array(airmass_list)))
-    # (5) write to outfile!
-    outfits[data_hdu].header.set("PYWIFES", __version__, "PyWiFeS version")
-    if kwstring is not None and commstring is not None:
-        outfits[data_hdu].header.set(f"PYW{kwstring[:5].upper()}", nimg, f"PyWiFeS: number of {commstring[:30]} exposures combined")
-    outfits.writeto(outimg, overwrite=True)
-    # write the variance image, if requested
-    if outvarimg is not None:
-        outfits[data_hdu].data = var_arr.astype("float32", casting="same_kind")
-        outfits[data_hdu].scale("float32")
-        outfits.writeto(outvarimg, overwrite=True)
-    gc.collect()
-    return
-
-
-# ------------------------------------------------------------------------
-def imcombine_chunks(inimg_list, outimg, method="median", nonzero_thresh=100., scale=None,
-                     data_hdu=0, kwstring=None, commstring=None, outvarimg=None, sregion=None,
-                     debug=False, interactive_plot=False):
-    if debug:
-        print(arguments())
-    nimg = len(inimg_list)
     try:
-        # read in data from inimg_list[0] to get image size
-        f = pyfits.open(inimg_list[0])
-        orig_data = f[data_hdu].data
-        bin_y = int(f[data_hdu].header["CCDSUM"].split()[1])
-        f.close()
         scale_factor = numpy.ones(nimg)
         if scale is not None:
-            # Do a preliminary loop over the images to determine scale factors
-            # (which may rely on whole image)
+            # Do a loop over the images to determine scale factors
             if scale == "midrow_ratio":
                 midrow_shift = 80 // bin_y if is_taros(inimg_list[0]) else 0
                 midrow = orig_data[orig_data.shape[0] // 2 - midrow_shift, :]  # needed if scale == "midrow_ratio"
@@ -350,8 +226,8 @@ def imcombine_chunks(inimg_list, outimg, method="median", nonzero_thresh=100., s
                 if debug:
                     print(f"Scaling down image {inimg_list[i]} by {scale_factor[i]}")
         ny, nx = numpy.shape(orig_data)
-        # chunk in x-axis
-        chunks = int(numpy.ceil(nimg / 10.))
+        # chunk in x-axis if more than equivalent of 5 unbinned full-frame images
+        chunks = int(numpy.ceil(nimg / (5. * bin_x * 4096. / ny)))
         coadd_data = numpy.zeros_like(orig_data)
         if outvarimg is not None:
             var_arr = numpy.zeros_like(orig_data)
@@ -384,15 +260,36 @@ def imcombine_chunks(inimg_list, outimg, method="median", nonzero_thresh=100., s
                 f.close()
                 coadd_arr[:, :, i] = new_data / scale_factor[i]
                 gc.collect()
-            if interactive_plot:
+            if plot or interactive_plot:
+                offset = 0.05
                 fig = plt.figure()
                 ax1 = fig.add_subplot(2, 1, 1)
                 ax2 = fig.add_subplot(2, 1, 2)
                 for i in range(coadd_arr.shape[2]):
-                    ax1.plot(coadd_arr[ny // 2, :, i] + 0.05 * i)
+                    ax1.plot(coadd_arr[ny // 2, :, i] + offset * i)
                     ax2.plot(coadd_arr[ny // 2, :, i])
                 ax2.set_xlabel("pixel")
-                plt.show()
+                ax1.set_ylabel(f"Counts with {offset}*i offsets")
+                ax2.set_ylabel("Counts as scaled")
+                ax1.set_title(f"{nimg} inputs ({scale}-scaled) for\n{os.path.basename(outimg)} ({method}-combined)")
+                if interactive_plot:
+                    plt.show()
+                else:
+                    ax1.set_xlim(0, coadd_arr.shape[1] // 4)
+                    ax1.set_ylim(numpy.nanmin(coadd_arr[ny // 2, 0:coadd_arr.shape[1] // 4, :]),
+                                 numpy.nanmax(coadd_arr[ny // 2, 0:coadd_arr.shape[1] // 4, :] + offset * nimg))
+                    ax2.set_xlim(int(0.75 * coadd_arr.shape[1]), coadd_arr.shape[1])
+                    ax2.set_ylim(numpy.nanmin(coadd_arr[ny // 2, int(0.75 * coadd_arr.shape[1]):coadd_arr.shape[1], :]),
+                                 numpy.nanmax(coadd_arr[ny // 2, int(0.75 * coadd_arr.shape[1]):coadd_arr.shape[1], :]))
+                    plt.tight_layout()
+                    if chunks > 1:
+                        plot_name = f"{save_prefix}_chunk{ch+1}.png"
+                    else:
+                        plot_name = f"{save_prefix}.png"
+                    plot_path = os.path.join(plot_dir, plot_name)
+                    plt.savefig(plot_path, dpi=300)
+                    plt.close()
+
             # now combine
             if method == "median":
                 coadd_data[:, xmin:xmax] = numpy.nanmedian(coadd_arr, axis=2)
@@ -406,10 +303,38 @@ def imcombine_chunks(inimg_list, outimg, method="median", nonzero_thresh=100., s
             if outvarimg is not None:
                 var_arr[:, xmin:xmax] = numpy.nanvar(coadd_arr, axis=2, dtype="float64")
 
-        return coadd_data, var_arr
     except Exception as e:
         logger.error(f"An error occurred in imcombine: {str(e)}")
         raise
+    outfits[data_hdu].data = coadd_data.astype("float32", casting="same_kind")
+    outfits[data_hdu].scale("float32")
+    # fix ephemeris data if images are co-added!!!
+    if method == "sum" and scale is None:
+        f1 = pyfits.open(inimg_list[0])
+        # first_hdr = f1[data_hdu].header
+        f1.close()
+        f2 = pyfits.open(inimg_list[-1])
+        last_hdr = f2[data_hdu].header
+        f2.close()
+        # HAEND, ZDEND, EXPTIME
+        outfits[data_hdu].header.set("EXPTIME", sum(exptime_list))
+        outfits[data_hdu].header.set("LSTEND", last_hdr["LSTEND"])
+        outfits[data_hdu].header.set("UTCEND", last_hdr["UTCEND"])
+        outfits[data_hdu].header.set("HAEND", last_hdr["HAEND"])
+        outfits[data_hdu].header.set("ZDEND", last_hdr["ZDEND"])
+        outfits[data_hdu].header.set("AIRMASS", numpy.nanmean(numpy.array(airmass_list)))
+    # (5) write to outfile!
+    outfits[data_hdu].header.set("PYWIFES", __version__, "PyWiFeS version")
+    if kwstring is not None and commstring is not None:
+        outfits[data_hdu].header.set(f"PYW{kwstring[:5].upper()}", nimg, f"PyWiFeS: number of {commstring[:30]} exposures combined")
+    outfits.writeto(outimg, overwrite=True)
+    # write the variance image, if requested
+    if outvarimg is not None:
+        outfits[data_hdu].data = var_arr.astype("float32", casting="same_kind")
+        outfits[data_hdu].scale("float32")
+        outfits.writeto(outvarimg, overwrite=True)
+    gc.collect()
+    return
 
 
 # ------------------------------------------------------------------------
@@ -460,7 +385,12 @@ def imcombine_mef(
             if method == "median":
                 coadd_data = numpy.nanmedian(coadd_arr, axis=2)
             elif method == "sum":
-                # NaN-safe sum using the mean of the finite pixels and the number of inputs
+                # Propagate any NaNs in the inputs into a NaN output
+                coadd_data = numpy.sum(coadd_arr, axis=2)
+            elif method == "nansafesum":
+                # NaN-safe sum using the mean of the finite pixels and the number of inputs.
+                # Only sensible to use if sources are very well aligned between exposures and
+                # have consistent count levels (by scaling or otherwise)
                 coadd_data = numpy.nanmean(coadd_arr, axis=2) * nimg
             else:
                 raise ValueError(f"combine method '{method}' not yet supported")
@@ -471,6 +401,12 @@ def imcombine_mef(
                 # Not formally correct, but perhaps not too bad
                 coadd_data = numpy.nanmedian(coadd_arr, axis=2)
             elif method == "sum":
+                # Propagate any NaNs in the inputs into a NaN output
+                coadd_data = numpy.sum(coadd_arr, axis=2)
+            elif method == "nansafesum":
+                # NaN-safe sum using the mean of the finite pixels and the number of inputs.
+                # Only sensible to use if sources are very well aligned between exposures and
+                # have consistent count levels (by scaling or otherwise)
                 coadd_data = numpy.nanmean(coadd_arr, axis=2) * nimg
             else:
                 raise ValueError(f"combine method '{method}' not yet supported")
@@ -1136,7 +1072,7 @@ def subtract_overscan(
     gain=None,
     rdnoise=None,
     omaskfile=None,
-    omask_threshold=1000.,  # per-row mean ADU relative to row with lowest mean
+    omask_threshold=500.0,  # per-row mean ADU relative to row with lowest mean
     interactive_plot=False,
     verbose=False,
     debug=False,
@@ -1294,7 +1230,7 @@ def subtract_overscan(
 
 # ------------------------------------------------------------------------
 def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littrow=False,
-                        interactive_plot=False, verbose=False, debug=False):
+                        interp_buffer=3, interactive_plot=False, verbose=False, debug=False):
     """Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
     calibration frames, but sets bad pixels to NaN for STANDARD and OBJECT frames. The NaN
     pixels can be interpolated across in same way after the VAR and DQ extensions are created,
@@ -1364,18 +1300,21 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littro
             [294, 369, 3162, 3187],
             [134, 209, 3164, 3189],
         ]
+        # Choice of grating changes the ghost locations, but beam splitter
+        # only shifts the position by a few pixels
         if orig_hdr['GRATINGB'] == 'B7000':
             for ll in littrow_data:
-                ll[0] -= 30
-                ll[1] -= 30
-                ll[2] -= 1050
-                ll[3] -= 1050
+                ll[0] -= 50
+                ll[1] -= 40
+                ll[2] -= 1110
+                ll[3] -= 1090
         elif orig_hdr['GRATINGB'] == 'U7000':
             for ll in littrow_data:
-                ll[0] -= 25
+                ll[0] -= 35
                 ll[1] -= 25
-                ll[2] -= 1015
-                ll[3] -= 1015
+                ll[2] -= 1080
+                ll[3] -= 1060
+            print(f"littrow_data: \n{littrow_data}")
         bad_data.extend(littrow_data)
 
     interp_data = 1.0 * orig_data
@@ -1389,8 +1328,8 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littro
         xfirst //= bin_x
         xlast //= bin_x
         if method == 'interp':
-            slice_lo = orig_data[yfirst:ylast + 1, xfirst - 1]
-            slice_hi = orig_data[yfirst:ylast + 1, xlast + 1]
+            slice_lo = numpy.median(orig_data[yfirst:ylast + 1, xfirst - 1 - interp_buffer:xfirst], axis=1)
+            slice_hi = numpy.median(orig_data[yfirst:ylast + 1, xlast + 1:xlast + 1 + interp_buffer], axis=1)
             if verbose:
                 print(f"Interpolating from ({yfirst}:{ylast + 1}, {xfirst - 1}) to ({yfirst}:{ylast + 1}, {xlast + 1})")
             for this_x in numpy.arange(xfirst, xlast + 1):
@@ -1400,12 +1339,13 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littro
                 print(f"NaN-ing ({yfirst}:{ylast + 1},{xfirst}:{xlast + 1})")
             interp_data[yfirst:ylast + 1, xfirst:xlast + 1] = numpy.nan
     if interactive_plot:
-        fig, axs = plt.subplots(1, 2, figsize=(16, 8))
-        axs[0].imshow(numpy.log10(orig_data), cmap=cm['gist_ncar'])
-        axs[0].set_title('Original')
-        axs[1].imshow(numpy.log10(interp_data), cmap=cm['gist_ncar'])
+        fig, axs = plt.subplots(2, 1, figsize=(8, 6))
+        axs[0].imshow(orig_data, norm=colors.LogNorm(), cmap=cm['gist_ncar'])
+        axs[0].set_title(f"Original - {orig_hdr['IMAGETYP'].upper()}")
+        axs[1].imshow(interp_data, norm=colors.LogNorm(), cmap=cm['gist_ncar'])
         axs[1].set_title('Repaired')
-        fig.show()
+        plt.tight_layout()
+        plt.show()
     # save it!
     outfits[data_hdu].data = interp_data
     outfits.writeto(outimg, overwrite=True)
@@ -1413,7 +1353,7 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littro
 
 
 def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littrow=False,
-                       interactive_plot=False, verbose=False, debug=False):
+                       interp_buffer=3, interactive_plot=False, verbose=False, debug=False):
     """Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
     calibration frames, but sets bad pixels to NaN for STANDARD and OBJECT frames. The NaN
     pixels can be interpolated across in same way after the VAR and DQ extensions are created,
@@ -1504,22 +1444,14 @@ def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littrow
             [289, 364, 1470, 1500],
             [108, 183, 1465, 1495],
         ]
+        # Choice of grating changes the ghost locations
         if orig_hdr['GRATINGR'] == 'R7000':
-            # Falls completely on science slits and strongly resolved into two peaks
-            # Could use more sophisticated treatment
-            for ll in littrow_data:
-                ll[0] -= 30
-                ll[1] -= 30
-                ll[2] += 555
-                ll[3] += 555
+            # Falls completely on science slits but is too weak to bother masking.
+            littrow_data = []
         elif orig_hdr['GRATINGR'] == 'I7000':
-            # Falls completely on science slits and strongly resolved into two peaks
-            # Could use more sophisticated treatment
-            for ll in littrow_data:
-                ll[0] -= 30
-                ll[1] -= 30
-                ll[2] += 530
-                ll[3] += 530
+            # Falls completely on science slits in region of high fringing.
+            # Better to omit masking.
+            littrow_data = []
         bad_data.extend(littrow_data)
 
     interp_data = 1.0 * orig_data
@@ -1548,12 +1480,13 @@ def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littrow
                 print(f"NaN-ing ({yfirst}:{ylast + 1},{xfirst}:{xlast + 1})")
             interp_data[yfirst:ylast + 1, xfirst:xlast + 1] = numpy.nan
     if interactive_plot:
-        fig, axs = plt.subplots(1, 2, figsize=(16, 8))
+        fig, axs = plt.subplots(2, 1, figsize=(8, 6))
         axs[0].imshow(numpy.log10(orig_data), cmap=cm['gist_ncar'])
-        axs[0].set_title('Original')
+        axs[0].set_title(f"Original - {orig_hdr['IMAGETYP'].upper()}")
         axs[1].imshow(numpy.log10(interp_data), cmap=cm['gist_ncar'])
         axs[1].set_title('Repaired')
-        fig.show()
+        plt.tight_layout()
+        plt.show()
     # save it!
     outfits[data_hdu].data = interp_data
     outfits.writeto(outimg, overwrite=True)
@@ -1600,12 +1533,15 @@ def fit_wifes_interslit_bias(
     if halfframe:
         if is_taros(inimg):
             nslits = 12
+            first = 1
             offset = 2056 // bin_y
         else:
             nslits = 13
+            first = 7
             offset = 1028 // bin_y
     else:
         nslits = 25
+        first = 1
         offset = 0
     for i in range(nslits):
         init_curr_defs = slitlet_defs[str(i + 1)]
@@ -1688,7 +1624,7 @@ def fit_wifes_interslit_bias(
                     plt.hist(curr_col[good_inds], bins=50)
                     plt.xlabel("Good curr_col values")
                     plt.ylabel("Number")
-                    plt.title(f"Slitlet {i+1}")
+                    plt.title(f"Slitlet {i + first}")
                     plt.show()
                 row_med[i] = numpy.nanmean(curr_col[good_inds])
             # row_med = numpy.nanmedian(curr_data, axis=0)
@@ -1909,7 +1845,7 @@ def generate_wifes_bias_fit(
         ny, nx = numpy.shape(curr_data)
         linx = numpy.arange(nx, dtype="float32")
         liny = numpy.arange(ny, dtype="float32")
-        full_x, _ = numpy.meshgrid(linx, liny)
+        full_x = numpy.meshgrid(linx, liny)[0]
 
         if method == "row_med":
             row_med = numpy.zeros(nx, dtype="float32")
@@ -2152,13 +2088,15 @@ def derive_slitlet_profiles(
         orig_ctr = 0.5 * float(len(y_prof))
         new_ctr = 0.5 * (new_ymin + new_ymax)
         # now adjust the slitlet definitions!
-        y_shift = bin_y * int(new_ctr - orig_ctr)
+        y_shift = int(bin_y * (new_ctr - orig_ctr))
         if interactive_plot:
             plt.figure()
             plt.plot(y_prof, color="b")
             plt.axvline(orig_ctr, color="r")
             plt.axvline(new_ctr, color="g")
-            plt.title("Slitlet {i}")
+            plt.ylabel("Relative counts")
+            plt.xlabel("y pixel")
+            plt.title(f"Slitlet {i} (red=orig, green=new)")
             plt.show()
         if verbose:
             print(
@@ -2195,8 +2133,11 @@ def derive_slitlet_profiles(
         final_slitlet_defs = new_slitlet_defs
     if interactive_plot:
         for i in range(first_slit, first_slit + nslits):
-            plt.axhline(final_slitlet_defs[str(i)][2] // bin_y - offset, color="k")
-            plt.axhline(final_slitlet_defs[str(i)][3] // bin_y - offset, color="k")
+            plt.axhline(final_slitlet_defs[str(i)][2] // bin_y - offset, color="k", lw=2)
+            plt.axhline(final_slitlet_defs[str(i)][3] // bin_y - offset, color="k", lw=2)
+        plt.title("Flat - black lines show slit boundaries")
+        plt.xlabel("x pixel")
+        plt.ylabel("y pixel")
         plt.show()
     # save it!
     f3 = open(output_fn, "wb")
@@ -2350,7 +2291,7 @@ def interslice_cleanup(
 
         if interactive_plot:
             plt.imshow(tmp, aspect='auto', origin='lower')
-            plt.title(f"Slitlet {slit}: tmp[{symin}:{symax}, {xmin}:{xmax}] = data < {median} + {nsig_lim} * {std}")
+            plt.title(f"Slitlet {slit}: y=({symin}:{symax}), data < {median:.2f} + {nsig_lim} * {std:.2f}")
             plt.show()
         # Perform smoothing
         if method == "2D":
@@ -2361,7 +2302,7 @@ def interslice_cleanup(
             inter_smooth[symin:symax, xmin:xmax] += numpy.nanmedian(tmp)
         if interactive_plot:
             plt.imshow(inter_smooth[symin:symax, xmin:xmax], aspect='auto', origin='lower')
-            plt.title(f"Slitlet {slit}: inter_smooth[{symin}:{symax}, {xmin}:{xmax}]")
+            plt.title(f"Slitlet {slit}: inter_smooth y=({symin}:{symax})")
             plt.show()
 
         # And don't forget below the last slice
@@ -2468,7 +2409,7 @@ def interslice_cleanup(
     f.writeto(output_fn, overwrite=True)
     f.close()
     if verbose:
-        print(" Additive offset:", offset * numpy.nanmean(fitted))
+        print(" Additive offset:", applied_offset)
     # 8) Plot anything ?
     if plot:
         myvmax = numpy.nanmax(fitted)
@@ -2486,7 +2427,7 @@ def interslice_cleanup(
         axs[1].set_ylabel('Y-axis [pixel]', size=text_size)
 
         # Plot and save the third subplot
-        axs[2].imshow(data - fitted + offset * numpy.nanmean(fitted), vmin=0, vmax=myvmax, cmap="nipy_spectral", origin="lower", aspect='auto')
+        axs[2].imshow(data - fitted + applied_offset, vmin=0, vmax=myvmax, cmap="nipy_spectral", origin="lower", aspect='auto')
         axs[2].set_title("Corrected " + os.path.basename(output_fn), size=text_size)
         axs[2].set_xlabel('X-axis [pixel]', size=text_size)
 
@@ -3217,6 +3158,7 @@ def wifes_2dim_response(
     polydeg=7,
     resp_min=1.0e-4,
     debug=False,
+    interactive_plot=False,
 ):
     if debug:
         print(arguments())
@@ -3269,7 +3211,7 @@ def wifes_2dim_response(
         rect_data = midslice_data
         mid_lam_array = numpy.arange(len(rect_data[0, :]), dtype="d")
 
-    out_y_full, _ = numpy.meshgrid(yarr, mid_lam_array)
+    out_y_full = numpy.meshgrid(yarr, mid_lam_array)[0]
     disp_ave = abs(numpy.nanmean(mid_lam_array[1:] - mid_lam_array[:-1]))
 
     # fit polynomial to median data
@@ -3357,6 +3299,7 @@ def wifes_2dim_response(
             rect_spec_data, lam_array = transform_data(
                 orig_spec_data, wave, return_lambda=True
             )
+
             curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
             init_normed_data = rect_spec_data / curr_norm_array
             xstart = int(0.25 * len(lam_array))
@@ -3366,6 +3309,15 @@ def wifes_2dim_response(
                 init_normed_data / numpy.nanmedian(norm_region, axis=1).T[:, numpy.newaxis]
             )
             next_normed_data[next_normed_data <= 0] = numpy.nan
+
+            # Force spectral flat to 1 at wavelengths where sum of median counts < 100 (S/N ~ 10)
+            try:
+                nflat = float(f1[0].header["PYWFLATN"])
+            except:
+                print("Could not retrieve number of input dome flats from header, defaulting to 1")
+                nflat = 1.0
+            force_idx = numpy.nonzero(nflat * numpy.nanmedian(rect_spec_data, axis=0) < 100.0)
+            init_normed_data[:, force_idx] = 1.
 
             # SPATIAL FLAT
             rect_spat_data = transform_data(orig_spat_data, wave, return_lambda=False)
@@ -3447,7 +3399,8 @@ def wifes_2dim_response(
 
         ax_left.legend()
         ax_left.set_xlabel(r'Wavelength [$\AA$]')
-        ax_left.set_ylabel(r'Flux')
+        ax_left.set_ylabel('Flux')
+        ax_left.set_yscale('log')
 
         # (2) illumination correction
         ax_right = fig.add_subplot(grid[0, 2])
@@ -3633,17 +3586,18 @@ def derive_wifes_wire_solution(
         wparam = numpy.array(wparam)
         for i, slice in enumerate(range(first, first + nslits)):
             if wire_polydeg == 1:
-                plt.scatter(slice, wparam[i, 0], marker='o')
+                plt.scatter(slice, wparam[i, 0] * 1000., marker='o')
             elif wire_polydeg >= 2:
                 plt.scatter(slice, wparam[i, 0], marker='x')
-                plt.scatter(slice, wparam[i, 1], marker='o')
+                plt.scatter(slice, wparam[i, 1] * 1000., marker='o')
                 if wire_polydeg > 2:
                     plt.scatter([], [], label="Higher-order terms\nfit but not plotted")
         plt.xlabel("Slitlet")
         if wire_polydeg == 1:
-            plt.ylabel("Slope (y pixels per x pixel)")
+            plt.ylabel("Slope (y pixels per 1000 x pixels)")
         else:
-            plt.ylabel("Slope (cirlce), 2nd-order coeff (X)")
+            plt.ylabel("Slope (circle), 2nd-order coeff (X)")
+        plt.title(f"Wire Fit Results (order {wire_polydeg} polynomial)")
         plt.tight_layout()
         plot_name = f"{save_prefix}.png"
         plot_path = os.path.join(plot_dir, plot_name)
@@ -3659,6 +3613,17 @@ def derive_wifes_wire_solution(
     return
 
 
+def _scale_grid_data(
+    points, values, xi, method="linear", fill_value=0, scale_factor=1.0
+):
+    return (
+        scale_factor
+        * interp.griddata(
+            points, values, xi, method=method, fill_value=fill_value
+        ).T
+    )
+
+
 # -------------------------------------------------------------
 # DATA CUBE!!!
 def generate_wifes_cube(
@@ -3672,75 +3637,12 @@ def generate_wifes_cube(
     bin_x=None,
     bin_y=None,
     ny_orig=76,
-    offset_orig=4,
+    offset_orig=2,
+    verbose=True,
+    adr=False,
+    subsample=1,
     multithread=False,
     max_processes=-1,
-    verbose=False,
-    adr=False,
-    debug=False,
-):
-    if debug:
-        print(arguments())
-    if multithread:
-        generate_wifes_cube_multithread(
-            inimg,
-            outimg,
-            wire_fn,
-            wsol_fn,
-            wmin_set=wmin_set,
-            wmax_set=wmax_set,
-            dw_set=dw_set,
-            bin_x=bin_x,
-            bin_y=bin_y,
-            ny_orig=ny_orig,
-            offset_orig=offset_orig,
-            max_processes=max_processes,
-            verbose=verbose,
-            adr=adr,
-        )
-    else:
-        generate_wifes_cube_oneproc(
-            inimg,
-            outimg,
-            wire_fn,
-            wsol_fn,
-            wmin_set=wmin_set,
-            wmax_set=wmax_set,
-            dw_set=dw_set,
-            bin_x=bin_x,
-            bin_y=bin_y,
-            ny_orig=ny_orig,
-            offset_orig=offset_orig,
-            verbose=verbose,
-            adr=adr,
-        )
-
-
-def _scale_grid_data(
-    points, values, xi, method="linear", fill_value=0, scale_factor=1.0
-):
-    return (
-        scale_factor
-        * interp.griddata(
-            points, values, xi, method=method, fill_value=fill_value
-        ).T
-    )
-
-
-def generate_wifes_cube_oneproc(
-    inimg,
-    outimg,
-    wire_fn,
-    wsol_fn,
-    wmin_set=None,
-    wmax_set=None,
-    dw_set=None,
-    bin_x=None,
-    bin_y=None,
-    ny_orig=76,
-    offset_orig=4,
-    verbose=False,
-    adr=False,
     debug=False,
 ):
     if debug:
@@ -3758,10 +3660,18 @@ def generate_wifes_cube_oneproc(
 
     # setup base x/y array
     f3 = pyfits.open(inimg)
-    ndy, ndx = numpy.shape(f3[1].data)
+    ndy_orig, ndx_orig = numpy.shape(f3[1].data)
+    full_x_orig, full_y_orig = numpy.meshgrid(numpy.arange(ndx_orig), numpy.arange(ndy_orig))
+
+    if subsample < 1 or subsample > 10:
+        print(f"generate_wifes_cube: subsample must be between 1 and 10. Received {subsample}, setting to 1.")
+        subsample = 1
+
+    ndx = ndx_orig
+    ndy = int(numpy.ceil(ndy_orig * subsample))
     xarr = numpy.arange(ndx)
     yarr = numpy.arange(ndy)
-    full_x, full_y = numpy.meshgrid(xarr, yarr)
+    full_y = numpy.meshgrid(xarr, yarr)[1]
     obs_hdr = f3[0].header
 
     # figure out the binning!
@@ -3797,7 +3707,7 @@ def generate_wifes_cube_oneproc(
         disp_ave = dw_set
     else:
         disp_ave = numpy.nanmean(frame_wdisps)
-    # excise lowest pixel so interpolation doesn't fail
+    # shift lowest pixel so interpolation doesn't fail
     frame_wmin += disp_ave
     # finally check against the user input value
     if wmin_set is not None:
@@ -3823,13 +3733,16 @@ def generate_wifes_cube_oneproc(
     try:
         f5 = pyfits.open(wire_fn)
         wire_trans = f5[0].data
+        if subsample > 1:
+            wire_trans = subsample * ndimage.zoom(wire_trans, zoom=[subsample, 1], order=0, mode='nearest', grid_mode=True)
         f5.close()
     except:
         wire_trans = numpy.zeros([ndy, ndx], dtype="d") + numpy.nanmax(yarr) / 2
-    wire_offset = float(offset_orig) / float(bin_y)
-    ny = ny_orig // bin_y
-    nx = nslits
+    wire_offset = float(offset_orig) / float(bin_y) * subsample
+    ny = int(numpy.ceil(ny_orig / bin_y * subsample))
+    nx = int(numpy.ceil(nslits * subsample))
     nlam = len(out_lambda)
+
     # for each slitlet...
     init_out_y = numpy.arange(ny, dtype="d")
     out_y = init_out_y - numpy.nanmedian(init_out_y)
@@ -3853,22 +3766,25 @@ def generate_wifes_cube_oneproc(
         # tanz = numpy.tan(zd)
         # telescope PA!
         telpa = numpy.radians(obs_hdr["TELPAN"])
-        # THIS MUST BE A FIXED VALUE
-        adr_ref = adr_x_y(
-            numpy.array([5600.0]),
-            secz,
-            ha,
-            dec,
-            lat,
-            teltemp=0.0,
-            telpres=700.0,
-            telpa=telpa,
-        )
+
+        # Assumes 12 C air temperature, 665 mmHg (887 hPa) air pressure,
+        # and 6.0 mmHg water vapour, the approximate median clear-night
+        # values for SSO from 10 years of SkyMapper data (2014-2024).
+        # Water vapour pressure derived from air temperature and relative
+        # humidity, following Stone 1996 (PASP, 108, 1051), equations 18-21.
+        sso_temp = 12.0
+        sso_pres = 665.0
+        sso_wvp = 6.0
+
     # ---------------------------
     # Create a temporary storage array for first iteration
     flux_data_cube_tmp = numpy.zeros([nx, ny, nlam])
     var_data_cube_tmp = numpy.ones([nx, ny, nlam])
     dq_data_cube_tmp = numpy.ones([nx, ny, nlam])
+
+    if multithread:
+        tasks = []
+
     # First interpolation : Wavelength + y (=wire & ADR)
     if verbose:
         print(" -> Step 1: interpolating along lambda and y (2D interp.)\r")
@@ -3884,109 +3800,164 @@ def generate_wifes_cube_oneproc(
         curr_var = f3[curr_hdu + nslits].data
         curr_dq = f3[curr_hdu + 2 * nslits].data
 
+        if subsample > 1:
+            wave = ndimage.zoom(wave, zoom=[subsample, 1], order=0, mode='nearest', grid_mode=True)
+            curr_flux = ndimage.zoom(curr_flux, zoom=[subsample, 1], order=0, mode='nearest', grid_mode=True)
+            curr_var = ndimage.zoom(curr_var, zoom=[subsample, 1], order=0, mode='nearest', grid_mode=True)
+            curr_dq = ndimage.zoom(curr_dq, zoom=[subsample, 1], order=0, mode='nearest', grid_mode=True)
+
         # convert the *x* pixels to lambda
         dw = numpy.abs(wave[:, 1:] - wave[:, :-1])
-        full_dw = numpy.zeros(numpy.shape(wave))
+        full_dw = numpy.zeros(wave.shape)
         full_dw[:, 1:] = dw
         full_dw[:, 0] = dw[:, 0]
-        # and *y* to real y
-        curr_wire = wire_trans[i, :]
-        all_ypos = full_y - curr_wire - wire_offset
+        for ii in range(int(numpy.ceil(i * subsample)), int(numpy.ceil((i + 1) * subsample))):
+            # and *y* to real y
+            curr_wire = wire_trans[ii, :]
+            all_ypos = full_y - curr_wire - wire_offset
 
-        # from the y-lambda-flux data, interpolate the flux
-        # for the desired output y-lambda grid
-        wave_flat = wave.flatten()
-        all_ypos_flat = all_ypos.flatten()
-        curr_flux_flat = (curr_flux / full_dw).flatten()
-        curr_var_flat = (curr_var / full_dw**2).flatten()
-        curr_dq_flat = curr_dq.flatten()
-        # Calculate the ADR corrections (this is slow)
-        if adr:
-            adr_corr = adr_x_y(
-                wave_flat, secz, ha, dec, lat, teltemp=0.0, telpres=700.0, telpa=telpa
-            )
-            adr_y = adr_corr[1] - adr_ref[1]
+            # from the y-lambda-flux data, interpolate the flux
+            # for the desired output y-lambda grid
+            wave_flat = wave.flatten()
+            all_ypos_flat = all_ypos.flatten()
+            curr_flux_flat = (curr_flux / full_dw).flatten()
+            curr_var_flat = (curr_var / full_dw**2).flatten()
+            curr_dq_flat = curr_dq.flatten()
+            # Calculate the ADR corrections (this is slow)
+            if adr:
+                adr_corr = adr_x_y(
+                    wave_flat, secz=secz, objha=ha, objdec=dec, tellat=lat, teltemp=sso_temp, telpres=sso_pres, telwvp=sso_wvp, telpa=telpa, ref_wl=5600.
+                )
+                adr_y = adr_corr[1] * 0.5 * float(bin_y)
+                all_ypos_flat -= adr_y
 
-            all_ypos_flat -= adr_y
+            if multithread:
+                # Create tasks to calculate flux, var, and dq.
+                flux_task = get_task(
+                    _scale_grid_data,
+                    (wave_flat, all_ypos_flat),
+                    curr_flux_flat,
+                    (out_lambda_full, out_y_full),
+                    method="linear",
+                    fill_value=0.0,
+                    scale_factor=disp_ave,
+                )
 
-        # Does the interpolation (this is equally slow ...)
-        flux_data_cube_tmp[i, :, :] = _scale_grid_data(
-            (wave_flat, all_ypos_flat),
-            curr_flux_flat,
-            (out_lambda_full, out_y_full),
-            method="linear",
-            fill_value=0.0,
-            scale_factor=disp_ave,
-        )
+                var_task = get_task(
+                    _scale_grid_data,
+                    (wave_flat, all_ypos_flat),
+                    curr_var_flat,
+                    (out_lambda_full, out_y_full),
+                    method="linear",
+                    fill_value=0.0,
+                    scale_factor=disp_ave**2,
+                )
 
-        var_data_cube_tmp[i, :, :] = _scale_grid_data(
-            (wave_flat, all_ypos_flat),
-            curr_var_flat,
-            (out_lambda_full, out_y_full),
-            method="linear",
-            fill_value=0.0,
-            scale_factor=disp_ave**2,
-        )
+                dq_task = get_task(
+                    _scale_grid_data,
+                    (wave_flat, all_ypos_flat),
+                    curr_dq_flat,
+                    (out_lambda_full, out_y_full),
+                    method="nearest",
+                    fill_value=1.0,
+                    scale_factor=1.0,
+                )
 
-        dq_data_cube_tmp[i, :, :] = _scale_grid_data(
-            (wave_flat, all_ypos_flat),
-            curr_dq_flat,
-            (out_lambda_full, out_y_full),
-            method="nearest",
-            fill_value=1.0,
-            scale_factor=1.0,
-        )
+                tasks.append(flux_task)
+                tasks.append(var_task)
+                tasks.append(dq_task)
 
-        if verbose:
-            sys.stdout.flush()
-            sys.stdout.write("\r\r %d" % (i / (float(nslits)) * 100.0) + "%")
-            sys.stdout.flush()
-            if i == nslits - 1:
-                sys.stdout.write("\n")
+            else:  # not multithread
+                # Does the interpolation (this is equally slow ...)
+                flux_data_cube_tmp[ii, :, :] = _scale_grid_data(
+                    (wave_flat, all_ypos_flat),
+                    curr_flux_flat,
+                    (out_lambda_full, out_y_full),
+                    method="linear",
+                    fill_value=0.0,
+                    scale_factor=disp_ave,
+                )
+
+                var_data_cube_tmp[ii, :, :] = _scale_grid_data(
+                    (wave_flat, all_ypos_flat),
+                    curr_var_flat,
+                    (out_lambda_full, out_y_full),
+                    method="linear",
+                    fill_value=0.0,
+                    scale_factor=disp_ave**2,
+                )
+
+                dq_data_cube_tmp[ii, :, :] = _scale_grid_data(
+                    (wave_flat, all_ypos_flat),
+                    curr_dq_flat,
+                    (out_lambda_full, out_y_full),
+                    method="nearest",
+                    fill_value=1.0,
+                    scale_factor=1.0,
+                )
+
+                if verbose:
+                    sys.stdout.flush()
+                    sys.stdout.write("\r\r %d" % (ii / (numpy.ceil(nslits * subsample)) * 100.0) + "%")
+                    sys.stdout.flush()
+                    if ii == int(numpy.ceil(nslits * subsample)) - 1:
+                        sys.stdout.write("\n")
+    if multithread:
+        results = map_tasks(tasks, max_processes=max_processes)
+        for i in range(int(numpy.ceil(nslits * subsample))):
+            flux_data_cube_tmp[i, :, :] = results[3 * i]
+            var_data_cube_tmp[i, :, :] = results[3 * i + 1]
+            dq_data_cube_tmp[i, :, :] = results[3 * i + 2]
+
     f4.close()
 
     # Second interpolation : x (=ADR)
     if adr:
         # To avoid interpolation issues at the edges,
-        # add two extra values on either side (0 in this version).
-        in_x = numpy.arange(-1, nslits + 1, 1, dtype="d")
-        out_x = numpy.arange(nslits, dtype="d")
+        # add two extra values on either side (repeating each of the endpoints).
+        in_x = numpy.arange(-1, int(numpy.ceil(nslits * subsample)) + 1, 1, dtype="d")
+        out_x = numpy.arange(int(numpy.ceil(nslits * subsample)), dtype="d")
         if verbose:
             print(" -> Step 2: interpolating along x (1D interp.)")
         for i in range(0, nlam):
+            # Adopting same default parameters as above
             adr_corr = adr_x_y(
                 numpy.array([out_lambda[i]]),
-                secz,
-                ha,
-                dec,
-                lat,
-                teltemp=0.0,
-                telpres=700.0,
+                secz=secz,
+                objha=ha,
+                objdec=dec,
+                tellat=lat,
+                teltemp=sso_temp,
+                telpres=sso_pres,
+                telwvp=sso_wvp,
                 telpa=telpa,
+                ref_wl=5600.
             )
-            adr_x = adr_corr[0] - adr_ref[0]
+            adr_x = adr_corr[0]
             for j in range(0, ny):
-                # here is the actual appending of 0 flux
+                # here is the actual appending of endpoint data
                 this_flux = numpy.append(
                     numpy.append(
-                        flux_data_cube_tmp[0, j, i], flux_data_cube_tmp[:nslits, j, i]
+                        flux_data_cube_tmp[0, j, i], flux_data_cube_tmp[:nx, j, i]
                     ),
-                    flux_data_cube_tmp[nslits - 1, j, i],
+                    flux_data_cube_tmp[nx - 1, j, i],
                 )
                 this_var = numpy.append(
                     numpy.append(
-                        var_data_cube_tmp[0, j, i], var_data_cube_tmp[:nslits, j, i]
+                        var_data_cube_tmp[0, j, i], var_data_cube_tmp[:nx, j, i]
                     ),
-                    var_data_cube_tmp[nslits - 1, j, i],
+                    var_data_cube_tmp[nx - 1, j, i],
                 )
                 this_dq = numpy.append(
                     numpy.append(
-                        dq_data_cube_tmp[0, j, i], dq_data_cube_tmp[:nslits, j, i]
+                        dq_data_cube_tmp[0, j, i], dq_data_cube_tmp[:nx, j, i]
                     ),
-                    dq_data_cube_tmp[nslits - 1, j, i],
+                    dq_data_cube_tmp[nx - 1, j, i],
                 )
 
                 # do interpolation
+                # print("Interp shapes: ", in_x.shape, adr_x.shape, this_flux.shape, out_x.shape, flux_data_cube_tmp.shape)
+                # Interp shapes for subsample=3:  (41,) (1,) (41,) (39,) (39, 114, 3506)
                 f = interp.interp1d(
                     in_x - adr_x,
                     this_flux,
@@ -4009,9 +3980,9 @@ def generate_wifes_cube_oneproc(
                     bounds_error=False,
                 )
 
-                flux_data_cube_tmp[:nslits, j, i] = f(out_x)
-                var_data_cube_tmp[:nslits, j, i] = g(out_x)
-                dq_data_cube_tmp[:nslits, j, i] = h(out_x)
+                flux_data_cube_tmp[:, j, i] = f(out_x)
+                var_data_cube_tmp[:, j, i] = g(out_x)
+                dq_data_cube_tmp[:, j, i] = h(out_x)
 
             if verbose:
                 if i > 0:
@@ -4021,6 +3992,13 @@ def generate_wifes_cube_oneproc(
                     sys.stdout.write("\n")
 
     # All done, at last ! Now, let's save it all ...
+    if subsample > 1:  # subsample=3: (39, 114, 3506) -> (13, 39, 3506)
+        print("Orig post-interpolation flux_data_cube_tmp.shape: ", flux_data_cube_tmp.shape)
+        # flux_data_cube_tmp = ndimage.map_coordinates(flux_data_cube_tmp, coordinates=numpy.meshgrid(subsample * numpy.arange(nslits) + subsample / 2., subsample * numpy.arange(ny_orig) + subsample / 2., numpy.arange(nlam)), order=0, mode='constant', cval=0)
+        flux_data_cube_tmp = blockwise_mean_3D(flux_data_cube_tmp, [subsample, subsample, 1])
+        var_data_cube_tmp = blockwise_mean_3D(var_data_cube_tmp, [subsample, subsample, 1])
+        dq_data_cube_tmp = blockwise_mean_3D(dq_data_cube_tmp, [subsample, subsample, 1])
+        print(flux_data_cube_tmp.shape)
     outfits = pyfits.HDUList(f3)
     flux_data_cube_tmp = flux_data_cube_tmp.astype("float32", casting="same_kind")
     var_data_cube_tmp = var_data_cube_tmp.astype("float32", casting="same_kind")
@@ -4048,337 +4026,9 @@ def generate_wifes_cube_oneproc(
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWYORIG", ny_orig, "PyWiFeS: ny_orig")
     outfits[0].header.set("PYWOORIG", offset_orig, "PyWiFeS: offset_orig")
-    outfits[0].header.set("PYW_ADR", adr, "PyWiFeS: ADR correction applied")
-    outfits.writeto(outimg, overwrite=True)
-    f3.close()
-    return
-
-
-def generate_wifes_cube_multithread(
-    inimg,
-    outimg,
-    wire_fn,
-    wsol_fn,
-    wmin_set=None,
-    wmax_set=None,
-    dw_set=None,
-    bin_x=None,
-    bin_y=None,
-    ny_orig=76,
-    offset_orig=4,
-    max_processes=-1,
-    verbose=False,
-    adr=False,
-    debug=False,
-):
-    if debug:
-        print(arguments())
-    # ---------------------------
-    # check if halfframe
-    halfframe = is_halfframe(inimg)
-    if halfframe:
-        if is_taros(inimg):
-            nslits = 12
-        else:
-            nslits = 13
-    else:
-        nslits = 25
-
-    # setup base x/y array
-    f3 = pyfits.open(inimg)
-    ndy, ndx = numpy.shape(f3[1].data)
-    xarr = numpy.arange(ndx)
-    yarr = numpy.arange(ndy)
-    full_x, full_y = numpy.meshgrid(xarr, yarr)
-    obs_hdr = f3[0].header
-    # figure out the binning!
-    try:
-        default_bin_x, default_bin_y = [int(b) for b in f3[1].header["CCDSUM"].split()]
-    except:
-        default_bin_x = 1
-        default_bin_y = 1
-    if bin_x is None:
-        bin_x = default_bin_x
-    if bin_y is None:
-        bin_y = default_bin_y
-    # get the min/max wavelengths across all slits, and average dispersion
-    frame_wmin = 0.0
-    frame_wmax = 20000.0
-    frame_wdisps = []
-    for i in range(nslits):
-        f4 = pyfits.open(wsol_fn)
-        wave = f4[i + 1].data
-        f4.close()
-        curr_wmin = numpy.nanmax(numpy.nanmin(wave, axis=1))
-        curr_wmax = numpy.nanmin(numpy.nanmax(wave, axis=1))
-        curr_wdisp = numpy.abs(numpy.nanmean(wave[:, 1:] - wave[:, :-1]))
-        if curr_wmin > frame_wmin:
-            frame_wmin = curr_wmin
-        if curr_wmax < frame_wmax:
-            frame_wmax = curr_wmax
-        frame_wdisps.append(curr_wdisp)
-
-    if dw_set is not None:
-        disp_ave = dw_set
-    else:
-        disp_ave = numpy.nanmean(frame_wdisps)
-    # excise lowest pixel so interpolation doesn't fail
-    frame_wmin += disp_ave
-    # finally check against the user input value
-    if wmin_set is not None:
-        final_frame_wmin = max(wmin_set, frame_wmin)
-    else:
-        final_frame_wmin = frame_wmin
-    if wmax_set is not None:
-        final_frame_wmax = min(wmax_set, frame_wmax)
-    else:
-        final_frame_wmax = frame_wmax
-
-    if verbose:
-        print(
-            " Data spectral resolution (min/max):",
-            numpy.round(numpy.nanmin(frame_wdisps), 4),
-            numpy.round(numpy.nanmax(frame_wdisps), 4),
-        )
-        print(" Cube spectral resolution : ", disp_ave)
-
-    out_lambda = numpy.arange(final_frame_wmin, final_frame_wmax, disp_ave)
-    # set up output data
-    # load in spatial solutions
-    try:
-        f5 = pyfits.open(wire_fn)
-        wire_trans = f5[0].data
-        f5.close()
-    except:
-        wire_trans = numpy.zeros([ndy, ndx], dtype="d") + numpy.nanmax(yarr) / 2
-    wire_offset = float(offset_orig) / float(bin_y)
-    ny = ny_orig // bin_y
-    nx = nslits
-    nlam = len(out_lambda)
-    # for each slitlet...
-    init_out_y = numpy.arange(ny, dtype="d")
-    out_y = init_out_y - numpy.nanmedian(init_out_y)
-    out_y_full, out_lambda_full = numpy.meshgrid(out_y, out_lambda)
-    # ---------------------------
-    # Prepare ADR corrections ...
-    if adr:
-        # observatory stuff
-        lat = obs_hdr["LAT-OBS"]  # degrees
-        # alt = obs_hdr["ALT-OBS"]  # meters
-        dec = dec_dms2dd(obs_hdr["DEC"])
-        # want to calculate average HA...
-        ha_start = obs_hdr["HA"]
-        ha_end = obs_hdr["HAEND"]
-        ha = 0.5 * (ha_degrees(ha_start) + ha_degrees(ha_end))
-        # and average ZD...
-        zd_start = obs_hdr["ZD"]
-        zd_end = obs_hdr["ZDEND"]
-        zd = numpy.radians(0.5 * (zd_start + zd_end))
-        secz = 1.0 / numpy.cos(zd)
-        # tanz = numpy.tan(zd)
-        # telescope PA!
-        telpa = numpy.radians(obs_hdr["TELPAN"])
-        # THIS MUST BE A FIXED VALUE
-        adr_ref = adr_x_y(
-            numpy.array([5600.0]),
-            secz,
-            ha,
-            dec,
-            lat,
-            teltemp=0.0,
-            telpres=700.0,
-            telpa=telpa,
-        )
-    # ---------------------------
-    # First interpolation : Wavelength + y (=wire & ADR)
-    if verbose:
-        print(" -> Step 1: interpolating along lambda and y (2D interp.) MULTITHREAD\r")
-
-    tasks = []
-
-    for i in range(nslits):
-        curr_hdu = i + 1
-        f4 = pyfits.open(wsol_fn)
-        wave = f4[curr_hdu].data
-        f4.close()
-
-        curr_flux = f3[curr_hdu].data
-        curr_var = f3[curr_hdu + nslits].data
-        curr_dq = f3[curr_hdu + 2 * nslits].data
-        # convert the *x* pixels to lambda
-        dw = numpy.abs(wave[:, 1:] - wave[:, :-1])
-        full_dw = numpy.zeros(numpy.shape(wave))
-        full_dw[:, 1:] = dw
-        full_dw[:, 0] = dw[:, 0]
-        # and *y* to real y
-        curr_wire = wire_trans[i, :]
-        all_ypos = full_y - curr_wire - wire_offset
-        # from the y-lambda-flux data, interpolate the flux
-        # for the desired output y-lambda grid
-        wave_flat = wave.flatten()
-        all_ypos_flat = all_ypos.flatten()
-        curr_flux_flat = (curr_flux / full_dw).flatten()
-        curr_var_flat = (curr_var / full_dw**2).flatten()
-        curr_dq_flat = curr_dq.flatten()
-        # Calculate the ADR corrections (this is slow)
-        if adr:
-            adr_corr = adr_x_y(
-                wave_flat, secz, ha, dec, lat, teltemp=0.0, telpres=700.0, telpa=telpa
-            )
-            adr_y = adr_corr[1] - adr_ref[1]
-            all_ypos_flat -= adr_y
-
-        # Create tasks to calculate flux, var, and dq.
-        flux_task = get_task(
-            _scale_grid_data,
-            (wave_flat, all_ypos_flat),
-            curr_flux_flat,
-            (out_lambda_full, out_y_full),
-            method="linear",
-            fill_value=0.0,
-            scale_factor=disp_ave,
-        )
-
-        var_task = get_task(
-            _scale_grid_data,
-            (wave_flat, all_ypos_flat),
-            curr_var_flat,
-            (out_lambda_full, out_y_full),
-            method="linear",
-            fill_value=0.0,
-            scale_factor=disp_ave**2,
-        )
-
-        dq_task = get_task(
-            _scale_grid_data,
-            (wave_flat, all_ypos_flat),
-            curr_dq_flat,
-            (out_lambda_full, out_y_full),
-            method="nearest",
-            fill_value=1.0,
-            scale_factor=1.0,
-        )
-
-        tasks.append(flux_task)
-        tasks.append(var_task)
-        tasks.append(dq_task)
-    results = map_tasks(tasks, max_processes=max_processes)
-
-    # ---------------------------
-    # Create a temporary storage array for first iteration
-    flux_data_cube_tmp = numpy.zeros([nx, ny, nlam])
-    var_data_cube_tmp = numpy.ones([nx, ny, nlam])
-    dq_data_cube_tmp = numpy.ones([nx, ny, nlam])
-
-    for i in range(nslits):
-        flux_data_cube_tmp[i, :, :] = results[3 * i]
-        var_data_cube_tmp[i, :, :] = results[3 * i + 1]
-        dq_data_cube_tmp[i, :, :] = results[3 * i + 2]
-
-    # ---------------------------
-    # Second interpolation : x (=ADR)
-    if adr:
-        # To avoid interpolation issues at the edges,
-        # add two extra values on either side (0 in this version).
-        in_x = numpy.arange(-1, nslits + 1, 1, dtype="d")
-        out_x = numpy.arange(nslits, dtype="d")
-        if verbose:
-            print(" -> Step 2: interpolating along x (1D interp.)")
-            sys.stdout.write("\r 0%")
-            sys.stdout.flush()
-        for i in range(0, nlam):
-            adr_corr = adr_x_y(
-                numpy.array([out_lambda[i]]),
-                secz,
-                ha,
-                dec,
-                lat,
-                teltemp=0.0,
-                telpres=700.0,
-                telpa=telpa,
-            )
-            adr_x = adr_corr[0] - adr_ref[0]
-            for j in range(0, ny):
-                # here is the actual appending of 0 flux
-                this_flux = numpy.append(
-                    numpy.append(
-                        flux_data_cube_tmp[0, j, i], flux_data_cube_tmp[:nslits, j, i]
-                    ),
-                    flux_data_cube_tmp[nslits - 1, j, i],
-                )
-                this_var = numpy.append(
-                    numpy.append(
-                        var_data_cube_tmp[0, j, i], var_data_cube_tmp[:nslits, j, i]
-                    ),
-                    var_data_cube_tmp[nslits - 1, j, i],
-                )
-                this_dq = numpy.append(
-                    numpy.append(
-                        dq_data_cube_tmp[0, j, i], dq_data_cube_tmp[:nslits, j, i]
-                    ),
-                    dq_data_cube_tmp[nslits - 1, j, i],
-                )
-                # do interpolation
-                f = interp.interp1d(
-                    in_x - adr_x,
-                    this_flux,
-                    kind="linear",
-                    fill_value=0.0,
-                    bounds_error=False,
-                )
-                g = interp.interp1d(
-                    in_x - adr_x,
-                    this_var,
-                    kind="linear",
-                    fill_value=0.0,
-                    bounds_error=False,
-                )
-                h = interp.interp1d(
-                    in_x - adr_x,
-                    this_dq,
-                    kind="nearest",
-                    fill_value=3,
-                    bounds_error=False,
-                )
-                flux_data_cube_tmp[:nslits, j, i] = f(out_x)
-                var_data_cube_tmp[:nslits, j, i] = g(out_x)
-                dq_data_cube_tmp[:nslits, j, i] = h(out_x)
-            if verbose:
-                if i > 0:
-                    sys.stdout.flush()
-                sys.stdout.write("\r\r %d" % ((i - 1) / (nlam - 1.0) * 100.0) + "%")
-                if i == nlam - 1:
-                    sys.stdout.write("\n")
-    # All done, at last ! Now, let's save it all ...
-    outfits = pyfits.HDUList(f3)
-    flux_data_cube_tmp = flux_data_cube_tmp.astype("float32", casting="same_kind")
-    var_data_cube_tmp = var_data_cube_tmp.astype("float32", casting="same_kind")
-    # trim data beyond range
-    dq_data_cube_tmp[dq_data_cube_tmp > 32767] = 32767
-    dq_data_cube_tmp[dq_data_cube_tmp < -32768] = -32768
-    dq_data_cube_tmp = dq_data_cube_tmp.astype("int16", casting="unsafe")
-    for i in range(nslits):
-        curr_hdu = i + 1
-        # save to data cube
-        outfits[curr_hdu].data = flux_data_cube_tmp[i, :, :]
-        outfits[curr_hdu].scale("float32")
-        outfits[curr_hdu].header.set("CRVAL1", final_frame_wmin)
-        outfits[curr_hdu].header.set("CDELT1", disp_ave)
-        outfits[curr_hdu].header.set("NAXIS1", len(out_lambda))
-        outfits[curr_hdu + nslits].data = var_data_cube_tmp[i, :, :]
-        outfits[curr_hdu + nslits].scale("float32")
-        outfits[curr_hdu + nslits].header.set("CRVAL1", final_frame_wmin)
-        outfits[curr_hdu + nslits].header.set("CDELT1", disp_ave)
-        outfits[curr_hdu + nslits].header.set("NAXIS1", len(out_lambda))
-        outfits[curr_hdu + 2 * nslits].data = dq_data_cube_tmp[i, :, :]
-        outfits[curr_hdu + 2 * nslits].scale("int16")
-        outfits[curr_hdu + 2 * nslits].header.set("CRVAL1", final_frame_wmin)
-        outfits[curr_hdu + 2 * nslits].header.set("CDELT1", disp_ave)
-        outfits[curr_hdu + 2 * nslits].header.set("NAXIS1", len(out_lambda))
-    outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    outfits[0].header.set("PYWYORIG", ny_orig, "PyWiFeS: ny_orig")
-    outfits[0].header.set("PYWOORIG", offset_orig, "PyWiFeS: offset_orig")
-    outfits[0].header.set("PYW_ADR", adr, "PyWiFeS: ADR applied")
+    outfits[0].header.set("PYWADR", adr, "PyWiFeS: ADR correction applied")
+    if subsample is not None:
+        outfits[0].header.set("PYWSSAMP", subsample, "PyWiFeS: spatial subsampling factor for wire and ADR")
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return
@@ -4503,6 +4153,7 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     cube_hdu = pyfits.PrimaryHDU(obj_cube_data.astype("float32", casting="same_kind"), header=f[0].header)
     cube_hdu.scale("float32")
     # Add header info
+    cube_hdu.name = 'SCI'
     cube_hdu.header.set("CTYPE1", ctype1, "Type of co-ordinate on axis 1")
     cube_hdu.header.set("CTYPE2", ctype2, "Type of co-ordinate on axis 2")
     cube_hdu.header.set("CUNIT1", cunit1, "Units for axis 1")
@@ -4528,6 +4179,7 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     var_hdu = pyfits.PrimaryHDU(obj_cube_var.astype("float32", casting="same_kind"), header=f[0].header)
     var_hdu.scale("float32")
     # Add header info
+    var_hdu.name = 'VAR'
     var_hdu.header.set("CTYPE1", ctype1, "Type of co-ordinate on axis 1")
     var_hdu.header.set("CTYPE2", ctype2, "Type of co-ordinate on axis 2")
     var_hdu.header.set("CUNIT1", cunit1, "Units for axis 1")
@@ -4556,6 +4208,7 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     dq_hdu = pyfits.PrimaryHDU(obj_cube_dq.astype("int16", casting="unsafe"), header=f[0].header)
     dq_hdu.scale("int16")
     # Add header info
+    dq_hdu.name = 'DQ'
     dq_hdu.header.set("CTYPE1", ctype1, "Type of co-ordinate on axis 1")
     dq_hdu.header.set("CTYPE2", ctype2, "Type of co-ordinate on axis 2")
     dq_hdu.header.set("CUNIT1", cunit1, "Units for axis 1")

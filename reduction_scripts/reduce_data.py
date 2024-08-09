@@ -254,7 +254,7 @@ def main():
     # ------------------------------------------------------------------------
     # Overscan subtraction
     # ------------------------------------------------------------------------
-    def run_overscan_sub(metadata, prev_suffix, curr_suffix):
+    def run_overscan_sub(metadata, prev_suffix, curr_suffix, **args):
         full_obs_list = get_full_obs_list(metadata)
         first = True
         for fn in full_obs_list:
@@ -273,7 +273,7 @@ def main():
                 else:
                     oscanmask = None
                 first = False
-            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu, omaskfile=oscanmask)
+            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu, omaskfile=oscanmask, **args)
         return
 
     # ------------------------------------------------------
@@ -408,6 +408,7 @@ def main():
         kwstring = None
         commstring = None
         outvarimg = None
+        save_prefix = 'imcombine_inputs'
         if source == "dome":
             out_fn = super_dflat_raw
             flat_list = [
@@ -421,6 +422,7 @@ def main():
             kwstring = "FLATN"
             commstring = "lamp flat"
             outvarimg = os.path.join(master_dir, f"wifes_{arm}_super_domeflat_raw_var.fits")
+            save_prefix = f"dflat_{save_prefix}"
         elif source == "twi":
             out_fn = super_tflat_raw
             flat_list = [
@@ -433,6 +435,7 @@ def main():
             info_print(f"List of {source} flats: {flat_list}")
             kwstring = "TWIN"
             commstring = "twilight flat"
+            save_prefix = f"twi_{save_prefix}"
         elif source == "wire":
             out_fn = super_wire_raw
             flat_list = [
@@ -466,7 +469,7 @@ def main():
         info_print(f"Generating co-add {source} flat")
         pywifes.imcombine(
             flat_list, out_fn, data_hdu=my_data_hdu, kwstring=kwstring, commstring=commstring,
-            outvarimg=outvarimg, **args
+            outvarimg=outvarimg, plot_dir=plot_dir_arm, save_prefix=save_prefix, **args
         )
         return
 
@@ -605,7 +608,7 @@ def main():
         )
         return
 
-    def run_slitlet_mef(metadata, prev_suffix, curr_suffix, ns=False):
+    def run_slitlet_mef(metadata, prev_suffix, curr_suffix):
         # Do not need MEF versions of individual frames for those with supercals (and with no "locals")
         excl_list = ["bias", "dark", "domeflat", "twiflat"]
         full_obs_list = get_full_obs_list(metadata, exclude=excl_list)
@@ -625,7 +628,7 @@ def main():
                     and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
                 continue
             info_print(f"Creating MEF file for {os.path.basename(in_fn)}")
-            if ns and fn in ns_proc_list:
+            if obs_mode == "ns" and fn in ns_proc_list:
                 sky_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, curr_suffix))
                 pywifes.wifes_slitlet_mef_ns(
                     in_fn,
@@ -750,7 +753,6 @@ def main():
         metadata,
         prev_suffix,
         curr_suffix,
-        ns=False,
         multithread=False,
         max_processes=-1,
     ):
@@ -782,7 +784,7 @@ def main():
                 is_multithread=multithread,
                 max_processes=max_processes,
             )
-            if ns:
+            if obs_mode == "ns":
                 in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
                 out_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, curr_suffix))
                 info_print(f"Cleaning cosmics in {os.path.basename(in_fn)}")
@@ -822,7 +824,7 @@ def main():
                 is_multithread=multithread,
                 max_processes=max_processes,
             )
-            if ns:
+            if obs_mode == "ns":
                 in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
                 out_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, curr_suffix))
                 info_print(f"Cleaning cosmics in standard star {os.path.basename(in_fn)}")
@@ -865,8 +867,8 @@ def main():
             pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime")
         return
 
-    def run_sky_sub(metadata, prev_suffix, curr_suffix, ns=False):
-        if ns:
+    def run_sky_sub(metadata, prev_suffix, curr_suffix):
+        if obs_mode == "ns":
             run_sky_sub_ns(metadata, prev_suffix, curr_suffix)
         else:
             # subtract sky frames from science objects
@@ -1137,8 +1139,6 @@ def main():
                 out_fn,
                 wire_fn=wire_fn,
                 wsol_fn=wsol_fn,
-                ny_orig=76,
-                offset_orig=2.0,
                 **args
             )
         return
@@ -1208,7 +1208,7 @@ def main():
                     and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
                 continue
             info_print(f"Flux-calibrating cube {os.path.basename(in_fn)}")
-            wifes_calib.calibrate_wifes_cube(in_fn, out_fn, calib_fn, mode)
+            wifes_calib.calibrate_wifes_cube(in_fn, out_fn, calib_fn, mode, **args)
         return
 
     # ------------------------------------------------------
@@ -1342,6 +1342,24 @@ def main():
         help="Optional: Skip already completed steps.",
     )
 
+    # Option for treating OBJECT images near standard stars as standards even if IMAGETYP != STANDARD
+    parser.add_argument(
+        "-greedy-stds",
+        action="store_true",
+        help="Optional: Treat OBJECT as STANDARD if near known standard.",
+    )
+
+    # Option to avoid coadding all science frames with the same OBJECT name.
+    # Useful for time-series, position shifts, etc.
+    parser.add_argument(
+        "--coadd-mode",
+        choices=["all", "none", "prompt"],
+        default="all",
+        help="Optional: coadd 'all' (default), 'none', 'prompt' (user-selected, blue/red separate) frames of a given OBJECT",
+        required=False,
+        type=str,
+    )
+
     args = parser.parse_args()
 
     # Validate and process the user_data_dir
@@ -1395,7 +1413,7 @@ def main():
     os.makedirs(plot_dir, exist_ok=True)
 
     # Classify all raw data (red and blue arm)
-    obs_metadatas = classify(temp_data_dir)
+    obs_metadatas = classify(temp_data_dir, greedy_stds=args.greedy_stds, coadd_mode=args.coadd_mode)
 
     # Set grism_key dictionary due to different keyword names for red and blue arms.
     grism_key = {
@@ -1448,13 +1466,10 @@ def main():
                 raise ValueError("No science, standard, or arc files found in metadata.")
 
             # Check observing mode
-            if is_nodshuffle(temp_data_dir + reference_filename):
+            obs_mode = "classical"
+            if is_nodshuffle(temp_data_dir + reference_filename) \
+                    or is_subnodshuffle(temp_data_dir + reference_filename):
                 obs_mode = "ns"
-
-            elif is_subnodshuffle(temp_data_dir + reference_filename):
-                obs_mode = "ns"
-            else:
-                obs_mode = "class"
 
             # Check if is half-frame
             halfframe = is_halfframe(temp_data_dir + reference_filename)
@@ -1466,7 +1481,7 @@ def main():
 
             # Set the JSON file path and read it.
             if params_path[arm] is None:
-                json_path = f"./pipeline_params/{arm}/params_{obs_mode}_{grism}.json"
+                json_path = f"./pipeline_params/{arm}/params_{grism}.json"
             else:
                 json_path = params_path[arm]
 
@@ -1620,7 +1635,7 @@ def main():
             # ----------------------------------------------------------
             # Read extraction parameters from JSON file
             # ----------------------------------------------------------
-            extract_params = load_config_file(f"./pipeline_params/params_extract_{obs_mode}.json")
+            extract_params = load_config_file("./pipeline_params/params_extract.json")
 
             # ----------------------------------------------------------
             # Loop over matched cubes list
@@ -1644,7 +1659,7 @@ def main():
                     destination_dir,
                     r_arcsec=extract_params["r_arcsec"],
                     border_width=extract_params["border_width"],
-                    sky_sub=extract_params["sky_sub"],
+                    sky_sub=False if obs_mode == "ns" else True,
                     plot=plot,
                     plot_path=plot_path,
                 )

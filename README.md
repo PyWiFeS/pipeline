@@ -7,7 +7,51 @@ The automated Python data reduction pipeline for WiFeS.
 Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024
 
 
-What's been done [20240802]:
+What's been done [20240809]:
+
+- simplify JSON files by removing separate nod & shuffle variants
+
+- add option to avoid coadding all science frames with the same OBJECT name (useful for time-series, position shifts, mosaics, etc.)
+
+- make greedy definition of STANDARD stars rely on command-line argument to enable (rough) sky proximity to known standard, otherwise (new default) require IMAGETYP keyword to be 'STANDARD'
+
+- adjust Littrow ghost positions for 7000 gratings
+
+- partially revert obs_coadd summation to better handle position shifts between (unguided) standard star exposures, but retain 'nansafesum' method for when observations are well aligned
+
+- simplify code by merging single-thread and multi-threaded cube generation modules
+
+- correct atmospheric differential refraction calculation to be valid for y-binning options x2, and update standard weather parameters based on SkyMapper records
+
+- streamline STANDARD extraction code
+
+
+***Future Development Underway***
+
+- improve fitting of flatfield and standard star shapes
+
+- explore improving fitting and removal of fringing
+
+- additional backwards compatibility with TAROS data
+
+- add time domain to the bad pixel mask
+
+- enable use of darks if present
+
+- allow for images to be attached to science observations as SKY
+
+- add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
+
+- allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
+
+- modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
+
+- apply charge transfer inefficiency (CTI) correction
+
+
+### Previously ###
+
+[20240802]:
 
 - add very cold pixels (typically having counts at least ~4x lower than neighbors) to bad pixel mask
 
@@ -37,31 +81,7 @@ What's been done [20240802]:
   - there are distinct amounts of x-axis shifts in fringe pattern of red dome flats
   - there are distinct families of red-end behavior of blue dome flats
 
-
-***Future Development Underway***
-
-- improve fitting of flatfield and standard star shapes
-
-- explore improving fitting and removal of fringing
-
-- additional backwards compatibility with TAROS data
-
-- add time domain to the bad pixel mask
-
-- enable use of darks if present
-
-- add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
-
-- allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
-
-- modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
-
-- apply charge transfer inefficiency (CTI) correction
-
-- test additional gratings, beam-splitters, observing modes
-
-
-### Previously ###
+[20240724]:
 
 - updated bad pixel mask and simplified code to add more in the future; wait to interpolate over bad pixels in STD and OBJECT frames until VAR and DQ extensions are created and can be flagged with bad pixels
 
@@ -99,7 +119,7 @@ What's been done [20240802]:
 
 - edits for code legibility and (most) PEP8 style conventions
 
-Tested with 1x2 Full Frame (B/R3000), 1x1 Full Frame (B/R3000), 1x2 Full Frame Nod & Shuffle (B/R3000), 1x2 Stellar (B/R3000), 1x2 TAROS Full Frame (B/R3000), 1x2 TAROS Stellar (B/R3000)
+Tested with 1x2 Full Frame (B/R3000, UB/RI7000), 1x1 Full Frame (B/R3000), 1x2 Full Frame Nod & Shuffle (B/R3000), 1x2 Stellar (B/R3000), 1x2 TAROS Full Frame (B/R3000), 1x2 TAROS Stellar (B/R3000)
 
 
 ### [May 2024 updates - use only AUTOMATION BRANCH]
@@ -115,13 +135,13 @@ Tested with 1x2 Full Frame (B/R3000), 1x1 Full Frame (B/R3000), 1x2 Full Frame N
     - `sub-nod-and-shuffle` mode.
     - Stellar frame configuration (that is, only the middle part of the detector is used).
     - Binning along the spatial axis.
-- New `.JSON` config files provided for each observing mode (`classic` and `nod-and-shuffle`) and grating. 
+- New `.JSON` config files provided for each ~~observing mode (`classic` and `nod-and-shuffle`) and~~ grating. 
   - The pipeline chooses the template automatically.
   - Users don't need to set anything in generate metadata or reduction scripts anymore.
   - Users can create their own `.JSON` file following the same structure as their preferred setup.
-  - Another set of `.JSON` config files is provided for when the pipeline aims to generate the master calibration files only.
+  - ~~Another set of `.JSON` config files is provided for when the pipeline aims to generate the master calibration files only.~~
 - Logger file to track the data usage and pipeline performance.
-- Astrometry is now implemented in the data cubes although the accuracy is 
+- Astrometry is now implemented in the data cubes although the accuracy is uncertain.
 - Extraction and splice of the spectra and splice of the 3D astrometrised cubes are now implemented.
 - Multiprocessing can be enabled so the pipeline can run faster (see caveats below). 
 - Multiple quality plots are automatically generated and saved.
@@ -186,15 +206,31 @@ To perform data reduction using master calibration files from previous reduction
     pywifes-reduce my_raw_data --from-master /.../.../master_calibrations_directory
 
 
+**Controlling How OBJECT Frames Are Coadded**
+
+The default pipeline behaviour is to coadd exposures that share the same OBJECT header keyword, which is unhelpful when there are position shifts of the source in the IFU (due to tracking offsets, dithering, mosaicking, PA changes, etc.). With the `--coadd-mode` command line argument, one may choose:
+
+    `all`: (default) coadd all observations with the same OBJECT name;
+    `none`: treat all IMAGETYP='OBJECT' exposures separately;
+    `prompt`: prompt the user to select which exposures to coadd together.
+
+With the `prompt` option, the user makes the choice independently for each arm, and (at present) must make the choice each time the pipeline is restarted.
+
+Example:
+
+    pywifes-reduce my_raw_data --coadd-mode prompt
+
 **Other parameters**
 
 `-skip-done`: Skip already completed steps. This will check for the existence of the output files from each step, as well as whether the output files are newer than the input files -- if either part fails, the step will be executed.
 
 `-just-calib`: Triggers the data reduction in the absence of on-sky data (both science and calibration). It only produces basic calibration files.
 
-'-extract-and-splice': Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON files:
+`-greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
 
-    /../../pipeline/pipeline_params/params_extract_{obs_mode}.json
+`-extract-and-splice`: Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON file:
+
+    /../../pipeline/pipeline_params/params_extract.json
 
 The sky annulus is hard-coded to extend from 3 to 4 times the JSON-specified source radius. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON setup).
 
@@ -203,7 +239,7 @@ The sky annulus is hard-coded to extend from 3 to 4 times the JSON-specified sou
 When multiprocessing is enabled, the pipeline *may* do the job faster. This will depend on the operative system used to run the pipeline. The multiprocessing setup is recommended for **Linux** users, as they will see a significant improvement in the computation time. On the other side, Mac OS users might get a similar running time (or just slightly faster) than in one-process mode. 
 To enable the multithreading option, please follow these steps:
 
-1. Open the `.json` file that corresponds to your data observing mode and grating. That is, `reduction_scripts/pipeline_parms/params_class_<grating>.json` for classic mode, or `reduction_scripts/params_ns_<grating>.json` for nod-and-shuffle.
+1. Open the `.json` file that corresponds to your grating. That is, `reduction_scripts/pipeline_parms/params_<grating>.json`.
 2. Set `"multithread": true` in all the cases. There should be a total of 6 `"multithread"`, 3 for each of the blue and red arms in the following steps: `"step": "wave_soln"`, `"step": "cosmic_rays"`, and `"step": "cube_gen"`.
 3. [Optional] Set `max_processes` to the *maximum* number of sub-processes you would like to launch for `"step": "cosmic_rays"`, and `"step": "cube_gen"`. If `-1`, the pipeline will use as many processes as there are hardware & logical cores on your device, which may be larger than the number of *available* cores, e.g. for Slurm users. Limiting the number of sub-processes can improve the efficiency and availability of your device.
 4. Run the pipeline following the instructions above.
