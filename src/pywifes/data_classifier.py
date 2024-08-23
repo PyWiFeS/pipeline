@@ -1,10 +1,20 @@
 import os
 from astropy.io import fits as pyfits
-from itertools import chain
-import json
+import itertools
+import pyjson5
 import pandas as pd
+import string
 
 from . import wifes_calib
+
+
+def _column_name_generator():
+    # Create ever-increasing capital letter sequence, growing in length as required.
+    # From https://stackoverflow.com/questions/42099312/how-to-create-an-infinite-iterator-to-generate-an-incrementing-alphabet-pattern
+
+    for i in itertools.count(1):
+        for p in itertools.product(string.ascii_uppercase, repeat=i):
+            yield ''.join(p)
 
 
 def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", mode_save_fn=None, camera="blue"):
@@ -12,7 +22,7 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
     Retrieve metadata for observed data files.
 
     This function categorizes observed data files based on their image type
-    ('BIAS', 'FLAT', 'SKYFLAT', 'DARK', 'ARC', 'WIRE', 'STANDARD', 'OBJECT')
+    ('BIAS', 'FLAT', 'SKYFLAT', 'DARK', 'ARC', 'WIRE', 'STANDARD', 'OBJECT', 'SKY')
     and object name. It groups standard star observations together and separates
     science observations from standard star observations.
 
@@ -47,7 +57,7 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
         - 'wire': List of filenames of wire frames.
         - 'sci': List of dictionaries, each containing information about science observations. Each dictionary has the following keys:
             - 'sci': List of filenames of science observations.
-            - 'sky': Empty list (not used in this function).
+            - 'sky': List of filenames of sky observations.
         - 'std': List of dictionaries, each containing information about standard star observations. Each dictionary has the following keys:
             - 'sci': List of filenames of standard star observations.
             - 'name': Name of the standard star.
@@ -65,6 +75,8 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
     wire = []
     stdstar = {}
     science = {}
+    sky = {}
+    sky_assoc = {}
 
     for filename in filenames:
         basename = filename.replace(".fits", "")
@@ -108,8 +120,7 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
                 stdstar[obj_name].append(basename)
             else:
                 stdstar[obj_name] = [basename]
-
-        # all else are science targets (also allow for standard stars in imagetype = OBJECT)
+        # 8 - science targets (also allow for standard stars in imagetype = OBJECT)
         elif imagetype == "OBJECT":
             if greedy_stds and obj_name in stdstar_list:
                 # group standard obs together!
@@ -135,6 +146,29 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
                                 break
                     else:
                         science[obj_name] = [basename]
+        # 9 - sky observations
+        elif imagetype == "SKY":
+            if coadd_mode == "all":
+                # group sky frames together, if desired
+                if obj_name in sky_assoc.keys():
+                    sky_assoc[obj_name].append(basename)
+                else:
+                    sky_assoc[obj_name] = [basename]
+            elif coadd_mode == "none":
+                # make an assumption of one sky per science frame, associating 1st with 1st, 2nd with 2nd, etc.
+                if obj_name in sky_assoc.keys():
+                    cnt = 2
+                    while True:
+                        if obj_name.rstrip() + f"_visit{cnt}" in sky_assoc.keys():
+                            cnt += 1
+                        else:
+                            sky_assoc[obj_name.rstrip() + f"_visit{cnt}"] = [basename]
+                            break
+                else:
+                    sky_assoc[obj_name] = [basename]
+            elif coadd_mode == "prompt":
+                # otherwise keep all sky frames separate and invert key,val for manual association
+                sky[basename] = obj_name
 
     if coadd_mode == "prompt":
         create_new = True
@@ -142,7 +176,7 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
         if os.path.isfile(mode_save_fn):
             try:
                 with open(mode_save_fn, "r") as f:
-                    old_science_full = json.load(f)
+                    old_science_full = pyjson5.load(f)
                 print(f"\nRead coadd association file {os.path.basename(mode_save_fn)}")
                 if camera in old_science_full:
                     old_science = old_science_full[camera]
@@ -150,19 +184,28 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
                     print(f"Could not find arm '{camera}' in coadd association file.")
                     raise
                 # Check for any new files in directory
-                old_list = list(chain.from_iterable(old_science.values()))
-                new_list = list(chain.from_iterable(science.values()))
+                old_list = list(itertools.chain.from_iterable([old_science[x]['sci'] for x in old_science.keys()]))
+                new_list = list(itertools.chain.from_iterable(science.values()))
                 if sorted(old_list) == sorted(new_list):
                     print("Existing coadd associations:")
+                    ilen = len(str(len(old_science)))
+                    klen = len(max(science.keys(), key=len))
+                    vlen = len(max(new_list, key=len))
+                    print(f"{'N'.ljust(ilen)}   {'Object'.ljust(klen)}")
+                    print(f"{'='*ilen}   {'='*klen}")
                     for i, (k, v) in enumerate(sorted(old_science.items())):
-                        v.sort()
-                        print(f"{i} - OBJECT: {k}  -  {v}")
+                        v['sci'].sort()
+                        v['sky'].sort()
+                        print(f"{str(i).ljust(ilen)} - {k.ljust(klen)}\n{''.ljust(ilen)} - Sci: {', '.join(vv for vv in v['sci']).ljust(vlen)}\n{''.ljust(ilen)} - Sky: {', '.join(vvv for vvv in v['sky'])}")
+                        print()
                     print()
                     while True:
                         confirm = input("Use this set of associations? (Y/N): ")
                         if confirm.upper() == "Y" or confirm.upper() == "YES":
                             create_new = False
-                            science = old_science
+                            for oskey in old_science.keys():
+                                science[oskey] = old_science[oskey]['sci']
+                                sky_assoc[oskey] = old_science[oskey]['sky']
                             print()
                             break
                         elif confirm.upper() == "N" or confirm.upper() == "NO":
@@ -178,10 +221,14 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
                 pass
         while create_new:
             obs_dict = {}
+            ilen = len(str(len(science)))
+            klen = len(max(science.keys(), key=len))
             print("\nSelect observation numbers to be coadded for an object (one object at a time):\n")
+            print(f"{'N'.ljust(ilen)}   {'Object'.ljust(klen)}   Files")
+            print(f"{'='*ilen}   {'='*klen}   =====")
             for i, (k, v) in enumerate(sorted(science.items())):
                 v.sort()
-                print(f"{i} - OBJECT: {k}  -  {v}")
+                print(f"{str(i).ljust(ilen)} - {k.ljust(klen)} - {', '.join(vv for vv in v)}")
                 obs_dict[str(i)] = [k, v]
             print()
             try:
@@ -199,17 +246,78 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
                         science[obs_dict[str(prompt_list[0])][0]].extend(obs_dict[str(obsnum)][1])
                         del science[obs_dict[str(obsnum)][0]]
                 else:
+                    print()
                     break
             except ValueError:
                 print("\n** Received inappropriate input! **\nTry again or hit return to exit\n")
                 continue
+
+        # Now check if there are sky exposures to associate with science targets
+        while create_new:
+            if len(sky) == 0:
+                break
+            obs_dict = {}
+            sky_dict = {}
+            ilen = len(str(len(science)))
+            klen = len(max(science.keys(), key=len))
+            vlen = len(max(list(itertools.chain.from_iterable(science.values())), key=len))
+            print("\n\nSpecify one object number and any space- or comma-delimited sequence of sky exposure letters:\n(e.g. '1 B C' to associate B and C to 1, or '0' to associate none to 0)\n")
+            print(f"{'N'.ljust(ilen)}   {'Object'.ljust(klen)}")
+            print(f"{'='*ilen}   {'='*klen}")
+            for i, (k, v) in enumerate(sorted(science.items())):
+                v.sort()
+                sky_string = ', '.join(ss for ss in sky_assoc[k]) if k in sky_assoc else ''
+                print(f"{str(i).ljust(ilen)} - {k.ljust(klen)}\n{''.ljust(ilen)} - Sci: {', '.join(vv for vv in v).ljust(vlen)}\n{''.ljust(ilen)} - Sky: {sky_string}")
+                obs_dict[str(i)] = [k, v]
+            ilen = max(len(str(len(sky) // 26)) + 1, 2)
+            klen = len(max(sky.keys(), key=len))
+            vlen = len(max(list(itertools.chain.from_iterable(sky.values())), key=len))
+            print(f"\n------ Sky Files ------\nID   {'File'.ljust(klen)}   Header label")
+            print(f"==   {'='*klen}   ============")
+            letset = []
+            for letter, (k, v) in zip(_column_name_generator(), sorted(sky.items())):
+                print(f"{letter.ljust(ilen)} - {k.ljust(klen)} - {v}")
+                letset.append(letter)
+                sky_dict[letter] = [k, v]
+            print()
+            try:
+                prompt_list = input("Enter one number (science frame[s]) and a comma- or space-delimited list of "
+                                    "letters (sky frame[s]) to associate (hit return when done): ")
+                if prompt_list:
+                    prompt_list = [x.strip().upper() for y in prompt_list.split(',') for x in y.split()]
+                    prompt_list[0] = int(prompt_list[0])
+                    if prompt_list[0] < 0 or prompt_list[0] > len(obs_dict) - 1:
+                        print(f"\n** Science frame value {prompt_list[0]} outside of range **")
+                        raise ValueError
+                    if any(pl not in letset for pl in prompt_list[1:]):
+                        print(f"\n** Bad selection of sky frame specifier: not all of {prompt_list[1:]} in {letset} **")
+                        raise ValueError
+                    if len(prompt_list) != len(set(prompt_list)):
+                        print("\n** No duplicate values allowed **")
+                        raise ValueError
+                    sky_assoc[obs_dict[str(prompt_list[0])][0]] = []
+                    for skylet in prompt_list[1:]:
+                        sky_assoc[obs_dict[str(prompt_list[0])][0]].append(sky_dict[skylet][0])
+                else:
+                    print()
+                    break
+            except ValueError:
+                print("\n** Received inappropriate input! **\nTry again or hit return to exit\n")
+                continue
+        # Save the output file
         if create_new:
             if old_science_full is None:
                 old_science_full = {}
-            old_science_full[camera] = science
+            if camera not in old_science_full:
+                old_science_full[camera] = {}
+            for ss in science.keys():
+                if ss in sky_assoc.keys():
+                    old_science_full[camera][ss] = {'sci': science[ss], 'sky': sky_assoc[ss]}
+                else:
+                    old_science_full[camera][ss] = {'sci': science[ss], 'sky': []}
             try:
-                with open(mode_save_fn, "w") as f:
-                    json.dump(old_science_full, f)
+                with open(mode_save_fn, "wb") as f:
+                    pyjson5.dump(old_science_full, f)
             except:
                 raise IOError(f"Could not write coadd association file {mode_save_fn}")
 
@@ -221,7 +329,11 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
     for obj_name in science.keys():
         # sort to ensure coaddds get identical names in each arm
         obs_list = sorted(science[obj_name])
-        sci_obs.append({"sci": obs_list, "sky": []})
+        if obj_name in sky_assoc.keys():
+            sky_list = sorted(sky_assoc[obj_name])
+        else:
+            sky_list = []
+        sci_obs.append({"sci": obs_list, "sky": sky_list})
 
     # ------------------
     # stdstars dictionary

@@ -10,8 +10,9 @@ import scipy.interpolate
 from .logger_config import custom_print
 import logging
 
-from .wifes_metadata import metadata_dir, __version__
 from . import wifes_ephemeris
+from .pywifes import imcopy
+from .wifes_metadata import metadata_dir, __version__
 from .wifes_utils import arguments, is_halfframe, is_taros
 
 # Redirect print statements to logger
@@ -532,7 +533,7 @@ def derive_wifes_calibration(
         )[0]
         init_flux_ratio = -2.5 * numpy.log10(obs_flux[good_inds] / ref_flux[good_inds])
         flux_ratio = init_flux_ratio + (secz - 1.0) * std_ext[good_inds]
-        fratio_results.append([obs_wave[good_inds], init_flux_ratio])
+        fratio_results.append([obs_wave[good_inds], flux_ratio])
 
         if plot_stars:
             scaled_flux = obs_flux[good_inds] / numpy.mean(10.0 ** (-0.4 * flux_ratio))
@@ -559,20 +560,22 @@ def derive_wifes_calibration(
             plt.savefig(plot_path, dpi=300)
             plt.close()
 
-    # from all comparisons, derive a calibration solution
-    # EVENTUALLY WILL FIT AN EXTINCTION TERM TOO
     if len(fratio_results) < 1:
         # Didn't find any stars - there's no point in continuing
-        raise Exception("Could not find calibration data for any stars!")
+        info_print("Could not find flux calibration data for any stars. Skipping.")
+        return
+
+    # from all comparisons, derive a calibration solution
+    # EVENTUALLY WILL FIT AN EXTINCTION TERM TOO
     if norm_stars:
         i_mid = int(len(fratio_results[0][0]) / 2)
         fscale_max = min([x[1][i_mid] for x in fratio_results])
         init_full_y = numpy.concatenate(
             [x[1] - x[1][i_mid] + fscale_max for x in fratio_results]
         )
-
     else:
         init_full_y = numpy.concatenate([x[1] for x in fratio_results])
+
     init_full_x = numpy.concatenate([x[0] for x in fratio_results])
     init_good_inds = numpy.nonzero(
         (numpy.isfinite(init_full_y))
@@ -735,7 +738,11 @@ def derive_wifes_calibration(
 # ------------------------------------------------------------------------
 def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=None, interactive_plot=False):
 
-    # get wavelength array
+    if not os.path.isfile(calib_fn):
+        print(f"No flux calibration file {os.path.basename(calib_fn)}. Outputting uncalibrated cube.")
+        imcopy(inimg, outimg)
+        return
+
     if is_halfframe(inimg):
         if is_taros(inimg):
             nslits = 12
@@ -905,6 +912,12 @@ def derive_wifes_telluric(
         H2O_ratio[H2O_inds] = init_ratio[H2O_inds]
         H2O_ratio[numpy.nonzero(H2O_ratio >= telluric_threshold)[0]] = 1.0
         H2O_corrections.append([obs_wave, H2O_ratio])
+
+    if len(tellstd_list) == 0:
+        # Didn't find any stars - there's no point in continuing
+        info_print("Could not find telluric calibration data for any stars. Skipping.")
+        return
+
     # ---------------------------------------------
     # now using all, derive the appropriate solutions!
     tellstd_list = numpy.unique(numpy.array(tellstd_list))
@@ -1026,9 +1039,13 @@ def derive_wifes_telluric(
 
 
 def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
-    # get wavelength array
-    halfframe = is_halfframe(inimg)
 
+    if not os.path.isfile(tellcorr_fn):
+        print(f"No telluric calibration file {os.path.basename(tellcorr_fn)}. Outputting uncalibrated cube.")
+        imcopy(inimg, outimg)
+        return
+
+    halfframe = is_halfframe(inimg)
     if halfframe:
         if is_taros(inimg):
             # first = 1

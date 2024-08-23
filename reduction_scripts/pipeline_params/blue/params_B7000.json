@@ -29,9 +29,7 @@
             "run": true,
             "suffix": "02",
             "args": {
-                "method": "subtract",
-                "plot": true,
-                "verbose": true
+                "method": "subtract"
             }
         },
         {

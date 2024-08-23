@@ -7,7 +7,44 @@ The automated Python data reduction pipeline for WiFeS.
 Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024
 
 
-What's been done [20240809]:
+What's been done [20240823]:
+
+- update JSON to JSON5 to allow (C-style) comments to aid user configuration setup.
+
+- reinstitute R7000 Littrow ghost masking offsets, but remove default usage.
+
+- revise overscan region for B5/R5 epoch to avoid region of decay from high counts, and revise overscan estimate to use mean of central 50% of distribution per row.
+
+- apply extinction correction to flux standard star (previously calculated but not applied).
+
+- associate any sky exposures with science exposures if IMAGETYP = 'SKY' (currently a manual modification of the image header by the user) and OBJECT keywords match. Use of `--coadd_mode prompt` allows manual association of SKY and OBJECT exposures. Use of `--coadd-mode none` blindly associates one SKY and one OBJECT using the order they appear in the image list. Multiple sky exposures are scaled by their exposure times and median-combined. Subtraction from science frame scales effective sky exposure time to that of science frame.
+
+- avoid recopying existing, older files into 'intermediate' folder.
+
+***Future Development Underway***
+
+- merge official branch enhancements into this branch
+
+- improve fitting of flatfield and standard star shapes
+
+- explore improving fitting and removal of fringing
+
+- additional backwards compatibility with TAROS data
+
+- add time domain to the bad pixel mask
+
+- add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
+
+- allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
+
+- modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
+
+- apply charge transfer inefficiency (CTI) correction
+
+
+### Previously ###
+
+[20240809]:
 
 - simplify JSON files by removing separate nod & shuffle variants
 
@@ -24,32 +61,6 @@ What's been done [20240809]:
 - correct atmospheric differential refraction calculation to be valid for y-binning options x2, and update standard weather parameters based on SkyMapper records
 
 - streamline STANDARD extraction code
-
-
-***Future Development Underway***
-
-- improve fitting of flatfield and standard star shapes
-
-- explore improving fitting and removal of fringing
-
-- additional backwards compatibility with TAROS data
-
-- add time domain to the bad pixel mask
-
-- enable use of darks if present
-
-- allow for images to be attached to science observations as SKY
-
-- add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
-
-- allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
-
-- modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
-
-- apply charge transfer inefficiency (CTI) correction
-
-
-### Previously ###
 
 [20240802]:
 
@@ -208,17 +219,29 @@ To perform data reduction using master calibration files from previous reduction
 
 **Controlling How OBJECT Frames Are Coadded**
 
-The default pipeline behaviour is to coadd exposures that share the same OBJECT header keyword, which is unhelpful when there are position shifts of the source in the IFU (due to tracking offsets, dithering, mosaicking, PA changes, etc.). With the `--coadd-mode` command line argument, one may choose:
+The default pipeline behaviour is to coadd exposures that share the same OBJECT header keyword, which is unhelpful when there are position shifts of the source in the IFU (due to tracking offsets, dithering, mosaicking, PA changes, etc.) or the observations form a time series. With the `--coadd-mode` command line argument, one may choose:
 
     `all`: (default) coadd all observations with the same OBJECT name;
     `none`: treat all IMAGETYP='OBJECT' exposures separately;
     `prompt`: prompt the user to select which exposures to coadd together.
 
-With the `prompt` option, the user makes the choice independently for each arm. The choices are saved for the next time the pipeline is run with that dataset.
+With the `prompt` option, the user makes the choice independently for each arm. The choices are saved for the next time the pipeline is run with that dataset (as long as the `--coadd-mode prompt` option is used each time).
 
 Example:
 
     pywifes-reduce my_raw_data --coadd-mode prompt
+
+**Association of SKY Frames with OBJECT Frames**
+
+While Nod & Shuffle observations automatically subtract the sky in the `run_sky_sub` step, other OBJECT frames need to have one or more SKY frames associated with it. At present, this relies on a manual modification of the FITS headers of such SKY images: set IMAGETYP = 'SKY'. 
+
+Under the default `--coadd-mode all` option, associations will be made if IMAGETYP='SKY' and the OBJECT keyword matches that of the science (IMAGETYP='OBJECT') frame. 
+
+If the `--coadd-mode prompt` option is used, the user can associate one or more SKY images with the OBJECT images of their choice. As above, this is done independently for each arm, and the choices are saved in case the pipeline is interrupted.
+
+When `--coadd-mode none` is used, a single sky frame is associated with each science frame having the same OBJECT keyword -- the first sky with the first science, the second sky with the second science, etc.
+
+When multiple sky frames are associated with a science image, they are scaled by their exposure time (to an equivalent EXPTIME of 1 second) and median-combined. The sky frame is scaled to the science exposure time and subtracted.
 
 **Other parameters**
 
@@ -232,7 +255,7 @@ Example:
 
     /../../pipeline/pipeline_params/params_extract.json
 
-The sky annulus is hard-coded to extend from 3 to 4 times the JSON-specified source radius. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON setup).
+The sky annulus is hard-coded to extend from 3 to 4 times the JSON-specified source radius. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON setup). If the inputs are Nod & Shuffle frames, the sky is not subtracted.
 
 ### Extra usabilities
 #### Multiprocessing

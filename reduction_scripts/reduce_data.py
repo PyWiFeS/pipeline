@@ -5,11 +5,11 @@ from astropy.io import fits as pyfits
 import datetime
 import gc
 import glob
-import json
 import logging
 import numpy
 import os
 import pickle
+import pyjson5
 import re
 import shutil
 
@@ -24,7 +24,6 @@ from pywifes.splice import splice_spectra, splice_cubes
 from pywifes.wifes_utils import is_halfframe, is_nodshuffle, is_subnodshuffle, is_taros
 
 # Set paths
-reduction_scripts_dir = os.path.dirname(__file__)
 working_dir = os.getcwd()
 
 # Setup the logger.
@@ -66,16 +65,27 @@ def copy_files(src_dir_path, destination_dir_path, filenames):
             dest_file = os.path.join(destination_dir_path, file)
             # Handle common file compression for raw data
             if re.search("\\.fz$", src_file):
+                dest_file = dest_file.rstrip(".fz")
+                if os.path.isfile(dest_file) \
+                        and os.path.getmtime(src_file) < os.path.getmtime(dest_file):
+                    continue
                 temph = pyfits.open(src_file)
-                pyfits.writeto(dest_file.rstrip(".fz"), data=temph[1].data, header=temph[1].header,
+                pyfits.writeto(dest_file, data=temph[1].data, header=temph[1].header,
                                output_verify="fix", overwrite=True)
                 temph.close()
             elif re.search("\\.gz$", src_file):
+                dest_file = dest_file.rstrip(".gz")
+                if os.path.isfile(dest_file) \
+                        and os.path.getmtime(src_file) < os.path.getmtime(dest_file):
+                    continue
                 temph = pyfits.open(src_file)
-                pyfits.writeto(dest_file.rstrip(".gz"), data=temph[0].data, header=temph[0].header,
+                pyfits.writeto(dest_file, data=temph[0].data, header=temph[0].header,
                                output_verify="fix", overwrite=True)
                 temph.close()
             else:
+                if os.path.isfile(dest_file) \
+                        and os.path.getmtime(src_file) < os.path.getmtime(dest_file):
+                    continue
                 shutil.copy(src_file, dest_file)
     except Exception as e:
         error_print(f"Error copying files: {e}")
@@ -95,7 +105,7 @@ def load_config_file(filename):
     file_path = os.path.join(reduction_scripts_dir, filename)
     info_print(f"Loading configuration file: {file_path}")
     with open(file_path, "r") as f:
-        return json.load(f)
+        return pyjson5.load(f)
 
 # ------------------------------------------------------------------------
 
@@ -254,16 +264,19 @@ def main():
     # ------------------------------------------------------------------------
     # Overscan subtraction
     # ------------------------------------------------------------------------
-    def run_overscan_sub(metadata, prev_suffix, curr_suffix, **args):
+    def run_overscan_sub(metadata, prev_suffix, curr_suffix, poly_high_oscan=True, **args):
         full_obs_list = get_full_obs_list(metadata)
         first = True
+        if not poly_high_oscan:
+            first = False
+            oscanmask = None
         for fn in full_obs_list:
             in_fn = os.path.join(temp_data_dir, "%s.fits" % fn)
             out_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, curr_suffix))
             if skip_done and os.path.isfile(out_fn):
                 # cannot check mtime here because of fresh copy to raw_data_temp
                 continue
-            info_print(f"Subtracting Overscan for {in_fn.split('/')[-1]}")
+            info_print(f"Subtracting Overscan for {os.path.basename(in_fn)}")
             if first:
                 # Find a domeflat to generate mask for overscan
                 if metadata["domeflat"]:
@@ -372,7 +385,7 @@ def main():
     # ----------------------------------------------------
     # Subtract bias
     # ----------------------------------------------------
-    def run_bias_sub(metadata, prev_suffix, curr_suffix, method="sub", **args):
+    def run_bias_sub(metadata, prev_suffix, curr_suffix, method="subtract"):
         full_obs_list = get_full_obs_list(metadata)
         for fn in full_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
@@ -395,8 +408,10 @@ def main():
             info_print(f"Subtracting {bias_type} superbias for {os.path.basename(in_fn)}")
             if method == "copy":
                 pywifes.imcopy(in_fn, out_fn)
-            else:
+            elif method == "subtract":
                 pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=my_data_hdu)
+            else:
+                raise ValueError(f"Unknown bias_sub method '{method}'. Options: 'subtract', 'copy'.")
         return
 
     # ------------------------------------------------------
@@ -552,7 +567,7 @@ def main():
     # ------------------------------------------------------
     # Create MEF files
     # ------------------------------------------------------
-    def run_superflat_mef(metadata, prev_suffix, curr_suffix, source):
+    def run_superflat_mef(metadata, prev_suffix, curr_suffix, source, **args):
         if source == "dome":
             if os.path.isfile(super_dflat_fn):
                 in_fn = super_dflat_fn
@@ -604,17 +619,16 @@ def main():
             return
         info_print(f"Generating MEF {source} flat")
         pywifes.wifes_slitlet_mef(
-            in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
+            in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn, **args
         )
         return
 
-    def run_slitlet_mef(metadata, prev_suffix, curr_suffix):
+    def run_slitlet_mef(metadata, prev_suffix, curr_suffix, **args):
         # Do not need MEF versions of individual frames for those with supercals (and with no "locals")
         excl_list = ["bias", "dark", "domeflat", "twiflat"]
         full_obs_list = get_full_obs_list(metadata, exclude=excl_list)
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
-        # sky_obs_list = get_sky_obs_list(metadata)
         ns_proc_list = sci_obs_list + std_obs_list
         # check the slitlet definition file
         if os.path.isfile(slitlet_def_fn):
@@ -636,10 +650,11 @@ def main():
                     sky_fn,
                     data_hdu=my_data_hdu,
                     slitlet_def_file=slitlet_fn,
+                    **args
                 )
             else:
                 pywifes.wifes_slitlet_mef(
-                    in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn
+                    in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn, **args
                 )
             gc.collect()
         return
@@ -744,6 +759,41 @@ def main():
                                                    plot_dir=plot_dir_arm,
                                                    save_prefix='local_wire_fit_params',
                                                    **args)
+        return
+
+    # ------------------------------------------------------
+    # Flatfield: Response
+    # ------------------------------------------------------
+    def run_flat_response(metadata, prev_suffix, curr_suffix, mode="all", **args):
+        '''
+        Generate the flatfield response function.
+        '''
+        # Fit the desired style of response function
+        if skip_done and os.path.isfile(flat_resp_fn) \
+                and os.path.getmtime(super_dflat_mef) < os.path.getmtime(flat_resp_fn):
+            return
+        info_print("Generating flatfield response function")
+        if mode == "all" and not os.path.isfile(super_tflat_mef):
+            info_print("WARNING: No twilight superflat MEF found. Falling back to dome flat only.")
+            mode = "dome"
+
+        if mode == "all":
+            pywifes.wifes_2dim_response(
+                super_dflat_mef,
+                super_tflat_mef,
+                flat_resp_fn,
+                wsol_fn=wsol_out_fn,
+                plot=True,
+                plot_dir=plot_dir_arm,
+                **args
+            )
+        elif mode == "dome":
+            pywifes.wifes_response_poly(
+                super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
+            )
+        else:
+            error_print("Requested response mode not recognised")
+            raise ValueError("Requested response mode not recognised")
         return
 
     # ------------------------------------------------------
@@ -874,10 +924,25 @@ def main():
             # subtract sky frames from science objects
             for obs in metadata["sci"]:
                 if len(obs["sky"]) > 0:
-                    sky_fn = obs["sky"][0]
-                    sky_proc_fn = os.path.join(
-                        out_dir, "%s.p%s.fits" % (sky_fn, prev_suffix)
-                    )
+                    if len(obs["sky"]) > 1:
+                        # If multiple sky frames, scale by exposure time and median-combine.
+                        # List will be recombined for every science frame in case the first sky
+                        # (which defines the output filename) was associated with multiple science
+                        # frames. Thus, no consideration of skip_done.
+                        in_fn_list = [
+                            os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
+                            for fn in obs["sky"]
+                        ]
+                        sky_proc_fn = os.path.join(
+                            out_dir, "%s.p%s.fits" % (obs["sky"][0], curr_suffix)
+                        )
+                        info_print(f"Coadding sky frames into {os.path.basename(sky_proc_fn)}")
+                        pywifes.imcombine_mef(in_fn_list, sky_proc_fn, scale="exptime", method="median")
+                    else:
+                        sky_fn = obs["sky"][0]
+                        sky_proc_fn = os.path.join(
+                            out_dir, "%s.p%s.fits" % (sky_fn, prev_suffix)
+                        )
                     for fn in obs["sci"]:
                         in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
                         out_fn = os.path.join(
@@ -945,51 +1010,7 @@ def main():
                         and os.path.getmtime(in_fn_list[0]) < os.path.getmtime(out_fn):
                     continue
                 info_print(f"Coadding images for {os.path.basename(in_fn_list[0])}")
-                if is_halfframe(in_fn_list[0]):
-                    if is_taros(in_fn_list[0]):
-                        nslits = 12
-                    else:
-                        nslits = 13
-                else:
-                    nslits = 25
-                data_hdu_list = list(range(1, nslits + 1))
-                var_hdu_list = list(range(nslits + 1, 2 * nslits + 1))
-                dq_hdu_list = list(range(2 * nslits + 1, 3 * nslits + 1))
-
-                pywifes.imcombine_mef(in_fn_list, out_fn, data_hdu_list=data_hdu_list,
-                                      var_hdu_list=var_hdu_list, dq_hdu_list=dq_hdu_list,
-                                      scale=scale, method=method)
-        return
-
-    # ------------------------------------------------------
-    # Flatfield: Response
-    # ------------------------------------------------------
-    def run_flat_response(metadata, prev_suffix, curr_suffix, mode="all", **args):
-        '''
-        Generate the flatfield response function.
-        '''
-        # Fit the desired style of response function
-        if skip_done and os.path.isfile(flat_resp_fn) \
-                and os.path.getmtime(super_dflat_mef) < os.path.getmtime(flat_resp_fn):
-            return
-        info_print("Generating flatfield response function")
-        if mode == "all":
-            pywifes.wifes_2dim_response(
-                super_dflat_mef,
-                super_tflat_mef,
-                flat_resp_fn,
-                wsol_fn=wsol_out_fn,
-                plot=True,
-                plot_dir=plot_dir_arm,
-                **args
-            )
-        elif mode == "dome":
-            pywifes.wifes_response_poly(
-                super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
-            )
-        else:
-            error_print("Requested response mode not recognised")
-            raise ValueError("Requested response mode not recognised")
+                pywifes.imcombine_mef(in_fn_list, out_fn, scale=scale, method=method)
         return
 
     # ------------------------------------------------------
@@ -1019,6 +1040,7 @@ def main():
                 ffin = "Unknown"
             of = pyfits.open(out_fn, mode="update")
             of[0].header.set("PYWRESIN", ffin, "PyWiFeS: flatfield inputs")
+            of.close()
         return
 
     # ------------------------------------------------------
@@ -1175,6 +1197,10 @@ def main():
         '''
         std_obs_list = get_primary_std_obs_list(metadata, type="flux")
 
+        if len(std_obs_list) == 0:
+            info_print("No flux standard stars to derive calibration. Skipping.")
+            return
+
         std_cube_list = [
             os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
             for fn in std_obs_list
@@ -1219,6 +1245,10 @@ def main():
         Derive the telluric correction from the standard star.
         '''
         std_obs_list = get_primary_std_obs_list(metadata, "telluric")
+        if len(std_obs_list) == 0:
+            info_print("No telluric standard stars found. Skipping.")
+            return
+
         std_cube_list = [
             os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
             for fn in std_obs_list
@@ -1236,7 +1266,7 @@ def main():
         )
         return
 
-    def run_telluric_corr(metadata, prev_suffix, curr_suffix, **args):
+    def run_telluric_corr(metadata, prev_suffix, curr_suffix):
         '''
         Apply telluric correction for all science and standard observations.
         '''
@@ -1274,11 +1304,8 @@ def main():
                     os.path.isfile(out_fn)
                     and os.path.getmtime(in_fn) < os.path.getmtime(out_fn)
                 ) or (
-                    os.path.isfile(os.path.join(working_dir, "data_products",
-                                                f"{fn}.{curr_suffix}.fits"))
-                    and os.path.getmtime(in_fn)
-                    < os.path.getmtime(os.path.join(working_dir, "data_products",
-                                                    f"{fn}.{curr_suffix}.fits"))
+                    os.path.isfile(os.path.join(working_dir, "data_products", f"{fn}.{curr_suffix}.fits"))
+                    and os.path.getmtime(in_fn) < os.path.getmtime(os.path.join(working_dir, "data_products", f"{fn}.{curr_suffix}.fits"))
                 )
             ):
                 continue
@@ -1287,7 +1314,7 @@ def main():
         return
 
     # --------------------------------------------
-    # INICIATE THE SCRIPT
+    # INITIATE THE SCRIPT
     # --------------------------------------------
 
     # Initialize ArgumentParser with a description
@@ -1396,10 +1423,6 @@ def main():
     # Auto-extract and splice the datacubes
     extract_and_splice = args.extract_and_splice
 
-    # Set paths
-    reduction_scripts_dir = os.path.dirname(__file__)
-    working_dir = os.getcwd()
-
     # Creates a temporary data directory containning all raw data for reduction.
     temp_data_dir = os.path.join(working_dir, "data_products/intermediate/raw_data_temp/")
     os.makedirs(temp_data_dir, exist_ok=True)
@@ -1413,7 +1436,7 @@ def main():
     os.makedirs(plot_dir, exist_ok=True)
 
     # Classify all raw data (red and blue arm)
-    mode_save_fn = os.path.join(working_dir, "data_products/coadd_mode.json")
+    mode_save_fn = os.path.join(working_dir, "data_products/coadd_mode.json5")
     obs_metadatas = classify(temp_data_dir,
                              greedy_stds=args.greedy_stds,
                              coadd_mode=args.coadd_mode,
@@ -1485,7 +1508,7 @@ def main():
 
             # Set the JSON file path and read it.
             if params_path[arm] is None:
-                json_path = f"./pipeline_params/{arm}/params_{grism}.json"
+                json_path = f"./pipeline_params/{arm}/params_{grism}.json5"
             else:
                 json_path = params_path[arm]
 
@@ -1594,6 +1617,8 @@ def main():
                 else:
                     pass
 
+            info_print(f"Successfully completed arm {arm}\n")
+
         except Exception as exc:
             warning_print("________________________________________________________________")
             warning_print(f"{arm} arm skipped, an error occurred during processing: '{exc}'.")
@@ -1639,7 +1664,7 @@ def main():
             # ----------------------------------------------------------
             # Read extraction parameters from JSON file
             # ----------------------------------------------------------
-            extract_params = load_config_file("./pipeline_params/params_extract.json")
+            extract_params = load_config_file("./pipeline_params/params_extract.json5")
 
             # ----------------------------------------------------------
             # Loop over matched cubes list

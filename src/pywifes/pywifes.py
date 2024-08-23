@@ -126,6 +126,8 @@ def calib_to_half_frame(obs_metadata, temp_data_dir):
                 obs_metadata[calib_type][index] = prefix + file_name
 
     # Check the standard star separately because the dictionary has a slightly different structure.
+    if len(obs_metadata["std"]) == 0:
+        return obs_metadata
     std_list = obs_metadata["std"][0]["sci"]
     print(f"Std list: {std_list}")
     for index, file_name in enumerate(std_list):
@@ -188,16 +190,15 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
     outfits = pyfits.HDUList(f)
     orig_data = f[data_hdu].data
     bin_x, bin_y = [int(b) for b in f[data_hdu].header["CCDSUM"].split()]
-    f.close()
 
     nimg = len(inimg_list)
+    midrow_shift = 80 // bin_y if is_taros(inimg_list[0]) else 0
     try:
         scale_factor = numpy.ones(nimg)
         if scale is not None:
             # Do a loop over the images to determine scale factors
             if scale == "midrow_ratio":
-                midrow_shift = 80 // bin_y if is_taros(inimg_list[0]) else 0
-                midrow = orig_data[orig_data.shape[0] // 2 - midrow_shift, :]  # needed if scale == "midrow_ratio"
+                midrow = orig_data[orig_data.shape[0] // 2 - midrow_shift, :]
             for i in range(nimg):
                 f = pyfits.open(inimg_list[i])
                 new_data = f[data_hdu].data
@@ -266,8 +267,8 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
                 ax1 = fig.add_subplot(2, 1, 1)
                 ax2 = fig.add_subplot(2, 1, 2)
                 for i in range(coadd_arr.shape[2]):
-                    ax1.plot(coadd_arr[ny // 2, :, i] + offset * i)
-                    ax2.plot(coadd_arr[ny // 2, :, i])
+                    ax1.plot(coadd_arr[ny // 2 - midrow_shift, :, i] + offset * i)
+                    ax2.plot(coadd_arr[ny // 2 - midrow_shift, :, i])
                 ax2.set_xlabel("pixel")
                 ax1.set_ylabel(f"Counts with {offset}*i offsets")
                 ax2.set_ylabel("Counts as scaled")
@@ -276,11 +277,11 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
                     plt.show()
                 else:
                     ax1.set_xlim(0, coadd_arr.shape[1] // 4)
-                    ax1.set_ylim(numpy.nanmin(coadd_arr[ny // 2, 0:coadd_arr.shape[1] // 4, :]),
-                                 numpy.nanmax(coadd_arr[ny // 2, 0:coadd_arr.shape[1] // 4, :] + offset * nimg))
+                    ax1.set_ylim(numpy.nanpercentile(coadd_arr[ny // 2 - midrow_shift, 0:coadd_arr.shape[1] // 4, :], 1),
+                                 numpy.nanpercentile(coadd_arr[ny // 2 - midrow_shift, 0:coadd_arr.shape[1] // 4, :] + offset * nimg, 99))
                     ax2.set_xlim(int(0.75 * coadd_arr.shape[1]), coadd_arr.shape[1])
-                    ax2.set_ylim(numpy.nanmin(coadd_arr[ny // 2, int(0.75 * coadd_arr.shape[1]):coadd_arr.shape[1], :]),
-                                 numpy.nanmax(coadd_arr[ny // 2, int(0.75 * coadd_arr.shape[1]):coadd_arr.shape[1], :]))
+                    ax2.set_ylim(numpy.nanpercentile(coadd_arr[ny // 2 - midrow_shift, int(0.75 * coadd_arr.shape[1]):coadd_arr.shape[1], :], 1),
+                                 numpy.nanpercentile(coadd_arr[ny // 2 - midrow_shift, int(0.75 * coadd_arr.shape[1]):coadd_arr.shape[1], :], 99))
                     plt.tight_layout()
                     if chunks > 1:
                         plot_name = f"{save_prefix}_chunk{ch+1}.png"
@@ -333,6 +334,7 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
         outfits[data_hdu].data = var_arr.astype("float32", casting="same_kind")
         outfits[data_hdu].scale("float32")
         outfits.writeto(outvarimg, overwrite=True)
+    f.close()
     gc.collect()
     return
 
@@ -341,9 +343,6 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
 def imcombine_mef(
     inimg_list,
     outimg,
-    data_hdu_list=list(range(1, 26)),
-    var_hdu_list=list(range(26, 51)),
-    dq_hdu_list=list(range(51, 76)),
     scale=None,
     method="median",
     debug=False,
@@ -354,6 +353,17 @@ def imcombine_mef(
     # read in data from inimg_list[0] to get image size
     f = pyfits.open(inimg_list[0])
     outfits = pyfits.HDUList(f)
+
+    if is_halfframe(inimg_list[0]):
+        if is_taros(inimg_list[0]):
+            nslits = 12
+        else:
+            nslits = 13
+    else:
+        nslits = 25
+    data_hdu_list = list(range(1, nslits + 1))
+    var_hdu_list = list(range(nslits + 1, 2 * nslits + 1))
+    dq_hdu_list = list(range(2 * nslits + 1, 3 * nslits + 1))
 
     for data_hdu, hdu_type in list(zip(data_hdu_list, ('data' for _ in data_hdu_list))) \
             + list(zip(var_hdu_list, ('var' for _ in var_hdu_list))) \
@@ -453,6 +463,13 @@ def imcombine_mef(
             pass
         if len(airmass_list) > 0:
             outfits[1].header.set("AIRMASS", numpy.nanmean(numpy.array(airmass_list)))
+    # Fix effective exposure time if scaled by EXPTIME
+    if scale == "exptime":
+        if method == "median":
+            new_exptime = 1.0
+        else:
+            new_exptime = float(nimg)
+        outfits[1].header.set("EXPTIME", new_exptime, "Effective exposure time after scaling")
     # (5) write to outfile!
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWCONUM", nimg, "PyWiFeS: number of coadded images")
@@ -466,9 +483,7 @@ def imcombine_mef(
 
 # ------------------------------------------------------------------------
 def imarith_mef(inimg1, operator, inimg2, outimg):
-    # check if halfframe
-    halfframe = is_halfframe(inimg1)
-    if halfframe:
+    if is_halfframe(inimg1):
         if is_taros(inimg1):
             nslits = 12
         else:
@@ -478,10 +493,12 @@ def imarith_mef(inimg1, operator, inimg2, outimg):
     data_hdu_list = range(1, nslits + 1)
     var_hdu_list = range(nslits + 1, 2 * nslits + 1)
     dq_hdu_list = range(2 * nslits + 1, 3 * nslits + 1)
+
     # read in data from the two images, set up the output hdu
     f1 = pyfits.open(inimg1)
     f2 = pyfits.open(inimg2)
     outfits = pyfits.HDUList(f1)
+
     # PART 1 - data HDUs
     for data_hdu in data_hdu_list:
         data1 = f1[data_hdu].data
@@ -549,7 +566,9 @@ def imarith_mef(inimg1, operator, inimg2, outimg):
     return
 
 
-def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None):
+def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None, arg_scaled="second"):
+    if arg_scaled not in ["first", "second"]:
+        raise ValueError(f"Unknown arg_scaled value '{arg_scaled}'. Must be 'first' or 'second'.")
     # check if halfframe
     halfframe = is_halfframe(inimg1)
     if halfframe:
@@ -577,8 +596,12 @@ def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None):
         scale_factor = 1.0
     # PART 1 - data HDUs
     for data_hdu in data_hdu_list:
-        data1 = f1[data_hdu].data
-        data2 = scale_factor * (f2[data_hdu].data)
+        if arg_scaled == "first":
+            data1 = f1[data_hdu].data / scale_factor
+            data2 = f2[data_hdu].data
+        elif arg_scaled == "second":
+            data1 = f1[data_hdu].data
+            data2 = scale_factor * (f2[data_hdu].data)
         # do the desired operation
         if operator == "+":
             op_data = data1 + data2
@@ -598,10 +621,16 @@ def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None):
     for i in range(len(var_hdu_list)):
         var_hdu = var_hdu_list[i]
         data_hdu = data_hdu_list[i]
-        var1 = f1[var_hdu].data
-        var2 = (scale_factor**2) * (f2[var_hdu].data)
-        data1 = f1[data_hdu].data
-        data2 = scale_factor * (f2[data_hdu].data)
+        if arg_scaled == "first":
+            var1 = f1[var_hdu].data / (scale_factor**2)
+            var2 = f2[var_hdu].data
+            data1 = f1[data_hdu].data / scale_factor
+            data2 = f2[data_hdu].data
+        elif arg_scaled == "second":
+            var1 = f1[var_hdu].data
+            var2 = (scale_factor**2) * (f2[var_hdu].data)
+            data1 = f1[data_hdu].data
+            data2 = scale_factor * (f2[data_hdu].data)
         # do the desired operation
         if (operator == "+") or (operator == "-"):
             op_var = var1 + var2
@@ -626,6 +655,9 @@ def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None):
         outfits[dq_hdu].scale("int16")
     # (5) write to outfile!
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
+    if scale is not None:
+        outfits[0].header.set("PYWARSCA", scale, "PyWiFeS: scaling in MEF arithmetic")
+        outfits[0].header.set("PYWARARG", arg_scaled, "PyWiFeS: argument scaled in MEF arithmetic")
     outfits.writeto(outimg, overwrite=True)
     f1.close()
     f2.close()
@@ -861,7 +893,7 @@ default_detector_values = {
             [1, 4096, 54, 4149],
         ],
         "ovs_regs": [
-            [1, 4096, 6, 53],
+            [1, 4096, 4, 43],
         ],
         "sci_regs": [
             [1, 4096, 1, 4096],
@@ -951,7 +983,7 @@ default_detector_values = {
             [1, 4096, 54, 4149],
         ],
         "ovs_regs": [
-            [1, 4096, 6, 53],
+            [1, 4096, 4, 43],
         ],
         "sci_regs": [
             [1, 4096, 1, 4096],
@@ -1089,7 +1121,7 @@ def subtract_overscan(
     #     - if 'None' grab default values
     bin_x, bin_y = [int(b) for b in orig_hdr["CCDSUM"].split()]
     if interactive_plot:
-        imagetype = orig_hdr["IMAGETYP"]
+        imagetype = orig_hdr["IMAGETYP"].upper()
     # default values if all of the values are not specified
     if (
         (detector_regions is None)
@@ -1195,7 +1227,9 @@ def subtract_overscan(
             else:
                 omaskfile = None
         if omaskfile is None:
-            curr_ovs_val = numpy.nanmedian(curr_ovs_data, axis=1)
+            # Take mean of central 50% of values
+            olim = [curr_ovs_data.shape[1] // 4, int(numpy.ceil(curr_ovs_data.shape[1] * 0.75)) + 1]
+            curr_ovs_val = numpy.nanmean(numpy.sort(curr_ovs_data, axis=1)[:, olim[0]:olim[1]], axis=1)
 
         subbed_data[sci[0]:sci[1], sci[2]:sci[3]] = gain[i] * (
             curr_data - curr_ovs_val[:, numpy.newaxis]
@@ -1314,7 +1348,6 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littro
                 ll[1] -= 25
                 ll[2] -= 1080
                 ll[3] -= 1060
-            print(f"littrow_data: \n{littrow_data}")
         bad_data.extend(littrow_data)
 
     interp_data = 1.0 * orig_data
@@ -1329,7 +1362,7 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littro
         xlast //= bin_x
         if method == 'interp':
             slice_lo = numpy.median(orig_data[yfirst:ylast + 1, xfirst - 1 - interp_buffer:xfirst], axis=1)
-            slice_hi = numpy.median(orig_data[yfirst:ylast + 1, xlast + 1:xlast + 1 + interp_buffer], axis=1)
+            slice_hi = numpy.median(orig_data[yfirst:ylast + 1, xlast + 1:xlast + 2 + interp_buffer], axis=1)
             if verbose:
                 print(f"Interpolating from ({yfirst}:{ylast + 1}, {xfirst - 1}) to ({yfirst}:{ylast + 1}, {xlast + 1})")
             for this_x in numpy.arange(xfirst, xlast + 1):
@@ -1444,10 +1477,15 @@ def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littrow
             [289, 364, 1470, 1500],
             [108, 183, 1465, 1495],
         ]
-        # Choice of grating changes the ghost locations
+        # Choice of grating changes the ghost locations, but beam splitter
+        # only shifts the position by a few pixels
         if orig_hdr['GRATINGR'] == 'R7000':
-            # Falls completely on science slits but is too weak to bother masking.
-            littrow_data = []
+            # Falls completely on science slits.
+            for ll in littrow_data:
+                ll[0] -= 30
+                ll[1] -= 10
+                ll[2] += 480
+                ll[3] += 500
         elif orig_hdr['GRATINGR'] == 'I7000':
             # Falls completely on science slits in region of high fringing.
             # Better to omit masking.
@@ -1469,8 +1507,8 @@ def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littrow
         xfirst //= bin_x
         xlast //= bin_x
         if method == 'interp':
-            slice_lo = orig_data[yfirst:ylast + 1, xfirst - 1]
-            slice_hi = orig_data[yfirst:ylast + 1, xlast + 1]
+            slice_lo = numpy.median(orig_data[yfirst:ylast + 1, xfirst - 1 - interp_buffer:xfirst], axis=1)
+            slice_hi = numpy.median(orig_data[yfirst:ylast + 1, xlast + 1:xlast + 2 + interp_buffer], axis=1)
             if verbose:
                 print(f"Interpolating from ({yfirst}:{ylast + 1}, {xfirst - 1}) to ({yfirst}:{ylast + 1}, {xlast + 1})")
             for this_x in numpy.arange(xfirst, xlast + 1):
@@ -2007,7 +2045,6 @@ def derive_slitlet_profiles(
     output_fn,
     data_hdu=0,
     verbose=False,
-    buffer=1,
     shift_global=True,
     interactive_plot=False,
     bin_x=None,
@@ -2083,8 +2120,8 @@ def derive_slitlet_profiles(
 
         # center = halfway between edges where it drops below 10 percent of peak
         bright_inds = numpy.nonzero(y_prof > 0.1)[0]
-        new_ymin = bright_inds[0] - 1 - buffer
-        new_ymax = bright_inds[-1] + 1 + buffer
+        new_ymin = bright_inds[0] - 1
+        new_ymax = bright_inds[-1] + 1
         orig_ctr = 0.5 * float(len(y_prof))
         new_ctr = 0.5 * (new_ymin + new_ymax)
         # now adjust the slitlet definitions!
@@ -2404,8 +2441,9 @@ def interslice_cleanup(
     f[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     f[0].header.set("PYWICOFF", applied_offset, "PyWiFeS: interslice cleanup additive offset")
     f[0].header.set("PYWICBUF", buffer, "PyWiFeS: interslice clenaup buffer")
-    f[0].header.set("PYWICRAD", radius, "PyWiFeS: interslice cleanup radius")
-    f[0].header.set("PYWICSLM", nsig_lim, "PyWiFeS: interslice cleanup nsig_lim")
+    if method == "2D":
+        f[0].header.set("PYWICRAD", radius, "PyWiFeS: interslice cleanup radius")
+        f[0].header.set("PYWICSLM", nsig_lim, "PyWiFeS: interslice cleanup nsig_lim")
     f.writeto(output_fn, overwrite=True)
     f.close()
     if verbose:
@@ -2443,13 +2481,11 @@ def interslice_cleanup(
 
 
 def wifes_slitlet_mef(
-    inimg, outimg, data_hdu=0, bin_x=None, bin_y=None, slitlet_def_file=None, interp_nan=True,
-    replace_nan=False, repl_val=0, debug=False,
+    inimg, outimg, data_hdu=0, bin_x=None, bin_y=None, slitlet_def_file=None,
+    nan_method="interp", repl_val=0.0, debug=False,
 ):
     if debug:
         print(arguments())
-    if interp_nan and replace_nan:
-        raise ValueError(f"Conflicting NaN-treatment instructions in wifes_slitlet_mef for image {inimg}")
     f = pyfits.open(inimg)
     outfits = pyfits.HDUList([pyfits.PrimaryHDU(header=f[0].header)])
     old_hdr = f[data_hdu].header
@@ -2497,14 +2533,16 @@ def wifes_slitlet_mef(
         dq_img[numpy.isnan(full_data)] = 1
 
         # Linear row-by-row x-interpolation over NaNs from bad pixel mask (after adjusting VAR and DQ)
-        if interp_nan:
+        if nan_method == "interp":
             for row in numpy.arange(full_data.shape[0]):
                 if numpy.any(numpy.isnan(full_data[row, :])):
                     nans, x = nan_helper(full_data[row, :])
                     full_data[row, :][nans] = numpy.interp(x(nans), x(~nans), full_data[row, :][~nans])
         # Replace NaNs with indicated value
-        if replace_nan:
+        elif nan_method == "replace":
             full_data[numpy.isnan(full_data)] = repl_val
+        else:
+            raise ValueError(f"Unknown nan_method '{nan_method}' in wifes_slitlet_mef for creation of {os.path.basename(outimg)}")
 
     # ---------------------------
     # for each slitlet, save it to a single header extension
@@ -2638,8 +2676,8 @@ def wifes_slitlet_mef(
         outfits.append(new_hdu)
         gc.collect()
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    outfits[0].header.set("PYWSMINT", interp_nan,
-                          "PyWiFeS: interpolate over bad pixels at MEF creation")
+    outfits[0].header.set("PYWSMINT", nan_method,
+                          "PyWiFeS: method for bad pixels at MEF creation")
     outfits.writeto(outimg, overwrite=True)
     return
 
@@ -2653,7 +2691,8 @@ def wifes_slitlet_mef_ns(
     bin_y=None,
     nod_dy=80,
     slitlet_def_file=None,
-    interp_nan=True,
+    nan_method="interp",
+    repl_val=0.0,
     debug=False,
 ):
     if debug:
@@ -2699,11 +2738,14 @@ def wifes_slitlet_mef_ns(
         dq_img[numpy.isnan(full_data)] = 1
 
         # Linear row-by-row x-interpolation over NaNs from bad pixel mask (after adjusting VAR and DQ)
-        if interp_nan:
+        if nan_method == "interp":
             for row in numpy.arange(full_data.shape[0]):
                 if numpy.any(numpy.isnan(full_data[row, :])):
                     nans, x = nan_helper(full_data[row, :])
                     full_data[row, :][nans] = numpy.interp(x(nans), x(~nans), full_data[row, :][~nans])
+        # Replace NaNs with indicated value
+        elif nan_method == "replace":
+            full_data[numpy.isnan(full_data)] = repl_val
 
     # ------------------------------------
     # for each slitlet, save it to a single header extension
@@ -2986,14 +3028,14 @@ def wifes_slitlet_mef_ns(
     outfits_obj[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits_obj[0].header.set("PYWSMDEF", slitlet_def_file.split('/')[-1],
                               "PyWiFeS: slitlet MEF definition file")
-    outfits_obj[0].header.set("PYWSMINT", interp_nan,
-                              "PyWiFeS: interpolate over bad pixels at MEF creation")
+    outfits_obj[0].header.set("PYWSMINT", nan_method,
+                              "PyWiFeS: method for bad pixels at MEF creation")
     outfits_obj.writeto(outimg_obj, overwrite=True)
     outfits_sky[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits_sky[0].header.set("PYWSMDEF", slitlet_def_file.split('/')[-1],
                               "PyWiFeS: slitlet MEF definition file")
-    outfits_sky[0].header.set("PYWSMINT", interp_nan,
-                              "PyWiFeS: interpolate over bad pixels at MEF creation")
+    outfits_sky[0].header.set("PYWSMINT", nan_method,
+                              "PyWiFeS: method for bad pixels at MEF creation")
     outfits_sky.writeto(outimg_sky, overwrite=True)
     return
 
@@ -3053,7 +3095,7 @@ def wifes_response_pixel(inimg, outimg, wsol_fn=None, debug=False):
     return
 
 
-def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, debug=False):
+def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, debug=True):
     if debug:
         print(arguments())
     # check if halfframe
@@ -3119,9 +3161,9 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, d
         # rectify data!
         if wsol_fn is not None:
             f3 = pyfits.open(wsol_fn)
-            wave = f3[i - first + 1].data
+            wave = f3[curr_hdu].data
             f3.close()
-            print("Transforming data for Slitlet %d" % (curr_hdu + first))
+            print("Transforming data for Slitlet %d" % (first + i))
             rect_data, lam_array = transform_data(orig_data, wave, return_lambda=True)
             curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
             init_normed_data = rect_data / curr_norm_array
@@ -3134,7 +3176,7 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, d
         outfits[curr_hdu].scale("float32")
         if zero_var:
             var_hdu = curr_hdu + nslits
-            outfits[var_hdu].data = (0.0 * outfits[var_hdu.data]).astype("float32", casting="same_kind")
+            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype("float32", casting="same_kind")
             outfits[var_hdu].scale("float32")
         # need to fit this for each slitlet
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
@@ -3317,7 +3359,7 @@ def wifes_2dim_response(
                 print("Could not retrieve number of input dome flats from header, defaulting to 1")
                 nflat = 1.0
             force_idx = numpy.nonzero(nflat * numpy.nanmedian(rect_spec_data, axis=0) < 100.0)
-            init_normed_data[:, force_idx] = 1.
+            next_normed_data[:, force_idx] = 1.
 
             # SPATIAL FLAT
             rect_spat_data = transform_data(orig_spat_data, wave, return_lambda=False)
@@ -3358,8 +3400,16 @@ def wifes_2dim_response(
             lam_array = numpy.arange(len(orig_spec_data[0, :]), dtype="d")
             curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
             normed_data = orig_spec_data / curr_norm_array
+            # Force spectral flat to 1 at wavelengths where sum of median counts < 100 (S/N ~ 10)
+            try:
+                nflat = float(f1[0].header["PYWFLATN"])
+            except:
+                print("Could not retrieve number of input dome flats from header, defaulting to 1")
+                nflat = 1.0
+            force_idx = numpy.nonzero(nflat * numpy.nanmedian(normed_data, axis=0) < 100.0)
+            normed_data[:, force_idx] = 1.
+
             normed_data[numpy.nonzero(normed_data < resp_min)] = resp_min
-            final_normed_data = normed_data
         outfits[curr_hdu].data = normed_data.astype("float32", casting="same_kind")
         outfits[curr_hdu].scale("float32")
         illum[:, i] = numpy.nanmedian(normed_data, axis=1)
