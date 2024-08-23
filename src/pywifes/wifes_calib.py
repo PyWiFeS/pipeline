@@ -562,7 +562,7 @@ def derive_wifes_calibration(
 
     if len(fratio_results) < 1:
         # Didn't find any stars - there's no point in continuing
-        info_print("Could not find flux calibration data for any stars. Skipping.")
+        print("Could not find flux calibration data for any stars. Skipping.")
         return
 
     # from all comparisons, derive a calibration solution
@@ -913,9 +913,9 @@ def derive_wifes_telluric(
         H2O_ratio[numpy.nonzero(H2O_ratio >= telluric_threshold)[0]] = 1.0
         H2O_corrections.append([obs_wave, H2O_ratio])
 
-    if len(tellstd_list) == 0:
+    if len(tellstd_list) == 0 and len(extract_in_list) == 0:
         # Didn't find any stars - there's no point in continuing
-        info_print("Could not find telluric calibration data for any stars. Skipping.")
+        print("Could not find telluric calibration data for any stars. Skipping.")
         return
 
     # ---------------------------------------------
