@@ -830,7 +830,7 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
     else:
         outfits[0].header.set("PYWFCALX", extinction_fn.split("/")[-1],
                               "PyWiFeS: flux calibration extinction model")
-    outfits[0].header.set("PYWFSTDF", std_file, "PyWiFeS: standard star file for flux calibration")
+    outfits[0].header.set("PYWFSTDF", std_file, "PyWiFeS: flux standard file")
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return
@@ -880,13 +880,13 @@ def derive_wifes_telluric(
         # get extracted spectrum
         if extract_in_list is None:
             obs_wave, obs_flux = extract_wifes_stdstar(cube_fn_list[i], ytrim=ytrim)
-            tellhdr = pyfits.getheader(cube_fn_list[i])
-            if "OBJECT" in tellhdr:
-                tellstd_list.append(tellhdr["OBJECT"])
         else:
             ex_data = numpy.loadtxt(extract_in_list[i])
             obs_wave = ex_data[:, 0]
             obs_flux = ex_data[:, 1]
+        tellhdr = pyfits.getheader(cube_fn_list[i])
+        if "OBJECT" in tellhdr:
+            tellstd_list.append(tellhdr["OBJECT"])
 
         # define all the telluric regions
         O2_mask = wavelength_mask(obs_wave, O2_telluric_bands)
@@ -1115,7 +1115,7 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
         outfits[curr_hdu].data = out_flux.astype("float32", casting="same_kind")
         outfits[curr_hdu + nslits].data = out_var.astype("float32", casting="same_kind")
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    outfits[0].header.set("PYWTSTDF", tellstd_list, "PyWiFeS: telluric standard star filename(s)")
+    outfits[0].header.set("PYWTSTDF", tellstd_list, "PyWiFeS: telluric standard file(s)")
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return

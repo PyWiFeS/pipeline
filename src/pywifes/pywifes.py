@@ -4078,7 +4078,7 @@ def generate_wifes_cube(
     outfits[0].header.set("PYWOORIG", offset_orig, "PyWiFeS: offset_orig")
     outfits[0].header.set("PYWADR", adr, "PyWiFeS: ADR correction applied")
     if subsample is not None:
-        outfits[0].header.set("PYWSSAMP", subsample, "PyWiFeS: spatial subsampling factor for wire and ADR")
+        outfits[0].header.set("PYWSSAMP", subsample, "PyWiFeS: wire/ADR spatial subsampling factor")
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return
