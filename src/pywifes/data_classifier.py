@@ -1,8 +1,9 @@
 import os
 from astropy.io import fits as pyfits
 import itertools
-import pyjson5
 import pandas as pd
+import pyjson5
+import re
 import string
 
 from . import wifes_calib
@@ -427,7 +428,10 @@ def cube_matcher(paths_list):
     date_obs_list = []
     for path in paths_list:
         fits_header = pyfits.getheader(path)
-        arm_list.append(fits_header["ARM"])
+        if "ARM" in fits_header:
+            arm_list.append(fits_header["ARM"])
+        elif "CAMERA" in fits_header:
+            arm_list.append(re.sub("WiFeS", "", fits_header["CAMERA"]))
         date_obs_list.append(fits_header["DATE-OBS"])
 
     df = pd.DataFrame({"path": paths_list, "arm": arm_list, "date_obs": date_obs_list})

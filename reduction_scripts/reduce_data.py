@@ -1681,6 +1681,7 @@ def main():
                 plot_name = match_cubes["file_name"].replace(".cube", "_detection_plot.png")
                 plot_path = os.path.join(plot_dir, plot_name)
                 plot = extract_params["plot"]
+                taros = is_taros(blue_cube_path)
                 # Run auto-extraction
                 detect_extract_and_save(
                     blue_cube_path,
@@ -1706,7 +1707,10 @@ def main():
                     red_cube_name = os.path.basename(red_cube_path)
 
                     # Get filename of form `xxx-Splice-UTxxx.cube.fits`
-                    spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
+                    if taros:
+                        spliced_cube_name = blue_cube_name.replace("T2m3wb", "T2m3wSplice")
+                    else:
+                        spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
                     spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
 
                     # Splice cubes
@@ -1727,9 +1731,14 @@ def main():
                     # Splice spectra
                     for blue_spec, red_spec in zip(blue_specs, red_specs):
                         # Generate filename for spliced spectrum 'xxx-Splice-UTxxx.spec.apx.fits'
-                        spliced_spectrum_name = os.path.basename(blue_spec).replace(
-                            "Blue", "Splice"
-                        )
+                        if taros:
+                            spliced_spectrum_name = os.path.basename(blue_spec).replace(
+                                "T2m3wb", "T2m3wSplice"
+                            )
+                        else:
+                            spliced_spectrum_name = os.path.basename(blue_spec).replace(
+                                "Blue", "Splice"
+                            )
                         output = os.path.join(
                             working_dir, destination_dir, spliced_spectrum_name
                         )
@@ -1746,7 +1755,10 @@ def main():
                         red_specs = glob.glob(red_pattern)
 
                         for blue_spec, red_spec in zip(blue_specs, red_specs):
-                            spliced_spec = blue_spec.replace("Blue", "Splice")
+                            if taros:
+                                spliced_spec = blue_spec.replace("T2m3wb", "T2m3wSplice")
+                            else:
+                                spliced_spec = blue_spec.replace("Blue", "Splice")
 
                             plot_1D_spectrum(blue_spec, plot_dir=plot_dir)
                             plot_1D_spectrum(red_spec, plot_dir=plot_dir)
