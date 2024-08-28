@@ -524,7 +524,7 @@
         {
             "step": "flux_calib",
             "run": true,
-            "suffix": "10",
+            "suffix": "09",
             "args": {
                 // Format for flux calibration input.
                 // Options:

@@ -4,8 +4,41 @@ The automated Python data reduction pipeline for WiFeS.
 
 ## [Updates for this fork of the automation branch]
 
-Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024
+Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024, and updated to include PyWiFeS/pipeline updates to 7 Aug 2024 [commit f6a2d8c].
 
+What's been done [20240828]:
+
+- merge in documentation and other updates from official repository.
+
+- modify methodology for source extraction.
+
+- add user option to include DQ extension when splicing cubes and extracting sources.
+
+- add extension with subtracted sky to extracted spectral outputs.
+
+- constrain datatypes for spliced and extracted cubes and spectra.
+
+
+***Future Development Underway***
+
+- improve fitting of flatfield and standard star shapes
+
+- explore improving fitting and removal of fringing
+
+- add option for PSF-based source extraction
+
+- add time domain to the bad pixel mask
+
+- add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
+
+- allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
+
+- modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
+
+A note on charge transfer inefficiency (CTI): test data shows CTI of ~0.1%. Constraining the amplitude of the correction to a useful level of precision is thus extremely challenging, and is not expected to be implemented in the pipeline.
+
+
+### Previously ###
 
 What's been done [20240823]:
 
@@ -20,29 +53,6 @@ What's been done [20240823]:
 - associate any sky exposures with science exposures if IMAGETYP = 'SKY' (currently a manual modification of the image header by the user) and OBJECT keywords match. Use of `--coadd_mode prompt` allows manual association of SKY and OBJECT exposures. Use of `--coadd-mode none` blindly associates one SKY and one OBJECT using the order they appear in the image list. Multiple sky exposures are scaled by their exposure times and median-combined. Subtraction from science frame scales effective sky exposure time to that of science frame.
 
 - avoid recopying existing, older files into 'intermediate' folder.
-
-***Future Development Underway***
-
-- merge official branch enhancements into this branch
-
-- improve fitting of flatfield and standard star shapes
-
-- explore improving fitting and removal of fringing
-
-- additional backwards compatibility with TAROS data
-
-- add time domain to the bad pixel mask
-
-- add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
-
-- allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
-
-- modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
-
-- apply charge transfer inefficiency (CTI) correction
-
-
-### Previously ###
 
 [20240809]:
 
@@ -168,8 +178,11 @@ For more information, we refer the users to the [**PyWiFeS User Manual**](https:
    git clone -b automation https://github.com/conken/pipeline.git
    ```
 2. Set up a python environment (via conda, for example) with:
+
     -python 3.10
+
     -scipy 1.9.1
+
     -pip
 
 3. From the pipeline root directory, run:

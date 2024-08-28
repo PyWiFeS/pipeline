@@ -4,11 +4,12 @@ import scipy.signal
 import scipy.ndimage
 import scipy.interpolate
 
-from .logger_config import custom_print
+from pywifes.logger_config import custom_print
 import logging
-from .multiprocessing_utils import get_task, map_tasks
-from .wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
-from .wifes_utils import arguments, is_halfframe, is_taros
+
+from pywifes.multiprocessing_utils import get_task, map_tasks
+from pywifes.wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
+from pywifes.wifes_utils import arguments, is_halfframe, is_taros
 
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
@@ -35,6 +36,44 @@ def lacos_spec_data(
     n_ny=5,
     verbose=True,
 ):
+    """
+    Perform cosmic ray rejection on spectroscopic data using the L.A.Cosmic algorithm. The L.A.Cosmic algorithm is a Laplacian cosmic ray detection algorithm that uses a noise model to identify cosmic rays. The algorithm is described in van Dokkum (2001, PASP, 113, 1420).
+
+    Parameters
+    ----------
+    data : ndarray
+        The input spectroscopic data.
+    input_dq : ndarray
+        An optional input pixel mask array.
+        Default: None.
+    gain : float, optional
+        The gain of the detector. Default is 1.0.
+    rdnoise : float, optional
+        The read noise of the detector. Default is 0.0.
+    wave : ndarray, optional
+        The wavelength array. Default is None.
+    sig_clip : float, optional
+        The sigma clip threshold for identifying cosmic rays. Default is 4.0.
+    sig_frac : float, optional
+        The fraction of the sigma clip threshold used for identifying neighboring pixels. Default is 0.5.
+    obj_lim : float, optional
+        The object flux limit used for identifying cosmic rays. Default is 1.0.
+    niter : int, optional
+        The number of iterations for the cosmic ray rejection. Default is 4.
+    n_nx : int, optional
+        The number of neighboring pixels to consider in the x-direction. Default is 1.
+    n_ny : int, optional
+        The number of neighboring pixels to consider in the y-direction. Default is 5.
+    verbose : bool, optional
+        Whether to print verbose output. Default is True.
+
+    Returns
+    -------
+    clean_data : ndarray
+        The cosmic ray cleaned spectroscopic data.
+    global_bpm : ndarray
+        The bad pixel mask indicating the locations of cosmic rays.
+    """
     ny, nx = numpy.shape(data)
     x_mg, y_mg = numpy.meshgrid(numpy.arange(nx), numpy.arange(ny))
     # set up bad pix mask that will persist through multiple iterations
@@ -169,6 +208,48 @@ def lacos_wifes(
     max_processes=-1,
     debug=False
 ):
+    """
+    Performs cosmic ray rejection on spectroscopic data using the L.A.Cosmic algorithm. The L.A.Cosmic algorithm is a Laplacian cosmic ray detection algorithm that uses a noise model to identify cosmic rays. The algorithm is described in van Dokkum (2001, PASP, 113, 1420).
+    If the user aims to run in multi-threaded mode, the number of processes to use can be specified. If the user does not specify the number of processes, the function will use all available processes.
+
+
+    Parameters
+    ----------
+    inimg : str
+        Input image file path.
+    outimg : str
+        Output image file path.
+    gain : float, optional
+        Gain of the data (default is 1.0).
+    rdnoise : float, optional
+        Read noise of the data (default is 5.0).
+    wsol_fn : str, optional
+        File path to the wavelength solution file (default is None).
+    sig_clip : float, optional
+        Sigma clip threshold for cosmic ray detection (default is 4.0).
+    sig_frac : float, optional
+        Fractional detection threshold for cosmic ray detection (default is 0.5).
+    obj_lim : float, optional
+        Object detection limit for cosmic ray detection (default is 1.0).
+    niter : int, optional
+        Number of iterations for cosmic ray detection (default is 4).
+    n_nx : int, optional
+        Number of pixels to use in the x-direction for cosmic ray detection (default is 1).
+    n_ny : int, optional
+        Number of pixels to use in the y-direction for cosmic ray detection (default is 5).
+    is_multithread : bool, optional
+        Flag indicating whether to use multi-threading (default is False).
+    max_processes : int, optional
+        Maximum number of processes to use for multi-threading (default is -1, which uses all available processes).
+    debug : bool
+        Whether to report the parameters used in this function call.
+        Default: False.
+
+    Returns
+    -------
+    None
+    """
+
     if debug:
         arguments()
     if is_multithread:
@@ -216,6 +297,38 @@ def lacos_wifes_oneproc(
     n_nx=1,
     n_ny=5,
 ):
+    """
+    Apply the L.A.Cosmic cosmic ray removal algorithm to a single WiFeS image in a single process. This function is intended to be used when the user does not want to use multi-threading.
+
+    Parameters:
+    ----------
+    in_img_filepath : str
+        Filepath of the input image.
+    out_filepath : str
+        Filepath to save the output image.
+    gain : float, optional
+        Gain of the detector. Default is 1.0.
+    rdnoise : float, optional
+        Read noise of the detector. Default is 5.0.
+    wsol_filepath : str, optional
+        Filepath of the wavelength solution file. Default is None.
+    sig_clip : float, optional
+        Sigma clipping threshold for cosmic ray detection. Default is 4.0.
+    sig_frac : float, optional
+        Fractional threshold for cosmic ray detection. Default is 0.5.
+    obj_lim : float, optional
+        Object limit for cosmic ray detection. Default is 1.0.
+    niter : int, optional
+        Number of iterations for cosmic ray detection. Default is 4.
+    n_nx : int, optional
+        Number of pixels to use in the x-direction for cosmic ray detection. Default is 1.
+    n_ny : int, optional
+        Number of pixels to use in the y-direction for cosmic ray detection. Default is 5.
+
+    Returns:
+    -------
+    None
+    """
 
     hdus = pyfits.open(in_img_filepath)
     halfframe = is_halfframe(hdus)
@@ -286,6 +399,40 @@ def lacos_wifes_multithread(
     n_ny=5,
     max_processes=-1,
 ):
+    """
+    Apply the L.A.Cosmic cosmic ray removal algorithm to WiFeS data using multiple threads.
+
+    Parameters:
+    ----------
+    in_img_filepath : str
+        Filepath of the input image.
+    out_filepath : str
+        Filepath to save the output image.
+    gain : float, optional
+        Gain of the data (default is 1.0).
+    rdnoise : float, optional
+        Read noise of the data (default is 5.0).
+    wsol_filepath : str, optional
+        Filepath of the wavelength solution data (default is None).
+    sig_clip : float, optional
+        Sigma clipping threshold for cosmic ray detection (default is 4.0).
+    sig_frac : float, optional
+        Fractional threshold for cosmic ray detection (default is 0.5).
+    obj_lim : float, optional
+        Object limit for cosmic ray detection (default is 1.0).
+    niter : int, optional
+        Number of iterations for cosmic ray detection (default is 4).
+    n_nx : int, optional
+        Number of pixels in the x-direction for cosmic ray detection (default is 1).
+    n_ny : int, optional
+        Number of pixels in the y-direction for cosmic ray detection (default is 5).
+    max_processes : int, optional
+        Maximum number of processes to use for parallelization (default is -1, which uses all available processes).
+
+    Returns:
+    -------
+    None
+    """
     hdus = pyfits.open(in_img_filepath)
     halfframe = is_halfframe(hdus)
 

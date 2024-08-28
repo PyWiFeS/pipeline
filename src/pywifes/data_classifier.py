@@ -6,7 +6,7 @@ import pyjson5
 import re
 import string
 
-from . import wifes_calib
+from pywifes import wifes_calib
 
 
 def _column_name_generator():
@@ -348,12 +348,12 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
         )
 
     obs_metadata = {
-        "bias": bias,
-        "domeflat": domeflat,
-        "twiflat": twiflat,
-        "dark": dark,
-        "wire": wire,
-        "arc": arc,
+        "bias": sorted(bias),
+        "domeflat": sorted(domeflat),
+        "twiflat": sorted(twiflat),
+        "dark": sorted(dark),
+        "wire": sorted(wire),
+        "arc": sorted(arc),
         "sci": sci_obs,
         "std": std_obs,
     }

@@ -13,12 +13,11 @@ import re
 import scipy.interpolate
 import scipy.optimize as op
 
-from . import optical_model as om
-from .logger_config import custom_print
-from .mpfit import mpfit
-from .wifes_metadata import metadata_dir
-from .wifes_metadata import __version__
-from .wifes_utils import arguments, is_halfframe, is_taros
+from pywifes import optical_model as om
+from pywifes.logger_config import custom_print
+from pywifes.mpfit import mpfit
+from pywifes.wifes_metadata import __version__, metadata_dir
+from pywifes.wifes_utils import arguments, is_halfframe, is_taros
 
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
@@ -498,8 +497,6 @@ def find_lines_and_guess_refs(
     #     associate those wavelengths to known lines
     full_fitted_x = []
     full_fitted_y = []
-    # full_fitted_lam = []
-    # full_ref_lam = []
     if verbose:
         print(" Slitlet", chosen_slitlet)
         print("  ... detecting arc lines with", find_method, "...")
@@ -614,7 +611,7 @@ def find_lines_and_guess_refs(
         # First, load the initial guess - currently, only for:
         # B3000, R3000, R7000 with NeAr lamp
         # B3000, R3000, B7000, I7000 with CuAr lamp
-        if arc_name != "NeAr" and arc_name != "CuAr":
+        if arc_name not in ["NeAr", "CuAr"]:
             raise ValueError(" Arc lamp not supported for Xcorr identification method !")
         ref_fn = os.path.join(
             metadata_dir, "arclines." + grating + "." + arc_name + ".txt"
@@ -702,7 +699,6 @@ def find_lines_and_guess_refs(
     start_wave_array = temp_wave_array[init_winds]
     start_full_x_array = init_x_array[init_winds]
     start_full_y_array = init_y_array[init_winds]
-    # niden = len(start_full_x_array)
     # ------------------------------
     # 4 - figure out which lines these are, excise outliers!
     start_full_ref_array = associate_linelists(
@@ -817,11 +813,6 @@ def xcorr_shift_grid(slitlet_data, wave_guess, ref_interp):
             corr_lim = 20
             corr[2048 + corr_lim + 1:] = 0
             corr[: 2048 - corr_lim] = 0
-            # init_shift = float(corr.argmax()) - 2048
-            # if init_shift > corr_lim:
-            #     shift = init_shift - 4096
-            # else:
-            #     shift = init_shift
             shifts[p] = stretches[p] * orig_dw
             # metric - just correlation peak?
             metrics[p] = corr.max()
@@ -837,16 +828,9 @@ def xcorr_shift_grid(slitlet_data, wave_guess, ref_interp):
     # ------------------------------------
     # based on fitted stretches and shifts,
     # fit dw = Ax+By+C
-    # fval_y = numpy.arange(10/bin_y, 80/bin_y)
-    # shift_poly = numpy.polyfit(y_samp, all_shifts, 1)
-    # shift_fvals = numpy.polyval(shift_poly, fval_y)
-    # stretch_poly = numpy.polyfit(y_samp, all_stretches, 1)
-    # stretch_fvals = numpy.polyval(stretch_poly, fval_y)
-    # fval_y = numpy.arange(10 // bin_y, 80 // bin_y)
     best_stretch = numpy.median(all_stretches)
     good_inds = numpy.nonzero(all_stretches == best_stretch)[0]
     shift_poly = numpy.polyfit(y_samp[good_inds], all_shifts[good_inds], 1)
-    # shift_fvals = numpy.polyval(shift_poly, fval_y)
     # ------------------------------------
     return shift_poly, best_stretch
 
@@ -997,8 +981,6 @@ def slitlet_wsol(
     #     associate those wavelengths to known lines
     full_fitted_x = []
     full_fitted_y = []
-    # full_fitted_lam = []
-    # full_ref_lam = []
     for i in range(nrows):
         test_z = slitlet_data[i, :]
         fitted_ctrs = quick_arcline_fit(
@@ -1054,7 +1036,6 @@ def slitlet_wsol(
     start_wave_array = temp_wave_array[init_winds]
     start_full_x_array = init_x_array[init_winds]
     start_full_y_array = init_y_array[init_winds]
-    # niden = len(start_full_x_array)
     # ------------------------------
     # 4 - figure out which lines these are, excise outliers!
     start_full_ref_array = associate_linelists(
@@ -1077,10 +1058,6 @@ def slitlet_wsol(
             x_polydeg=x_polydeg,
             y_polydeg=y_polydeg,
         )
-        # iter_fit_lam = numpy.polyval(iter_xpoly, iter_x_array) + numpy.polyval(
-        #     iter_ypoly, iter_y_array
-        # )
-        # iter_resids = iter_fit_lam - iter_ref_array
         # try to bring back all line with the new wavelength solution
         next_wave_array = numpy.polyval(iter_xpoly, start_full_x_array) + numpy.polyval(
             iter_ypoly, start_full_y_array
@@ -1093,7 +1070,6 @@ def slitlet_wsol(
     # ------------------
     if verbose:
         resids = next_dlam[iter_good_inds]
-        # resid_rms = numpy.mean(resids**2) ** 0.5
         resid_MAD = numpy.median(numpy.abs(resids) / 0.6745)
         full_x = numpy.arange(ncols)
         full_y = numpy.arange(nrows)
@@ -1135,6 +1111,48 @@ def derive_wifes_polynomial_wave_solution(
     deriv_threshold_nsig=1.0,
     verbose=False,
 ):
+    """
+    Derives the polynomial wave solution for WiFeS data. The wave solution is derived by fitting the arc lines in each slitlet and then fitting a polynomial to the derived wavelengths. The derived wave solution is saved to the specified output file.
+
+    Parameters
+    ----------
+    inimg : str
+        Input MEF file name.
+    out_file : str
+        Output file name for the derived wave solution.
+    dlam_cut_start : float, optional
+        Starting wavelength cut in Angstroms for the derivative calculation (default is 7.0).
+    dlam_cut : float, optional
+        Wavelength cut in Angstroms for the derivative calculation (default is 3.0).
+    ref_arclines : array-like, optional
+        Reference arc lines for wavelength calibration (default is None).
+    ref_arcline_file : str, optional
+        File name containing reference arc lines for wavelength calibration (default is None).
+    arc_name : str, optional
+        Name of the arc lamp used for calibration (default is None).
+    grating : str, optional
+        Grating used for calibration (default is None).
+    bin_x : int, optional
+        Binning factor in the x-direction (default is None).
+    bin_y : int, optional
+        Binning factor in the y-direction (default is None).
+    x_polydeg : int, optional
+        Degree of the polynomial fit in the x-direction (default is 4).
+    y_polydeg : int, optional
+        Degree of the polynomial fit in the y-direction (default is 2).
+    flux_threshold_nsig : float, optional
+        Flux threshold in number of standard deviations for peak detection (default is 3.0).
+    deriv_threshold_nsig : float, optional
+        Derivative threshold in number of standard deviations for peak detection (default is 1.0).
+    verbose : bool, optional
+        Whether to print verbose output (default is False).
+
+    Returns
+    -------
+    None
+        The derived wave solution is saved to the specified output file.
+
+    """
     # check if halfframe
     halfframe = is_halfframe(inimg)
     # MUST HAVE MEF FILE AS INPUT
@@ -1181,7 +1199,7 @@ def derive_wifes_polynomial_wave_solution(
         if halfframe and (i < 7 or i > 19):
             wave_data = numpy.zeros(numpy.shape(a[i].data), dtype="d")
         else:
-            new_y, new_x, new_ref, xpoly, ypoly = slitlet_wsol(
+            xpoly, ypoly = slitlet_wsol(
                 a[i].data,
                 i,
                 grating,
@@ -1197,7 +1215,7 @@ def derive_wifes_polynomial_wave_solution(
                 flux_threshold_nsig=flux_threshold_nsig,
                 deriv_threshold_nsig=deriv_threshold_nsig,
                 verbose=verbose,
-            )
+            )[3:5]
             wave_data = numpy.polyval(xpoly, full_x) + numpy.polyval(ypoly, full_y)
         # calculate lambda for all x/y!!
         hdu_name = "WSOL%d" % i
@@ -1332,7 +1350,7 @@ def derive_wifes_skyline_solution(
         dlam_cut=dlam_cut,
         ref_arclines=sky_lines,
         grating=grating,
-        bin_x=bin_y,
+        bin_x=bin_x,
         bin_y=bin_y,
         x_polydeg=x_polydeg,
         y_polydeg=y_polydeg,
@@ -1593,7 +1611,7 @@ def _fit_optical_model(
 
     if plot:
         # Final wavelenght solution
-        plot_name = f"final_wsol_{grating.upper()}.png"
+        plot_name = f"wavelength_solution_{grating.upper()}.png"
         plot_path = os.path.join(plot_dir, plot_name)
         om.final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=plot_path)
 
@@ -1628,12 +1646,63 @@ def derive_wifes_optical_wave_solution(
     multithread=False,
     debug=False,
 ):
-    """The main user-callable function that performs the fit"""
+    """
+    This function reads the input image, finds the lines, and fits the optical model to the lines. The derived wave solution is saved to the specified output file.
+
+    Parameters
+    ----------
+    inimg : str
+        Path to the input image.
+    outfn : str
+        Path to save the output file.
+    arc_name : str, optional
+        Name of the arc.
+    ref_arclines : array-like, optional
+        Reference arcline wavelengths.
+    ref_arcline_file : str, optional
+        Path to the file containing reference arcline wavelengths.
+    dlam_cut_start : float, optional
+        Starting wavelength cut-off for line finding.
+    flux_threshold_nsig : float, optional
+        Flux threshold in terms of number of standard deviations.
+    find_method : str, optional
+        Method for finding lines.
+    shift_method : str, optional
+        Method for shifting lines.
+    exclude_from : str, optional
+        Path to the file containing lines to exclude.
+    exclude : array-like, optional
+        Lines to exclude.
+    epsilon : float, optional
+        Tolerance for excluding lines.
+    doalphapfit : bool, optional
+        Whether to perform alphap fitting.
+    automatic : bool, optional
+        Whether to perform automatic fitting.
+    verbose : bool, optional
+        Whether to print verbose output.
+    decimate : bool, optional
+        Whether to decimate the data.
+    sigma : float, optional
+        Sigma value for fitting.
+    alphapfile : str, optional
+        Path to the file containing alphap values.
+    plot : bool, optional
+        Whether to plot the results.
+    plot_dir : str, optional
+        Directory to save the plots.
+    multithread : bool, optional
+        Whether to use multithreading.
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default: False.
+
+    Returns
+    -------
+    None
+    """
     if debug:
         print(arguments())
-    # ------------------------------------------------------
-    # *** Mike's edits: operate on PyWiFeS MEF files ***
-    # ------------------------------------------------------
     # step 1 - gather metadata from header
     f = pyfits.open(
         inimg, ignore_missing_end=True
@@ -1645,15 +1714,12 @@ def derive_wifes_optical_wave_solution(
 
     if halfframe:
         if taros:
-            # nslits = 12
             first = 1
             last = 12
         else:
-            # nslits = 13
             first = 7
             last = 19
     else:
-        # nslits = 25
         first = 1
         last = 25
 
@@ -1776,10 +1842,7 @@ def derive_wifes_optical_wave_solution(
     if verbose:
         print("Grating", grating)
 
-    title = "Arc " + grating.upper() + "   (" + inimg.split("/")[-1][:-5] + ")"
-
-    # save_prefix = "wsol_"
-    # final_save_prefix = save_prefix
+    title = "Arc " + grating.upper() + f"   ({os.path.splitext(os.path.basename(inimg))[0]})"
 
     allx, ally, alls, allarcs, params, rmse = _fit_optical_model(
         title,
@@ -1835,6 +1898,38 @@ def derive_wifes_optical_wave_solution(
 
 # ------------------------------------------------------------------------
 def derive_wifes_wave_solution(inimg, out_file, method="optical", **args):
+    """
+    Derives the wavelength solution for WiFeS data. The derived wave solution is saved
+    to the specified output file. The method to use for deriving the wavelength
+    solution can be specified using the 'method' parameter. The following methods are
+    available:
+    - 'poly' for polynomial fitting: The wave solution is derived by fitting the arc
+    lines in each slitlet and then fitting a polynomial to the derived wavelengths.
+
+    - 'optical' for optical fitting.  The wave solution is derived by finding the lines,
+    and fitting the WiFeS optical model to the lines (model provided in the sub-module
+    'optical_model.py').
+
+    Parameters
+    ----------
+    inimg : str
+        The input image file path.
+    out_file : str
+        The output file path to save the wavelength solution.
+    method : str, optional
+        The method to use for deriving the wavelength solution: polynomial fitting or
+        optical model.
+        Options: 'poly', 'optical'.
+        Default is 'optical'.
+
+    Optional Function Arguments
+    ---------------------------
+
+    Raises
+    ------
+    ValueError
+        If the wavelength solution method is not recognized.
+    """
     if method == "poly":
         derive_wifes_polynomial_wave_solution(
             inimg,

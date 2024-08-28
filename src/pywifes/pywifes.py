@@ -14,16 +14,16 @@ import scipy.interpolate as interp
 import scipy.ndimage as ndimage
 import sys
 
-from .logger_config import custom_print
+from pywifes.logger_config import custom_print
 
 # Pipeline imports
-from .multiprocessing_utils import get_task, map_tasks
-from .wifes_metadata import __version__, metadata_dir
-from .wifes_imtrans import transform_data, detransform_data
-from .wifes_wsol import fit_wsol_poly, evaluate_wsol_poly
-from .wifes_adr import ha_degrees, dec_dms2dd, adr_x_y
-from .wifes_utils import arguments, fits_scale_from_bitpix, is_halfframe, is_taros, nan_helper
-from .mpfit import mpfit
+from pywifes.multiprocessing_utils import get_task, map_tasks
+from pywifes.wifes_metadata import __version__, metadata_dir
+from pywifes.wifes_imtrans import transform_data, detransform_data
+from pywifes.wifes_wsol import fit_wsol_poly, evaluate_wsol_poly
+from pywifes.wifes_adr import ha_degrees, dec_dms2dd, adr_x_y
+from pywifes.wifes_utils import arguments, fits_scale_from_bitpix, is_halfframe, is_taros, nan_helper
+from pywifes.mpfit import mpfit
 
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
@@ -65,17 +65,17 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
     Returns
     -------
     None
-        This function does not return any value. It writes the cut FITS data to a new file.
 
     Notes
     -----
-    This function:
-    - Opens the input FITS file.
-    - Extracts the primary HDU (Header/Data Unit).
-    - Considers binning specified in the 'CCDSUM' header.
-    - Cuts the data to a section defined by the specified coordinates.
-    - Updates the 'DETSEC' keyword in the header.
-    - Writes the cut data to a new FITS file with the specified prefix.
+    This function performs the following steps:
+
+    1. Opens the input FITS file.
+    2. Extracts the primary HDU (Header/Data Unit).
+    3. Considers binning specified in the 'CCDSUM' header.
+    4. Cuts the data to a section defined by the specified coordinates.
+    5. Updates the 'DETSEC' keyword in the header.
+    6. Writes the cut data to a new FITS file with the specified prefix.
     """
 
     # Open the input FITS file
@@ -112,6 +112,26 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
 
 # ------------------------------------------------------------------------
 def calib_to_half_frame(obs_metadata, temp_data_dir):
+    """
+    Convert calibration files to half-frame format.
+
+    This function takes the observation metadata and temporary data directory as input.
+    It converts the calibration files to half-frame format by cutting them in half.
+    The calibration types that can be converted are domeflat, twiflat, wire, and arc.
+    The converted files are saved with a prefix 'cut_' added to their names.
+
+    Parameters
+    ----------
+    obs_metadata : dict
+        The observation metadata containing calibration file information.
+    temp_data_dir : str
+        The temporary data directory where the calibration files are located.
+
+    Returns
+    -------
+    dict
+        The updated observation metadata with the converted calibration file names.
+    """
 
     # A list of calibration types that need to be half-frame for the pipeline to work properly in the half-frame scenario.
     calib_types = ["domeflat", "twiflat", "wire", "arc", "bias"]
@@ -143,6 +163,27 @@ def calib_to_half_frame(obs_metadata, temp_data_dir):
 def single_centroid_prof_fit(
     y, x=None, ctr_guess=None, width_guess=None, return_width=False
 ):
+    """
+    Fit a single Gaussian to a 1D profile to determine the centroid.
+
+    Parameters
+    ----------
+    y : numpy.ndarray
+        The 1D profile data.
+    x : numpy.ndarray, optional
+        The x-axis data. Default is None.
+    ctr_guess : float, optional
+        The initial guess for the centroid. Default is None.
+    width_guess : float, optional
+        The initial guess for the width. Default is None.
+    return_width : bool, optional
+        If True, the function returns the width of the Gaussian. Default is False.
+
+    Returns
+    -------
+    float
+        The centroid of the Gaussian.
+    """
     N = len(y)
     if x is None:
         x = numpy.arange(N, dtype="d")
@@ -182,6 +223,53 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
               plot=False, plot_dir='.', save_prefix='imcombine_inputs',
               interactive_plot=False, debug=False,
               ):
+    """
+    Combine multiple images into a single image using a specified method.
+
+    Parameters
+    ----------
+    inimg_list : list
+        A list of input image paths.
+    outimg : str
+        The path to the output image.
+    method : str, optional
+        The method 'median', 'sum', or 'mean' to be used for combining the images. Default is 'median'.
+    scale : str, optional
+        The scaling method to be used, 'median', 'median_nonzero', 'exptime' or None. Default is None.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+    kwstring : str, optional
+        Header keyword to add to output as "PYW" + kwstring, containing number of inputs.
+        Default: None.
+    commstring : str, optional
+        Header keyword comment to add to output.
+        Default: None.
+    outvarimg : str, optional
+        Filename of variance image to output (if defined).
+        Default: None.
+    sregion : list, optional
+        List defining image x-axis region in which to compute scaling (if a scaling method is defined).
+        Example: [1000, 3000].
+        Default: None.
+    plot : bool, optional
+        Whether to output a diagnostic plot.
+        Default: False.
+    plot_dir : str, optional
+        Directory for output of plot (if requested).
+        Default: '.'.
+    save_prefix : str, optional
+        Prefix for plot (if requested).
+        Default: 'imcombine_inputs'.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user.
+        Default: False.
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default: False.
+    Returns
+    -------
+    None
+    """
     if debug:
         print(arguments())
     inimg_list.sort()
@@ -206,7 +294,7 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
                     sreg_min = 0
                     sreg_max = new_data.shape[1]
                 else:
-                    sreg_min, sreg_max = [int(s) for s in sregion.split(":")]
+                    sreg_min, sreg_max = [int(s) for s in sregion]
                 if scale == "median":
                     scale_factor[i] = numpy.nanmedian(new_data[:, sreg_min:sreg_max], )
                 elif scale == "median_nonzero":
@@ -311,9 +399,6 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
     outfits[data_hdu].scale("float32")
     # fix ephemeris data if images are co-added!!!
     if method == "sum" and scale is None:
-        f1 = pyfits.open(inimg_list[0])
-        # first_hdr = f1[data_hdu].header
-        f1.close()
         f2 = pyfits.open(inimg_list[-1])
         last_hdr = f2[data_hdu].header
         f2.close()
@@ -347,6 +432,29 @@ def imcombine_mef(
     method="median",
     debug=False,
 ):
+    """
+    Combine multiple images into a single image using a specified method.
+
+    Parameters
+    ----------
+    inimg_list : list
+        A list of input image paths.
+    outimg : str
+        The path to the output image.
+    scale : str, optional
+        The scaling method to be used. Options are 'exptime', 'per_slice_median'.
+        Default: None.
+    method : str, optional
+        The method to be used for combining the images. Options are 'media', 'sum',
+        'nansafesum'.
+        Default: 'median'.
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default: False.
+    Returns
+    -------
+    None
+    """
     if debug:
         print(arguments())
     nimg = len(inimg_list)
@@ -483,6 +591,25 @@ def imcombine_mef(
 
 # ------------------------------------------------------------------------
 def imarith_mef(inimg1, operator, inimg2, outimg):
+    """
+    Performs arithmetic operations between two images.
+
+    Parameters
+    ----------
+    inimg1 : str
+        The path to the first input image.
+    operator : str
+        The operator to be used for combining the images.
+        Options: '+', '-', '*', '/'.
+    inimg2 : str
+        The path to the second input image.
+    outimg : str
+        The path to the output image.
+
+    Returns
+    -------
+    None
+    """
     if is_halfframe(inimg1):
         if is_taros(inimg1):
             nslits = 12
@@ -566,7 +693,35 @@ def imarith_mef(inimg1, operator, inimg2, outimg):
     return
 
 
-def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None, arg_scaled="second"):
+def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None,
+                       arg_scaled="second"):
+    """
+    Combine two images using a specified operator and a scaling factor.
+
+    Parameters
+    ----------
+    inimg1 : str
+        The path to the first input image.
+    operator : str
+        The operator to be used for combining the images.
+        Options are '+', '-', '*', '/'.
+    inimg2 : str
+        The path to the second input image.
+    outimg : str
+        The path to the output image.
+    scale : float or str
+        The scaling factor to be used.
+        Options: 'exptime', a float value.
+        Default: None.
+    arg_scaled : str, optional
+        Which argument the scaling should be applied to.
+        Options: "first", "second".
+        Default: "second"
+    Returns
+    -------
+    None
+        This function does not return any value. It writes the combined image to the output file.
+    """
     if arg_scaled not in ["first", "second"]:
         raise ValueError(f"Unknown arg_scaled value '{arg_scaled}'. Must be 'first' or 'second'.")
     # check if halfframe
@@ -1227,7 +1382,7 @@ def subtract_overscan(
             else:
                 omaskfile = None
         if omaskfile is None:
-            # Take mean of central 50% of values
+            # Take mean of central 50% of values per row
             olim = [curr_ovs_data.shape[1] // 4, int(numpy.ceil(curr_ovs_data.shape[1] * 0.75)) + 1]
             curr_ovs_val = numpy.nanmean(numpy.sort(curr_ovs_data, axis=1)[:, olim[0]:olim[1]], axis=1)
 
@@ -1263,7 +1418,7 @@ def subtract_overscan(
 
 
 # ------------------------------------------------------------------------
-def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littrow=False,
+def repair_blue_bad_pix(inimg, outimg, data_hdu=0, flat_littrow=False,
                         interp_buffer=3, interactive_plot=False, verbose=False, debug=False):
     """Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
     calibration frames, but sets bad pixels to NaN for STANDARD and OBJECT frames. The NaN
@@ -1385,7 +1540,7 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littro
     return
 
 
-def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littrow=False,
+def repair_red_bad_pix(inimg, outimg, data_hdu=0, flat_littrow=False,
                        interp_buffer=3, interactive_plot=False, verbose=False, debug=False):
     """Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
     calibration frames, but sets bad pixels to NaN for STANDARD and OBJECT frames. The NaN
@@ -1507,8 +1662,8 @@ def repair_red_bad_pix(inimg, outimg, data_hdu=0, bin_x=1, bin_y=1, flat_littrow
         xfirst //= bin_x
         xlast //= bin_x
         if method == 'interp':
-            slice_lo = numpy.median(orig_data[yfirst:ylast + 1, xfirst - 1 - interp_buffer:xfirst], axis=1)
-            slice_hi = numpy.median(orig_data[yfirst:ylast + 1, xlast + 1:xlast + 2 + interp_buffer], axis=1)
+            slice_lo = numpy.nanmedian(orig_data[yfirst:ylast + 1, xfirst - 1 - interp_buffer:xfirst], axis=1)
+            slice_hi = numpy.nanmedian(orig_data[yfirst:ylast + 1, xlast + 1:xlast + 2 + interp_buffer], axis=1)
             if verbose:
                 print(f"Interpolating from ({yfirst}:{ylast + 1}, {xfirst - 1}) to ({yfirst}:{ylast + 1}, {xlast + 1})")
             for this_x in numpy.arange(xfirst, xlast + 1):
@@ -1545,7 +1700,6 @@ def fit_wifes_interslit_bias(
     # ---------------------------
     # (0) open file, initialize HDUList that will be saved at output
     f = pyfits.open(inimg)
-    # outfits = pyfits.HDUList(f)
     orig_data = f[data_hdu].data
     orig_hdr = f[data_hdu].header
     f.close()
@@ -1817,12 +1971,12 @@ def generate_wifes_bias_fit(
     bias_img,
     outimg,
     arm,
+    method="row_med",
     data_hdu=0,
     plot=True,
     plot_dir=".",
     save_prefix='bias',
     verbose=False,
-    method="row_med",
 ):
     # get object and bias data
     f1 = pyfits.open(bias_img)
@@ -2202,20 +2356,21 @@ def interslice_cleanup(
     debug=False,
     interactive_plot=False,
 ):
-    """Uses the dark interslice regions of the detector to interpolate the
+    """
+    Uses the dark interslice regions of the detector to interpolate the
     scattered light over the entire detector.
 
     Note that setting nsig_lim to 3 (as it historically has been) can cause
     problems by sigma clipping the scattered light, not just cosmic rays. For
     a halframe detector with y binning 2, there are 1024 x 4096 pixels.
     With sigma values as follows, this is how many pixels lie above:
-     - 3.0 sigma (99.73%): ~11,323 px
-     - 4.0 sigma (99.994%): ~265 px
-     - 4.5 sigma (99.9993%): ~28 px
-     - 5.0 sigma (99.99994%): ~2 px
+    - 3.0 sigma (99.73%): ~11,323 px
+    - 4.0 sigma (99.994%): ~265 px
+    - 4.5 sigma (99.9993%): ~28 px
+    - 5.0 sigma (99.99994%): ~2 px
 
-     (This however assumes a Gaussian distribution, which isn't at all the case
-     but still useful as a guide/metric.)
+    (This however assumes a Gaussian distribution, which isn't at all the case
+    but still useful as a guide/metric.)
     """
     if debug:
         print(arguments())
@@ -2695,6 +2850,41 @@ def wifes_slitlet_mef_ns(
     repl_val=0.0,
     debug=False,
 ):
+    """
+    Create multi-extension FITS files for object and sky data from a single input image.
+
+    Parameters
+    ----------
+    inimg : str
+        Path to the input FITS image.
+    outimg_obj : str
+        Path to the output FITS file for object data.
+    outimg_sky : str
+        Path to the output FITS file for sky data.
+    data_hdu : int, optional
+        Index of the HDU containing the data in the input FITS image. Default is 0.
+    bin_x : int, optional
+        Binning factor in the x-direction. If not specified, it will be read from the header.
+    bin_y : int, optional
+        Binning factor in the y-direction. If not specified, it will be read from the header.
+    nod_dy : int, optional
+        Offset in pixels between the object and sky slitlets in the y-direction. Default is 80.
+    slitlet_def_file : str, optional
+        Path to a file containing slitlet definitions. If not specified, baseline values will be used.
+    nan_method : str, optional
+        Method for handling bad (NaN) pixels. Options are 'interp', 'replace'.
+        Default: "interp".
+    repl_val : float, optional
+        If 'nan_method'='replace', replace bad (NaN) pixels with the specified value.
+        Default: 0.0.
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default: False.
+
+    Returns
+    -------
+    None
+    """
     if debug:
         print(arguments())
     f = pyfits.open(inimg)
@@ -3526,10 +3716,8 @@ def derive_wifes_wire_solution(
         nslits = 25
     # figure out which channel it is
     if f[1].header["CAMERA"] == "WiFeSRed":
-        # channel = "red"
         grating = f[1].header["GRATINGR"]
     else:
-        # channel = "blue"
         grating = f[1].header["GRATINGB"]
     # figure out the binning!
     try:
@@ -3606,7 +3794,8 @@ def derive_wifes_wire_solution(
         fit_x_arr = numpy.array(frame_fit_x)
         fit_y_arr = numpy.array(frame_fit_y)
         good_inds = numpy.nonzero(
-            (fit_y_arr > 0)
+            (numpy.isfinite(fit_x_arr))
+            * (fit_y_arr > 0)
             * (fit_x_arr >= xmin)
             * (fit_x_arr <= xmax)
         )[0]
@@ -4042,13 +4231,10 @@ def generate_wifes_cube(
                     sys.stdout.write("\n")
 
     # All done, at last ! Now, let's save it all ...
-    if subsample > 1:  # subsample=3: (39, 114, 3506) -> (13, 39, 3506)
-        print("Orig post-interpolation flux_data_cube_tmp.shape: ", flux_data_cube_tmp.shape)
-        # flux_data_cube_tmp = ndimage.map_coordinates(flux_data_cube_tmp, coordinates=numpy.meshgrid(subsample * numpy.arange(nslits) + subsample / 2., subsample * numpy.arange(ny_orig) + subsample / 2., numpy.arange(nlam)), order=0, mode='constant', cval=0)
+    if subsample > 1:
         flux_data_cube_tmp = blockwise_mean_3D(flux_data_cube_tmp, [subsample, subsample, 1])
         var_data_cube_tmp = blockwise_mean_3D(var_data_cube_tmp, [subsample, subsample, 1])
         dq_data_cube_tmp = blockwise_mean_3D(dq_data_cube_tmp, [subsample, subsample, 1])
-        print(flux_data_cube_tmp.shape)
     outfits = pyfits.HDUList(f3)
     flux_data_cube_tmp = flux_data_cube_tmp.astype("float32", casting="same_kind")
     var_data_cube_tmp = var_data_cube_tmp.astype("float32", casting="same_kind")
@@ -4087,8 +4273,6 @@ def generate_wifes_cube(
 # ------------------------------------------------------------------------
 def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_pixels=False, debug=False):
     # load in data
-    # assumes it is in pywifes format
-    # otherwise why are you using this function
     if debug:
         print(arguments())
     f = pyfits.open(inimg)
@@ -4111,7 +4295,6 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
         lam0 = f[1].header["CRVAL1"]
         dlam = f[1].header["CDELT1"]
 
-        # lam_array = lam0 + dlam * numpy.arange(nlam, dtype="d")
         # get data, variance and data quality
         obj_cube_data = numpy.zeros([nlam, ny, nx], dtype="d")
         obj_cube_var = numpy.zeros([nlam, ny, nx], dtype="d")
@@ -4131,7 +4314,6 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
         # get wavelength array
         lam0 = f[1].header["CRVAL3"]
         dlam = f[1].header["CDELT3"]
-        # lam_array = lam0 + dlam * numpy.arange(nlam, dtype="d")
         # get data and variance
         obj_cube_data = numpy.zeros([nlam, ny, nx], dtype="d")
         obj_cube_var = numpy.zeros([nlam, ny, nx], dtype="d")
@@ -4171,15 +4353,9 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
 
     pc1_1 = cos_telpa
     pc1_2 = -sin_telpa
-    # pc1_3 = 0.0
 
     pc2_1 = sin_telpa
     pc2_2 = cos_telpa
-    # pc2_3 = 0.0
-
-    # pc3_1 = 0.0
-    # pc3_2 = 0.0
-    # pc3_3 = 1.0
 
     # Equiv. to 1 pixel width in each axis' units
     binning_2 = int(f[0].header["CCDSUM"][2])

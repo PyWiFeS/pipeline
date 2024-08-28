@@ -1,19 +1,20 @@
 from __future__ import print_function
 from astropy.io import fits as pyfits
 from math import factorial
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy
 import os
 import pickle
 import scipy.interpolate
 
-from .logger_config import custom_print
+from pywifes.logger_config import custom_print
 import logging
 
-from . import wifes_ephemeris
-from .pywifes import imcopy
-from .wifes_metadata import metadata_dir, __version__
-from .wifes_utils import arguments, is_halfframe, is_taros
+from pywifes import wifes_ephemeris
+from pywifes.pywifes import imcopy
+from pywifes.wifes_metadata import metadata_dir, __version__
+from pywifes.wifes_utils import arguments, is_halfframe, is_taros
 
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
@@ -69,12 +70,10 @@ def find_nearest_stdstar(inimg, data_hdu=0):
     f.close()
     ra, dec = wifes_ephemeris.sex2dd(radec)
     angsep_array = (
-        3600.0
-        * (
+        3600.0 * numpy.sqrt(
             (dec - stdstar_dec_array) ** 2
             + (numpy.cos(numpy.radians(dec)) * (ra - stdstar_ra_array)) ** 2
         )
-        ** 0.5
     )
     best_ind = numpy.argmin(angsep_array)
     return stdstar_list[best_ind], angsep_array[best_ind]
@@ -186,12 +185,79 @@ def extract_wifes_stdstar(
     sky_radius=8.0,
     xtrim=4,
     ytrim=8,
-    wmask=500,  # mask wavelength extremes when peak-finding
+    wmask=500,
     save_mode=None,
     save_fn=None,
     debug=False,
     interactive_plot=False,
 ):
+    """
+    Extracts the standard star spectrum from a WiFeS data cube. The standard star
+    spectrum is extracted by performing apperture photometry for each frame along the
+    wavelenght axis within a circular aperture centered on the standard star centroid.
+    The sky background is estimated by taking the median flux within an annulus
+    centered on the standard star centroid.
+
+    Parameters
+    ----------
+    cube_fn : str
+        The filename of the WiFeS data cube.
+    x_ctr : float, optional
+        The x-coordinate of the standard star centroid. If not provided, the centroid
+        will be determined automatically.
+        Default: None.
+    y_ctr : float, optional
+        The y-coordinate of the standard star centroid. If not provided, the centroid
+        will be determined automatically.
+        Default: None.
+    extract_radius : float, optional
+        The radius (in arcseconds) within which to extract the standard star spectrum.
+        Default: 5.0.
+    sky_radius : float, optional
+        The radius (in arcseconds) outside which to estimate the sky background.
+        Default: 8.0.
+    xtrim : int, optional
+        The number of pixels to trim from the left and right of the data cube in the x
+        spatial direction.
+        Default: 4.
+    ytrim : int, optional
+        The number of (unbinned) pixels to trim from the top and bottom of the data
+        cube in the y spatial direction.
+        Default: 8.
+    wmask: int, optional
+        The number of (unbinned) wavelength pixels to mask from each end when
+        peak-finding.
+        Default: 500.
+    save_mode : str, optional
+        The mode for saving the extracted spectrum.
+        Options: 'ascii', 'iraf', None (returns (wave, flux) to the calling function).
+        Default: None.
+    save_fn : str, optional
+        The filename to save the extracted spectrum if 'save_mode' is 'ascii' or 'iraf'.
+        Default: None.
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default: False.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user.
+        Default: False.
+
+    Returns
+    -------
+    If 'save_mode' = 'save_fn' = None:
+        filtered_lam_array : numpy.ndarray
+            The wavelength array of the extracted spectrum.
+        filtered_std_flux : numpy.ndarray
+            The flux values of the extracted spectrum.
+    Else:
+        None
+
+    Raises
+    ------
+    ValueError
+        If the save_mode is not recognized.
+
+    """
     if debug:
         print(arguments())
 
@@ -226,24 +292,21 @@ def extract_wifes_stdstar(
 
     if x_ctr is None or y_ctr is None:
         cube_im = numpy.nansum(obj_cube_data[wmask:nlam - wmask, :, :], axis=0)
-        maxind = numpy.nonzero(
-            cube_im == cube_im.max()
-        )  # numpy.nonzero returns indices of nonzero elements
-        y_ctr = maxind[0][0]
-        x_ctr = maxind[1][0]
+        y_ctr, x_ctr = numpy.unravel_index(numpy.argmax(cube_im), cube_im.shape)
     print(f"Extracting STD from IFU (x,y) = ({x_ctr + first + xtrim}, {y_ctr + 1 + ytrim})")
 
     # get *distance* of each pixels from stdstar center x/y
-    pix_dists = (
+    pix_dists = numpy.sqrt(
         (slice_size_arcsec * (full_x - x_ctr)) ** 2
         + (pix_size_arcsec * (full_y - y_ctr)) ** 2
-    ) ** 0.5
+    )
     sky_pix = numpy.nonzero((pix_dists >= sky_radius))
     obj_pix = numpy.nonzero((pix_dists <= extract_radius))
 
     sky_flux = numpy.nanmedian(obj_cube_data[:, sky_pix[0], sky_pix[1]], axis=1)
     std_flux = numpy.sum(obj_cube_data[:, obj_pix[0], obj_pix[1]], axis=1) - sky_flux * len(obj_pix[0])
     std_var = numpy.sum(obj_cube_var[:, obj_pix[0], obj_pix[1]], axis=1)
+    std_dq = numpy.sum(obj_cube_dq[:, obj_pix[0], obj_pix[1]], axis=1)
 
     # Enforce a S/N > 10 limit
     std_flux[std_flux / numpy.sqrt(std_var) < 10] = numpy.nan
@@ -270,6 +333,7 @@ def extract_wifes_stdstar(
     filtered_lam_array = lam_array[filter_nan]
     filtered_std_flux = std_flux[filter_nan]
     filtered_std_var = std_var[filter_nan]
+    filtered_std_dq = std_dq[filter_nan]
 
     len_filtered_lam = len(filtered_lam_array)
 
@@ -279,10 +343,11 @@ def extract_wifes_stdstar(
         return filtered_lam_array, filtered_std_flux
     elif save_mode == "ascii":
         f.close()
-        save_data = numpy.zeros([len_filtered_lam, 3], dtype="d")
+        save_data = numpy.zeros([len_filtered_lam, 4], dtype="d")
         save_data[:, 0] = filtered_lam_array
         save_data[:, 1] = filtered_std_flux
         save_data[:, 2] = filtered_std_var
+        save_data[:, 3] = filtered_std_dq
         numpy.savetxt(save_fn, save_data)
     elif save_mode == "iraf":
         out_header = f[1].header
@@ -291,10 +356,10 @@ def extract_wifes_stdstar(
         out_header.set("CD3_3", 1)
         out_header.set("LTM3_3", 1)
         out_data = numpy.zeros([4, 1, len_filtered_lam], dtype="d")
-        out_data[0, 0, :] = filtered_std_flux
+        out_data[0, 0, :] = std_flux
         out_data[1, 0, :] = sky_flux
-        out_data[2, 0, :] = filtered_std_var
-        out_data[3, 0, :] = filtered_std_var
+        out_data[2, 0, :] = std_var
+        out_data[3, 0, :] = std_dq
         out_hdu = pyfits.PrimaryHDU(data=out_data, header=out_header)
         outfits = pyfits.HDUList([out_hdu])
         outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
@@ -445,6 +510,65 @@ def derive_wifes_calibration(
     boxcar=11,
     debug=False,
 ):
+    """
+    Derives the calibration solution for WiFeS data. The calibration solution is derived by comparing the observed standard star spectra to reference data. The calibration solution is then used to correct the observed spectra for instrumental effects.
+
+    Parameters
+    ----------
+    cube_fn_list : list
+        List of file paths to the WiFeS data cubes.
+    calib_out_fn : str
+        File path to save the calibration output.
+    stdstar_name_list : list, optional
+        List of standard star names corresponding to each cube.
+    extract_in_list : list, optional
+        List of file paths to the extracted spectra.
+    airmass_list : list, optional
+        List of airmass values corresponding to each cube.
+    ref_dir : str, optional
+        Directory path to the reference data.
+    ref_fname_list : list, optional
+        List of file names of the reference data corresponding to each cube.
+    plot_stars : bool, optional
+        Whether to plot the stars during the calibration process.
+    plot_sensf : bool, optional
+        Whether to plot the sensitivity function.
+    plot_dir : str, optional
+        Directory path to save the plots.
+    save_prefix : str, optional
+        Prefix for the saved calibration files.
+    norm_stars : bool, optional
+        Whether to normalize the stars.
+    method : str, optional
+        Method for fitting the calibration solution.
+    polydeg : int, optional
+        Degree of the polynomial for fitting the calibration solution.
+    excise_cut : float, optional
+        Cut-off value for excising outliers.
+    wave_min : float, optional
+        Minimum wavelength for the calibration solution.
+    wave_max : float, optional
+        Maximum wavelength for the calibration solution.
+    extinction_fn : str, optional
+        File path to the extinction curve data.
+    ytrim : int, optional
+        Number of pixels to trim from the edges of the extracted spectra.
+    boxcar : int, optional
+        Size of the boxcar filter for smoothing the sensitivity function.
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default: False.
+
+    Raises
+    ------
+    Exception
+        If calibration data for any stars cannot be found.
+
+    Returns
+    -------
+    None
+    """
+
     if debug:
         print(arguments())
     # get extinction curve
@@ -558,7 +682,7 @@ def derive_wifes_calibration(
             plot_name = f"{star_name}.png"
             plot_path = os.path.join(plot_dir, plot_name)
             plt.savefig(plot_path, dpi=300)
-            plt.close()
+            plt.close('all')
 
     if len(fratio_results) < 1:
         # Didn't find any stars - there's no point in continuing
@@ -595,8 +719,7 @@ def derive_wifes_calibration(
         # It is a problem for red spectra (at this point at least)
         # Check if there are gaps (telluric, Halpha, etc ...)
         init_bad_inds = numpy.nonzero(
-            1
-            - (
+            1 - (
                 (numpy.isfinite(init_full_y))
                 * (init_full_y < numpy.median(init_full_y) + 20.0)
                 * (telluric_mask(init_full_x))
@@ -644,7 +767,6 @@ def derive_wifes_calibration(
         this_f = scipy.interpolate.interp1d(
             smooth_x, final_fvals, bounds_error=False, kind="linear"
         )
-        # all_final_fvals = this_f(init_full_x)
         final_x = full_x
         final_y = this_f(final_x)
     else:
@@ -665,11 +787,15 @@ def derive_wifes_calibration(
     # Plot Sensitivity function
     if plot_sensf:
 
-        plt.figure(figsize=(8, 6))
-        # MC update - raw fit on top
-        plt.axes([0.10, 0.35, 0.85, 0.60])
+        # Plotting
+        fig = plt.figure(figsize=(10, 6.5))
+        gs = gridspec.GridSpec(2, 2, height_ratios=[3, 1], width_ratios=[1, 0.3], hspace=0.1)
 
-        plt.plot(
+        # MC update - raw fit on top
+        ax1 = fig.add_subplot(gs[0, :1], xticklabels=[])
+        # plt.axes([0.10, 0.35, 0.85, 0.60])
+
+        ax1.plot(
             temp_full_x,
             temp_full_y,
             "r.",
@@ -678,55 +804,76 @@ def derive_wifes_calibration(
             label="Raw sensitivity (initial regions)",
         )
 
-        plt.plot(full_x, full_y, color="b", label="Raw sensitivity (valid regions)")
+        ax1.plot(full_x, full_y, color="b", label="Raw sensitivity (valid regions)")
 
-        plt.plot(temp_full_x, temp_fvals, color=r"#FF6103", lw=2, label="Initial fit")
+        ax1.plot(temp_full_x, temp_fvals, color=r"#FF6103", lw=2, label="Initial fit")
 
         if method == "smooth_SG":
-            plt.plot(
+            ax1.plot(
                 means[:, 0],
                 means[:, 1],
                 color="b",
                 label="Mean sensitivity (valid regions, all stars)",
             )
-            plt.plot(
+            ax1.plot(
                 smooth_x, smooth_y, color=r"#7f007f", label="Smoothed mean sensitivity"
             )
         else:
-            plt.plot(
+            ax1.plot(
                 full_x, full_y, color="b", label="Raw sensitivity (valid regions)"
             )
-        plt.plot(full_x, final_fvals, color=r"#00FF00", lw=2, label="Final fit")
+        ax1.plot(full_x, final_fvals, color=r"#00FF00", lw=2, label="Final fit")
 
-        plt.xlim([numpy.min(full_x), numpy.max(full_x)])
-        curr_ylim = plt.ylim()
-        curr_xlim = plt.xlim()
-        plt.ylim(curr_ylim[::-1])
+        ax1.set_xlim([numpy.min(full_x), numpy.max(full_x)])
+        curr_ylim = ax1.get_ylim()
+        curr_xlim = ax1.get_xlim()
+        ax1.set_ylim(curr_ylim[::-1])
 
-        plt.ylabel("Counts-to-Flux Ratio [mag]")
+        ax1.set_ylabel("Counts-to-Flux Ratio [mag]")
 
-        plt.title("Derived sensitivity function")
-        plt.legend(loc="lower right", fancybox=True, shadow=True)
+        ax1.set_title("Derived sensitivity function")
+        ax1.legend(bbox_to_anchor=(1.34, 1), framealpha=1.0, fontsize='small', markerscale=0.8, frameon=False)
         # lower plot - residuals!
-        plt.axes([0.10, 0.10, 0.85, 0.25])
-        plt.plot(
+        ax2 = fig.add_subplot(gs[1, :1], sharex=ax1)
+        residuals = full_y - final_fvals
+        ax2.plot(
             full_x,
-            full_y - final_fvals,
+            residuals,
             "k.",
-            mec=r"#666666",
+            mec="C0",
             markerfacecolor="none",
             label="Residuals",
         )
-        plt.axhline(0.0, color="k")
-        plt.xlim(curr_xlim)
-        plt.ylim([-0.2, 0.2])
-        plt.xlabel(r"Wavelength [$\AA$]")
-        plt.ylabel("Residuals")
+        ax2.axhline(0.0, color="k")
+        ax2.set_xlim(curr_xlim)
+        ax2.set_ylim([-0.2, 0.2])
+        ax2.set_xlabel(r"Wavelength [$\AA$]")
+        ax2.set_ylabel("Residuals")
 
+        # Create histogram of resid on the right side
+        ax_hist = fig.add_subplot(gs[1, 1])
+        ax_hist.hist(residuals, orientation='vertical', bins=40, color='C0', density=True)
+        ax_hist.yaxis.set_label_position("right")
+        ax_hist.label_outer()
+
+        # Compute mean and standard deviation of resid
+        mean_resid = numpy.mean(residuals)
+        std_resid = numpy.std(residuals)
+
+        # Plotting the 3-sigma marks
+        sigma_pos = mean_resid + std_resid
+        sigma_neg = mean_resid - std_resid
+
+        # Horizontal lines at ±3 sigma
+        ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--', label=fr'$\pm\sigma$: {std_resid:.2f}')
+        ax_hist.axvline(sigma_neg, color='black', lw=0.8, linestyle='--')
+        ax_hist.legend(bbox_to_anchor=(0.5, 1.2), loc='center', framealpha=1.0, handlelength=1.2, frameon=False)
+
+        plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6, left=0.09, right=0.99, bottom=0.09)  # Adjust top to make room for suptitle
         plot_name = "flux_calibration_solution.png"
         plot_path = os.path.join(plot_dir, plot_name)
         plt.savefig(plot_path, dpi=300)
-        plt.close()
+        plt.close('all')
 
     save_calib = {"wave": final_x, "cal": final_y, "std_file": ref_fname}
     f1 = open(calib_out_fn, "wb")
@@ -737,6 +884,62 @@ def derive_wifes_calibration(
 
 # ------------------------------------------------------------------------
 def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=None, interactive_plot=False):
+    """
+    Calibrates the WiFeS cube by applying flux calibration and extinction correction.
+    The calibration is performed using the provided calibration file containing the
+    flux calibration information. The extinction curve is retrieved based on the
+    provided extinction file path. The calibrated WiFeS cube is saved to the specified
+    output file path.
+
+    Parameters
+    ----------
+    inimg : str
+        Input FITS file path of the WiFeS cube.
+    outimg : str
+        Output FITS file path for the calibrated WiFeS cube.
+    calib_fn : str
+        Calibration file path containing the flux calibration information.
+    mode : str, optional
+        Calibration mode.
+        Options: 'pywifes', 'iraf'.
+        Default: 'pywifes'.
+    extinction_fn : str, optional
+        Extinction file path containing the extinction curve information. If None,
+        defaults to standard SSO extinction curve.
+        Default: None.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user.
+        Default: False.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        If the calibration mode is not defined.
+
+    Notes
+    -----
+    This function performs the following steps:
+
+    1. Determines the wavelength array based on the input WiFeS cube.
+    2. Retrieves the extinction curve based on the provided extinction file path.
+    3. Opens the input WiFeS cube file.
+    4. Calculates the flux calibration array based on the calibration mode.
+    5. Calculates the extinction curve for the observed airmass.
+    6. Applies the flux calibration and extinction correction to the data.
+    7. Saves the calibrated WiFeS cube to the output file path.
+
+    The function assumes that the input WiFeS cube file follows the FITS format and contains
+    the necessary header keywords for wavelength, exposure time, and airmass.
+
+    Examples
+    --------
+    >>> calibrate_wifes_cube('input.fits', 'output.fits', 'calibration.dat', mode='pywifes')
+
+    """
 
     if not os.path.isfile(calib_fn):
         print(f"No flux calibration file {os.path.basename(calib_fn)}. Outputting uncalibrated cube.")
@@ -856,6 +1059,66 @@ def derive_wifes_telluric(
     ytrim=3,
     debug=False,
 ):
+    """
+    Derives the telluric correction spectra for a list of cube files. The telluric
+    correction spectra are derived by comparing the observed spectra to the telluric
+    regions in the standard star data. The telluric correction spectra are saved to
+    the specified output file.
+
+    Parameters
+    ----------
+    cube_fn_list : list
+        List of cube file names.
+    out_fn : str
+        Output file name to save the telluric correction information.
+    plot : bool, optional
+        Flag indicating whether to generate and save a plot of the telluric correction function.
+    plot_stars : bool, optional
+        Flag indicating whether to plot the individual O2 and H2O corrections for each star.
+        Default: False.
+    plot_dir : str, optional
+        Directory to save the plot file.
+        Default: None.
+    save_prefix : str, optional
+        Prefix for the saved plot file.
+        Default: 'telluric'.
+    extract_in_list : list, optional
+        List of extracted spectrum file names.
+        Default: None.
+    airmass_list : list, optional
+        List of airmass values for each cube file. If not provided, the airmass values
+        will be extracted from the cube headers.
+        Default: None.
+    telluric_threshold : float, optional
+        Threshold value for the telluric correction. Regions with a correction ratio
+        above this threshold will be set to 1.0.
+        Default: 0.97.
+    fit_wmin : float, optional
+        Minimum wavelength for fitting the smooth polynomial to non-telluric regions.
+        Default: 5400.0.
+    fit_wmax : float, optional
+        Maximum wavelength for fitting the smooth polynomial to non-telluric regions.
+        Default: 10000.0.
+    H2O_power : float, optional
+        Power value for the H2O correction.
+        Default: 0.72.
+    O2_power : float, optional
+        Power value for the O2 correction.
+        Default: 0.40.
+    polydeg : int, optional
+        Degree of the polynomial used for fitting the smooth continuum.
+        Default: 4.
+    ytrim : int, optional
+        Number of (unbinned) pixels to trim from the top and bottom of the data cube if standard star spectrum has not been extracted previously.
+        Default: 3.
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default: False.
+
+    Returns
+    -------
+    None
+    """
     if debug:
         print(arguments())
     # ---------------------------------------------
@@ -1020,7 +1283,7 @@ def derive_wifes_telluric(
         plot_name = f"{save_prefix}_correction.png"
         plot_path = os.path.join(plot_dir, plot_name)
         plt.savefig(plot_path, dpi=300)
-        plt.close()
+        plt.close('all')
 
     # ---------------------------------------------
     # save to output file!
@@ -1039,6 +1302,33 @@ def derive_wifes_telluric(
 
 
 def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
+    """
+    Apply telluric correction to the input image. The telluric correction is applied
+    using the telluric correction file previously obtained in 'derive_wifes_telluric()'.
+    The correction is based on the airmass value and the wavelength-dependent correction
+    factors. The corrected image is saved to the specified output file.
+
+    Parameters
+    ----------
+    inimg : str
+        Path to the input image file.
+    outimg : str
+        Path to save the output image file.
+    tellcorr_fn : str
+        Path to the telluric correction file.
+    airmass : float, optional
+        Airmass value for the correction. If not provided, it will be extracted from the input image header.
+        Default: None.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    None
+
+    """
 
     if not os.path.isfile(tellcorr_fn):
         print(f"No telluric calibration file {os.path.basename(tellcorr_fn)}. Outputting uncalibrated cube.")
@@ -1048,16 +1338,10 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
     halfframe = is_halfframe(inimg)
     if halfframe:
         if is_taros(inimg):
-            # first = 1
-            # last = 12
             nslits = 12
         else:
-            # first = 7
-            # last = 19
             nslits = 13
     else:
-        # first = 1
-        # last = 25
         nslits = 25
 
     # ---------------------------------------------
@@ -1115,7 +1399,7 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
         outfits[curr_hdu].data = out_flux.astype("float32", casting="same_kind")
         outfits[curr_hdu + nslits].data = out_var.astype("float32", casting="same_kind")
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    outfits[0].header.set("PYWTSTDF", tellstd_list, "PyWiFeS: telluric standard file(s)")
+    outfits[0].header.set("PYWTSTDF", tellstd_list, "PyWiFeS: telluric standard(s)")
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return

@@ -20,6 +20,7 @@ from pywifes.data_classifier import classify, cube_matcher
 from pywifes.extract_spec import detect_extract_and_save, plot_1D_spectrum
 from pywifes.lacosmic import lacos_wifes
 from pywifes.logger_config import setup_logger, custom_print
+from pywifes.quality_plots import flatfield_plot
 from pywifes.splice import splice_spectra, splice_cubes
 from pywifes.wifes_utils import is_halfframe, is_nodshuffle, is_subnodshuffle, is_taros
 
@@ -48,6 +49,23 @@ info_print("Starting PyWiFeS data reduction pipeline thread.")
 # ------------------------------------------------------------------------
 
 def move_files(src_dir_path, destination_dir_path, filenames):
+    """
+    Move files from the source directory to the destination directory.
+
+    Parameters
+    ----------
+    src_dir_path : str
+        The path of the source directory.
+    destination_dir_path : str
+        The path of the destination directory.
+    filenames : list of str
+        The list of filenames to be moved.
+
+    Raises
+    ------
+    Exception
+        If an error occurs while moving the files.
+    """
     try:
         for file in filenames:
             src_file = os.path.join(src_dir_path, file)
@@ -59,6 +77,23 @@ def move_files(src_dir_path, destination_dir_path, filenames):
 
 
 def copy_files(src_dir_path, destination_dir_path, filenames):
+    """
+    Copy files from the source directory to the destination directory.
+
+    Parameters
+    ----------
+    src_dir_path : str
+        The path to the source directory.
+    destination_dir_path : str
+        The path to the destination directory.
+    filenames : list
+        A list of filenames to be copied.
+
+    Raises
+    ------
+    Exception
+        If there is an error while copying the files.
+    """
     try:
         for file in filenames:
             src_file = os.path.join(src_dir_path, file)
@@ -92,6 +127,22 @@ def copy_files(src_dir_path, destination_dir_path, filenames):
 
 
 def get_file_names(src_dir_path, glob_pattern):
+    """
+    Get the names of files in a directory that match a given search query in a glob pattern.
+
+    Parameters
+    ----------
+    src_dir_path : str
+        The path to the source directory.
+
+    glob_pattern : str
+        The glob pattern (search query) to match the filenames.
+
+    Returns
+    -------
+    list
+        A list of filenames that match the glob pattern.
+    """
     filepaths = glob.glob(os.path.join(src_dir_path, glob_pattern))
     names = []
     for filepath in filepaths:
@@ -101,11 +152,234 @@ def get_file_names(src_dir_path, glob_pattern):
 
 
 def load_config_file(filename):
+    """
+    Load a configuration file in JSON5 format.
+
+    Parameters
+    ----------
+    filename : str
+        The name of the configuration file.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the loaded configuration data.
+    """
     reduction_scripts_dir = os.path.dirname(__file__)
     file_path = os.path.join(reduction_scripts_dir, filename)
     info_print(f"Loading configuration file: {file_path}")
     with open(file_path, "r") as f:
         return pyjson5.load(f)
+
+
+# ------------------------------------------------------------------------
+# METADATA WRANGLING FUNCTIONS
+# ------------------------------------------------------------------------
+def get_full_obs_list(metadata, exclude=None):
+    """
+    Get the full observation list from the given metadata.
+
+    Parameters:
+    ----------
+        metadata : dict
+            A dictionary containing metadata information.
+
+        exclude : list
+            A list of imagetypes to exclude from the returned observation list.
+            Default: None.
+
+    Returns:
+    -------
+        list
+            The full observation list.
+    """
+    keep_type = ["bias", "arc", "wire", "dark", "domeflat", "twiflat"]
+    # Allow types to be excluded
+    if exclude is not None:
+        keep_type = [t for t in keep_type if t not in exclude]
+    full_obs_list = []
+    base_fn_list = [fn for t in keep_type for fn in metadata[t]]
+    for fn in base_fn_list:
+        if fn not in full_obs_list:
+            full_obs_list.append(fn)
+
+    keep_type = ["sci", "std"]
+    # Allow types to be excluded
+    if exclude is not None:
+        keep_type = [t for t in keep_type if t not in exclude]
+    for obs in [fdict for t in keep_type for fdict in metadata[t]]:
+        for key in obs.keys():
+            if key != "type" and key != "name":
+                for fn in obs[key]:
+                    if fn not in full_obs_list:
+                        full_obs_list.append(fn)
+    debug_print(f"Full observation list: {full_obs_list}")
+    return full_obs_list
+
+
+def get_sci_obs_list(metadata):
+    """
+    Get a list of science observations from the metadata.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata containing information about the observations.
+
+    Returns
+    -------
+    list
+        A list of science observation filenames.
+    """
+    sci_obs_list = []
+    for obs in metadata["sci"]:
+        for fn in obs["sci"]:
+            if fn not in sci_obs_list:
+                sci_obs_list.append(fn)
+    debug_print(f"Science observation list: {sci_obs_list}")
+    return sci_obs_list
+
+
+def get_std_obs_list(metadata, type="all"):
+    """
+    Get a list of standard observations.
+
+    Parameters:
+    ----------
+    - metadata : dict
+        The metadata containing information about the observations.
+    - type : str, optional
+        The type of observations to include in the list.
+        Options: 'all', 'flux', 'telluric'.
+        Default: 'all'.
+
+    Returns:
+    --------
+    - std_obs_list : list
+        A list of standard observation filenames.
+    """
+    std_obs_list = []
+    for obs in metadata["std"]:
+        for fn in obs["sci"]:
+            if fn not in std_obs_list and type == "all":
+                std_obs_list.append(fn)
+            if fn not in std_obs_list and (type in obs["type"]):
+                std_obs_list.append(fn)
+    debug_print(f"Standard observation list ({type}): {std_obs_list}")
+    return std_obs_list
+
+
+def get_sky_obs_list(metadata):
+    """
+    Get a list of sky observations from the metadata.
+
+    Parameters:
+    ----------
+        metadata : dict
+            The metadata containing information about the observations.
+
+    Returns:
+    --------
+        list
+            A list of sky observation filenames.
+    """
+    sky_obs_list = []
+    for obs in metadata["sci"] + metadata["std"]:
+        if "sky" not in obs.keys():
+            continue
+        for fn in obs["sky"]:
+            if fn not in sky_obs_list:
+                sky_obs_list.append(fn)
+    info_print(f"Sky observation list: {sky_obs_list}")
+    return sky_obs_list
+
+
+def get_associated_calib(metadata, this_fn, type):
+    """
+    Get the associated calibration file for a given data file.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata dictionary containing information about the observations.
+    this_fn : str
+        The filename of the data file for which to find the associated calibration file.
+    type : str
+        The type of calibration file to search for.
+
+    Returns
+    -------
+    str or bool
+        The filename of the associated calibration file if found, or False if not found.
+    """
+    for obs in metadata["sci"] + metadata["std"]:
+        if "sky" in obs.keys():
+            sky = obs["sky"]
+        else:
+            sky = []
+        for fn in obs["sci"] + sky:
+            if fn == this_fn:
+                if type in obs.keys():
+                    if obs[type] != "":
+                        return obs[type]
+    return False
+
+
+def get_primary_sci_obs_list(metadata):
+    """
+    Get the list of primary science observations from the metadata.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata containing information about the observations.
+
+    Returns
+    -------
+    list
+        The list of primary science observations.
+    """
+    sci_obs_list = [obs["sci"][0] for obs in metadata["sci"]]
+    debug_print(f"Primary science observation list: {sci_obs_list}")
+    return sci_obs_list
+
+
+def get_primary_std_obs_list(metadata, type="all"):
+    """
+    Get the list of primary standard observations based on the given metadata and type.
+
+    Parameters:
+    ----------
+        metadata : dict
+            The metadata containing information about the observations.
+        type : str, optional
+            The type of standard star observations to include in the list.
+            Options: 'all', 'telluric', 'flux'.
+            Default: 'all'.
+
+    Returns:
+    --------
+        list
+            The list of primary standard observations.
+
+    Raises:
+    -------
+        ValueError
+            If the standard star type is not understood.
+    """
+    if type == "all":
+        std_obs_list = [obs["sci"][0] for obs in metadata["std"]]
+    elif type == "telluric" or type == "flux":
+        std_obs_list = []
+        for obs in metadata["std"]:
+            if obs["sci"][0] not in std_obs_list and (type in obs["type"]):
+                std_obs_list.append(obs["sci"][0])
+    else:
+        error_print("Standard star type not understood!")
+        error_print("PyWiFeS Data Reduction pipeline will crash now ...")
+        raise ValueError("Standard star type not understood")
+    debug_print(f"Primary standard observation list ({type}): {std_obs_list}")
+    return std_obs_list
 
 # ------------------------------------------------------------------------
 
@@ -115,156 +389,71 @@ def main():
     info_print(f"Pipeline started at {start_time}")
 
     # ------------------------------------------------------------------------
-    # METADATA WRANGLING FUNCTIONS
-    # ------------------------------------------------------------------------
-    def get_full_obs_list(metadata, exclude=None):
-        keep_type = ["bias", "arc", "wire", "dark", "domeflat", "twiflat"]
-        # Allow types to be excluded
-        if exclude is not None:
-            keep_type = [t for t in keep_type if t not in exclude]
-        full_obs_list = []
-        base_fn_list = [fn for t in keep_type for fn in metadata[t]]
-        for fn in base_fn_list:
-            if fn not in full_obs_list:
-                full_obs_list.append(fn)
-
-        keep_type = ["sci", "std"]
-        # Allow types to be excluded
-        if exclude is not None:
-            keep_type = [t for t in keep_type if t not in exclude]
-        for obs in [fdict for t in keep_type for fdict in metadata[t]]:
-            for key in obs.keys():
-                if key != "type" and key != "name":
-                    for fn in obs[key]:
-                        if fn not in full_obs_list:
-                            full_obs_list.append(fn)
-        debug_print(f"Full observation list: {full_obs_list}")
-        return full_obs_list
-
-    def get_sci_obs_list(metadata):
-        """
-        Get a list of science observations from the metadata.
-
-        Parameters
-        ----------
-        metadata : dict
-            The metadata containing information about the observations.
-
-        Returns
-        -------
-        list
-            A list of science observation filenames.
-
-        """
-        sci_obs_list = []
-        for obs in metadata["sci"]:
-            for fn in obs["sci"]:
-                if fn not in sci_obs_list:
-                    sci_obs_list.append(fn)
-        debug_print(f"Science observation list: {sci_obs_list}")
-        return sci_obs_list
-
-    def get_std_obs_list(metadata, type="all"):
-        """
-        Get a list of standard observations.
-
-        Parameters:
-        - metadata (dict): The metadata containing information about the observations.
-        - type (str, optional): The type of observations to include in the list. Default is "all".
-
-        Returns:
-        - std_obs_list (list): A list of standard observation filenames.
-
-        """
-        std_obs_list = []
-        for obs in metadata["std"]:
-            for fn in obs["sci"]:
-                if fn not in std_obs_list and type == "all":
-                    std_obs_list.append(fn)
-                if fn not in std_obs_list and (type in obs["type"]):
-                    std_obs_list.append(fn)
-        debug_print(f"Standard observation list ({type}): {std_obs_list}")
-        return std_obs_list
-
-    def get_sky_obs_list(metadata):
-        sky_obs_list = []
-        for obs in metadata["sci"] + metadata["std"]:
-            if "sky" not in obs.keys():
-                continue
-            for fn in obs["sky"]:
-                if fn not in sky_obs_list:
-                    sky_obs_list.append(fn)
-        info_print(f"Sky observation list: {sky_obs_list}")
-        return sky_obs_list
-
-    def get_associated_calib(metadata, this_fn, type):
-        for obs in metadata["sci"] + metadata["std"]:
-            if "sky" in obs.keys():
-                sky = obs["sky"]
-            else:
-                sky = []
-            for fn in obs["sci"] + sky:
-                if fn == this_fn:
-                    if type in obs.keys():
-                        if obs[type] != "":
-                            return obs[type]
-        return False
-
-    def get_primary_sci_obs_list(metadata):
-        """
-        Get the list of primary science observations from the metadata.
-
-        Parameters
-        ----------
-        metadata : dict
-            The metadata containing information about the observations.
-
-        Returns
-        -------
-        list
-            The list of primary science observations.
-
-        """
-        sci_obs_list = [obs["sci"][0] for obs in metadata["sci"]]
-        debug_print(f"Primary science observation list: {sci_obs_list}")
-        return sci_obs_list
-
-    def get_primary_std_obs_list(metadata, type="all"):
-        """
-        Get the list of primary standard observations based on the given metadata and type.
-
-        Parameters:
-            metadata (dict): The metadata containing information about the observations.
-            type (str, optional): The type of standard star observations to include in the list.
-                Possible values are "all", "telluric", or "flux". Defaults to "all".
-
-        Returns:
-            list: The list of primary standard observations.
-
-        Raises:
-            ValueError: If the standard star type is not understood.
-
-        """
-        if type == "all":
-            std_obs_list = [obs["sci"][0] for obs in metadata["std"]]
-        elif type == "telluric" or type == "flux":
-            std_obs_list = []
-            for obs in metadata["std"]:
-                if obs["sci"][0] not in std_obs_list and (type in obs["type"]):
-                    std_obs_list.append(obs["sci"][0])
-        else:
-            error_print("Standard star type not understood!")
-            error_print("PyWiFeS Data Reduction pipeline will crash now ...")
-            raise ValueError("Standard star type not understood")
-        debug_print(f"Primary standard observation list ({type}): {std_obs_list}")
-        return std_obs_list
-
-    # ------------------------------------------------------------------------
     # DEFINE THE PROCESSING STEPS
+    # ------------------------------------------------------------------------
+
     # ------------------------------------------------------------------------
     # Overscan subtraction
     # ------------------------------------------------------------------------
     def run_overscan_sub(metadata, prev_suffix, curr_suffix, poly_high_oscan=True, **args):
+        """
+        Subtract overscan from the input FITS files and save the results.
+
+        Parameters
+        ----------
+        metadata : dict
+            A dictionary containing metadata information of the FITS files.
+        prev_suffix : str
+            The suffix of the previous FITS files.
+        curr_suffix : str
+            The suffix of the current FITS files.
+        poly_high_oscan : bool
+            Whether to fit the overscan with a polynomial that excludes high-count
+            rows that can suffer from elevated overscan levels.
+            Default: True.
+
+        Optional Function Arguments
+        ---------------------------
+        detector_regions : list
+            Override epoch-based detector regions with the specified values ([ymin, ymax, xmin, xmax],
+            where the max values indicate the last pixel to be included).
+            Default: None.
+        overscan_regions : list
+            Override epoch-based overscan regions with the specified values ([ymin, ymax, xmin, xmax],
+            where the max values indicate the last pixel to be included).
+            Default: None.
+        gain : float
+            Override epoch-based gain value. Units: e-/ADU.
+            Default: None.
+        rdnoise : float
+            Override epoch-based read noise value. Units: e-.
+            Default: None.
+        omaskfile : str
+            If 'poly_high_oscan'=True, filename of the maskfile defining the slice/interslice regions.
+            Default: None.
+        omask_threshold : float
+            If 'poly_high_oscan'=True, threshold in per-row mean ADU relative to row with lowest mean,
+            to determine whether overscan is masked.
+            Default: 500.
+        interactive_plot : bool
+            Whether to interrupt processing to provide interactive plot to user.
+            Default: False.
+        verbose : bool
+            Whether to output extra messages.
+            Default: False.
+        debug : bool
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        Must override all four of (detector_regions, overscan_regions, gain, and rdnoise)
+        to avoid using the epoch-based values.
+        """
         full_obs_list = get_full_obs_list(metadata)
         first = True
         if not poly_high_oscan:
@@ -281,18 +470,53 @@ def main():
                 # Find a domeflat to generate mask for overscan
                 if metadata["domeflat"]:
                     dflat = os.path.join(temp_data_dir, "%s.fits" % metadata["domeflat"][0])
-                    pywifes.make_overscan_mask(dflat, omask=overscanmask_fn, data_hdu=my_data_hdu)
+                    pywifes.make_overscan_mask(dflat, omask=overscanmask_fn, data_hdu=0)
                     oscanmask = overscanmask_fn
                 else:
                     oscanmask = None
                 first = False
-            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=my_data_hdu, omaskfile=oscanmask, **args)
+            pywifes.subtract_overscan(in_fn, out_fn, data_hdu=0, omaskfile=oscanmask, **args)
         return
 
     # ------------------------------------------------------
     # repair bad pixels!
     # ------------------------------------------------------
     def run_bpm_repair(metadata, prev_suffix, curr_suffix, **args):
+        """
+        Repairs bad pixels in the input FITS files and saves the repaired files.
+
+        Parameters
+        ----------
+        metadata : dict
+            A dictionary containing metadata information of the FITS files.
+        prev_suffix : str
+            The suffix of the previous version of the FITS files.
+        curr_suffix : str
+            The suffix of the current version of the FITS files.
+
+        Optional Function Arguments
+        ---------------------------
+        flat_littrow : bool
+            Whether to interpolate over the Littrow ghosts in the dome and twilight flats.
+            Default: False.
+        interp_buffer : int
+            When linearly interpolating over bad pixels, how many additional pixels to
+            include when median-combining from one edge to the other.
+            Default: 3.
+        interactive_plot : bool
+            Whether to interrupt processing to provide interactive plot to user.
+            Default: False.
+        verbose : bool
+            Whether to output extra messages.
+            Default: False.
+        debug : bool
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
+        """
         full_obs_list = get_full_obs_list(metadata)
         for basename in full_obs_list:
             input_filename = f"{basename}.p{prev_suffix}.fits"
@@ -305,33 +529,67 @@ def main():
             info_print(f"Repairing {arm} bad pixels for {input_filename}")
             if arm == "red":
                 pywifes.repair_red_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu, **args
+                    input_filepath, output_filepath, data_hdu=0, **args
                 )
             if arm == "blue":
                 pywifes.repair_blue_bad_pix(
-                    input_filepath, output_filepath, data_hdu=my_data_hdu, **args
+                    input_filepath, output_filepath, data_hdu=0, **args
                 )
 
     # ------------------------------------------------------
     # Generate super-bias
     # ------------------------------------------------------
     def run_superbias(metadata, prev_suffix, curr_suffix, method="row_med", **args):
-        '''Generate superbias for the entire dataset and for each science frame.
+        """
+        Generate superbias for the entire dataset and for each science frame.
         Fit a smart surface to the bias or take the median of each row.
-        '''
+
+        Parameters
+        ----------
+        metadata: dict
+            Metadata containing information about the dataset.
+        prev_suffix: str
+            Previous suffix used in the filenames.
+        curr_suffix: str
+            Current suffix to be used in the filenames.
+        method: str, optional
+            Method to generate the superbias. Fit a smart surface to the bias or
+            take the median of each row.
+            Options: 'row_med', 'fit'.
+            Default: 'row_med'.
+
+        Optional Function Arguments
+        ---------------------------
+        plot : bool
+            Whether to create the diagnotic plot.
+            Default: True.
+        plot_dir : str
+            Directory for the diagnostic plot.
+            Default: '.'.
+        save_prefix : str
+            Prefix for the diagnostic plot.
+            Default: 'bias'.
+        verbose : bool
+            Whether to output extra messages.
+            Default: False.
+
+        Returns
+        -------
+        None
+        """
         bias_list = [os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
                      for x in metadata["bias"]
                      ]
         if not (skip_done and os.path.isfile(superbias_fn) and os.path.isfile(superbias_fit_fn)
                 and os.path.getmtime(superbias_fn) < os.path.getmtime(superbias_fit_fn)):
             info_print("Calculating Global Superbias")
-            pywifes.imcombine(bias_list, superbias_fn, data_hdu=my_data_hdu,
+            pywifes.imcombine(bias_list, superbias_fn, data_hdu=0,
                               kwstring="BIASN", commstring="bias")
             if method == "fit" or method == "row_med":
                 pywifes.generate_wifes_bias_fit(
                     superbias_fn,
                     superbias_fit_fn,
-                    data_hdu=my_data_hdu,
+                    data_hdu=0,
                     method=method,
                     plot_dir=plot_dir_arm,
                     arm=arm,
@@ -366,7 +624,7 @@ def main():
                     for x in local_biases
                 ]
                 pywifes.imcombine(
-                    local_biases_filename, local_superbias, data_hdu=my_data_hdu,
+                    local_biases_filename, local_superbias, data_hdu=0,
                     kwstring="LOCBN", commstring="local bias"
                 )
                 # step 2 - generate fit
@@ -374,7 +632,7 @@ def main():
                     pywifes.generate_wifes_bias_fit(
                         local_superbias,
                         local_superbias_fit,
-                        data_hdu=my_data_hdu,
+                        data_hdu=0,
                         method=method,
                         **args,
                     )
@@ -386,6 +644,26 @@ def main():
     # Subtract bias
     # ----------------------------------------------------
     def run_bias_sub(metadata, prev_suffix, curr_suffix, method="subtract"):
+        """
+        Subtract bias from all the input data FITS files.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata dictionary containing information about the FITS files of the observations.
+        prev_suffix : str
+            Previous suffix of the data files.
+        curr_suffix : str
+            Current suffix of the data files.
+        method : str, optional
+            Method for bias subtraction.
+            Options: 'subtract', 'copy'.
+            Default: 'subtract'.
+
+        Returns
+        -------
+        None
+        """
         full_obs_list = get_full_obs_list(metadata)
         for fn in full_obs_list:
             in_fn = os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
@@ -409,7 +687,7 @@ def main():
             if method == "copy":
                 pywifes.imcopy(in_fn, out_fn)
             elif method == "subtract":
-                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=my_data_hdu)
+                pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=0)
             else:
                 raise ValueError(f"Unknown bias_sub method '{method}'. Options: 'subtract', 'copy'.")
         return
@@ -420,6 +698,77 @@ def main():
     def run_superflat(
         metadata, prev_suffix, curr_suffix, source, **args
     ):
+        """
+        Generate a co-add calibration for a given source type.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the FITS files from which extract the
+            inputs.
+        prev_suffix : str
+            Previous suffix of the input files.
+        curr_suffix : str
+            Current suffix of the output files.
+        source : str
+            Type of frame.
+            Options: 'dome', 'twi', 'wire', 'arc'.
+
+        Optional Function Arguments
+        ---------------------------
+        method : str
+            The method to be used for combining the images.
+            Options: 'median', 'sum', 'mean'.
+            Default: 'median'.
+        scale : str
+            The scaling method to be used before combining. The 'median_nonzero' option
+            scales by pixels above 'nonzero_thresh'. The 'percentileN' option scales by
+            the Nth percentile of the pixels in 'sregion' (e.g., 'percentile90').
+            Options: 'median', 'median_nonzero', 'exptime', 'percentileN', None.
+            Default: None.
+        sregion : list
+            List defining image x-axis region in which to compute scaling (if a scaling
+            method is defined). If None, calculates the scaling over the whole image.
+            Example: [1000, 3000].
+            Default: None.
+        nonzero_thresh : float
+            Threshold for counting pixels to "median_nonzero" scaling.
+            Default: 100.0.
+        kwstring : str
+            Header keyword to add to output as "PYW" + kwstring, containing number of
+            inputs.
+            Default: None.
+        commstring : str
+            Header keyword comment to add to output.
+            Default: None.
+        outvarimg : str
+            Filename of variance image to output (if defined).
+            Default: None.
+        plot : bool
+            Whether to output a diagnostic plot.
+            Default: False.
+        plot_dir : str
+            Directory for output of plot (if requested).
+            Default: '.'.
+        save_prefix : str
+            Prefix for plot (if requested).
+            Default: 'imcombine_inputs'.
+        interactive_plot : bool
+            Whether to interrupt processing to provide interactive plot to user.
+            Default: False.
+        debug : bool
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If the type is not recognized.
+        """
         kwstring = None
         commstring = None
         outvarimg = None
@@ -483,7 +832,7 @@ def main():
             return
         info_print(f"Generating co-add {source} flat")
         pywifes.imcombine(
-            flat_list, out_fn, data_hdu=my_data_hdu, kwstring=kwstring, commstring=commstring,
+            flat_list, out_fn, data_hdu=0, kwstring=kwstring, commstring=commstring,
             outvarimg=outvarimg, plot_dir=plot_dir_arm, save_prefix=save_prefix, **args
         )
         return
@@ -499,9 +848,82 @@ def main():
         offsets=[0.0, 0.0],
         **args,
     ):
-        '''
+        """
         Make the master domeflat and twilight flat corrections.
-        '''
+
+        Parameters
+        ----------
+        metadata : str
+            The metadata information for the flat cleanup.
+        prev_suffix : str
+            The previous suffix.
+        curr_suffix : str
+            The current suffix.
+        type : list, optional
+            The types of flats to correct.
+            Options: List containing one or more of 'dome', 'twi'
+            Default: ['dome', 'twi'].
+        offsets : list, optional
+            The offsets for each specified type of flat.
+            Default: [0.0, 0.0].
+
+        Optional Function Arguments
+        ---------------------------
+        slitlet_def_file : str
+            Filename of pickle file defining slitlet boundaries. Uses a baseline
+            default file if none specified.
+            Default: None.
+        method : str
+            Method for fitting the scattered light.
+            Options: '2D', '1D'.
+            Default: '2D'.
+        bin_x : int
+            If specified, override the x-axis binning defined in the header.
+            Default: None.
+        bin_y : int
+            If specified, override the y-axis binning defined in the header.
+            Default: None.
+        data_hdu : int
+            Number of primary HDU in file.
+            Default: 0.
+        offset : float
+            A constant level of 'offset' * median(interslice_background) is added to
+            the frame.
+            Default: 0.4.
+        buffer : int
+            Number of y-axis pixels around each slitlet definition to exclude when
+            calculating interslice background.
+            Default: 0.
+        radius : int
+            Sigma for 2D Gaussian filtering (with 'method'='2D'). Equal in both axes.
+            Default: 10.
+        nsig_lim : float
+            Clipping threshold in number of standard deviations above median. Computed
+            independently for each slitlet.
+            Default: 5.
+        plot : bool
+            Whether to output a diagnostic plot.
+            Default: False.
+        plot_dir : str
+            Directory for output of plot (if requested).
+            Default: '.'.
+        save_prefix : str
+            Prefix for plot (if requested).
+            Default: 'cleanup_'.
+        interactive_plot : bool
+            Whether to interrupt processing to provide interactive plot to user.
+            Default: False.
+        verbose : bool
+            Whether to output extra messages.
+            Default: False.
+        debug : bool
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
+        """
         # check the slitlet definition file
         if os.path.isfile(slitlet_def_fn):
             slitlet_fn = slitlet_def_fn
@@ -516,14 +938,15 @@ def main():
                 pywifes.interslice_cleanup(
                     super_dflat_raw,
                     super_dflat_fn,
-                    slitlet_fn,
+                    slitlet_def_file=slitlet_fn,
                     offset=offsets[type.index("dome")],
                     method="2D",
                     plot_dir=plot_dir_arm,
                     **args,
                 )
             else:
-                warning_print(f"Master dome flat {os.path.basename(super_dflat_raw)} not found. Skipping dome flat cleanup.")
+                warning_print(f"Master dome flat {os.path.basename(super_dflat_raw)} "
+                              "not found. Skipping dome flat cleanup.")
 
         if "twi" in type:
             if skip_done and os.path.isfile(super_tflat_fn) \
@@ -534,23 +957,68 @@ def main():
                 pywifes.interslice_cleanup(
                     super_tflat_raw,
                     super_tflat_fn,
-                    slitlet_fn,
+                    slitlet_def_file=slitlet_fn,
                     offset=offsets[type.index("twi")],
                     method="2D",
                     plot_dir=plot_dir_arm,
                     **args,
                 )
             else:
-                warning_print(f"Master twilight flat {os.path.basename(super_tflat_raw)} not found. Skipping twilight flat cleanup.")
+                warning_print(f"Master twilight flat {os.path.basename(super_tflat_raw)} "
+                              "not found. Skipping twilight flat cleanup.")
         return
 
     # ------------------------------------------------------
     # Fit slitlet profiles
     # ------------------------------------------------------
     def run_slitlet_profile(metadata, prev_suffix, curr_suffix, **args):
-        '''
+        """
         Fit the slitlet profiles to the flatfield.
-        '''
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata information.
+        prev_suffix : str
+            Previous suffix.
+        curr_suffix : str
+            Current suffix.
+
+        Optional Function Arguments
+        ---------------------------
+        shift_global : bool
+            Whether to shift all slitlets by a single global value: the mean of the
+            derived per-slitlet shifts.
+            Default: True.
+        bin_x : int
+            If specified, override the x-axis binning defined in the header.
+            Default: None.
+        bin_y : int
+            If specified, override the y-axis binning defined in the header.
+            Default: None.
+        interactive_plot : bool
+            Whether to interrupt processing to provide interactive plot to user.
+            Default: False.
+        verbose : bool
+            Whether to output extra messages.
+            Default: False.
+        debug : bool
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
+            This function does not return anything.
+
+        Notes
+        -----
+        If the interslice-cleaned super_dflat_fn file exists, it uses it as the
+        flatfield_fn. Otherwise, it uses super_dflat_raw as the flatfield_fn.
+
+        The slitlet profiles are derived using the flatfield_fn and saved to the
+        output_fn.
+        """
         output_fn = slitlet_def_fn
         if os.path.isfile(super_dflat_fn):
             flatfield_fn = super_dflat_fn
@@ -560,7 +1028,7 @@ def main():
                 and os.path.getmtime(flatfield_fn) < os.path.getmtime(output_fn):
             return
         pywifes.derive_slitlet_profiles(
-            flatfield_fn, output_fn, data_hdu=my_data_hdu, **args
+            flatfield_fn, output_fn, data_hdu=0, **args
         )
         return
 
@@ -568,6 +1036,60 @@ def main():
     # Create MEF files
     # ------------------------------------------------------
     def run_superflat_mef(metadata, prev_suffix, curr_suffix, source, **args):
+        """
+        Generate a Multi-Extension FITS (MEF) file for the calibration files.
+
+        Parameters
+        ----------
+        metadata : str
+            The metadata information.
+        prev_suffix : str
+            The previous suffix.
+        curr_suffix : str
+            The current suffix.
+        source : str
+            The source of the flatfield.
+            Options: 'dome', 'twi', 'wire', 'arc'.
+
+        Optional Function Arguments
+        ---------------------------
+        nan_method : str
+            Method for treating NaN pixels: linear interpolation in the x-direction,
+            or replace with a constant value.
+            Options: 'interp', 'replace'.
+            Default: 'interp'.
+        repl_val : float
+            If 'nan_method'='replace', replace NaN pixels with the value of 'repl_val'.
+            Default: 0.
+        bin_x : int
+            If specified, override the x-axis binning defined in the header.
+            Default: None.
+        bin_y : int
+            If specified, override the y-axis binning defined in the header.
+            Default: None.
+        debug : bool
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
+            This function does not return anything.
+
+        Raises
+        ------
+        ValueError
+            If the flatfield type is not recognized.
+
+        Notes
+        -----
+        This function generates a Multi-Extension FITS (MEF) file for a calibration
+        file. It checks for the existence of the master file and generates the MEF file
+        accordingly. If the master flat file is not found, it prints a warning message
+        and skips the MEF generation. The slitlet definition file is also checked and
+        used if available. Finally, the MEF file is generated using the
+        `pywifes.wifes_slitlet_mef` function.
+        """
         if source == "dome":
             if os.path.isfile(super_dflat_fn):
                 in_fn = super_dflat_fn
@@ -619,11 +1141,52 @@ def main():
             return
         info_print(f"Generating MEF {source} flat")
         pywifes.wifes_slitlet_mef(
-            in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn, **args
+            in_fn, out_fn, data_hdu=0, slitlet_def_file=slitlet_fn, **args
         )
         return
 
     def run_slitlet_mef(metadata, prev_suffix, curr_suffix, **args):
+        """
+        Create a Multi-Extension Fits (MEF) file for each observation in the metadata.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the fits file.
+        curr_suffix : str
+            Current suffix of the fits file.
+
+        Optional Function Arguments
+        ---------------------------
+        nod_dy : int
+            For Nod & Shuffle images only: offset in (unbinned) pixels between the
+            object and sky slitlets in the y-direction.
+            Default: 80.
+        nan_method : str
+            Method for treating NaN pixels: linear interpolation in the x-direction,
+            or replace with a constant value.
+            Options: 'interp', 'replace'.
+            Default: 'interp'.
+        repl_val : float
+            If 'nan_method'='replace', replace NaN pixels with the value of 'repl_val'.
+            Default: 0.
+        bin_x : int
+            If specified, override the x-axis binning defined in the header.
+            Default: None.
+        bin_y : int
+            If specified, override the y-axis binning defined in the header.
+            Default: None.
+        debug : bool
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+
+        Returns
+        -------
+        None
+        """
         # Do not need MEF versions of individual frames for those with supercals (and with no "locals")
         excl_list = ["bias", "dark", "domeflat", "twiflat"]
         full_obs_list = get_full_obs_list(metadata, exclude=excl_list)
@@ -648,13 +1211,13 @@ def main():
                     in_fn,
                     out_fn,
                     sky_fn,
-                    data_hdu=my_data_hdu,
+                    data_hdu=0,
                     slitlet_def_file=slitlet_fn,
                     **args
                 )
             else:
                 pywifes.wifes_slitlet_mef(
-                    in_fn, out_fn, data_hdu=my_data_hdu, slitlet_def_file=slitlet_fn, **args
+                    in_fn, out_fn, data_hdu=0, slitlet_def_file=slitlet_fn, **args
                 )
             gc.collect()
         return
@@ -663,14 +1226,96 @@ def main():
     # Wavelength solution
     # ------------------------------------------------------
     def run_wave_soln(metadata, prev_suffix, curr_suffix, **args):
-        '''
-        Generate the master arc solution, based on generic arcs at first.
-        Then looks for the local wavelength solutions for science or standards (sky not required at this stage).
-        Check if the file has a dedicated arc associated with it.
-        If two arcs are present, find a solution for both to later interpolate between them.
-        Restrict it to the first two arcs in the list (in case the feature is
+        """
+        Wavelength Solution:
+        Generate the master arc solution, based on generic arcs at first. Then looks
+        for the local wavelength solutions for science or standards (sky not required
+        at this stage). Check if the file has a dedicated arc associated with it. If
+        two arcs are present, find a solution for both to later interpolate between
+        them. Restrict it to the first two arcs in the list (in case the feature is
         being unknowingly used).
-        '''
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata information for the data.
+        prev_suffix : str
+            Previous suffix of the file.
+        curr_suffix : str
+            Current suffix of the file.
+
+        Optional Function Arguments
+        ---------------------------
+        method : str
+            Method for fitting wavelength solution: optical model of spectrograph or
+            polynomial method.
+            Options: 'optical', 'poly'
+            Default: 'optical'.
+
+            Options for 'method'='optical':
+                shift_method : str
+                    Method to shift model to match reference line list: shifting each
+                    row, just the central row of each slitlet, sampling a grid of rows
+                    in the y-axis, or guessing from the optical model.
+                    Options: 'xcorr_all', 'xcorr_single', 'xcorr_grid', None.
+                find_method : str
+                    Method for fitting the arc lines, using MPFIT, numpy fitter (using
+                    logFlux), or scipy fitter.
+                    Options: 'mpfit', 'loggauss', 'least_squares'.
+                    Default: 'loggauss'.
+                doalphapfit : bool
+                    Whether to fit each slitlet angle of incidence.
+                    Default: True.
+                dlam_cut_start : float
+                    Initial threshold in Angstroms for the derivative calculation
+                    portion of the list matching.
+                    Default: 5.0.
+                flux_threshold_nsig : float
+                    Number of sigma above the background for line detection.
+                    Default: 3.0.
+                epsilon : float
+                    Threshold for excluding lines when matching to exclusion list.
+                    Default: 0.005.
+                automatic : bool
+                    Whether to exclude lines with large residuals.
+                    Default: False.
+                sigma : float
+                    RMS threshold offset from mean for excluding lines if
+                    'automatic'=True.
+                    Default: 1.0.
+                decimate : bool
+                    Whether to perform initial fit with 10% of data.
+                    Default: False.
+                multithread : bool
+                    Whether to run step using "multiprocessing" module.
+                    Default: true.
+
+            Options for 'method'='poly':
+                dlam_cut_start : float
+                    Initial threshold in Angstroms for the derivative calculation
+                    portion of the list matching.
+                    Default: 7.0.
+                dlam_cut : float
+                    Subsequent threshold for matching to line lists.
+                    Default: 3.0.
+                x_polydeg : int
+                    Order of x-axis polynomial.
+                    Default: 4.
+                y_polydeg : int
+                    Order of y-axis polynomial.
+                    Default: 2.
+                flux_threshold_nsig : float
+                    Number of sigma above the background for line detection.
+                    Default: 3.0.
+                deriv_threshold_nsig : float
+                    Threshold for number of sigma different from median flux derivative
+                    per x pixel.
+                    Default: 1.0.
+
+        Returns
+        -------
+        None
+        """
         # Global arc solution
         if os.path.isfile(super_arc_mef):
             wsol_in_fn = super_arc_mef
@@ -681,7 +1326,8 @@ def main():
         if not (skip_done and os.path.isfile(wsol_out_fn)
                 and os.path.getmtime(wsol_in_fn) < os.path.getmtime(wsol_out_fn)):
             info_print(f"Deriving master wavelength solution from {os.path.basename(wsol_in_fn)}")
-            wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn, plot_dir=plot_dir_arm, **args)
+            wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, wsol_out_fn,
+                                                  plot_dir=plot_dir_arm, **args)
 
         # Arc solutions for any specific obsevations
         sci_obs_list = get_sci_obs_list(metadata)
@@ -718,9 +1364,62 @@ def main():
     # Wire solution
     # ------------------------------------------------------
     def run_wire_soln(metadata, prev_suffix, curr_suffix, **args):
-        '''
-        Global wire solution first, then local wire solutions for any specific observations.
-        '''
+        """
+        Global wire solution first, then local wire solutions for any specific
+        observations.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix used in the file names.
+        curr_suffix : str
+            Current suffix to be used in the file names.
+
+        Optional Function Arguments
+        ---------------------------
+        bin_x : int
+            If specified, override the x-axis binning defined in the header.
+            Default: None.
+        bin_y : int
+            If specified, override the y-axis binning defined in the header.
+            Default: None.
+        fit_zones : list
+            Per-slitlet y-axis region limits to define background against which to
+            locate wire. Unbinned pixels.
+            Default: [16, 26, 54, 70].
+        flux_threshold : float
+            Minimum flux difference for wire relative to background. Default value
+            assumes a superwire scaled by 'percentile90'.
+            Default: 0.001.
+        wire_polydeg : int
+            Order of polynomial to fit wire position.
+            Default: 1.
+        xlims : str or list
+            Either 'default' or a 2-element list defining the x-axis range for the wire
+            fitting.
+            Default: 'default'.
+        plot : bool
+            Whether to create the diagnotic plot.
+            Default: True.
+        plot_dir : str
+            Directory for the diagnostic plot.
+            Default: '.'.
+        save_prefix : str
+            Prefix for the diagnostic plot.
+            Default: 'wire_fit_params'.
+        interactive_plot : bool
+            Whether to interrupt processing to provide interactive plot to user.
+            Default: False.
+        debug : bool
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
+        """
         # Global wire solution
         if os.path.isfile(super_wire_mef):
             wire_in_fn = super_wire_mef
@@ -765,9 +1464,59 @@ def main():
     # Flatfield: Response
     # ------------------------------------------------------
     def run_flat_response(metadata, prev_suffix, curr_suffix, mode="all", **args):
-        '''
-        Generate the flatfield response function.
-        '''
+        """
+        Generate the flatfield response function for each flat type, either dome or
+        both (dome and twi).
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the data FITS files.
+        prev_suffix : str
+            Suffix of the previous data.
+        curr_suffix : str
+            Suffix of the current data.
+        mode : str, optional
+            Mode for generating the response function.
+            Options: 'dome', 'all'.
+            Default: 'all'.
+
+        Optional Function Arguments
+        ---------------------------
+        zero_var : bool
+            Whether to set the VAR extension of the output response file to zero.
+            Default: True.
+        polydeg : int
+            Order of polynomial used in fitting wavelength profile of dome flat (in
+            log-flux).
+        resp_min : float
+            Minimum value allowed in final response function.
+            Default: 0.0001.
+        plot : bool
+            Whether to create the diagnotic plot.
+            Default: True.
+        plot_dir : str
+            Directory for the diagnostic plot.
+            Default: '.'.
+        save_prefix : str
+            Prefix for the diagnostic plot.
+            Default: 'flat_response'.
+        interactive_plot : bool
+            Whether to interrupt processing to provide interactive plot to user.
+            Default: False.
+        debug : bool
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If the requested response mode is not recognized.
+        """
         # Fit the desired style of response function
         if skip_done and os.path.isfile(flat_resp_fn) \
                 and os.path.getmtime(super_dflat_mef) < os.path.getmtime(flat_resp_fn):
@@ -789,7 +1538,7 @@ def main():
             )
         elif mode == "dome":
             pywifes.wifes_response_poly(
-                super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn
+                super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn, **args
             )
         else:
             error_print("Requested response mode not recognised")
@@ -806,9 +1555,29 @@ def main():
         multithread=False,
         max_processes=-1,
     ):
-        '''
+        """
         Clean cosmic rays on all science and standard frames.
-        '''
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the FITS file to apply the correction (input).
+        curr_suffix : str
+            Current suffix of the FITS file with the correction alredy applied (output).
+        multithread : bool, optional
+            Flag indicating whether to use multithreading for cosmic ray cleaning.
+            Default: False.
+        max_processes : int, optional
+            Maximum number of processes to use for multithreading (-1 uses all
+            available processes).
+            Default: -1.
+
+        Returns
+        -------
+        None
+        """
         # now run ONLY ON SCIENCE TARGETS AND STANDARDS
         sci_obs_list = get_sci_obs_list(metadata)
         sky_obs_list = get_sky_obs_list(metadata)
@@ -835,6 +1604,7 @@ def main():
                 max_processes=max_processes,
             )
             if obs_mode == "ns":
+                # Also process extracted sky slitlets.
                 in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
                 out_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, curr_suffix))
                 info_print(f"Cleaning cosmics in {os.path.basename(in_fn)}")
@@ -875,6 +1645,7 @@ def main():
                 max_processes=max_processes,
             )
             if obs_mode == "ns":
+                # Also process extracted sky slitlets.
                 in_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, prev_suffix))
                 out_fn = os.path.join(out_dir, "%s.s%s.fits" % (fn, curr_suffix))
                 info_print(f"Cleaning cosmics in standard star {os.path.basename(in_fn)}")
@@ -899,9 +1670,22 @@ def main():
     # Sky subtraction
     # ------------------------------------------------------
     def run_sky_sub_ns(metadata, prev_suffix, curr_suffix):
-        '''
-        Subtract sky frames from science objects.
-        '''
+        """
+        Subtract sky frames from science objects in nod-and-shuffle mode.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the file names (input).
+        curr_suffix : str
+            Current suffix of the file names (output).
+
+        Returns
+        -------
+        None
+        """
         sci_obs_list = get_sci_obs_list(metadata)
         std_obs_list = get_std_obs_list(metadata)
         ns_proc_list = sci_obs_list + std_obs_list
@@ -918,6 +1702,22 @@ def main():
         return
 
     def run_sky_sub(metadata, prev_suffix, curr_suffix):
+        """
+        Subtract sky frames from science objects.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the file names (input).
+        curr_suffix : str
+            Current suffix of the file names (output).
+
+        Returns
+        -------
+        None
+        """
         if obs_mode == "ns":
             run_sky_sub_ns(metadata, prev_suffix, curr_suffix)
         else:
@@ -925,10 +1725,11 @@ def main():
             for obs in metadata["sci"]:
                 if len(obs["sky"]) > 0:
                     if len(obs["sky"]) > 1:
-                        # If multiple sky frames, scale by exposure time and median-combine.
-                        # List will be recombined for every science frame in case the first sky
-                        # (which defines the output filename) was associated with multiple science
-                        # frames. Thus, no consideration of skip_done.
+                        # If multiple sky frames, scale by exposure time and
+                        # median-combine. List will be recombined for every science
+                        # frame in case the first sky (which defines the output
+                        # filename) was associated with multiple science frames. Thus,
+                        # no consideration of skip_done.
                         in_fn_list = [
                             os.path.join(out_dir, "%s.p%s.fits" % (fn, prev_suffix))
                             for fn in obs["sky"]
@@ -983,9 +1784,30 @@ def main():
     # Image coaddition for science and standards
     # ------------------------------------------------------
     def run_obs_coadd(metadata, prev_suffix, curr_suffix, method="sum", scale=None):
-        '''
+        """
         Coadd science and standard frames.
-        '''
+
+        Parameters
+        ----------
+        metadata : dict
+            Dictionary containing metadata information of the FITS files.
+        prev_suffix : str
+            Previous suffix of the file name (input).
+        curr_suffix : str
+            Current suffix of the file name (output).
+        method : str, optional
+            Method used for coadding the frames.
+            Options: 'median', 'sum', 'nansafesum'.
+            Default: 'sum'.
+        scale : float, optional
+            Scale factor applied to the frames during coaddition.
+            Options: 'exptime', 'per_slice_median', None.
+            Default: None.
+
+        Returns
+        -------
+        None
+        """
         for obs in metadata["sci"] + metadata["std"]:
             # If just one, then copy it
             if len(obs["sci"]) == 1:
@@ -1017,9 +1839,22 @@ def main():
     # Flatfield: Division
     # ------------------------------------------------------
     def run_flatfield(metadata, prev_suffix, curr_suffix):
-        '''
-        Flat-field correction to science and standard frames.
-        '''
+        """
+        Apply flat-field correction (division) to science and standard frames.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the FITS files of the observations.
+        prev_suffix : str
+            Previous suffix of the file names (input).
+        curr_suffix : str
+            Current suffix of the file names (output).
+
+        Returns
+        -------
+        None
+        """
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
         info_print(f"Primary science observation list: {sci_obs_list}")
@@ -1049,6 +1884,69 @@ def main():
     def run_cube_gen(metadata, prev_suffix, curr_suffix, **args):
         '''
         Generate data cubes for science and standard frames.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata dictionary containing information about the FITS of the
+            observations.
+        prev_suffix : str
+            Previous suffix used in the file names (input).
+        curr_suffix : str
+            Current suffix to be used in the file names (output).
+
+        Optional Function Arguments
+        ---------------------------
+        wmin_set : float
+            Minimum wavelength of output cube in Angstroms. If None, uses the largest
+            minimum wavelength from the set of slitlets.
+            Default: None.
+        wmax_set : float
+            Maximum wavelength of output cube in Angstroms. If None, uses the smallest
+            maximum wavelength from the set of slitlets.
+            Default: None.
+        dw_set : float
+            Wavelength step of output cube in Anstroms. If None, uses the mean of the
+            per-slitlet mean pixel spacings.
+            Default: None.
+        adr : bool
+            Apply atmospheric differential refraction correction.
+            Default: False.
+        subsample : int
+            Divide each spatial dimension into 'subsample' components. Value of 1 means
+            no subsampling. Minimises effects of intergerisation of pixel shifts, but
+            increases processing time by subsample**2.
+            Default: 1.
+        offset_orig : int
+            Number of (unbinned) y-axis pixels that the wire is offset from the field
+            centre.
+            Default: 2.
+        ny_orig : int
+            Number of (unbinned) y-axis pixels that should exist in output cube.
+            Default: 76.
+        bin_x : int
+            If specified, override the x-axis binning defined in the header.
+            Default: None.
+        bin_y : int
+            If specified, override the y-axis binning defined in the header.
+            Default: None.
+        verbose : bool
+            Whether to output extra messages.
+            Default: True.
+        multithread : bool, optional
+            Flag indicating whether to use multithreading for cosmic ray cleaning.
+            Default: False.
+        max_processes : int, optional
+            Maximum number of processes to use for multithreading (-1 uses all
+            available processes).
+            Default: -1.
+        debug : bool
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
         '''
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
@@ -1169,9 +2067,63 @@ def main():
     # Standard star extraction
     # ------------------------------------------------------
     def run_extract_stars(metadata, prev_suffix, curr_suffix, type="all", **args):
-        '''
+        """
         Extract standard stars spectrum.
-        '''
+
+        Parameters
+        ----------
+        metadata : dict
+            The metadata containing information about the FITS files of the
+            observations.
+        prev_suffix : str
+            The suffix of the previous data files.
+        curr_suffix : str
+            The suffix of the current data files.
+        type : str, optional
+            The type of standard stars to extract.
+            Options: 'flux', 'standard', 'all'.
+            Default: 'all'.
+
+        Optional Function Arguments
+        ---------------------------
+        x_ctr : float, optional
+            The x-coordinate of the standard star centroid. If not provided, the
+            centroid will be determined automatically.
+            Default: None.
+        y_ctr : float, optional
+            The y-coordinate of the standard star centroid. If not provided, the
+            centroid will be determined automatically.
+            Default: None.
+        extract_radius : float, optional
+            The radius (in arcseconds) within which to extract the standard star
+            spectrum.
+            Default: 5.0.
+        sky_radius : float, optional
+            The radius (in arcseconds) outside which to estimate the sky background.
+            Default: 8.0.
+        xtrim : int, optional
+            The number of pixels to trim from the left and right of the data cube in
+            the x spatial direction.
+            Default: 4.
+        ytrim : int, optional
+            The number of (unbinned) pixels to trim from the top and bottom of the data
+            cube in the y spatial direction.
+            Default: 8.
+        wmask: int, optional
+            The number of (unbinned) wavelength pixels to mask from each end when
+            peak-finding.
+            Default: 500.
+        debug : bool, optional
+            Whether to report the parameters used in this function call.
+            Default: False.
+        interactive_plot : bool, optional
+            Whether to interrupt processing to provide interactive plot to user.
+            Default: False.
+
+        Returns
+        -------
+        None
+        """
         # For each std, extract spectrum as desired
         std_obs_list = get_primary_std_obs_list(metadata, type=type)
         for fn in std_obs_list:
@@ -1188,13 +2140,92 @@ def main():
 
     # Sensitivity Function fit
     def run_derive_calib(metadata, prev_suffix, curr_suffix, method="poly", **args):
-        '''
+        """
         Derive the sensitivity function from the extracted standard stars.
-        kwargs:
-            - method: 'poly' or 'spline'
-            - order: polynomial order
-            - knots: number of knots for the spline
-        '''
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the standard stars.
+        prev_suffix : str
+            Previous suffix of the file names.
+        curr_suffix : str
+            Current suffix of the file names.
+        method : str, optional
+            Method for deriving the sensitivity function.
+            Options: 'smooth_SG', 'poly.
+            Default: 'poly'.
+
+        Optional Function Arguments
+        ---------------------------
+        method : str, optional
+            Method for fitting the calibration solution.
+            Options: 'poly', 'smooth_SG'.
+            Default: 'poly'
+        polydeg : int, optional
+            Degree of the polynomial for fitting the calibration solution.
+            Default: 30.
+        wave_min : float, optional
+            Minimum wavelength to compute flux ratio. If None, defaults to minimum
+            observed wavelength.
+            Default: None.
+        wave_max : float, optional
+            Maximum wavelength to compute flux ratio. If None, defaults to maximum
+            observed wavelength.
+            Default: None.
+        norm_stars : bool, optional
+            Whether to normalize the correction factor amongst multiple standard stars
+            at the wavelength midpoint.
+            Default: False.
+        excise_cut : float, optional
+            Fractional threshold for outliers (applied to magnitude units). Overridden
+            with 0.003 if 'method'='smooth_SG'.
+            Default: 0.5.
+        ytrim : int, optional
+            If standard star spectrum not previously extracted, mask this number of
+            (unbinned) y-axis pixels when peak-finding.
+            Default: 5.
+        boxcar : int, optional
+            Boxcar smoothing length for'method'='smooth_SG'.
+            Default: 11.
+        stdstar_name_list : list, optional
+            List of standard star names corresponding to each cube.
+            Default: None.
+        airmass_list : list, optional
+            List of airmass values corresponding to each cube. If None, extracts
+            airmass from header.
+            Default: None.
+        ref_dir : str, optional
+            Directory path to the reference data.
+            Default: Pipeline's 'reference_data' directory.
+        ref_fname_list : list, optional
+            List of file names of the reference data corresponding to each cube. If
+            None, looks up name in reference list based on image headers.
+            Default: None.
+        extinction_fn : str, optional
+            File path to the extinction curve data. If None, defaults to standard SSO
+            extinction curve.
+            Default: None.
+        plot_stars : bool, optional
+            Whether to plot the stars during the calibration process.
+            Default: False.
+        plot_sensf : bool, optional
+            Whether to plot the sensitivity function.
+            Default: False.
+        plot_dir : str
+            Directory for the diagnostic plot.
+            Default: '.'.
+        save_prefix : str, optional
+            Prefix for the saved calibration files.
+            Default: 'calib_'.
+        debug : bool, optional
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
+        """
         std_obs_list = get_primary_std_obs_list(metadata, type="flux")
 
         if len(std_obs_list) == 0:
@@ -1214,7 +2245,8 @@ def main():
             return
         info_print("Deriving sensitivity function")
         wifes_calib.derive_wifes_calibration(
-            std_cube_list, calib_fn, extract_in_list=extract_list, method=method, plot_dir=plot_dir_arm, **args
+            std_cube_list, calib_fn, extract_in_list=extract_list, method=method,
+            plot_dir=plot_dir_arm, **args
         )
         return
 
@@ -1222,9 +2254,36 @@ def main():
     # Flux Calibration
     # ------------------------------------------------------
     def run_flux_calib(metadata, prev_suffix, curr_suffix, mode="pywifes", **args):
-        '''
+        """
         Flux calibrate all science and standard observations.
-        '''
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the file name (input).
+        curr_suffix : str
+            Current suffix of the file name (output).
+        mode : str, optional
+            Calibration mode.
+            Options: 'iraf', 'pywifes'.
+            Default is "pywifes".
+
+        Optional Function Arguments
+        ---------------------------
+        extinction_fn : str
+            Extinction file path containing the extinction curve information. If None,
+            defaults to standard SSO extinction curve.
+            Default: None.
+        interactive_plot : bool
+            Whether to interrupt processing to provide interactive plot to user.
+            Default: False.
+
+        Returns
+        -------
+        None
+        """
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
         for fn in sci_obs_list + std_obs_list:
@@ -1241,9 +2300,74 @@ def main():
     # Telluric - derive
     # ------------------------------------------------------
     def run_derive_telluric(metadata, prev_suffix, curr_suffix, **args):
-        '''
+        """
         Derive the telluric correction from the standard star.
-        '''
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix used in the file names.
+        curr_suffix : str
+            Current suffix to be used in the file names.
+
+        Optional Function Arguments
+        ---------------------------
+        plot : bool, optional
+            Flag indicating whether to generate and save a plot of the telluric
+            correction function.
+            Default: True.
+        plot_stars : bool, optional
+            Flag indicating whether to plot the individual O2 and H2O corrections for
+            each star.
+            Default: False.
+        plot_dir : str, optional
+            Directory to save the plot file.
+            Default: None.
+        save_prefix : str, optional
+            Prefix for the saved plot file.
+            Default: 'telluric'.
+        extract_in_list : list, optional
+            List of extracted spectrum file names.
+            Default: None.
+        airmass_list : list, optional
+            List of airmass values for each cube file. If not provided, the airmass
+            values will be extracted from the cube headers.
+            Default: None.
+        telluric_threshold : float, optional
+            Threshold value for the telluric correction. Regions with a correction
+            ratio above this threshold will be set to 1.0.
+            Default: 0.97.
+        fit_wmin : float, optional
+            Minimum wavelength for fitting the smooth polynomial to non-telluric
+            regions.
+            Default: 5400.0.
+        fit_wmax : float, optional
+            Maximum wavelength for fitting the smooth polynomial to non-telluric
+            regions.
+            Default: 10000.0.
+        H2O_power : float, optional
+            Power value for the H2O correction.
+            Default: 0.72.
+        O2_power : float, optional
+            Power value for the O2 correction.
+            Default: 0.40.
+        polydeg : int, optional
+            Degree of the polynomial used for fitting the smooth continuum.
+            Default: 4.
+        ytrim : int, optional
+            Number of (unbinned) pixels to trim from the top and bottom of the data
+            cube if standard star spectrum has not been extracted previously.
+            Default: 3.
+        debug : bool, optional
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
+        """
         std_obs_list = get_primary_std_obs_list(metadata, "telluric")
         if len(std_obs_list) == 0:
             info_print("No telluric standard stars found. Skipping.")
@@ -1262,14 +2386,28 @@ def main():
             return
         info_print("Deriving telluric correction")
         wifes_calib.derive_wifes_telluric(
-            std_cube_list, tellcorr_fn, extract_in_list=extract_list, plot_dir=plot_dir_arm, **args
+            std_cube_list, tellcorr_fn, extract_in_list=extract_list,
+            plot_dir=plot_dir_arm, **args
         )
         return
 
     def run_telluric_corr(metadata, prev_suffix, curr_suffix):
-        '''
+        """
         Apply telluric correction for all science and standard observations.
-        '''
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the file name (input).
+        curr_suffix : str
+            Current suffix of the file name (output).
+
+        Returns
+        -------
+        None
+        """
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
         for fn in sci_obs_list + std_obs_list:
@@ -1285,6 +2423,30 @@ def main():
     def run_save_3dcube(metadata, prev_suffix, curr_suffix, **args):
         '''
         Save 3D Data Cube for all science and standard observations.
+        Final data product.
+
+        Parameters
+        ----------
+        metadata : dict
+            Metadata containing information about the observations.
+        prev_suffix : str
+            Previous suffix of the file name (input).
+        curr_suffix : str
+            Current suffix of the file name.
+            Saves final "*.cube.fits" file (output).
+
+        Optional Function Arguments
+        ---------------------------
+        nan_bad_pixels : bool
+            Whether to set masked pixels (DQ > 0) to NaN.
+            Default: False.
+        debug : bool
+            Whether to report the parameters used in this function call.
+            Default: False.
+
+        Returns
+        -------
+        None
         '''
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
@@ -1310,7 +2472,8 @@ def main():
             ):
                 continue
             info_print(f"Saving 3D Data Cube for {os.path.basename(in_fn)}")
-            pywifes.generate_wifes_3dcube(in_fn, out_fn, halfframe=halfframe, taros=taros, **args)
+            pywifes.generate_wifes_3dcube(in_fn, out_fn, halfframe=halfframe,
+                                          taros=taros, **args)
         return
 
     # --------------------------------------------
@@ -1329,14 +2492,16 @@ def main():
     parser.add_argument(
         "--red-params",
         type=str,
-        help="Optional: Path to the configuration JSON file containing parameters for reducing the blue arm.",
+        help="Optional: Path to the configuration JSON file containing parameters for "
+             "reducing the blue arm.",
     )
 
     # Option for specifying the path to the blue parameters JSON file
     parser.add_argument(
         "--blue-params",
         type=str,
-        help="Optional: Path to the configuration JSON file containing parameters for reducing the blue arm.",
+        help="Optional: Path to the configuration JSON file containing parameters for "
+             "reducing the blue arm.",
     )
 
     # Option for specifying to auto-extract and splice the output datacubes
@@ -1352,7 +2517,8 @@ def main():
         type=str,
         const="./data_products/master_calib",
         nargs="?",
-        help="Optional: Path to the master calibrations directory. If not provided, the default path will be used: .",
+        help="Optional: Path to the master calibrations directory. If not provided, the"
+             " default path will be used: .",
     )
 
     # Option for specifying to only produce the master calibration files
@@ -1382,7 +2548,8 @@ def main():
         "--coadd-mode",
         choices=["all", "none", "prompt"],
         default="all",
-        help="Optional: coadd 'all' (default), 'none', 'prompt' (user-selected, blue/red separate) frames of a given OBJECT",
+        help="Optional: coadd 'all' (default), 'none', 'prompt' (user-selected, "
+             "blue/red separate) frames of a given OBJECT",
         required=False,
         type=str,
     )
@@ -1449,7 +2616,8 @@ def main():
     }
 
     # Set the directory for master calibration files (default is ./data_products/master_calib/)
-    # Define a list of steps to skip if the reduction is being performed using master calibration files
+    # Define a list of steps to skip if the reduction is being performed
+    # using master calibration files
     if from_master:
         master_dir = os.path.abspath(from_master)
         extra_skip_steps = [
@@ -1479,8 +2647,9 @@ def main():
             #      LOAD JSON FILE WITH USER DATA REDUCTION SETUP
             # ------------------------------------------------------------------------
             obs_metadata = obs_metadatas[arm]
-            # Determine the grism and observing mode used in the first image of science, standard, or arc of the respective arm.
-            # Skip reductions steps if no objects no standar star observations are present.
+            # Determine the grism and observing mode used in the first image of science,
+            # standard, or arc of the respective arm.
+            # Skip reduction steps if no objects or standard stars are present.
 
             if obs_metadata["sci"]:
                 reference_filename = obs_metadata["sci"][0]["sci"][0] + ".fits"
@@ -1532,9 +2701,6 @@ def main():
 
             calib_prefix = f"wifes_{arm}"
 
-            # WiFeS specific parameter
-            my_data_hdu = 0
-
             # Creates a directory for diagnisis plots (one per arm).
             plot_dir_arm = os.path.join(plot_dir, arm)
             os.makedirs(plot_dir_arm, exist_ok=True)
@@ -1573,16 +2739,17 @@ def main():
             calib_fn = os.path.join(master_dir, "%s_calib.pkl" % calib_prefix)
             tellcorr_fn = os.path.join(master_dir, "%s_tellcorr.pkl" % calib_prefix)
 
-            # When reducing from master calibration files, if the tellic_correction file is already among the master calibrations, skip its generation.
+            # When reducing from master calibration files, if the tellic_correction
+            # file is already among the master calibrations, skip its generation.
             if from_master and os.path.exists(tellcorr_fn):
                 extra_skip_steps.append("derive_calib")
 
             # ------------------------------------------------------------------------
             # Run proccessing steps
             # ------------------------------------------------------------------------
-            info_print("________________________________________________________________")
+            info_print("")
             info_print(f"Starting processing of {arm} arm")
-            info_print("________________________________________________________________")
+            info_print("")
 
             prev_suffix = None
             for step in proc_steps[arm]:
@@ -1593,7 +2760,8 @@ def main():
                 func_name = "run_" + step_name
                 func = locals()[func_name]
 
-                # When master calibrations are in use, the steps listed in skip_steps will be skipped.
+                # When master calibrations are in use, the steps listed in skip_steps
+                # will be skipped.
                 if step_name in extra_skip_steps:
                     info_print('======================')
                     info_print(f"Skipping step: {step_name}")
@@ -1617,12 +2785,34 @@ def main():
                 else:
                     pass
 
-            info_print(f"Successfully completed arm {arm}\n")
+            # Extra Data Reduction Quality Plots:
+            # Dome Flats
+            try:
+                title = 'Dome Flatfield'
+                output_plot = os.path.join(plot_dir_arm, "raw_domeflat_check.png")
+
+                flat_image_path = os.path.join(master_dir, f"wifes_{arm}_super_domeflat_raw.fits")
+                slitlet_path = os.path.join(master_dir, f"wifes_{arm}_slitlet_defs.pkl")
+                flatfield_plot(flat_image_path, slitlet_path, title, output_plot)
+            except:
+                pass
+
+            # Twilight Flats
+            try:
+                title = 'Twilight Flatfield'
+                output_plot = os.path.join(plot_dir_arm, "raw_twiflat_check.png")
+                flat_image_path = os.path.join(master_dir, f"wifes_{arm}_super_twiflat_raw.fits")
+                slitlet_path = os.path.join(master_dir, f"wifes_{arm}_slitlet_defs.pkl")
+                flatfield_plot(flat_image_path, slitlet_path, title, output_plot)
+            except:
+                pass
+
+            info_print(f"Successfully completed {arm} arm\n")
 
         except Exception as exc:
-            warning_print("________________________________________________________________")
+            warning_print("")
             warning_print(f"{arm} arm skipped, an error occurred during processing: '{exc}'.")
-            warning_print("________________________________________________________________")
+            warning_print("")
 
     # Delete temporary directory containing raw data.
     shutil.rmtree(temp_data_dir)
@@ -1652,9 +2842,8 @@ def main():
             # ----------------------------------------------------------
             # Find and list all reduced cubes in the destination directory
             # ----------------------------------------------------------
-            reduced_cubes_paths = [
-                os.path.join(destination_dir, file_name) for file_name in blue_cubes_file_name
-            ] + [os.path.join(destination_dir, file_name) for file_name in red_cubes_file_name]
+            reduced_cubes_paths = [os.path.join(destination_dir, file_name) for file_name
+                                   in get_file_names(destination_dir, "*.cube.fits")]
 
             # ----------------------------------------------------------
             # Match cubes from the same observation based on DATE-OBS
@@ -1682,6 +2871,9 @@ def main():
                 plot_path = os.path.join(plot_dir, plot_name)
                 plot = extract_params["plot"]
                 taros = is_taros(blue_cube_path)
+
+                get_dq = True if "get_dq" in extract_params and extract_params["get_dq"] else False
+
                 # Run auto-extraction
                 detect_extract_and_save(
                     blue_cube_path,
@@ -1692,6 +2884,7 @@ def main():
                     sky_sub=False if obs_mode == "ns" else True,
                     plot=plot,
                     plot_path=plot_path,
+                    get_dq=get_dq,
                 )
 
                 # ------------------------------------
@@ -1708,13 +2901,16 @@ def main():
 
                     # Get filename of form `xxx-Splice-UTxxx.cube.fits`
                     if taros:
-                        spliced_cube_name = blue_cube_name.replace("T2m3wb", "T2m3wSplice")
+                        if re.search("T2m3wb", blue_cube_name):
+                            spliced_cube_name = blue_cube_name.replace("T2m3wb", "T2m3wSplice")
+                        else:
+                            splice_cube_name = "Splice_" + blue_cube_name
                     else:
                         spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
                     spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
 
                     # Splice cubes
-                    splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path)
+                    splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path, get_dq=get_dq)
 
                     # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.ap*'
                     pattern_blue = os.path.join(
@@ -1732,9 +2928,12 @@ def main():
                     for blue_spec, red_spec in zip(blue_specs, red_specs):
                         # Generate filename for spliced spectrum 'xxx-Splice-UTxxx.spec.apx.fits'
                         if taros:
-                            spliced_spectrum_name = os.path.basename(blue_spec).replace(
-                                "T2m3wb", "T2m3wSplice"
-                            )
+                            if re.search("T2m3wb", blue_spec):
+                                spliced_spectrum_name = os.path.basename(blue_spec).replace(
+                                    "T2m3wb", "T2m3wSplice"
+                                )
+                            else:
+                                spliced_spectrum_name = "Splice_" + os.path.basename(blue_spec)
                         else:
                             spliced_spectrum_name = os.path.basename(blue_spec).replace(
                                 "Blue", "Splice"
@@ -1742,7 +2941,7 @@ def main():
                         output = os.path.join(
                             working_dir, destination_dir, spliced_spectrum_name
                         )
-                        splice_spectra(blue_spec, red_spec, output)
+                        splice_spectra(blue_spec, red_spec, output, get_dq=get_dq)
 
                 # Plot extracted spectra:
                 if plot:
@@ -1756,7 +2955,10 @@ def main():
 
                         for blue_spec, red_spec in zip(blue_specs, red_specs):
                             if taros:
-                                spliced_spec = blue_spec.replace("T2m3wb", "T2m3wSplice")
+                                if re.search("T2m3wb", blue_spec):
+                                    spliced_spec = blue_spec.replace("T2m3wb", "T2m3wSplice")
+                                else:
+                                    spliced_spec = "Splice_" + blue_spec
                             else:
                                 spliced_spec = blue_spec.replace("Blue", "Splice")
 

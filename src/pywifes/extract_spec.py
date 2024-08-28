@@ -35,32 +35,36 @@ def extract_aperture_name(spec_name):
 
 
 def extract_and_save(
-    cube_path, sci, var, source_ap, ap_index, sky_ap, output_dir, sci_hdr, var_hdr
+    cube_path, sci, var, source_ap, ap_index, sky_ap, output_dir, sci_hdr, var_hdr,
+    dq_data=None, dq_hdr=None
 ):
     if cube_path is not None:
         # Extraction
-        flux, var = spect_extract(sci, var, source_ap, sky_ap=sky_ap)
+        flux, var, dq, sky = spect_extract(sci, var, source_ap, sky_ap=sky_ap,
+                                           dq_cube=dq_data)
 
         # Write out the results
         base = os.path.basename(cube_path)
         base_output = base.replace("cube.fits", f"spec.ap{ap_index}.fits")
         print(f"Saving extracted spectra for {base}")
         output_path = os.path.join(output_dir, base_output)
-        write_1D_spec(flux, var, sci_hdr, var_hdr, output_path)
+        write_1D_spec(flux, var, sci_hdr, var_hdr, output_path, dq_data=dq,
+                      dq_cube_header=dq_hdr, sky_data=sky)
 
 
 def plot_arm(ax, cube_path, sci, title, source_apertures, sky_aps, border_width, bin_y):
     ax.set_title(title)
     if cube_path is not None:
         plot_apertures(
-            sci, source_apertures, sky_aps=sky_aps, border_width=border_width, bin_y=bin_y
+            sci, source_apertures, sky_aps=sky_aps, border_width=border_width,
+            bin_y=bin_y
         )
         ax.set_xlabel("Right Ascension")
         ax.set_ylabel("Declination ")
     else:
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
-        text = f"No {title.lower()} data"
+        text = f"No {title.lower()} arm data"
         ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=12, color="black")
         ax.set_xticks([])
         ax.set_yticks([])
@@ -69,7 +73,8 @@ def plot_arm(ax, cube_path, sci, title, source_apertures, sky_aps, border_width,
 
 def collapse_cube(*data_cubes):
     """
-    Collapse one or more data cubes by computing the median along the wavelength dimension.
+    Collapse one or more data cubes by computing the median along the wavelength
+    dimension.
 
     Parameters
     ----------
@@ -79,13 +84,13 @@ def collapse_cube(*data_cubes):
 
     Returns
     -------
-    median_image : ndarray
+    median_image : numpy.ndarray
         2D array representing the median-collapsed image along the wavelength dimension.
 
     Notes
     -----
-    This function takes one or more data cubes and collapses them by computing the median
-    along the wavelength dimension. The resulting 2D array represents the
+    This function takes one or more data cubes and collapses them by computing the
+    median along the wavelength dimension. The resulting 2D array represents the
     median image.
     """
     # Filter out None elements from the data_cubes
@@ -111,29 +116,33 @@ def sec_image(ap, image):
         Aperture object representing the region of interest.
 
     image : array_like
-        2D array representing the image data.
+        2D or 3D array representing the image data.
 
     Returns
     -------
-    sec_data : ndarray
-        1D array containing the weighted pixel values from the section within the aperture.
+    sec_data : numpy.ndarray
+        1D or 2D array containing the weighted pixel values from the section within the
+        aperture.
 
     Notes
     -----
     This function extracts pixel values from a section within the specified aperture
     from the input image. The extraction is performed using a aperture mask,
     where pixel values outside the aperture are zero. The resulting
-    1D array contains the pixel values from the section within the aperture.
+    1D or 2D array contains the pixel values from the section within the aperture.
     """
-    mask = ap.to_mask(method="center")
-    sec_data = mask.get_values(image)
 
+    mask = ap.to_mask(method="center")
+    if image.ndim == 2:
+        sec_data = mask.get_values(image)
+    elif image.ndim == 3:
+        sec_data = image[:, mask.to_image(image.shape[1:3]) > 0]
     return sec_data
 
 
-def spect_extract(sci_cube, var_cube, source_ap, sky_ap=None):
+def spect_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None):
     """
-    Extract and calculate spectral flux and variance within the given aperture for each layer or wavelenght step.
+    Extract and calculate spectral flux and variance within the given aperture.
 
     Parameters
     ----------
@@ -150,65 +159,59 @@ def spect_extract(sci_cube, var_cube, source_ap, sky_ap=None):
         Aperture object representing the sky region to be extracted.
         Default is None.
 
+    dq_cube : array_like
+        3D array representing the data quality cube.
+        Optional.
+
     Returns
     -------
-    flux : ndarray
+    flux : numpy.ndarray
         1D array containing the spectral flux values.
 
-    variance : ndarray
+    variance : numpy.ndarray
         1D array containing the spectral variance values.
+
+    dq : numpy.ndarray
+        1D array containing the data quality values.
+
+    sky  : numpy.ndarray
+        1D array containing the sky spectrum that was subtracted.
 
     Notes
     -----
     This function extracts spectral flux and variance values within the specified
     source aperture from the input data cubes. If a sky aperture is provided,
-    it calculates and subtracts the corresponding sky values.
-
+    it calculates and subtracts the corresponding sky values. If a data quality
+    cube is provided, it also extracts the corresponding spectrum.
     """
-    # Extract the pixels inside the aperture for all the wavelengths
-    fl = numpy.zeros(sci_cube.shape[0], dtype=float)
-    var = numpy.zeros(sci_cube.shape[0], dtype=float)
 
-    for layer in range(sci_cube.shape[0]):
-        sci_section = sec_image(source_ap, sci_cube[layer])
-        var_section = sec_image(source_ap, var_cube[layer])
-        area = source_ap.area_overlap(sci_cube[layer], method="center")
+    fl = numpy.nansum(sec_image(source_ap, sci_cube), axis=1)
+    var = numpy.nansum(sec_image(source_ap, var_cube), axis=1)
+    sky = None
 
-        sci_ma_section = numpy.ma.array(sci_section, mask=(numpy.isnan(sci_section)), fill_value=0)
-        var_ma_section = numpy.ma.array(var_section, mask=(numpy.isnan(sci_section)), fill_value=65535.**2)
-
-        average = numpy.ma.average(
-            sci_ma_section,
-            weights=numpy.reciprocal(var_ma_section),
+    if sky_ap is not None:
+        area = source_ap.area_overlap(sci_cube[sci_cube.shape[1] // 2, :, :],
+                                      method="center")
+        sky_var_sec = sec_image(sky_ap, var_cube)
+        sky_average = numpy.average(
+            sec_image(sky_ap, sci_cube),
+            weights=numpy.reciprocal(sky_var_sec),
+            axis=1
         )
+        sky = sky_average * area
+        sky_var = numpy.reciprocal(numpy.nansum(numpy.reciprocal(sky_var_sec)))
 
-        error = numpy.reciprocal(numpy.ma.sum(numpy.reciprocal(var_ma_section)))
+        fl -= sky
+        var += sky_var * area
 
-        if sky_ap is not None:
-            sky_section = sec_image(sky_ap, sci_cube[layer])
-            sky_var_section = sec_image(sky_ap, var_cube[layer])
+    if dq_cube is not None:
+        dq = numpy.nansum(sec_image(source_ap, dq_cube), axis=1)
 
-            sky_ma_section = numpy.ma.array(sky_section, mask=(numpy.isnan(sky_section)), fill_value=0)
-            sky_var_ma_section = numpy.ma.array(sky_var_section, mask=(numpy.isnan(sky_section)), fill_value=65535.**2)
-
-            sky_average = numpy.ma.average(
-                sky_ma_section,
-                weights=numpy.reciprocal(sky_var_ma_section),
-            )
-
-            sky_error = numpy.reciprocal(numpy.ma.sum(numpy.reciprocal(sky_var_ma_section)))
-
-            fl[layer] = (average - sky_average) * area
-            var[layer] = (error + sky_error) * area
-
-        else:
-            fl[layer] = average * area
-            var[layer] = error * area
-
-    return fl, var
+    return fl, var, dq, sky
 
 
-def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
+def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
+                  dq_data=None, dq_cube_header=None, sky_data=None):
     """
     This function writes the 1D spectrum data and its variance to a FITS file.
     It updates the WCS headers to match the 1D spectrum header.
@@ -225,12 +228,16 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
         Header object from the variance data.
     output : str
         Output file path for the FITS file containing the 1D spectrum.
+    dq_data : numpy.ndarray
+        1D array containing the data quality data of the spectrum. Optional.
+    dq_cube_header : astropy.io.fits.Header
+        Header object from the data quality extension.
+    sky_data : numpy.ndarray
+        1D array containing the subtracted sky spectrum.
 
     Returns
     -------
     None
-        This function does not return any value. It writes the corresponding fits.
-
     """
 
     # Create a blank HDUList for the 1D spectrum
@@ -240,6 +247,9 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
     sci_cube_header_copy = sci_cube_header.copy()
     var_cube_header_copy = var_cube_header.copy()
     headers = [sci_cube_header_copy, var_cube_header_copy]
+    if dq_data is not None and dq_cube_header is not None:
+        dq_cube_header_copy = dq_cube_header.copy()
+        headers.append(dq_cube_header_copy)
 
     for header in headers:
         # Update axis 1 WCS information to match wavelength solution (axis 3)
@@ -269,15 +279,34 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output):
             "PC2_2",
         ]
         for key in keys_to_remove:
-            header.remove(key)
+            if key in header:
+                header.remove(key)
 
     # Set science data and headers in the blank HDUList
-    hdulist[0].data = sci_data
+    hdulist[0].data = sci_data.astype("float32", casting="same_kind")
+    hdulist[0].scale("float32")
     hdulist[0].header = sci_cube_header_copy
 
     # Add variance data as an additional HDU
-    hdu_fluxvar = fits.ImageHDU(data=var_data, header=var_cube_header_copy)
+    hdu_fluxvar = fits.ImageHDU(data=var_data.astype("float32", casting="same_kind"),
+                                header=var_cube_header_copy)
+    hdu_fluxvar.scale("float32")
     hdulist.append(hdu_fluxvar)
+
+    # Add data quality extention if provided
+    if dq_data is not None and dq_cube_header is not None:
+        hdu_dq = fits.ImageHDU(data=dq_data.astype("int16", casting="unsafe"),
+                               header=dq_cube_header_copy)
+        hdu_dq.scale("int16")
+        hdulist.append(hdu_dq)
+
+    # Add sky extention if provided
+    if sky_data is not None:
+        hdu_sky = fits.ImageHDU(data=sky_data.astype("float32", casting="same_kind"),
+                                header=sci_cube_header_copy)
+        hdu_sky.scale("float32")
+        hdu_sky.header['EXTNAME'] = 'SKY'
+        hdulist.append(hdu_sky)
 
     # Write the FITS file containing the 1D spectrum
     hdulist.writeto(output, overwrite=True)
@@ -300,7 +329,8 @@ def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0, bi
         List of sky apertures to plot on the image. Default is None.
 
     border_width : int, optional
-        Width of the border to exclude from the image when calculating the image contrast.
+        Width of the border to exclude from the image when calculating the image
+        contrast.
         Default is 0.
 
     bin_y : int, optional
@@ -320,7 +350,8 @@ def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0, bi
 
     # Improve contrast on the image - useful to see faint sources
     vmin, vmax = numpy.nanpercentile(
-        collapsed_cube[border_width:cc_shape[0] - border_width, border_width:cc_shape[1] - border_width], (2, 95)
+        collapsed_cube[border_width:cc_shape[0] - border_width,
+                       border_width:cc_shape[1] - border_width], (2, 95)
     )
     # Show collapsed image
     plt.imshow(collapsed_cube, vmin=vmin, vmax=vmax)
@@ -362,13 +393,15 @@ def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0, bi
     plt.gca().set_aspect(0.5 * bin_y)
 
 
-def read_cube_data(cube_path):
+def read_cube_data(cube_path, get_dq=False):
     cube_data = {
         "sci": None,
         "sci_hdr": None,
         "var": None,
         "var_hdr": None,
         "wcs": None,
+        "dq": None,
+        "dq_hdr": None,
         "binning_x": None,
         "binning_y": None,
     }
@@ -376,12 +409,24 @@ def read_cube_data(cube_path):
     if cube_path is not None:
         sci, sci_hdr = fits.getdata(cube_path, 0, header=True)
         var, var_hdr = fits.getdata(cube_path, 1, header=True)
+        if get_dq:
+            try:
+                dq, dq_hdr = fits.getdata(cube_path, 2, header=True)
+            except IndexError:
+                print("WARNING: No DQ extension in input cube.")
+                dq = None
+                dq_hdr = None
+        else:
+            dq = None
+            dq_hdr = None
         wcs = WCS(sci_hdr).celestial
         binning_x, binning_y = [int(x) for x in sci_hdr["CCDSUM"].split()]
         cube_data["sci"] = sci
         cube_data["sci_hdr"] = sci_hdr
         cube_data["var"] = var
         cube_data["var_hdr"] = var_hdr
+        cube_data["dq"] = dq
+        cube_data["dq_hdr"] = dq_hdr
         cube_data["wcs"] = wcs
         cube_data["binning_x"] = binning_x
         cube_data["binning_y"] = binning_y
@@ -398,14 +443,47 @@ def detect_extract_and_save(
     sky_sub=False,
     plot=False,
     plot_path="detected_apertures_plot.png",
+    get_dq=False,
 ):
+    """
+    Detects sources in the input cubes, extracts and saves their spectra. Optionally,
+    it can plot the extracted spurces and the detected apertures around them.
+
+    Parameters:
+    -----------
+    blue_cube_path : str, optional
+        Path to the blue cube file.
+    red_cube_path : str, optional
+        Path to the red cube file.
+    output_dir : str, optional
+        Directory where the extracted spectra will be saved.
+    r_arcsec : float, optional
+        Radius of the circular aperture in arcseconds.
+    border_width : int, optional
+        Width of the border to be excluded from the statistics.
+    sky_sub : bool, optional
+        Flag indicating whether to perform sky subtraction.
+    plot : bool, optional
+        Flag indicating whether to generate a plot of the detected apertures.
+    plot_path : str, optional
+        Path to save the plot.
+    get_dq : bool, optional
+        Whether to include the DQ extension in the output.
+        Default: False.
+
+    Returns:
+    --------
+    None
+    """
     # reading the data from cubes
     # Blue arm
-    blue_cube_data = read_cube_data(blue_cube_path)
+    blue_cube_data = read_cube_data(blue_cube_path, get_dq=get_dq)
     blue_sci = blue_cube_data["sci"]
     blue_sci_hdr = blue_cube_data["sci_hdr"]
     blue_var = blue_cube_data["var"]
     blue_var_hdr = blue_cube_data["var_hdr"]
+    blue_dq = blue_cube_data["dq"]
+    blue_dq_hdr = blue_cube_data["dq_hdr"]
     blue_wcs = blue_cube_data["wcs"]
     if blue_cube_data["sci"] is not None:
         binning_x = blue_cube_data["binning_x"]
@@ -413,11 +491,13 @@ def detect_extract_and_save(
         object = blue_sci_hdr["OBJECT"]
 
     # Red arm
-    red_cube_data = read_cube_data(red_cube_path)
+    red_cube_data = read_cube_data(red_cube_path, get_dq=get_dq)
     red_sci = red_cube_data["sci"]
     red_sci_hdr = red_cube_data["sci_hdr"]
     red_var = red_cube_data["var"]
     red_var_hdr = red_cube_data["var_hdr"]
+    red_dq = red_cube_data["dq"]
+    red_dq_hdr = red_cube_data["dq_hdr"]
     red_wcs = red_cube_data["wcs"]
     if red_cube_data["sci"] is not None:
         binning_x = red_cube_data["binning_x"]
@@ -503,6 +583,8 @@ def detect_extract_and_save(
                 output_dir,
                 blue_sci_hdr,
                 blue_var_hdr,
+                dq_data=blue_dq,
+                dq_hdr=blue_dq_hdr,
             )
 
             # Extracting red cube
@@ -516,6 +598,8 @@ def detect_extract_and_save(
                 output_dir,
                 red_sci_hdr,
                 red_var_hdr,
+                dq_data=red_dq,
+                dq_hdr=red_dq_hdr,
             )
 
         if plot:
@@ -549,7 +633,7 @@ def detect_extract_and_save(
             plt.tight_layout()
             fig_output = os.path.join(output_dir, plot_path)
             plt.savefig(fig_output, bbox_inches="tight", dpi=300)
-            plt.close()
+            plt.close('all')
 
 
 # TODO Replace with a proper SpecUtils loader
@@ -567,12 +651,29 @@ class SingleSpec(object):
         ) * self.header["CDELT1"] + self.header["CRVAL1"]
         # Temporary
         self.fluxvar = fits.getdata(fitsFILE, 1, header=False)
-        self.minWL = numpy.min(self.wl)
-        self.maxWL = numpy.max(self.wl)
+        self.minWL = min(self.wl)
+        self.maxWL = max(self.wl)
         return
 
 
 def plot_1D_spectrum(spec_path, plot_dir):
+    """
+    Plot a 1D spectrum with error bars and save the plot as a PNG file in the provided
+    directory.
+
+    Parameters
+    ----------
+    spec_path : str
+        The path to the spectrum file.
+    plot_dir : str
+        The directory where the plot will be saved.
+
+    Returns
+    -------
+    None
+        This function does not return anything.
+
+    """
 
     spec = SingleSpec(spec_path)
     flux = spec.flux
@@ -586,8 +687,6 @@ def plot_1D_spectrum(spec_path, plot_dir):
     plot_name = spec_name.replace(".fits", ".png")
     plot_path = os.path.join(plot_dir, plot_name)
     aperture_name = extract_aperture_name(spec_name)
-
-    # fig = plt.figure(figsize=(12, 5))
 
     # Plot the error bars
     plt.errorbar(
@@ -604,11 +703,12 @@ def plot_1D_spectrum(spec_path, plot_dir):
     plt.step(wl, flux, where="mid", color="b")
 
     # Customize the plot
-    plt.ylim(numpy.nanpercentile(flux - flux_error, 2), numpy.nanpercentile(flux + flux_error, 98))
+    plt.ylim(numpy.nanpercentile(flux - flux_error, 2),
+             numpy.nanpercentile(flux + flux_error, 98))
     plt.title(f"{spec_name} \n" + aperture_name)
     plt.xlabel("Wavelength (Å)")
     plt.ylabel("Flux")
     plt.grid(True)
 
     plt.savefig(plot_path, dpi=300)
-    plt.close()
+    plt.close('all')
