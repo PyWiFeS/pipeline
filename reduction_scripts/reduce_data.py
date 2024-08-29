@@ -2558,6 +2558,9 @@ def main():
 
     # Validate and process the user_data_dir
     user_data_dir = os.path.abspath(args.user_data_dir)
+    if not os.path.exists(user_data_dir):
+        raise ValueError(f"No such raw data directory {user_data_dir}")
+
     if not user_data_dir.endswith("/"):
         user_data_dir += "/"
     info_print(f"Processing data in directory: {user_data_dir}")
@@ -2850,139 +2853,140 @@ def main():
             # ----------------------------------------------------------
             matched_cubes = cube_matcher(reduced_cubes_paths)
 
-            # ----------------------------------------------------------
-            # Read extraction parameters from JSON file
-            # ----------------------------------------------------------
-            extract_params = load_config_file("./pipeline_params/params_extract.json5")
+            if matched_cubes is not None:
+                # ----------------------------------------------------------
+                # Read extraction parameters from JSON file
+                # ----------------------------------------------------------
+                extract_params = load_config_file("./pipeline_params/params_extract.json5")
 
-            # ----------------------------------------------------------
-            # Loop over matched cubes list
-            # ----------------------------------------------------------
-            for match_cubes in matched_cubes:
-                # ----------
-                # Extraction
-                # ----------
-                info_print('======================')
-                info_print('Extracting spectra')
-                info_print('======================')
-                blue_cube_path = match_cubes["Blue"]
-                red_cube_path = match_cubes["Red"]
-                plot_name = match_cubes["file_name"].replace(".cube", "_detection_plot.png")
-                plot_path = os.path.join(plot_dir, plot_name)
-                plot = extract_params["plot"]
-                taros = is_taros(blue_cube_path)
-
-                get_dq = True if "get_dq" in extract_params and extract_params["get_dq"] else False
-
-                # Run auto-extraction
-                detect_extract_and_save(
-                    blue_cube_path,
-                    red_cube_path,
-                    destination_dir,
-                    r_arcsec=extract_params["r_arcsec"],
-                    border_width=extract_params["border_width"],
-                    sky_sub=False if obs_mode == "ns" else True,
-                    plot=plot,
-                    plot_path=plot_path,
-                    get_dq=get_dq,
-                )
-
-                # ------------------------------------
-                # Splice only paired cubes and spectra
-                # ------------------------------------
-
-                if blue_cube_path is not None and red_cube_path is not None:
+                # ----------------------------------------------------------
+                # Loop over matched cubes list
+                # ----------------------------------------------------------
+                for match_cubes in matched_cubes:
+                    # ----------
+                    # Extraction
+                    # ----------
                     info_print('======================')
-                    info_print('Splicing blue and red cubes')
+                    info_print('Extracting spectra')
                     info_print('======================')
+                    blue_cube_path = match_cubes["Blue"]
+                    red_cube_path = match_cubes["Red"]
+                    plot_name = match_cubes["file_name"].replace(".cube", "_detection_plot.png")
+                    plot_path = os.path.join(plot_dir, plot_name)
+                    plot = extract_params["plot"]
+                    taros = is_taros(blue_cube_path)
 
-                    blue_cube_name = os.path.basename(blue_cube_path)
-                    red_cube_name = os.path.basename(red_cube_path)
+                    get_dq = True if "get_dq" in extract_params and extract_params["get_dq"] else False
 
-                    # Get filename of form `xxx-Splice-UTxxx.cube.fits`
-                    if taros:
-                        if re.search("T2m3wb", blue_cube_name):
-                            spliced_cube_name = blue_cube_name.replace("T2m3wb", "T2m3wSplice")
-                        else:
-                            splice_cube_name = "Splice_" + blue_cube_name
-                    else:
-                        spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
-                    spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
-
-                    # Splice cubes
-                    splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path, get_dq=get_dq)
-
-                    # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.ap*'
-                    pattern_blue = os.path.join(
-                        destination_dir, blue_cube_name.replace("cube", "spec.ap*")
+                    # Run auto-extraction
+                    detect_extract_and_save(
+                        blue_cube_path,
+                        red_cube_path,
+                        destination_dir,
+                        r_arcsec=extract_params["r_arcsec"],
+                        border_width=extract_params["border_width"],
+                        sky_sub=False if obs_mode == "ns" else True,
+                        plot=plot,
+                        plot_path=plot_path,
+                        get_dq=get_dq,
                     )
-                    blue_specs = glob.glob(pattern_blue)
 
-                    # Find red spectra files matching the pattern 'xxx-Red-UTxxx.spec.ap*'
-                    pattern_red = os.path.join(
-                        destination_dir, red_cube_name.replace("cube", "spec.ap*")
-                    )
-                    red_specs = glob.glob(pattern_red)
+                    # ------------------------------------
+                    # Splice only paired cubes and spectra
+                    # ------------------------------------
 
-                    # Splice spectra
-                    for blue_spec, red_spec in zip(blue_specs, red_specs):
-                        # Generate filename for spliced spectrum 'xxx-Splice-UTxxx.spec.apx.fits'
-                        if taros:
-                            if re.search("T2m3wb", blue_spec):
-                                spliced_spectrum_name = os.path.basename(blue_spec).replace(
-                                    "T2m3wb", "T2m3wSplice"
-                                )
-                            else:
-                                spliced_spectrum_name = "Splice_" + os.path.basename(blue_spec)
-                        else:
-                            spliced_spectrum_name = os.path.basename(blue_spec).replace(
-                                "Blue", "Splice"
-                            )
-                        output = os.path.join(
-                            working_dir, destination_dir, spliced_spectrum_name
-                        )
-                        splice_spectra(blue_spec, red_spec, output, get_dq=get_dq)
-
-                # Plot extracted spectra:
-                if plot:
                     if blue_cube_path is not None and red_cube_path is not None:
+                        info_print('======================')
+                        info_print('Splicing blue and red cubes')
+                        info_print('======================')
 
-                        blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")
-                        blue_specs = glob.glob(blue_pattern)
+                        blue_cube_name = os.path.basename(blue_cube_path)
+                        red_cube_name = os.path.basename(red_cube_path)
 
-                        red_pattern = red_cube_path.replace("cube.fits", "spec.ap*")
-                        red_specs = glob.glob(red_pattern)
+                        # Get filename of form `xxx-Splice-UTxxx.cube.fits`
+                        if taros:
+                            if re.search("T2m3wb", blue_cube_name):
+                                spliced_cube_name = blue_cube_name.replace("T2m3wb", "T2m3wSplice")
+                            else:
+                                splice_cube_name = "Splice_" + blue_cube_name
+                        else:
+                            spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
+                        spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
 
+                        # Splice cubes
+                        splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path, get_dq=get_dq)
+
+                        # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.ap*'
+                        pattern_blue = os.path.join(
+                            destination_dir, blue_cube_name.replace("cube", "spec.ap*")
+                        )
+                        blue_specs = glob.glob(pattern_blue)
+
+                        # Find red spectra files matching the pattern 'xxx-Red-UTxxx.spec.ap*'
+                        pattern_red = os.path.join(
+                            destination_dir, red_cube_name.replace("cube", "spec.ap*")
+                        )
+                        red_specs = glob.glob(pattern_red)
+
+                        # Splice spectra
                         for blue_spec, red_spec in zip(blue_specs, red_specs):
+                            # Generate filename for spliced spectrum 'xxx-Splice-UTxxx.spec.apx.fits'
                             if taros:
                                 if re.search("T2m3wb", blue_spec):
-                                    spliced_spec = blue_spec.replace("T2m3wb", "T2m3wSplice")
+                                    spliced_spectrum_name = os.path.basename(blue_spec).replace(
+                                        "T2m3wb", "T2m3wSplice"
+                                    )
                                 else:
-                                    spliced_spec = "Splice_" + blue_spec
+                                    spliced_spectrum_name = "Splice_" + os.path.basename(blue_spec)
                             else:
-                                spliced_spec = blue_spec.replace("Blue", "Splice")
+                                spliced_spectrum_name = os.path.basename(blue_spec).replace(
+                                    "Blue", "Splice"
+                                )
+                            output = os.path.join(
+                                working_dir, destination_dir, spliced_spectrum_name
+                            )
+                            splice_spectra(blue_spec, red_spec, output, get_dq=get_dq)
 
-                            plot_1D_spectrum(blue_spec, plot_dir=plot_dir)
-                            plot_1D_spectrum(red_spec, plot_dir=plot_dir)
-                            plot_1D_spectrum(spliced_spec, plot_dir=plot_dir)
+                    # Plot extracted spectra:
+                    if plot:
+                        if blue_cube_path is not None and red_cube_path is not None:
 
-                    elif blue_cube_path is not None:
+                            blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")
+                            blue_specs = glob.glob(blue_pattern)
 
-                        blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")
-                        blue_specs = glob.glob(blue_pattern)
+                            red_pattern = red_cube_path.replace("cube.fits", "spec.ap*")
+                            red_specs = glob.glob(red_pattern)
 
-                        for blue_spec in blue_specs:
+                            for blue_spec, red_spec in zip(blue_specs, red_specs):
+                                if taros:
+                                    if re.search("T2m3wb", blue_spec):
+                                        spliced_spec = blue_spec.replace("T2m3wb", "T2m3wSplice")
+                                    else:
+                                        spliced_spec = "Splice_" + blue_spec
+                                else:
+                                    spliced_spec = blue_spec.replace("Blue", "Splice")
 
-                            plot_1D_spectrum(blue_spec, plot_dir=plot_dir)
+                                plot_1D_spectrum(blue_spec, plot_dir=plot_dir)
+                                plot_1D_spectrum(red_spec, plot_dir=plot_dir)
+                                plot_1D_spectrum(spliced_spec, plot_dir=plot_dir)
 
-                    elif red_cube_path is not None:
+                        elif blue_cube_path is not None:
 
-                        red_pattern = red_cube_path.replace("cube.fits", "spec.ap*")
-                        red_specs = glob.glob(red_pattern)
+                            blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")
+                            blue_specs = glob.glob(blue_pattern)
 
-                        for red_spec in red_specs:
+                            for blue_spec in blue_specs:
 
-                            plot_1D_spectrum(red_spec, plot_dir=plot_dir)
+                                plot_1D_spectrum(blue_spec, plot_dir=plot_dir)
+
+                        elif red_cube_path is not None:
+
+                            red_pattern = red_cube_path.replace("cube.fits", "spec.ap*")
+                            red_specs = glob.glob(red_pattern)
+
+                            for red_spec in red_specs:
+
+                                plot_1D_spectrum(red_spec, plot_dir=plot_dir)
 
     # ----------------------------------------------------------
     # Print total running time

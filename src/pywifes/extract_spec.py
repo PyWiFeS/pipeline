@@ -175,7 +175,8 @@ def spect_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None):
         1D array containing the data quality values.
 
     sky  : numpy.ndarray
-        1D array containing the sky spectrum that was subtracted.
+        1D array containing the sky spectrum that was subtracted, or None if no sky
+        extracted (e.g., Nod & Shuffle).
 
     Notes
     -----
@@ -228,12 +229,12 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
         Header object from the variance data.
     output : str
         Output file path for the FITS file containing the 1D spectrum.
-    dq_data : numpy.ndarray
+    dq_data : numpy.ndarray, optional
         1D array containing the data quality data of the spectrum. Optional.
-    dq_cube_header : astropy.io.fits.Header
+    dq_cube_header : astropy.io.fits.Header, optional
         Header object from the data quality extension.
-    sky_data : numpy.ndarray
-        1D array containing the subtracted sky spectrum.
+    sky_data : numpy.ndarray, optional
+        1D array containing the subtracted sky spectrum, or None.
 
     Returns
     -------

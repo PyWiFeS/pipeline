@@ -434,6 +434,10 @@ def cube_matcher(paths_list):
             arm_list.append(re.sub("WiFeS", "", fits_header["CAMERA"]))
         date_obs_list.append(fits_header["DATE-OBS"])
 
+    if not paths_list:
+        print("Found no cubes to process. Exiting.")
+        return None
+
     df = pd.DataFrame({"path": paths_list, "arm": arm_list, "date_obs": date_obs_list})
 
     matched_obs_arms = (

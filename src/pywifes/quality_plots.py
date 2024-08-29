@@ -63,7 +63,8 @@ def plot_slitlet(ax, path_slitlet, halfframe):
 def plot_fits(ax, image_path, min=5, max=95, cmap="nipy_spectral"):
     data = fits.getdata(image_path)
     vmin, vmax = numpy.percentile(data, (min, max))
-    img = ax.imshow(data, vmin=vmin, vmax=vmax, cmap=cmap, origin="lower", aspect='auto', interpolation='None')
+    img = ax.imshow(data, vmin=vmin, vmax=vmax, cmap=cmap, origin="lower",
+                    aspect='auto', interpolation='None')
     return img
 
 
@@ -143,8 +144,9 @@ def flatfield_plot(flat_image_path, slitlet_path, title, output_plot):
     ax1.label_outer()  # Hide x-tick labels for the top subplot
 
     # Add color bar to the top of ax1
-    cbar = fig.colorbar(img, ax=ax1, orientation='horizontal', pad=0.01, location='top', fraction=0.05, aspect=50)
-    cbar.set_label('Count [e$^{-1}$]', size=15)
+    cbar = fig.colorbar(img, ax=ax1, orientation='horizontal', pad=0.01, location='top',
+                        fraction=0.05, aspect=50)
+    cbar.set_label('Count [e$^{-}$]', size=15)
 
     # Set yticks and labels for ax1
     y_centers, slit_numbers = slitlet_yticks(slitlet_path, halfframe, bin_x=1, bin_y=2)
@@ -157,7 +159,8 @@ def flatfield_plot(flat_image_path, slitlet_path, title, output_plot):
 
     for i, index in enumerate(range(first, last)):
         slit_number = str(index)
-        color = colors[index % len(colors)]  # Use color from the list, cycle if more slitlets than colors
+        # Use color from the list, cycle if more slitlets than colors
+        color = colors[index % len(colors)]
         boundaries = slitlets[slit_number]
         aperture = slitlet_aperture(boundaries, halfframe, bin_x=1, bin_y=2)
         cutout = slitlet_cutout(fits.getdata(flat_image_path), aperture)
@@ -169,7 +172,7 @@ def flatfield_plot(flat_image_path, slitlet_path, title, output_plot):
         tick_labels[i].set_color(color)
         ax1.set_yticklabels(tick_labels, size=12)
 
-    ax2.set_ylabel('Count [e$^{-1}$]', size=15)
+    ax2.set_ylabel('Count [e$^{-}$]', size=15)
 
     y2_limits = ax2.get_ylim()
 
@@ -192,8 +195,9 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     fig = plt.figure(figsize=(10, 6))
     plt.suptitle(title)
 
-    # Define GridSpec (3 rows 2 columns)
-    gs = gridspec.GridSpec(3, 3, width_ratios=[3, 1, 0.5])  # Add width_ratios for the columns
+    # Define GridSpec (3 rows 3 columns)
+    # Add width_ratios for the columns
+    gs = gridspec.GridSpec(3, 3, width_ratios=[3, 1, 0.5])
 
     ax_left_top = fig.add_subplot(gs[0:2, 0:1])  # Subplot in the left column
     ax_left_top.plot(allx, ally, 'r.', markeredgecolor='w', markeredgewidth=0.2)
@@ -220,15 +224,17 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     mean_resid = numpy.mean(resid)
     std_resid = numpy.std(resid)
 
-    # Plotting the 3-sigma marks
+    # Plotting the 1-sigma marks
     sigma_pos = mean_resid + std_resid
     sigma_neg = mean_resid - std_resid
 
     # Horizontal lines at +/-1 sigma
-    ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--', label=fr'$\sigma$: {std_resid:.2f} $\AA$')
+    ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--',
+                    label=fr'$\sigma$: {std_resid:.2f} $\AA$')
     ax_hist.axvline(sigma_neg, color='black', lw=0.8, linestyle='--')
 
-    ax_hist.legend(bbox_to_anchor=(0.5, -0.3), loc='center', framealpha=1.0, handlelength=1.2, frameon=False)
+    ax_hist.legend(bbox_to_anchor=(0.5, -0.3), loc='center', framealpha=1.0,
+                   handlelength=1.2, frameon=False)
     ax_hist.grid(True)
     ax_hist.set_yticklabels([])
     ax_hist.set_yticks([])
@@ -249,7 +255,8 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     ax_middle.yaxis.tick_right()
     ax_middle.grid(True)
 
-    plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6, left=0.065, right=0.935, bottom=0.09)  # Adjust top to make room for suptitle
+    plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6, left=0.065, right=0.935,
+                        bottom=0.09)  # Adjust top to make room for suptitle
 
     plt.savefig(plot_path, dpi=300)
     plt.close('all')

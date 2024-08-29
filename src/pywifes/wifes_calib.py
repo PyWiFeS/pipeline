@@ -860,12 +860,12 @@ def derive_wifes_calibration(
         mean_resid = numpy.mean(residuals)
         std_resid = numpy.std(residuals)
 
-        # Plotting the 3-sigma marks
+        # Plotting the 1-sigma marks
         sigma_pos = mean_resid + std_resid
         sigma_neg = mean_resid - std_resid
 
-        # Horizontal lines at ±3 sigma
-        ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--', label=fr'$\pm\sigma$: {std_resid:.2f}')
+        # Horizontal lines at +/-1 sigma
+        ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--', label=fr'$\sigma$: {std_resid:.2f} mag')
         ax_hist.axvline(sigma_neg, color='black', lw=0.8, linestyle='--')
         ax_hist.legend(bbox_to_anchor=(0.5, 1.2), loc='center', framealpha=1.0, handlelength=1.2, frameon=False)
 

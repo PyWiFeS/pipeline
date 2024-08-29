@@ -679,8 +679,8 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
 
     ax_left_bottom = fig.add_subplot(gs[2:, 0:2])  # Bottom subplot in the left column
     ax_left_bottom.plot(allarcs, resid, 'r.', markeredgecolor='w', markeredgewidth=0.2)
-    ax_left_bottom.set_xlabel("Wavelength [Å]")
-    ax_left_bottom.set_ylabel("Residuals [Å]")
+    ax_left_bottom.set_xlabel(r"Wavelength [$\AA$]")
+    ax_left_bottom.set_ylabel(r"Residuals [$\AA$]")
     ax_left_bottom.yaxis.set_label_position("left")
     ax_left_bottom.yaxis.tick_left()
     ax_left_bottom.grid(True)
@@ -697,12 +697,12 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     mean_resid = np.mean(resid)
     std_resid = np.std(resid)
 
-    # Plotting the 3-sigma marks
+    # Plotting the 1-sigma marks
     sigma_pos = mean_resid + std_resid
     sigma_neg = mean_resid - std_resid
 
-    # Horizontal lines at ±3 sigma
-    ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--',label= f'±σ: {std_resid:.2f} Å')
+    # Horizontal lines at +/-1 sigma
+    ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--',label= fr'$\sigma$: {std_resid:.2f} $\AA$')
     ax_hist.axvline(sigma_neg, color='black', lw=0.8,  linestyle='--')
 
     # ax_hist.text(1.1, sigma_pos, '+σ', va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=10)
@@ -717,7 +717,7 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     ax_top = fig.add_subplot(gs[0, 1:])  # Top subplot in the right column
     ax_top.plot(allx, resid, 'r.', markeredgecolor='w', markeredgewidth=0.2)
     ax_top.set_xlabel("X-axis [pixel]")
-    ax_top.set_ylabel("Residuals [Å]")
+    ax_top.set_ylabel(r"Residuals [$\AA$]")
     ax_top.yaxis.set_label_position("right")
     ax_top.yaxis.tick_right()
     ax_top.grid(True)
@@ -725,7 +725,7 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
 
     ax_middle = fig.add_subplot(gs[1, 1:])  # Middle subplot in the right column
     ax_middle.plot(resid, ally, 'r.', markeredgecolor='w', markeredgewidth=0.2)
-    ax_middle.set_xlabel("Residuals [Å]")
+    ax_middle.set_xlabel(r"Residuals [$\AA$]")
     ax_middle.set_ylabel("Y-axis [pixel]")
     ax_middle.yaxis.set_label_position("right")
     ax_middle.yaxis.tick_right()

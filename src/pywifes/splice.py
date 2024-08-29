@@ -99,11 +99,11 @@ class SingleSpec(object):
         self.fluxvar = fits.getdata(fits_path, extname='VAR', header=False)
         try:
             self.dq = fits.getdata(fits_path, extname='DQ', header=False)
-        except IndexError:
+        except KeyError:
             self.dq = None
         try:
             self.sky = fits.getdata(fits_path, extname='SKY', header=False)
-        except IndexError:
+        except KeyError:
             self.sky = None
 
         self.min_wl = numpy.min(self.wl)
@@ -143,13 +143,11 @@ def join_spectra(blueSpec, redSpec, get_dq=False):
             ([blueSpec.fluxvar], [0]), shape=[blue_NAXIS1, blue_NAXIS1]
         )
         fluxvar_B = numpy.array((AB * diag_B * AB.T).sum(axis=1)).ravel()
-        sky_B = numpy.array(AB * blueSpec.sky).ravel()
 
         # Red
         flux_R = numpy.array(AR * redSpec.flux).ravel()
         diag_R = sp.dia_matrix(([redSpec.fluxvar], [0]), shape=[red_NAXIS1, red_NAXIS1])
         fluxvar_R = numpy.array((AR * diag_R * AR.T).sum(axis=1)).ravel()
-        sky_R = numpy.array(AR * redSpec.sky).ravel()
 
         BUFFER = 10.0
 
@@ -164,21 +162,17 @@ def join_spectra(blueSpec, redSpec, get_dq=False):
 
         flux = numpy.zeros(len(flux_B), dtype=numpy.float32)
         fluxVar = numpy.zeros(len(flux_B), dtype=numpy.float32)
-        sky = numpy.zeros(len(flux_B), dtype=numpy.float32)
 
         flux[blue_only] = flux_B[blue_only]
         fluxVar[blue_only] = fluxvar_B[blue_only]
-        sky[blue_only] = sky_B[blue_only]
 
         fluxVar[overlap] = 1.0 / (1.0 / fluxvar_B[overlap] + 1.0 / fluxvar_R[overlap])
         flux[overlap] = (
             flux_B[overlap] / fluxvar_B[overlap] + flux_R[overlap] / fluxvar_R[overlap]
         ) * fluxVar[overlap]
-        sky[overlap] = numpy.nanmean((sky_B[overlap], sky_R[overlap]), axis=0)
 
         flux[red_only] = flux_R[red_only]
         fluxVar[red_only] = fluxvar_R[red_only]
-        sky[red_only] = sky_R[red_only]
 
         # Ensure no bad effects from Lanczos interpolation.
         fluxVar = numpy.abs(fluxVar)
@@ -192,6 +186,16 @@ def join_spectra(blueSpec, redSpec, get_dq=False):
             dq[red_only] = dq_R[red_only]
         else:
             dq = None
+
+        if blueSpec.sky is not None and redSpec.sky is not None:
+            sky = numpy.zeros(len(flux_B), dtype=numpy.float32)
+            sky_B = numpy.array(AB * blueSpec.sky).ravel()
+            sky_R = numpy.array(AR * redSpec.sky).ravel()
+            sky[blue_only] = sky_B[blue_only]
+            sky[overlap] = numpy.nanmean((sky_B[overlap], sky_R[overlap]), axis=0)
+            sky[red_only] = sky_R[red_only]
+        else:
+            sky = None
 
         return flux, fluxVar, dq, sky
 
@@ -287,18 +291,19 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False):
             hdu_dq.scale('int16')
             hdulist.append(hdu_dq)
 
-        hdr_sky = fits.Header()
-        hdr_sky["EXTNAME"] = "SKY"
-        hdr_sky["CRPIX1"] = blueSpec.header["CRPIX1"]
-        hdr_sky["CRVAL1"] = blueSpec.header["CRVAL1"]
-        hdr_sky["CDELT1"] = blueSpec.header["CDELT1"]
-        hdr_sky["CTYPE1"] = "WAVE"
-        hdr_sky["CUNIT1"] = "Angstrom"
+        if sky is not None:
+            hdr_sky = fits.Header()
+            hdr_sky["EXTNAME"] = "SKY"
+            hdr_sky["CRPIX1"] = blueSpec.header["CRPIX1"]
+            hdr_sky["CRVAL1"] = blueSpec.header["CRVAL1"]
+            hdr_sky["CDELT1"] = blueSpec.header["CDELT1"]
+            hdr_sky["CTYPE1"] = "WAVE"
+            hdr_sky["CUNIT1"] = "Angstrom"
 
-        hdu_sky = fits.ImageHDU(data=sky.astype("float32", casting="same_kind"),
-                                header=hdr_sky)
-        hdu_sky.scale("float32")
-        hdulist.append(hdu_sky)
+            hdu_sky = fits.ImageHDU(data=sky.astype("float32", casting="same_kind"),
+                                    header=hdr_sky)
+            hdu_sky.scale("float32")
+            hdulist.append(hdu_sky)
 
         print("Saving spliced spectra.")
         hdulist.writeto(output_path, overwrite=True)
