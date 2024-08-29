@@ -84,7 +84,8 @@ def adr_x_y(wavelength_array,
             telpa=0.0,
             ref_wl=5000.0):
 
-    """Atmospheric differential refraction, based on model of Filippenko (1982PASP...94..715F).
+    """
+    Atmospheric differential refraction, based on model of Filippenko (1982PASP...94..715F).
 
     Assumes plane-parallel atmosphere; Barrell (1951) model for dependence of index of refraction
     on temperature, air pressure, and water vapour pressure; and values for index of refraction at
@@ -113,11 +114,11 @@ def adr_x_y(wavelength_array,
 
     Outputs:
 
-    - list of [array of x-axis offsets for each wavelength,
-               array of y-axis offsets for each wavelength].
-      Units of arcseconds.
+    - list of [array of x-axis offsets for each wavelength, array of y-axis offsets for each wavelength].
+        Units of arcseconds.
 
     """
+
     # get adr results
     eta = adr_eta(objha, tellat, objdec)
     obj_eta = eta - telpa

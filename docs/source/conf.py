@@ -8,7 +8,10 @@
 # Add the directory containing your module to the Python paths
 import os
 import sys
+print(sys.executable)
+import pywifes
 
+sys.path.insert(0, os.path.abspath("."))
 sys.path.insert(0, os.path.abspath('../src/pywifes/'))
 sys.path.insert(0, os.path.abspath('../../reduction_scripts/'))
 

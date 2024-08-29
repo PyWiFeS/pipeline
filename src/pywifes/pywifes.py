@@ -118,7 +118,7 @@ def calib_to_half_frame(obs_metadata, temp_data_dir):
     This function takes the observation metadata and temporary data directory as input.
     It converts the calibration files to half-frame format by cutting them in half.
     The calibration types that can be converted are domeflat, twiflat, wire, and arc.
-    The converted files are saved with a prefix 'cut_' added to their names.
+    The converted files are saved with a prefix 'cut\_' added to their names.
 
     Parameters
     ----------

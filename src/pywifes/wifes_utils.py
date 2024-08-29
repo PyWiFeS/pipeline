@@ -6,7 +6,8 @@ import re
 
 # Diagnose inputs to any function
 def arguments():
-    """Report current functions source file and as-called arguments.
+    """
+    Report current functions source file and as-called arguments.
 
     Adapted from http://kbyanc.blogspot.com/2007/07/python-aggregating-function-arguments.html
     """
@@ -27,7 +28,8 @@ def arguments():
 
 
 def fits_scale_from_bitpix(bitpix):
-    """Map common BITPIX header value to astropy.io.fits 'scale' argument.
+    """
+    Map common BITPIX header value to astropy.io.fits 'scale' argument.
     """
     if bitpix == -64:
         return 'float64'
@@ -47,6 +49,9 @@ def fits_scale_from_bitpix(bitpix):
 # ------------------------------------------------------------------------
 # high-level functions to check if an observation is half-frame or N+S
 def is_halfframe(inimg, data_hdu=0):
+    """
+    Report whether this exposure (filename or HDUList) is a half-frame (a.k.a. Stellar mode) image.
+    """
     if isinstance(inimg, str):
         extnum = data_hdu + 1 if re.search('.fz', inimg) else data_hdu
         header = pyfits.getheader(inimg, ext=extnum)
@@ -61,6 +66,9 @@ def is_halfframe(inimg, data_hdu=0):
 
 
 def is_nodshuffle(inimg, data_hdu=0):
+    """
+    Report whether this exposure is a Nod & Shuffle frame.
+    """
     f = pyfits.open(inimg)
     ns = f[data_hdu].header["WIFESOBS"]
     f.close()
@@ -68,6 +76,9 @@ def is_nodshuffle(inimg, data_hdu=0):
 
 
 def is_subnodshuffle(inimg, data_hdu=0):
+    """
+    Report whether this exposure is a SubNodAndShuffle frame.
+    """
     f = pyfits.open(inimg)
     sns = f[data_hdu].header["WIFESOBS"]
     f.close()
@@ -75,7 +86,8 @@ def is_subnodshuffle(inimg, data_hdu=0):
 
 
 def is_taros(inimg):
-    """Report whether this exposure was taken with TAROS.
+    """
+    Report whether this exposure was taken with TAROS.
     Useful for determining whether last slit of half-frame readouts is truncated.
     """
     if isinstance(inimg, pyfits.header.Header):
@@ -92,14 +104,17 @@ def is_taros(inimg):
 
 
 def nan_helper(y):
-    """Helper to handle indices and logical indices of NaNs.
+    """
+    Helper to handle indices and logical indices of NaNs.
 
     Input:
         - y, 1d numpy array with possible NaNs
+
     Output:
         - nans, logical indices of NaNs
         - index, a function, with signature indices= index(logical_indices),
           to convert logical indices of NaNs to 'equivalent' indices
+
     Example:
         >>> # linear interpolation of NaNs
         >>> nans, x= nan_helper(y)

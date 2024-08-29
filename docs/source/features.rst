@@ -10,26 +10,25 @@ PyWiFeS is an automated and upgraded version of the original PyWiFeS pipeline (s
 Upgrades from the Previous Version
 ----------------------------------
 
-Main upgrades from the previous PyWiFeS version *as of July 2024*:
+Main upgrades from the previous PyWiFeS version *as of August 2024*:
 
 - Updated to Python 3, with bug fixes and headers for the new telescope setup.
-- Cleaner repository (defunct scripts and directories were removed).
 - Pip installable.
 - Supports various observing configurations automatically:
     - `classic` mode.
     - `nod-and-shuffle` mode.
     - `sub-nod-and-shuffle` mode.
-    - Stellar frame configuration (that is, only the middle part of the detector is used).
-    - Binning along the spatial axis.
-- New `.JSON` config files for each observing mode and grating.
-  - The pipeline chooses the template automatically.
-  - Users don't need to set anything in generate metadata or reduction scripts anymore.
-  - Users can create their own `.JSON` file following the same structure as their preferred setup.
-  - Another set of `.JSON` config files is provided for when the pipeline aims to generate the master calibration files only.
+    - Stellar frame configuration (that is, only half of the detector is used).
+    - Any binning mode.
+    - Backwards compatible with data obtained by TAROS.
+- New JSON5 config files for each grating, with comments for each user option.
+  - The pipeline will choose a template automatically, if not specified by the user.
+  - Users don't need to set anything to generate metadata or reduction scripts anymore.
+  - Users can create their own JSON5 file following the same structure as their preferred setup.
 - Logger file to track data usage and pipeline performance.
-- Implemented astrometry in the data cubes. The accuracy could be low (< 2 arcsec) in some cases. 
+- Implemented astrometry in the data cubes. The accuracy could be low (> 2 arcsec) in some cases. 
 - Extraction and splice of the spectra and splice of the 3D astrometrised cubes are now implemented.
-- Added multiprocessing for faster execution (Linux recommended).
+- Added multiprocessing for faster execution.
 - Multiple quality plots are automatically generated and saved.
 - Organized output directory (`/data_products`).
 

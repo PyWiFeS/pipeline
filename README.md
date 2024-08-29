@@ -183,6 +183,8 @@ For more information, we refer the users to the [**PyWiFeS User Manual**](https:
 
     -scipy 1.9.1
 
+    -numpy < 2.0
+
     -pip
 
 3. From the pipeline root directory, run:
@@ -191,8 +193,8 @@ For more information, we refer the users to the [**PyWiFeS User Manual**](https:
    ```
 4. Point the environment variable `PYWIFES_DIR` to your reference data directory. There are a few possible ways to do that:
     1. In your conda env, run the following:
-    '''conda env config vars set PYWIFES_DIR=/your/path/to/pipeline/reference_data'''
-    '''conda env config vars unset PYTHONPATH'''
+    ```conda env config vars set PYWIFES_DIR=/your/path/to/pipeline/reference_data```
+    ```conda env config vars unset PYTHONPATH```
     Then deactivate and reactivate the conda env.
     2. Add the following line to your `~/.bashrc` so it will run on login:
     ```sh
@@ -201,13 +203,13 @@ For more information, we refer the users to the [**PyWiFeS User Manual**](https:
     3. Or run the command manually before 'Running the Pipeline'.
     4. Alternatively, if `PYWIFES_DIR` is not set, the pipeline searches the program's *install* directory.
     For this approach to work, you would instead need to install with `pip install -e .`
-5.  Set up an alias for the main reduction routine `reduce_data.py`: 
+5.  If desired, set up an alias for the main reduction routine `reduce_data.py`: 
     ```sh
-    alias pywifes-reduce='/.../.../pipeline/reduction_scripts/reduce_data.py'
+    alias pywifes-reduce='/.../pipeline/reduction_scripts/reduce_data.py'
     ```    
 
 ## Running the Pipeline
-1. Put all raw data and calibration files in a dedicated directory, e.g. `/.../.../working_directory/my_raw_data`
+1. Put all raw data and calibration files in a dedicated directory, e.g. `/.../working_directory/my_raw_data`
 2. Run the main reduction routine, giving the raw data directory path as an input parameter. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
     ```sh
    pywifes-reduce my_raw_data
@@ -217,10 +219,10 @@ For more information, we refer the users to the [**PyWiFeS User Manual**](https:
 
 **Set reduction steps**
 
-To specify the reduction steps for blue and red data other than the defaults, users can provide the paths to the respective JSON files using the `--red-params` and `--blue-params` flags as follows:
+To specify the reduction steps for blue and red data other than the defaults, users can provide the paths to the respective JSON or JSON5 files using the `--red-params` and `--blue-params` flags as follows:
    
 
-    pywifes-reduce my_raw_data --red-params /.../.../user_red_param_file.json --blue-params /.../.../user_blue_param_file.json
+    pywifes-reduce my_raw_data --red-params /.../user_red_param_file.json5 --blue-params /.../user_blue_param_file.json5
 
 
 **Reduce Data Using Master Calibration Files**
@@ -264,11 +266,11 @@ When multiple sky frames are associated with a science image, they are scaled by
 
 `-greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
 
-`-extract-and-splice`: Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON file:
+`-extract-and-splice`: Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON5 file:
 
-    /../../pipeline/pipeline_params/params_extract.json
+    /.../pipeline/pipeline_params/params_extract.json5
 
-The sky annulus is hard-coded to extend from 3 to 4 times the JSON-specified source radius. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON setup). If the inputs are Nod & Shuffle frames, the sky is not subtracted.
+The sky annulus is hard-coded to extend from 3 to 4 times the JSON5-specified source radius. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON5 setup). If the inputs are Nod & Shuffle frames, the sky is not subtracted.
 
 ### Extra usabilities
 #### Multiprocessing

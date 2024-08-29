@@ -1903,12 +1903,14 @@ def derive_wifes_wave_solution(inimg, out_file, method="optical", **args):
     to the specified output file. The method to use for deriving the wavelength
     solution can be specified using the 'method' parameter. The following methods are
     available:
+
     - 'poly' for polynomial fitting: The wave solution is derived by fitting the arc
-    lines in each slitlet and then fitting a polynomial to the derived wavelengths.
+      lines in each slitlet and then fitting a polynomial to the derived wavelengths.
 
     - 'optical' for optical fitting.  The wave solution is derived by finding the lines,
-    and fitting the WiFeS optical model to the lines (model provided in the sub-module
-    'optical_model.py').
+      and fitting the WiFeS optical model to the lines (model provided in the sub-module
+      'optical_model.py').
+
 
     Parameters
     ----------
@@ -1924,6 +1926,71 @@ def derive_wifes_wave_solution(inimg, out_file, method="optical", **args):
 
     Optional Function Arguments
     ---------------------------
+    method : str
+        Method for fitting wavelength solution: optical model of spectrograph or
+        polynomial method.
+        Options: 'optical', 'poly'
+        Default: 'optical'.
+
+        Options for 'method'='optical':
+            shift_method : str
+                Method to shift model to match reference line list: shifting each
+                row, just the central row of each slitlet, sampling a grid of rows
+                in the y-axis, or guessing from the optical model.
+                Options: 'xcorr_all', 'xcorr_single', 'xcorr_grid', None.
+            find_method : str
+                Method for fitting the arc lines, using MPFIT, numpy fitter (using
+                logFlux), or scipy fitter.
+                Options: 'mpfit', 'loggauss', 'least_squares'.
+                Default: 'loggauss'.
+            doalphapfit : bool
+                Whether to fit each slitlet angle of incidence.
+                Default: True.
+            dlam_cut_start : float
+                Initial threshold in Angstroms for the derivative calculation
+                portion of the list matching.
+                Default: 5.0.
+            flux_threshold_nsig : float
+                Number of sigma above the background for line detection.
+                Default: 3.0.
+            epsilon : float
+                Threshold for excluding lines when matching to exclusion list.
+                Default: 0.005.
+            automatic : bool
+                Whether to exclude lines with large residuals.
+                Default: False.
+            sigma : float
+                RMS threshold offset from mean for excluding lines if
+                'automatic'=True.
+                Default: 1.0.
+            decimate : bool
+                Whether to perform initial fit with 10% of data.
+                Default: False.
+            multithread : bool
+                Whether to run step using "multiprocessing" module.
+                Default: true.
+
+        Options for 'method'='poly':
+            dlam_cut_start : float
+                Initial threshold in Angstroms for the derivative calculation
+                portion of the list matching.
+                Default: 7.0.
+            dlam_cut : float
+                Subsequent threshold for matching to line lists.
+                Default: 3.0.
+            x_polydeg : int
+                Order of x-axis polynomial.
+                Default: 4.
+            y_polydeg : int
+                Order of y-axis polynomial.
+                Default: 2.
+            flux_threshold_nsig : float
+                Number of sigma above the background for line detection.
+                Default: 3.0.
+            deriv_threshold_nsig : float
+                Threshold for number of sigma different from median flux derivative
+                per x pixel.
+                Default: 1.0.
 
     Raises
     ------
