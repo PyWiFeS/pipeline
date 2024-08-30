@@ -6,7 +6,7 @@ The automated Python data reduction pipeline for WiFeS.
 
 Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024, and updated to include PyWiFeS/pipeline updates to 7 Aug 2024 [commit f6a2d8c].
 
-What's been done [20240828]:
+What's been done [20240830]:
 
 - merge in documentation and other updates from official repository.
 
@@ -18,6 +18,7 @@ What's been done [20240828]:
 
 - constrain datatypes for spliced and extracted cubes and spectra.
 
+- handle saturated pixels in raw frames (flag in VAR and DQ frames for SCIENCE, STANDARD, SKY images; interpolate over for other image types).
 
 ***Future Development Underway***
 

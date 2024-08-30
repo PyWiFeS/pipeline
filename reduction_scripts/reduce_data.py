@@ -430,7 +430,7 @@ def main():
             Default: None.
         omaskfile : str
             If 'poly_high_oscan'=True, filename of the maskfile defining the slice/interslice regions.
-            Default: None.
+            Default: None, but provided automatically if `poly_high_oscan'=True.
         omask_threshold : float
             If 'poly_high_oscan'=True, threshold in per-row mean ADU relative to row with lowest mean,
             to determine whether overscan is masked.
@@ -497,7 +497,7 @@ def main():
         Optional Function Arguments
         ---------------------------
         flat_littrow : bool
-            Whether to interpolate over the Littrow ghosts in the dome and twilight flats.
+            Whether to interpolate over the Littrow ghosts in dome and twilight flats.
             Default: False.
         interp_buffer : int
             When linearly interpolating over bad pixels, how many additional pixels to
@@ -527,14 +527,9 @@ def main():
                     and os.path.getmtime(input_filepath) < os.path.getmtime(output_filepath):
                 continue
             info_print(f"Repairing {arm} bad pixels for {input_filename}")
-            if arm == "red":
-                pywifes.repair_red_bad_pix(
-                    input_filepath, output_filepath, data_hdu=0, **args
-                )
-            if arm == "blue":
-                pywifes.repair_blue_bad_pix(
-                    input_filepath, output_filepath, data_hdu=0, **args
-                )
+            pywifes.repair_bad_pix(
+                input_filepath, output_filepath, arm, data_hdu=0, **args
+            )
 
     # ------------------------------------------------------
     # Generate super-bias
@@ -563,9 +558,6 @@ def main():
         plot : bool
             Whether to create the diagnotic plot.
             Default: True.
-        plot_dir : str
-            Directory for the diagnostic plot.
-            Default: '.'.
         save_prefix : str
             Prefix for the diagnostic plot.
             Default: 'bias'.
@@ -734,22 +726,9 @@ def main():
         nonzero_thresh : float
             Threshold for counting pixels to "median_nonzero" scaling.
             Default: 100.0.
-        kwstring : str
-            Header keyword to add to output as "PYW" + kwstring, containing number of
-            inputs.
-            Default: None.
-        commstring : str
-            Header keyword comment to add to output.
-            Default: None.
-        outvarimg : str
-            Filename of variance image to output (if defined).
-            Default: None.
         plot : bool
             Whether to output a diagnostic plot.
             Default: False.
-        plot_dir : str
-            Directory for output of plot (if requested).
-            Default: '.'.
         save_prefix : str
             Prefix for plot (if requested).
             Default: 'imcombine_inputs'.
@@ -869,14 +848,6 @@ def main():
 
         Optional Function Arguments
         ---------------------------
-        slitlet_def_file : str
-            Filename of pickle file defining slitlet boundaries. Uses a baseline
-            default file if none specified.
-            Default: None.
-        method : str
-            Method for fitting the scattered light.
-            Options: '2D', '1D'.
-            Default: '2D'.
         bin_x : int
             If specified, override the x-axis binning defined in the header.
             Default: None.
@@ -886,10 +857,6 @@ def main():
         data_hdu : int
             Number of primary HDU in file.
             Default: 0.
-        offset : float
-            A constant level of 'offset' * median(interslice_background) is added to
-            the frame.
-            Default: 0.4.
         buffer : int
             Number of y-axis pixels around each slitlet definition to exclude when
             calculating interslice background.
@@ -904,9 +871,6 @@ def main():
         plot : bool
             Whether to output a diagnostic plot.
             Default: False.
-        plot_dir : str
-            Directory for output of plot (if requested).
-            Default: '.'.
         save_prefix : str
             Prefix for plot (if requested).
             Default: 'cleanup_'.
@@ -1403,9 +1367,6 @@ def main():
         plot : bool
             Whether to create the diagnotic plot.
             Default: True.
-        plot_dir : str
-            Directory for the diagnostic plot.
-            Default: '.'.
         save_prefix : str
             Prefix for the diagnostic plot.
             Default: 'wire_fit_params'.
@@ -1492,12 +1453,6 @@ def main():
         resp_min : float
             Minimum value allowed in final response function.
             Default: 0.0001.
-        plot : bool
-            Whether to create the diagnotic plot.
-            Default: True.
-        plot_dir : str
-            Directory for the diagnostic plot.
-            Default: '.'.
         save_prefix : str
             Prefix for the diagnostic plot.
             Default: 'flat_response'.
@@ -2158,10 +2113,6 @@ def main():
 
         Optional Function Arguments
         ---------------------------
-        method : str, optional
-            Method for fitting the calibration solution.
-            Options: 'poly', 'smooth_SG'.
-            Default: 'poly'
         polydeg : int, optional
             Degree of the polynomial for fitting the calibration solution.
             Default: 30.
@@ -2212,9 +2163,6 @@ def main():
         plot_sensf : bool, optional
             Whether to plot the sensitivity function.
             Default: False.
-        plot_dir : str
-            Directory for the diagnostic plot.
-            Default: '.'.
         save_prefix : str, optional
             Prefix for the saved calibration files.
             Default: 'calib_'.
@@ -2322,15 +2270,9 @@ def main():
             Flag indicating whether to plot the individual O2 and H2O corrections for
             each star.
             Default: False.
-        plot_dir : str, optional
-            Directory to save the plot file.
-            Default: None.
         save_prefix : str, optional
             Prefix for the saved plot file.
             Default: 'telluric'.
-        extract_in_list : list, optional
-            List of extracted spectrum file names.
-            Default: None.
         airmass_list : list, optional
             List of airmass values for each cube file. If not provided, the airmass
             values will be extracted from the cube headers.

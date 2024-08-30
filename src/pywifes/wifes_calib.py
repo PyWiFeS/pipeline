@@ -792,8 +792,7 @@ def derive_wifes_calibration(
         gs = gridspec.GridSpec(2, 2, height_ratios=[3, 1], width_ratios=[1, 0.3], hspace=0.1)
 
         # MC update - raw fit on top
-        ax1 = fig.add_subplot(gs[0, :1], xticklabels=[])
-        # plt.axes([0.10, 0.35, 0.85, 0.60])
+        ax1 = fig.add_subplot(gs[0, :1])
 
         ax1.plot(
             temp_full_x,
@@ -824,15 +823,15 @@ def derive_wifes_calibration(
             )
         ax1.plot(full_x, final_fvals, color=r"#00FF00", lw=2, label="Final fit")
 
-        ax1.set_xlim([numpy.min(full_x), numpy.max(full_x)])
+        ax1.set_xlim([numpy.min(obs_wave), numpy.max(obs_wave)])
         curr_ylim = ax1.get_ylim()
         curr_xlim = ax1.get_xlim()
         ax1.set_ylim(curr_ylim[::-1])
 
         ax1.set_ylabel("Counts-to-Flux Ratio [mag]")
-
         ax1.set_title("Derived sensitivity function")
         ax1.legend(bbox_to_anchor=(1.34, 1), framealpha=1.0, fontsize='small', markerscale=0.8, frameon=False)
+
         # lower plot - residuals!
         ax2 = fig.add_subplot(gs[1, :1], sharex=ax1)
         residuals = full_y - final_fvals

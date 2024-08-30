@@ -691,7 +691,7 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     ax_hist.hist(resid, orientation='vertical', bins=40, color='red', density=True)
     ax_hist.yaxis.set_label_position("right")
     ax_hist.label_outer()
-    
+
 
     # Compute mean and standard deviation of resid
     mean_resid = np.mean(resid)
@@ -734,7 +734,8 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
 
     # plt.tight_layout()
 
-    plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6,left=0.075,right=0.925,bottom=0.09)  # Adjust top to make room for suptitle
+    # Adjust top to make room for suptitle
+    plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6, left=0.075, right=0.925, bottom=0.09)
 
     plt.savefig(plot_path, dpi=300)
     plt.close('all')

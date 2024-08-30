@@ -1332,6 +1332,7 @@ def subtract_overscan(
         offset = 0
     nx = 4096 // bin_x
     subbed_data = numpy.zeros([ny, nx], dtype=float)
+    avg_oscan = []
     for i in range(len(fmt_det_reg)):
         if halfframe:
             init_det = fmt_det_reg[i]
@@ -1389,17 +1390,21 @@ def subtract_overscan(
         subbed_data[sci[0]:sci[1], sci[2]:sci[3]] = gain[i] * (
             curr_data - curr_ovs_val[:, numpy.newaxis]
         )
+        avg_oscan.append(numpy.mean(curr_ovs_val))
+
+    # (3a) - if there were any saturated pixels before overscan subtraction, set them to NaN
+    subbed_data[curr_data == 65535] = numpy.nan
 
     # (3b) - if epoch R4a, flip data!
     if epoch == "R4a":
         temp_data = subbed_data[:, ::-1]
         next_data = temp_data[::-1, :]
         subbed_data = next_data
+
     # (4) only modify data part of data_hdu for output
     detsize_str = "[%d:%d,%d:%d]" % (1, ny, 1, nx)
     outfits[data_hdu].header.set("DETSIZE", detsize_str)
     outfits[data_hdu].header.set("CCDSIZE", detsize_str)
-    # outfits[data_hdu].header.set('DETSEC',  detsize_str)
     outfits[data_hdu].header.set("DATASEC", detsize_str)
     outfits[data_hdu].header.set("TRIMSEC", detsize_str)
     outfits[data_hdu].header.set("RDNOISE", max(rdnoise), 'Read noise in electrons')
@@ -1410,6 +1415,7 @@ def subtract_overscan(
         outfits[data_hdu].header.set('PYWOVTHR', omask_threshold, "PyWiFeS: overscan mask threshold")
     else:
         outfits[data_hdu].header.set('PYWOVERM', False, "PyWiFeS: used overscan mask")
+    outfits[data_hdu].header.set('PYWOSUB', numpy.mean(avg_oscan), "PyWiFeS: mean overscan subtracted")
     outfits[data_hdu].data = subbed_data.astype("float32", casting="same_kind")
     outfits[data_hdu].scale("float32")
     # (5) write to outfile!
@@ -1418,18 +1424,18 @@ def subtract_overscan(
 
 
 # ------------------------------------------------------------------------
-def repair_blue_bad_pix(inimg, outimg, data_hdu=0, flat_littrow=False,
-                        interp_buffer=3, interactive_plot=False, verbose=False, debug=False):
+def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
+                   interp_buffer=3, interactive_plot=False, verbose=False, debug=False):
     """Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
-    calibration frames, but sets bad pixels to NaN for STANDARD and OBJECT frames. The NaN
-    pixels can be interpolated across in same way after the VAR and DQ extensions are created,
-    so that the affected pixels are flagged appropriately.
+    calibration frames, but sets bad pixels to NaN for STANDARD, OBJECT, and SKY frames.
+    The NaN pixels are interpolated across in same way after the VAR and DQ extensions
+    are created, so that the affected pixels are flagged appropriately.
     """
     if debug:
         print(arguments())
-    # first check it is the new blue detector, otherwise skip
+    # bad pixel definitions only certain for epochs B/R4 and later, otherwise skip
     epoch = determine_detector_epoch(inimg)
-    if epoch[0] != "B" or float(epoch[1]) < 4:
+    if float(epoch[1]) < 4:
         imcopy(inimg, outimg)
         return
     # get data and header
@@ -1441,69 +1447,156 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, flat_littrow=False,
     # figure out binning
     bin_x, bin_y = [int(b) for b in orig_hdr["CCDSUM"].split()]
     # image type determines method to use
-    if orig_hdr['IMAGETYP'].upper() in ['OBJECT', 'STANDARD']:
+    if orig_hdr['IMAGETYP'].upper() in ['OBJECT', 'STANDARD', 'SKY']:
         method = 'nan'
     else:
         method = 'interp'
 
     detsec = orig_hdr["DETSEC"]
-    y_veryfirst, y_verylast = [int(pix) - 1 for pix in detsec.split(",")[1].rstrip(']').split(":")]
+    y_veryfirst, y_verylast = [int(pix) - 1 for pix in
+                               detsec.split(",")[1].rstrip(']').split(":")]
 
-    # bad_data = [[yfirst, ylast, xfirst, xlast], [...]]
-    # Uses unbinned, full-frame, 0-indexed pixels after overscan trimming, e.g., p00.fits
-    # Limits are inclusive of the bad pixels on both ends of range
-    bad_data = [[746, 4095, 1525, 1531],
-                [2693, 3104, 3944, 3944],
-                # cold pixels
-                [3974, 4053, 900, 900],
-                [2387, 2388, 2197, 2197],
-                [909, 913, 1064, 1066],
-                ]
-    # Optionally mask the Littrow ghosts (one per slitlet) in flats, to be interpolated over
-    # Regions are generous to accommodate lamp vs sky and thermal shifts
-    if flat_littrow and orig_hdr['IMAGETYP'].upper() in ['FLAT', 'SKYFLAT']:
-        littrow_data = [
-            [3965, 4040, 3115, 3140],
-            [3805, 3880, 3116, 3141],
-            [3647, 3722, 3118, 3143],
-            [3492, 3567, 3119, 3144],
-            [3336, 3411, 3120, 3145],
-            [3178, 3253, 3123, 3148],
-            [3018, 3093, 3124, 3149],
-            [2858, 2933, 3126, 3151],
-            [2697, 2772, 3128, 3153],
-            [2537, 2612, 3130, 3155],
-            [2377, 2452, 3131, 3156],
-            [2217, 2292, 3133, 3158],
-            [2056, 2131, 3135, 3160],
-            [1897, 1972, 3138, 3163],
-            [1736, 1811, 3140, 3165],
-            [1575, 1650, 3143, 3168],
-            [1415, 1490, 3145, 3170],
-            [1255, 1330, 3146, 3171],
-            [1095, 1170, 3148, 3173],
-            [934, 1009, 3150, 3175],
-            [774, 849, 3153, 3178],
-            [614, 689, 3157, 3182],
-            [454, 529, 3159, 3184],
-            [294, 369, 3162, 3187],
-            [134, 209, 3164, 3189],
-        ]
-        # Choice of grating changes the ghost locations, but beam splitter
-        # only shifts the position by a few pixels
-        if orig_hdr['GRATINGB'] == 'B7000':
-            for ll in littrow_data:
-                ll[0] -= 50
-                ll[1] -= 40
-                ll[2] -= 1110
-                ll[3] -= 1090
-        elif orig_hdr['GRATINGB'] == 'U7000':
-            for ll in littrow_data:
-                ll[0] -= 35
-                ll[1] -= 25
-                ll[2] -= 1080
-                ll[3] -= 1060
-        bad_data.extend(littrow_data)
+    # Structure: bad_data = [[yfirst, ylast, xfirst, xlast], [...]].
+    # Uses unbinned, full-frame, 0-indexed pixels after overscan trimming (p00.fits).
+    # Limits are inclusive of the bad pixels on both ends of range.
+    if arm == "blue":
+        bad_data = [[746, 4095, 1525, 1531],
+                    [2693, 3104, 3944, 3944],
+                    # cold pixels
+                    [3974, 4053, 900, 900],
+                    [2387, 2388, 2197, 2197],
+                    [909, 913, 1064, 1066],
+                    ]
+        # Mask the Littrow ghosts (one per slitlet) in flats, to be interpolated over.
+        # Regions are generous to accommodate lamp vs sky and thermal shifts.
+        if flat_littrow and orig_hdr['IMAGETYP'].upper() in ['FLAT', 'SKYFLAT']:
+            littrow_data = [
+                [3965, 4040, 3115, 3140],
+                [3805, 3880, 3116, 3141],
+                [3647, 3722, 3118, 3143],
+                [3492, 3567, 3119, 3144],
+                [3336, 3411, 3120, 3145],
+                [3178, 3253, 3123, 3148],
+                [3018, 3093, 3124, 3149],
+                [2858, 2933, 3126, 3151],
+                [2697, 2772, 3128, 3153],
+                [2537, 2612, 3130, 3155],
+                [2377, 2452, 3131, 3156],
+                [2217, 2292, 3133, 3158],
+                [2056, 2131, 3135, 3160],
+                [1897, 1972, 3138, 3163],
+                [1736, 1811, 3140, 3165],
+                [1575, 1650, 3143, 3168],
+                [1415, 1490, 3145, 3170],
+                [1255, 1330, 3146, 3171],
+                [1095, 1170, 3148, 3173],
+                [934, 1009, 3150, 3175],
+                [774, 849, 3153, 3178],
+                [614, 689, 3157, 3182],
+                [454, 529, 3159, 3184],
+                [294, 369, 3162, 3187],
+                [134, 209, 3164, 3189],
+            ]
+            # Choice of grating changes the ghost locations, but beam splitter
+            # only shifts the position by a few pixels.
+            if orig_hdr['GRATINGB'] == 'B7000':
+                for ll in littrow_data:
+                    ll[0] -= 50
+                    ll[1] -= 40
+                    ll[2] -= 1110
+                    ll[3] -= 1090
+            elif orig_hdr['GRATINGB'] == 'U7000':
+                for ll in littrow_data:
+                    ll[0] -= 35
+                    ll[1] -= 25
+                    ll[2] -= 1080
+                    ll[3] -= 1060
+            bad_data.extend(littrow_data)
+    elif arm == "red":
+        bad_data = [[0, 2707, 9, 11],
+                    [0, 3280, 773, 775],
+                    [0, 4095, 901, 904],
+                    [3978, 3986, 897, 906],
+                    [0, 3387, 939, 939],
+                    [0, 1787, 2273, 2273],
+                    # cold pixels
+                    [3759, 3762, 257, 260],
+                    [3373, 3376, 2382, 2385],
+                    [3323, 3323, 2511, 2511],
+                    [3319, 3319, 728, 728],
+                    [3114, 3120, 1402, 1407],
+                    [2944, 2949, 3702, 3706],
+                    [2966, 2968, 3747, 3749],
+                    [2684, 2685, 756, 757],
+                    [2361, 2361, 1489, 1489],
+                    [2249, 2251, 898, 899],
+                    [2013, 2016, 1149, 1153],
+                    [2017, 2017, 1151, 1153],
+                    [2045, 2045, 1262, 1263],
+                    [2037, 2039, 1825, 1826],
+                    [2040, 2040, 1826, 1826],
+                    [2036, 2036, 1826, 1826],
+                    [1558, 1558, 2430, 2430],
+                    [705, 708, 2184, 2189],
+                    [632, 635, 905, 905],
+                    [634, 636, 906, 906],
+                    ]
+        if is_taros(inimg):
+            # TAROS uses an amplifier on the bottom edge of the CCD rather than the top,
+            # so bad pixels extend in the opposite direction.
+            for yfirst, ylast, xfirst, xlast in bad_data:
+                if yfirst == 0:
+                    yfirst = 0 if ylast == 4095 else ylast
+                    ylast = 4095
+
+        # Mask the Littrow ghosts (one per slitlet) in flats, to be interpolated over.
+        # Regions are generous to accommodate lamp vs sky and thermal shifts.
+        if flat_littrow and orig_hdr['IMAGETYP'].upper() in ['FLAT', 'SKYFLAT']:
+            littrow_data = [
+                [3963, 4038, 1502, 1532],
+                [3785, 3860, 1505, 1535],
+                [3637, 3712, 1506, 1535],
+                [3484, 3559, 1510, 1540],
+                [3329, 3404, 1505, 1535],
+                [3169, 3244, 1504, 1536],
+                [3009, 3084, 1507, 1537],
+                [2852, 2927, 1504, 1536],
+                [2691, 2766, 1504, 1536],
+                [2533, 2608, 1505, 1537],
+                [2374, 2449, 1505, 1535],
+                [2214, 2289, 1505, 1535],
+                [2055, 2130, 1500, 1530],
+                [1896, 1971, 1497, 1527],
+                [1737, 1812, 1498, 1528],
+                [1577, 1652, 1495, 1525],
+                [1418, 1493, 1495, 1525],
+                [1256, 1331, 1493, 1523],
+                [1099, 1174, 1487, 1517],
+                [938, 1013, 1486, 1516],
+                [778, 853, 1480, 1510],
+                [615, 690, 1478, 1508],
+                [458, 533, 1473, 1503],
+                [289, 364, 1470, 1500],
+                [108, 183, 1465, 1495],
+            ]
+            # Choice of grating changes the ghost locations, but beam splitter
+            # only shifts the position by a few pixels.
+            if orig_hdr['GRATINGR'] == 'R7000':
+                # Falls completely on science slits.
+                for ll in littrow_data:
+                    ll[0] -= 30
+                    ll[1] -= 10
+                    ll[2] += 480
+                    ll[3] += 500
+            elif orig_hdr['GRATINGR'] == 'I7000':
+                # Falls completely on science slits in region of high fringing.
+                # Better to omit masking.
+                littrow_data = []
+            bad_data.extend(littrow_data)
+
+    else:
+        # Unknown arm
+        raise ValueError(f"Arm must be 'blue' or 'red'. Received '{arm}'.")
 
     interp_data = 1.0 * orig_data
     for yfirst, ylast, xfirst, xlast in bad_data:
@@ -1516,8 +1609,8 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, flat_littrow=False,
         xfirst //= bin_x
         xlast //= bin_x
         if method == 'interp':
-            slice_lo = numpy.median(orig_data[yfirst:ylast + 1, xfirst - 1 - interp_buffer:xfirst], axis=1)
-            slice_hi = numpy.median(orig_data[yfirst:ylast + 1, xlast + 1:xlast + 2 + interp_buffer], axis=1)
+            slice_lo = numpy.nanmedian(orig_data[yfirst:ylast + 1, xfirst - 1 - interp_buffer:xfirst], axis=1)
+            slice_hi = numpy.nanmedian(orig_data[yfirst:ylast + 1, xlast + 1:xlast + 2 + interp_buffer], axis=1)
             if verbose:
                 print(f"Interpolating from ({yfirst}:{ylast + 1}, {xfirst - 1}) to ({yfirst}:{ylast + 1}, {xlast + 1})")
             for this_x in numpy.arange(xfirst, xlast + 1):
@@ -1526,6 +1619,16 @@ def repair_blue_bad_pix(inimg, outimg, data_hdu=0, flat_littrow=False,
             if verbose:
                 print(f"NaN-ing ({yfirst}:{ylast + 1},{xfirst}:{xlast + 1})")
             interp_data[yfirst:ylast + 1, xfirst:xlast + 1] = numpy.nan
+    # Interpolate over any NaN pixels arising from saturation (excluding science images)
+    if method == 'interp':
+        nan_rows = numpy.nonzero(numpy.isnan(interp_data))[0]
+        if len(nan_rows) > 0:
+            # loop over each row with at least one bad pixel and linearly interpolate across the gaps
+            for row in sorted(set(nan_rows)):
+                interp_data[row, :][numpy.isnan(interp_data[row, :])] = \
+                    numpy.interp(numpy.where(numpy.isnan(interp_data[row, :]))[0],
+                                 numpy.where(numpy.isfinite(interp_data[row, :]))[0],
+                                 interp_data[row, :][numpy.isfinite(interp_data[row, :])])
     if interactive_plot:
         fig, axs = plt.subplots(2, 1, figsize=(8, 6))
         axs[0].imshow(orig_data, norm=colors.LogNorm(), cmap=cm['gist_ncar'])
@@ -1563,7 +1666,7 @@ def repair_red_bad_pix(inimg, outimg, data_hdu=0, flat_littrow=False,
     # figure out binning
     bin_x, bin_y = [int(b) for b in orig_hdr["CCDSUM"].split()]
     # image type determines method to use
-    if orig_hdr['IMAGETYP'].upper() in ['OBJECT', 'STANDARD']:
+    if orig_hdr['IMAGETYP'].upper() in ['OBJECT', 'STANDARD', 'SKY']:
         method = 'nan'
     else:
         method = 'interp'

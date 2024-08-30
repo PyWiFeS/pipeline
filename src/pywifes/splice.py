@@ -499,7 +499,7 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False):
         hdulist[0].header["CUNIT3"] = "angstrom"
 
         hdr_fluxvar = fits.Header()
-        hdr_fluxvar["EXTNAME"] = "VARIANCE"
+        hdr_fluxvar["EXTNAME"] = "VAR"
         hdr_fluxvar["CRPIX3"] = blue_header["CRPIX3"]
         hdr_fluxvar["CRVAL3"] = blue_header["CRVAL3"]
         hdr_fluxvar["CDELT3"] = blue_header["CDELT3"]
