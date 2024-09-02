@@ -1487,7 +1487,6 @@ def main():
                 super_tflat_mef,
                 flat_resp_fn,
                 wsol_fn=wsol_out_fn,
-                plot=True,
                 plot_dir=plot_dir_arm,
                 **args
             )

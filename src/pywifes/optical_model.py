@@ -676,7 +676,6 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     ax_left_top.set_ylabel("Y-axis [pixel]")
     ax_left_top.grid(True)
 
-
     ax_left_bottom = fig.add_subplot(gs[2:, 0:2])  # Bottom subplot in the left column
     ax_left_bottom.plot(allarcs, resid, 'r.', markeredgecolor='w', markeredgewidth=0.2)
     ax_left_bottom.set_xlabel(r"Wavelength [$\AA$]")
@@ -685,13 +684,11 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     ax_left_bottom.yaxis.tick_left()
     ax_left_bottom.grid(True)
 
-
     # Create histogram of resid on the right side
-    ax_hist = fig.add_subplot(gs[2, 2]) #, sharey=ax_left_bottom)  # Use sharey to share y-axis with ax_bottom
+    ax_hist = fig.add_subplot(gs[2, 2])
     ax_hist.hist(resid, orientation='vertical', bins=40, color='red', density=True)
     ax_hist.yaxis.set_label_position("right")
     ax_hist.label_outer()
-
 
     # Compute mean and standard deviation of resid
     mean_resid = np.mean(resid)
@@ -702,8 +699,8 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     sigma_neg = mean_resid - std_resid
 
     # Horizontal lines at +/-1 sigma
-    ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--',label= fr'$\sigma$: {std_resid:.2f} $\AA$')
-    ax_hist.axvline(sigma_neg, color='black', lw=0.8,  linestyle='--')
+    ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--', label=fr'$\sigma$: {std_resid:.2f} $\AA$')
+    ax_hist.axvline(sigma_neg, color='black', lw=0.8, linestyle='--')
 
     # ax_hist.text(1.1, sigma_pos, '+σ', va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=10)
     # ax_hist.text(1.1, sigma_neg, '-σ', va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=10)

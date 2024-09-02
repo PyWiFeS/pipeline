@@ -90,7 +90,7 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
         # Consider binning
         bin_y = int(header["CCDSUM"].split()[1])
 
-        # Cut the data according to the specified sectionclear
+        # Cut the data according to the specified section
         cut_data = data[1028 // bin_y:3084 // bin_y, :]
 
         # Update the DETSEC in the header
@@ -316,7 +316,7 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
                     print(f"Scaling down image {inimg_list[i]} by {scale_factor[i]}")
         ny, nx = numpy.shape(orig_data)
         # chunk in x-axis if more than equivalent of 5 unbinned full-frame images
-        chunks = int(numpy.ceil(nimg / (5. * bin_x * 4096. / ny)))
+        chunks = int(numpy.ceil(nimg / (5. * bin_x * 4112. / ny)))
         coadd_data = numpy.zeros_like(orig_data)
         if outvarimg is not None:
             var_arr = numpy.zeros_like(orig_data)
@@ -977,7 +977,8 @@ default_det_reg_bin1x2 = [[1,2048,62,2109],
 default_ovs_reg_bin1x2 = [[1,2048,48,61],
                           [1,2048,48,61]]
 """
-
+# These are [y_min, y_max, x_min, x_max] for each amplifier,
+# in FITS (1-indexed) notation.
 default_detector_values = {
     "B1": {
         "det_regs": [
@@ -1032,26 +1033,26 @@ default_detector_values = {
     },
     "B4": {
         "det_regs": [
-            [1, 4096, 54, 4149],
+            [1, 4112, 54, 4149],
         ],
         "ovs_regs": [
-            [1, 4096, 6, 53],
+            [1, 4112, 6, 53],
         ],
         "sci_regs": [
-            [1, 4096, 1, 4096],
+            [1, 4112, 1, 4096],
         ],
         "gain": [1.0],
         "rdnoise": [7.0],
     },
     "B5": {
         "det_regs": [
-            [1, 4096, 54, 4149],
+            [1, 4112, 54, 4149],
         ],
         "ovs_regs": [
-            [1, 4096, 4, 43],
+            [1, 4112, 4, 43],
         ],
         "sci_regs": [
-            [1, 4096, 1, 4096],
+            [1, 4112, 1, 4096],
         ],
         "gain": [1.47],  # e-/ADU
         "rdnoise": [3.5],  # e-
@@ -1120,7 +1121,7 @@ default_detector_values = {
         "gain": [1.0],
         "rdnoise": [7.0],
     },
-    "R4": {
+    "R4b": {
         "det_regs": [
             [1, 4096, 54, 4149],
         ],
@@ -1133,15 +1134,28 @@ default_detector_values = {
         "gain": [1.0],
         "rdnoise": [7.0],
     },
-    "R5": {
+    "R4": {
         "det_regs": [
-            [1, 4096, 54, 4149],
+            [1, 4112, 54, 4149],
         ],
         "ovs_regs": [
-            [1, 4096, 4, 43],
+            [1, 4112, 6, 53],
         ],
         "sci_regs": [
-            [1, 4096, 1, 4096],
+            [1, 4112, 1, 4096],
+        ],
+        "gain": [1.0],
+        "rdnoise": [7.0],
+    },
+    "R5": {
+        "det_regs": [
+            [1, 4112, 54, 4149],
+        ],
+        "ovs_regs": [
+            [1, 4112, 4, 43],
+        ],
+        "sci_regs": [
+            [1, 4112, 1, 4096],
         ],
         "gain": [1.39],  # e-/ADU
         "rdnoise": [3.5],  # e-
@@ -1165,6 +1179,8 @@ def determine_detector_epoch(inimg, data_hdu=0):
             epoch = "R3"
         elif utc_date < 20130322:
             epoch = "R4a"
+        elif utc_date < 20130503:
+            epoch = "R4b"
         elif utc_date < 20230308:
             epoch = "R4"
         else:
@@ -1272,6 +1288,7 @@ def subtract_overscan(
     orig_data = f[data_hdu].data
     orig_hdr = f[data_hdu].header
     f.close()
+    orig_y, orig_x = orig_data.shape
     # (1) format detector and overscan regions
     #     - if 'None' grab default values
     bin_x, bin_y = [int(b) for b in orig_hdr["CCDSUM"].split()]
@@ -1314,33 +1331,29 @@ def subtract_overscan(
     if (utc_date >= 20220613 and utc_date < 20230731
             and not is_taros(orig_hdr)
             and orig_hdr["CAMERA"] == "WiFeSRed"):
-        # Check for red arm pixel shifts in early non-TAROS readouts. Correct, if present
+        # Check for red arm pixel shifts in early Automated era readouts. Correct, if present.
         if verbose:
             print(f"Checking {inimg} for pixel shift")
         orig_data = correct_readout_shift(orig_data, verbose=verbose)
 
     # (2) create data array - MUST QUERY FOR HALF-FRAME
+    x_sci_size = numpy.sum([ff[3] - ff[2] if ff[0] == fmt_sci_reg[0][0] else 0 for ff in fmt_sci_reg])
+    y_sci_size = numpy.sum([ff[1] - ff[0] if ff[2] == fmt_sci_reg[0][2] else 0 for ff in fmt_sci_reg])
     halfframe = is_halfframe(inimg, data_hdu=data_hdu)
     if halfframe:
-        ny = 2056 // bin_y
-        if is_taros(inimg):
-            offset = 2056
-        else:
-            offset = 1028
-    else:
-        ny = 4096 // bin_y
-        offset = 0
-    nx = 4096 // bin_x
+        y_sci_size //= 2
+    nx = min(x_sci_size, orig_x)
+    ny = min(y_sci_size, orig_y)
     subbed_data = numpy.zeros([ny, nx], dtype=float)
     avg_oscan = []
     for i in range(len(fmt_det_reg)):
         if halfframe:
             init_det = fmt_det_reg[i]
-            det = [init_det[0], init_det[1] - offset, init_det[2], init_det[3]]
+            det = [init_det[0], init_det[0] + ny, init_det[2], init_det[3]]
             init_ovs = fmt_ovs_reg[i]
-            ovs = [init_ovs[0], init_ovs[1] - offset, init_ovs[2], init_ovs[3]]
+            ovs = [init_ovs[0], init_ovs[0] + ny, init_ovs[2], init_ovs[3]]
             init_sci = fmt_sci_reg[i]
-            sci = [init_sci[0], init_sci[1] - offset, init_sci[2], init_sci[3]]
+            sci = [init_sci[0], init_sci[0] + ny, init_sci[2], init_sci[3]]
         else:
             det = fmt_det_reg[i]
             ovs = fmt_ovs_reg[i]
@@ -2488,6 +2501,7 @@ def interslice_cleanup(
     # Check if half-frame
     halfframe = is_halfframe(input_fn)
     taros = is_taros(header)
+    orig_y = data.shape[0]
 
     # check which channel (blue / red) it is!!
     camera = header["CAMERA"]
@@ -2543,8 +2557,8 @@ def interslice_cleanup(
         slitlet_defs[slit_num] = [
             init_slitdefs[0],
             init_slitdefs[1],
-            max(init_slitdefs[2] - buffer - frame_offset, 1),
-            min(init_slitdefs[3] + buffer - frame_offset, 4096),
+            max(init_slitdefs[2] - buffer - frame_offset, 0),
+            min(init_slitdefs[3] + buffer - frame_offset, orig_y * bin_y),
         ]
 
     # ------------------------------------
