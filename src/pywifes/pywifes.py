@@ -51,7 +51,7 @@ nslits = len(blue_slitlet_defs.keys())
 
 
 # ------------------------------------------------------------------------
-def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
+def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_", to_taros=False):
     """
     Cuts a FITS file to half-frame size and saves the output with a specified prefix.
 
@@ -61,6 +61,9 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
         Path to the input FITS file.
     outimg_prefix : str, optional
         Prefix for the output FITS file. Default is "cut_".
+    to_taros : bool, optional
+        Whether to extract the TAROS-style top half or the Automation-style middle
+        half.
 
     Returns
     -------
@@ -91,10 +94,17 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
         bin_y = int(header["CCDSUM"].split()[1])
 
         # Cut the data according to the specified section
-        cut_data = data[1028 // bin_y:3084 // bin_y, :]
+        if to_taros:
+            cut_data = data[2056 // bin_y:4112 // bin_y, :]
 
-        # Update the DETSEC in the header
-        header["DETSEC"] = "[1:4202,1029:3084]"
+            # Update the DETSEC in the header
+            header["DETSEC"] = "[1:4202,2057:4112]"
+
+        else:
+            cut_data = data[1028 // bin_y:3084 // bin_y, :]
+
+            # Update the DETSEC in the header
+            header["DETSEC"] = "[1:4202,1029:3084]"
 
         # Create a new HDU with the cut data and the updated header
         cut_hdu = pyfits.PrimaryHDU(data=cut_data, header=header)
@@ -111,7 +121,7 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_"):
 
 
 # ------------------------------------------------------------------------
-def calib_to_half_frame(obs_metadata, temp_data_dir):
+def calib_to_half_frame(obs_metadata, temp_data_dir, to_taros=False):
     """
     Convert calibration files to half-frame format.
 
@@ -126,6 +136,9 @@ def calib_to_half_frame(obs_metadata, temp_data_dir):
         The observation metadata containing calibration file information.
     temp_data_dir : str
         The temporary data directory where the calibration files are located.
+    to_taros : bool, optional
+        Whether the reference image (science, standard, or arc) needs the TAROS-style
+        top half or the Automation-style middle half.
 
     Returns
     -------
@@ -133,7 +146,8 @@ def calib_to_half_frame(obs_metadata, temp_data_dir):
         The updated observation metadata with the converted calibration file names.
     """
 
-    # A list of calibration types that need to be half-frame for the pipeline to work properly in the half-frame scenario.
+    # A list of calibration types that need to be half-frame for the pipeline to work
+    # properly in the half-frame scenario.
     calib_types = ["domeflat", "twiflat", "wire", "arc", "bias"]
     prefix = "cut_"
 
@@ -142,10 +156,13 @@ def calib_to_half_frame(obs_metadata, temp_data_dir):
         for index, file_name in enumerate(file_list):
             calib_fits = os.path.join(temp_data_dir, file_name + ".fits")
             if not is_halfframe(calib_fits):
-                cut_fits_to_half_frame(calib_fits, outimg_prefix=prefix)
+
+                cut_fits_to_half_frame(calib_fits, outimg_prefix=prefix,
+                                       to_taros=to_taros)
                 obs_metadata[calib_type][index] = prefix + file_name
 
-    # Check the standard star separately because the dictionary has a slightly different structure.
+    # Check the standard star separately because the dictionary has a slightly
+    # different structure.
     if len(obs_metadata["std"]) == 0:
         return obs_metadata
     std_list = obs_metadata["std"][0]["sci"]
@@ -153,7 +170,7 @@ def calib_to_half_frame(obs_metadata, temp_data_dir):
     for index, file_name in enumerate(std_list):
         calib_fits = os.path.join(temp_data_dir, file_name + ".fits")
         if not is_halfframe(calib_fits):
-            cut_fits_to_half_frame(calib_fits, outimg_prefix=prefix)
+            cut_fits_to_half_frame(calib_fits, outimg_prefix=prefix, to_taros=to_taros)
             obs_metadata["std"][0]["sci"][index] = prefix + file_name
     return obs_metadata
 
@@ -1473,7 +1490,7 @@ def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
     # Uses unbinned, full-frame, 0-indexed pixels after overscan trimming (p00.fits).
     # Limits are inclusive of the bad pixels on both ends of range.
     if arm == "blue":
-        bad_data = [[746, 4095, 1525, 1531],
+        bad_data = [[746, 4111, 1525, 1531],
                     [2693, 3104, 3944, 3944],
                     # cold pixels
                     [3974, 4053, 900, 900],
@@ -1528,7 +1545,7 @@ def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
     elif arm == "red":
         bad_data = [[0, 2707, 9, 11],
                     [0, 3280, 773, 775],
-                    [0, 4095, 901, 904],
+                    [0, 4111, 901, 904],
                     [3978, 3986, 897, 906],
                     [0, 3387, 939, 939],
                     [0, 1787, 2273, 2273],
@@ -1555,12 +1572,12 @@ def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
                     [634, 636, 906, 906],
                     ]
         if is_taros(inimg):
-            # TAROS uses an amplifier on the bottom edge of the CCD rather than the top,
-            # so bad pixels extend in the opposite direction.
-            for yfirst, ylast, xfirst, xlast in bad_data:
+            # TAROS uses a red amplifier on the bottom edge of the CCD rather than the
+            # top, so bad columns extend in the opposite direction.
+            for bb, (yfirst, ylast, xfirst, xlast) in enumerate(bad_data):
                 if yfirst == 0:
-                    yfirst = 0 if ylast == 4095 else ylast
-                    ylast = 4095
+                    bad_data[bb][0] = 0 if ylast == 4111 else ylast
+                    bad_data[bb][1] = 4111
 
         # Mask the Littrow ghosts (one per slitlet) in flats, to be interpolated over.
         # Regions are generous to accommodate lamp vs sky and thermal shifts.
@@ -1647,152 +1664,6 @@ def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
         axs[0].imshow(orig_data, norm=colors.LogNorm(), cmap=cm['gist_ncar'])
         axs[0].set_title(f"Original - {orig_hdr['IMAGETYP'].upper()}")
         axs[1].imshow(interp_data, norm=colors.LogNorm(), cmap=cm['gist_ncar'])
-        axs[1].set_title('Repaired')
-        plt.tight_layout()
-        plt.show()
-    # save it!
-    outfits[data_hdu].data = interp_data
-    outfits.writeto(outimg, overwrite=True)
-    return
-
-
-def repair_red_bad_pix(inimg, outimg, data_hdu=0, flat_littrow=False,
-                       interp_buffer=3, interactive_plot=False, verbose=False, debug=False):
-    """Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
-    calibration frames, but sets bad pixels to NaN for STANDARD and OBJECT frames. The NaN
-    pixels can be interpolated across in same way after the VAR and DQ extensions are created,
-    so that the affected pixels are flagged appropriately.
-    """
-    if debug:
-        print(arguments())
-    # first check it is the new blue detector, otherwise skip
-    epoch = determine_detector_epoch(inimg)
-    if epoch[0] != "R" or float(epoch[1]) < 4:
-        imcopy(inimg, outimg)
-        return
-    # get data and header
-    f = pyfits.open(inimg)
-    outfits = pyfits.HDUList(f)
-    orig_data = f[data_hdu].data
-    orig_hdr = f[data_hdu].header
-    f.close()
-    # figure out binning
-    bin_x, bin_y = [int(b) for b in orig_hdr["CCDSUM"].split()]
-    # image type determines method to use
-    if orig_hdr['IMAGETYP'].upper() in ['OBJECT', 'STANDARD', 'SKY']:
-        method = 'nan'
-    else:
-        method = 'interp'
-
-    detsec = orig_hdr["DETSEC"]
-    y_veryfirst, y_verylast = [int(pix) - 1 for pix in detsec.split(",")[1].rstrip(']').split(":")]
-
-    # bad_data = [[yfirst, ylast, xfirst, xlast], [...]]
-    # Uses unbinned, full-frame, 0-indexed pixels after overscan trimming, e.g., p00.fits
-    # Limits are inclusive of the bad pixels on both ends of range
-    bad_data = [[0, 2707, 9, 11],
-                [0, 3280, 773, 775],
-                [0, 4095, 901, 904],
-                [3978, 3986, 897, 906],
-                [0, 3387, 939, 939],
-                [0, 1787, 2273, 2273],
-                # cold pixels
-                [3759, 3762, 257, 260],
-                [3373, 3376, 2382, 2385],
-                [3323, 3323, 2511, 2511],
-                [3319, 3319, 728, 728],
-                [3114, 3120, 1402, 1407],
-                [2944, 2949, 3702, 3706],
-                [2966, 2968, 3747, 3749],
-                [2684, 2685, 756, 757],
-                [2361, 2361, 1489, 1489],
-                [2249, 2251, 898, 899],
-                [2013, 2016, 1149, 1153],
-                [2017, 2017, 1151, 1153],
-                [2045, 2045, 1262, 1263],
-                [2037, 2039, 1825, 1826],
-                [2040, 2040, 1826, 1826],
-                [2036, 2036, 1826, 1826],
-                [1558, 1558, 2430, 2430],
-                [705, 708, 2184, 2189],
-                [632, 635, 905, 905],
-                [634, 636, 906, 906],
-                ]
-    # Optionally mask the Littrow ghosts (one per slitlet) in flats, to be interpolated over
-    # Regions are generous to accommodate lamp vs sky and thermal shifts
-    if flat_littrow and orig_hdr['IMAGETYP'].upper() in ['FLAT', 'SKYFLAT']:
-        littrow_data = [
-            [3963, 4038, 1502, 1532],
-            [3785, 3860, 1505, 1535],
-            [3637, 3712, 1506, 1535],
-            [3484, 3559, 1510, 1540],
-            [3329, 3404, 1505, 1535],
-            [3169, 3244, 1504, 1536],
-            [3009, 3084, 1507, 1537],
-            [2852, 2927, 1504, 1536],
-            [2691, 2766, 1504, 1536],
-            [2533, 2608, 1505, 1537],
-            [2374, 2449, 1505, 1535],
-            [2214, 2289, 1505, 1535],
-            [2055, 2130, 1500, 1530],
-            [1896, 1971, 1497, 1527],
-            [1737, 1812, 1498, 1528],
-            [1577, 1652, 1495, 1525],
-            [1418, 1493, 1495, 1525],
-            [1256, 1331, 1493, 1523],
-            [1099, 1174, 1487, 1517],
-            [938, 1013, 1486, 1516],
-            [778, 853, 1480, 1510],
-            [615, 690, 1478, 1508],
-            [458, 533, 1473, 1503],
-            [289, 364, 1470, 1500],
-            [108, 183, 1465, 1495],
-        ]
-        # Choice of grating changes the ghost locations, but beam splitter
-        # only shifts the position by a few pixels
-        if orig_hdr['GRATINGR'] == 'R7000':
-            # Falls completely on science slits.
-            for ll in littrow_data:
-                ll[0] -= 30
-                ll[1] -= 10
-                ll[2] += 480
-                ll[3] += 500
-        elif orig_hdr['GRATINGR'] == 'I7000':
-            # Falls completely on science slits in region of high fringing.
-            # Better to omit masking.
-            littrow_data = []
-        bad_data.extend(littrow_data)
-
-    interp_data = 1.0 * orig_data
-    for yfirst, ylast, xfirst, xlast in bad_data:
-        if is_taros(inimg) and yfirst == 0:
-            # TAROS uses an amplifier on the other edge of the CCD
-            yfirst = 0 if ylast == 4095 else ylast
-            ylast = 4095
-        yfirst = max(min(yfirst - y_veryfirst, y_verylast - y_veryfirst), 0)
-        ylast = min(max(ylast - y_veryfirst, 0), y_verylast - y_veryfirst)
-        if yfirst == (y_verylast - y_veryfirst) or ylast == 0:
-            continue
-        yfirst //= bin_y
-        ylast //= bin_y
-        xfirst //= bin_x
-        xlast //= bin_x
-        if method == 'interp':
-            slice_lo = numpy.nanmedian(orig_data[yfirst:ylast + 1, xfirst - 1 - interp_buffer:xfirst], axis=1)
-            slice_hi = numpy.nanmedian(orig_data[yfirst:ylast + 1, xlast + 1:xlast + 2 + interp_buffer], axis=1)
-            if verbose:
-                print(f"Interpolating from ({yfirst}:{ylast + 1}, {xfirst - 1}) to ({yfirst}:{ylast + 1}, {xlast + 1})")
-            for this_x in numpy.arange(xfirst, xlast + 1):
-                interp_data[yfirst:ylast + 1, this_x] = (slice_hi - slice_lo) / ((xlast + 1.) - (xfirst - 1.)) * (this_x - (xfirst - 1.)) + slice_lo
-        elif method == 'nan':
-            if verbose:
-                print(f"NaN-ing ({yfirst}:{ylast + 1},{xfirst}:{xlast + 1})")
-            interp_data[yfirst:ylast + 1, xfirst:xlast + 1] = numpy.nan
-    if interactive_plot:
-        fig, axs = plt.subplots(2, 1, figsize=(8, 6))
-        axs[0].imshow(numpy.log10(orig_data), cmap=cm['gist_ncar'])
-        axs[0].set_title(f"Original - {orig_hdr['IMAGETYP'].upper()}")
-        axs[1].imshow(numpy.log10(interp_data), cmap=cm['gist_ncar'])
         axs[1].set_title('Repaired')
         plt.tight_layout()
         plt.show()
@@ -3917,12 +3788,13 @@ def derive_wifes_wire_solution(
             * (fit_x_arr <= xmax)
         )[0]
         wire_trend = numpy.polyfit(
-            fit_x_arr[good_inds], fit_y_arr[good_inds], wire_polydeg
+            fit_x_arr[good_inds], fit_y_arr[good_inds], wire_polydeg, cov=True
         )
         if plot:
-            wparam.append(wire_trend)
+            # Store slope and error
+            wparam.append([wire_trend[0], numpy.sqrt(numpy.diag(wire_trend[1])[-2])])
 
-        trend_y = numpy.polyval(wire_trend, ccd_x)
+        trend_y = numpy.polyval(wire_trend[0], ccd_x)
         # Plot wire solution
         if interactive_plot:
             plt.scatter(fit_x_arr, fit_y_arr, c='b', label='Profile median centroids')
@@ -3939,13 +3811,12 @@ def derive_wifes_wire_solution(
         ctr_results[q, :] = trend_y
     f.close()
     if plot:
-        wparam = numpy.array(wparam)
         for i, slice in enumerate(range(first, first + nslits)):
             if wire_polydeg == 1:
-                plt.scatter(slice, wparam[i, 0] * 1000., marker='o')
+                plt.errorbar(slice, wparam[i][0][0] * 1000., yerr=(1000. * wparam[i][1]), marker='o')
             elif wire_polydeg >= 2:
-                plt.scatter(slice, wparam[i, 0], marker='x')
-                plt.scatter(slice, wparam[i, 1] * 1000., marker='o')
+                plt.scatter(slice, wparam[i][0][-3], marker='x')
+                plt.errorbar(slice, wparam[i][0][-2] * 1000., yerr=(1000. * wparam[i][1]), marker='o')
                 if wire_polydeg > 2:
                     plt.scatter([], [], label="Higher-order terms\nfit but not plotted")
         plt.xlabel("Slitlet")
@@ -4017,7 +3888,6 @@ def generate_wifes_cube(
     # setup base x/y array
     f3 = pyfits.open(inimg)
     ndy_orig, ndx_orig = numpy.shape(f3[1].data)
-    full_x_orig, full_y_orig = numpy.meshgrid(numpy.arange(ndx_orig), numpy.arange(ndy_orig))
 
     if subsample < 1 or subsample > 10:
         print(f"generate_wifes_cube: subsample must be between 1 and 10. Received {subsample}, setting to 1.")

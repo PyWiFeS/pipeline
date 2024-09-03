@@ -2613,8 +2613,11 @@ def main():
 
             # Check if is half-frame
             halfframe = is_halfframe(temp_data_dir + reference_filename)
+            taros = is_taros(temp_data_dir + reference_filename)
             if halfframe:
-                obs_metadata = pywifes.calib_to_half_frame(obs_metadata, temp_data_dir)
+                info_print(f"Cutting data to half-frame with to_taros = {taros}")
+                obs_metadata = pywifes.calib_to_half_frame(obs_metadata, temp_data_dir,
+                                                           to_taros=taros)
 
             # Grism
             grism = pyfits.getheader(temp_data_dir + reference_filename)[grism_key[arm]]
