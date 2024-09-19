@@ -128,7 +128,8 @@ def copy_files(src_dir_path, destination_dir_path, filenames):
 
 def get_file_names(src_dir_path, glob_pattern):
     """
-    Get the names of files in a directory that match a given search query in a glob pattern.
+    Get the names of files in a directory that match a given search query in a glob
+    pattern. Does not search in subfolders.
 
     Parameters
     ----------
@@ -143,7 +144,7 @@ def get_file_names(src_dir_path, glob_pattern):
     list
         A list of filenames that match the glob pattern.
     """
-    filepaths = glob.glob(os.path.join(src_dir_path, glob_pattern))
+    filepaths = glob.glob(os.path.join(src_dir_path, glob_pattern), recursive=False)
     names = []
     for filepath in filepaths:
         filename = os.path.basename(filepath)
@@ -1482,7 +1483,7 @@ def main():
             mode = "dome"
 
         if mode == "all":
-            pywifes.wifes_2dim_response(
+            pywifes.wifes_SG_response(
                 super_dflat_mef,
                 super_tflat_mef,
                 flat_resp_fn,

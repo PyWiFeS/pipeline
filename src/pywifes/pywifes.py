@@ -4,14 +4,16 @@ from astropy.io import fits as pyfits
 import astropy.units as u
 import gc
 import logging
-import matplotlib.pyplot as plt
 from matplotlib import colormaps as cm, colors
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 import numpy
 import os
 import pickle
 import re
 import scipy.interpolate as interp
 import scipy.ndimage as ndimage
+import scipy.signal as signal
 import sys
 
 from pywifes.logger_config import custom_print
@@ -3635,7 +3637,8 @@ def wifes_2dim_response(
         ax_right.set_title('Illumination Correction\n(not wire-aligned)')
         pos = ax_right.imshow(
             illum, interpolation="nearest", origin="lower",
-            cmap=cm['gist_rainbow'], aspect=(0.5 * bin_y)
+            cmap=cm['gist_rainbow'], aspect=(0.5 * bin_y),
+            extent=[first - 0.5, first + nslits - 0.5, -0.5, illum.shape[0] - 0.5]
         )
         fig.colorbar(pos, ax=ax_right, shrink=0.9)
         ax_right.set_xlabel('Slitlet')
@@ -3648,6 +3651,201 @@ def wifes_2dim_response(
         plt.close()
 
     # ---------------------------------------------
+    return
+
+
+def wifes_SG_response(
+    spec_inimg,
+    spatial_inimg,
+    outimg,
+    wsol_fn=None,
+    zero_var=True,
+    plot=True,
+    plot_dir='.',
+    save_prefix="flat_response",
+    resp_min=1.0e-4,
+    debug=False,
+    interactive_plot=False,
+):
+    if debug:
+        print(arguments())
+    # check if halfframe
+    halfframe = is_halfframe(spec_inimg)
+    if halfframe:
+        if is_taros(spec_inimg):
+            nslits = 12
+            first = 1
+        else:
+            nslits = 13
+            first = 7
+    else:
+        nslits = 25
+        first = 1
+
+    mid_slit_idx = min(nslits, 13 - first + 1)
+
+    # open the two files!
+    f1 = pyfits.open(spec_inimg)
+    f2 = pyfits.open(spatial_inimg)
+    ndy, ndx = numpy.shape(f1[1].data)
+    arm = f1[0].header["CAMERA"]
+    grating = f1[0].header["GRATINGB"] if arm == "WiFeSBlue" else f1[0].header["GRATINGR"]
+
+    try:
+        bin_x, bin_y = [int(b) for b in f1[0].header["CCDSUM"].split()]
+    except:
+        bin_x = 1
+        bin_y = 1
+
+    try:
+        nflat = float(f1[0].header["PYWFLATN"])
+    except:
+        print("Could not retrieve number of input dome flats from header, defaulting to 1")
+        nflat = 1.0
+
+    outfits = pyfits.HDUList(f1)
+    pixel_response = numpy.ones((nslits, ndy, ndx))
+
+    # ------------------------------------
+    illum = numpy.ones((nslits, ndy), dtype="d")
+    for i in range(nslits):
+        print("Computing slitlet %d" % (i + first))
+        curr_hdu = i + 1
+        orig_spec_data = f1[curr_hdu].data
+        orig_spat_data = f2[curr_hdu].data
+
+        N = 25
+        window_factor = 4 if arm == "WiFeSRed" else 3
+        if "7000" in grating:
+            N = 60
+        for row in range(orig_spec_data.shape[0]):
+            this_row = orig_spec_data[row, :]
+            this_x = numpy.arange(orig_spec_data.shape[1])
+            this_y = numpy.log10(numpy.interp(this_x, this_x[this_row > 0],
+                                              this_row[this_row > 0]))
+            intermed1 = signal.savgol_filter(this_y, window_length=N, polyorder=3, mode='nearest')
+            intermed2 = signal.savgol_filter(intermed1, window_length=(window_factor * N), polyorder=3, mode='nearest')
+
+            pixel_response[i, row, :] = this_row / numpy.power(10, intermed2)
+
+            if row == (orig_spec_data.shape[0] // 2):
+                # Interactive plot: show the middle spectrum of each slit
+                if interactive_plot:
+                    fig = plt.figure(figsize=(10, 6))
+                    gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
+                    ax1 = fig.add_subplot(gs[0, 0])
+                    ax1.plot(this_x, this_row, "C0", label='Original flat lamp spectrum')
+                    ax1.plot(this_x, numpy.power(10, this_y), c="g", label='Data being fit')
+                    ax1.plot(this_x, numpy.power(10, intermed2), color="r", ls='dashed', label='Smooth function fit')
+                    ax1.legend()
+                    ax1.set_ylabel('Flux')
+                    ax1.set_title(f"Slitlet {i+first}")
+                    ax1.set_ylim(0.8 * numpy.nanmin(this_row), 1.2 * numpy.nanmax(this_row))
+                    ax1.set_yscale('log')
+
+                    ax2 = fig.add_subplot(gs[1, 0])
+                    this_pixel_response = pixel_response[i, row, :]
+                    this_pixel_response[nflat * this_row < 100.] = 1.
+                    ax2.axhline(1, ls='--', c='k')
+                    ax2.plot(this_x, this_pixel_response)
+                    ax2.set_xlabel(r'X-axis pixel')
+                    ax2.set_ylabel('Ratio')
+                    ax2.set_ylim(0.85, 1.15)
+                    plt.show()
+
+                # Diagnostic plot: save some values for later
+                if plot and i == mid_slit_idx:
+                    x1 = this_x
+                    y1 = this_row
+                    y2 = numpy.power(10, this_y)
+                    y3 = numpy.power(10, intermed2)
+
+        # Force pixel_response to 1 at wavelengths where sum of median counts < 100 (S/N ~ 10)
+        pixel_response[i][nflat * orig_spec_data < 100.] = 1.
+
+        # rectify twilight data to take consistent wavelength regions
+        if wsol_fn is not None:
+            f3 = pyfits.open(wsol_fn)
+            wave = f3[curr_hdu].data
+            f3.close()
+
+            # SPATIAL FLAT
+            rect_spat_data, lam_array = transform_data(orig_spat_data, wave, return_lambda=True)
+            # define limits in untransformed coordinates
+            lam_min = numpy.amin((wave[:, 1500 // bin_x], wave[:, 2000 // bin_x]), axis=0)
+            lam_max = numpy.amax((wave[:, 1500 // bin_x], wave[:, 2000 // bin_x]), axis=0)
+            for row in range(rect_spat_data.shape[0]):
+                illum[i, row] = numpy.median(rect_spat_data[row, :][(lam_array >= lam_min[row]) * (lam_array <= lam_max[row])])
+        else:
+            illum[i, :] = numpy.median(orig_spat_data[:, 1500 // bin_x:2000 // bin_x], axis=0)
+
+    # Normalise spatial flat to a peak of 1
+    illum /= numpy.amax(illum)
+    pixel_response = numpy.clip(illum[:, :, numpy.newaxis] * pixel_response, a_min=resp_min, a_max=None)
+
+    for i in range(nslits):
+        curr_hdu = i + 1
+        print(f"Writing slitlet {i + first}")
+        outfits[curr_hdu].data = pixel_response[i].astype("float32", casting="same_kind")
+        outfits[curr_hdu].scale("float32")
+        if zero_var:
+            var_hdu = curr_hdu + nslits
+            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype("float32", casting="same_kind")
+            outfits[var_hdu].scale("float32")
+
+    outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
+    outfits[0].header.set("PYWRESIN", "dome+twi", "PyWiFeS: flatfield inputs")
+    outfits[0].header.set("PYWRESZV", zero_var, "PyWiFeS: 2D response zero_var")
+    outfits[0].header.set("PYWRESW1", N, "PyWiFeS: 1st Savitzky-Golay window size")
+    outfits[0].header.set("PYWRESW2", N * window_factor, "PyWiFeS: 2nd Savitzky-Golay window size")
+    outfits[0].header.set("PYWRESMN", resp_min, "PyWiFeS: 2D response minimum response")
+    outfits.writeto(outimg, overwrite=True)
+    f1.close()
+    f2.close()
+
+    # ---------------------------------------------
+    # Diagnostic plots
+    if plot:
+        fig = plt.figure(1, figsize=(10, 5))
+        grid = gridspec.GridSpec(2, 2, height_ratios=[3, 1], width_ratios=[4, 1])
+
+        # (1) spectral fit: plot the middle spectrum of the middle slit
+        ax_left = fig.add_subplot(grid[0, 0])
+        ax_left.set_title('Spectral Flatfield Correction')
+        ax_left.plot(x1, y1, "C0", label='Original flat lamp spectrum')
+        ax_left.plot(x1, y2, c="g", label='Data being fit')
+        ax_left.plot(x1, y3, color="r", ls='dashed', label='Smooth function fit')
+        ax_left.legend()
+        ax_left.set_xlabel(r'X-axis pixel')
+        ax_left.set_ylabel('Flux')
+        ax_left.set_ylim(0.8 * numpy.nanmin(y1), 1.2 * numpy.nanmax(y1))
+        ax_left.set_yscale('log')
+
+        # (2) spectral fit residuals
+        ax_bottom = fig.add_subplot(grid[1, 0])
+        ax_bottom.axhline(1, ls='--', c='k')
+        ax_bottom.plot(x1, y1 / y3)
+        ax_bottom.set_ylabel('Ratio')
+        ax_bottom.set_ylim(0.85, 1.15)
+
+        # (3) illumination correction
+        ax_right = fig.add_subplot(grid[0, 1])
+        ax_right.set_title('Illumination Correction\n(not wire-aligned)')
+        pos = ax_right.imshow(
+            illum.T, interpolation="nearest", origin="lower",
+            cmap=cm['gist_rainbow'], aspect=(0.5 * bin_y),
+            extent=[first - 0.5, first + nslits - 0.5, -0.5, illum.shape[1] - 0.5]
+        )
+        fig.colorbar(pos, ax=ax_right, shrink=0.9)
+        ax_right.set_xlabel('Slitlet')
+        ax_right.set_ylabel('Detector Y')
+
+        plt.tight_layout()
+        plot_name = f"{save_prefix}.png"
+        plot_path = os.path.join(plot_dir, plot_name)
+        plt.savefig(plot_path, dpi=300)
+        plt.close()
+
     return
 
 
@@ -4316,13 +4514,17 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
             obj_cube_dq[:, :, nx - i - 1] = curr_dq
 
     # ASTROMETRY: obtained from pointing
-    # # Celestial coordinates
-    ra_str = f[1].header["RA"]
-    dec_str = f[1].header["DEC"]
-    # Convert celestial coordinates to degrees
-    coord = SkyCoord(ra=ra_str, dec=dec_str, unit=(u.hourangle, u.deg))
-    crval1 = coord.ra.deg
-    crval2 = coord.dec.deg
+    try:
+        # # Celestial coordinates
+        ra_str = f[1].header["RA"]
+        dec_str = f[1].header["DEC"]
+        # Convert celestial coordinates to degrees
+        coord = SkyCoord(ra=ra_str, dec=dec_str, unit=(u.hourangle, u.deg))
+        crval1 = coord.ra.deg
+        crval2 = coord.dec.deg
+    except KeyError:
+        crval1 = 0.
+        crval2 = 0.
     crval3 = lam0
 
     # Set up a tangential projection
@@ -4332,20 +4534,30 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
 
     # Coordinate transformations
     # Telescope angle
-    telpa = f[1].header["TELPAN"]  # in deg
-    telpa_radians = numpy.radians(telpa)  # in rad
-    #  Calculate matrix elements for 3D rotation (around z-axis)
-    cos_telpa = numpy.cos(telpa_radians)
-    sin_telpa = numpy.sin(telpa_radians)
+    try:
+        telpa = f[1].header["TELPAN"]  # in deg
+        telpa_radians = numpy.radians(telpa)  # in rad
+        #  Calculate matrix elements for 3D rotation (around z-axis)
+        cos_telpa = numpy.cos(telpa_radians)
+        sin_telpa = numpy.sin(telpa_radians)
 
-    pc1_1 = cos_telpa
-    pc1_2 = -sin_telpa
+        pc1_1 = cos_telpa
+        pc1_2 = -sin_telpa
 
-    pc2_1 = sin_telpa
-    pc2_2 = cos_telpa
+        pc2_1 = sin_telpa
+        pc2_2 = cos_telpa
+    except KeyError:
+        pc1_1 = 1
+        pc1_2 = 0
+        pc2_1 = 0
+        pc2_2 = 1
 
     # Equiv. to 1 pixel width in each axis' units
-    binning_2 = int(f[0].header["CCDSUM"][2])
+    try:
+        binning_2 = int(f[0].header["CCDSUM"][2])
+    except KeyError:
+        # Default to common 1x2 binning assumption
+        binning_2 = 2
     arsec_deg = 0.00027777777777778  # 1 arcsecond in degrees
     cdelt1 = -arsec_deg
     cdelt2 = arsec_deg / 2 * binning_2

@@ -254,7 +254,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "source": "dome"
+                "source": "dome",
                 //
                 // Treatment of NaN values in data.
                 // Options:
@@ -272,7 +272,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "source": "twi"
+                "source": "twi",
                 //
                 // Treatment of NaN values in data.
                 // Options:
@@ -290,7 +290,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "source": "wire"
+                "source": "wire",
                 //
                 // Treatment of NaN values in data.
                 // Options:
@@ -308,7 +308,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "source": "arc"
+                "source": "arc",
                 //
                 // Treatment of NaN values in data.
                 // Options:
@@ -407,7 +407,6 @@
                 // - "mode": "dome",  // Determine system response only from dome flat.
                 //
                 // - "zero_var": true,  // Set the VAR extension values to zero in the output MEF.
-                // - "polydeg": 7,  // Order of polynomial used in fitting wavelength profile of dome flat (in log-flux).
                 // - "resp_min": 1.0e-4,  // Minimum value allowed in final flatfield.
                 //
                 // Additional user options.
@@ -503,8 +502,8 @@
             "args": {
                 // Methods to fit ratio of observed-to-reference flux (in magnitude units) vs. wavelength.
                 // Options:
-                "method": "poly",  // Default. Use polynomial fit, mask outliers, interpolate over masked pixels with polynomial.
-                // - "method": "smooth_SG",  // Use Savitzky-Golay filter. Interpolate over high pixels and telluric regions with polynomial, smooth with S-G, mask outliers, boxcar-smooth, S-G smooth again, and interpolate onto desired wavelength grid.
+                // - "method": "poly",  // Default. Use polynomial fit, mask outliers, interpolate over masked pixels with polynomial.
+                "method": "smooth_SG",  // Use Savitzky-Golay filter. Interpolate over high pixels and telluric regions with polynomial, smooth with S-G, mask outliers, boxcar-smooth, S-G smooth again, and interpolate onto desired wavelength grid.
                 //
                 "polydeg": 25,  // Order of polynomial for fitting (used for both methods).
                 "excise_cut": 0.005,  // Fractional threshold for outliers (applied to magnitude units). Overridden with 0.003 if method = "smooth_SG".
@@ -517,7 +516,7 @@
                 // Additional user options.
                 "plot_stars": true,
                 "plot_sensf": true,
-                // - "save_prefix": "calib_",
+                // - "plot_name": "flux_calibration_solution.png",
                 // - "debug": false,
                 }
         },

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy
 import os
 import pickle
-import scipy.interpolate
+import scipy.interpolate as interp
 
 from pywifes.logger_config import custom_print
 import logging
@@ -46,7 +46,7 @@ for line in stdstar_lines:
 # extinction interpolation object
 extinct_fn = os.path.join(metadata_dir, "sso_extinction.dat")
 extinct_data = numpy.loadtxt(extinct_fn)
-sso_extinct_interp = scipy.interpolate.interp1d(
+sso_extinct_interp = interp.interp1d(
     extinct_data[:, 0], extinct_data[:, 1], bounds_error=False, fill_value=numpy.nan
 )
 
@@ -373,7 +373,7 @@ def extract_wifes_stdstar(
 # ------------------------------------------------------------------------
 # simple function to divide a cube by some spectrum
 def wifes_cube_divide(inimg, outimg, corr_wave, corr_flux):
-    corr_interp = scipy.interpolate.interp1d(
+    corr_interp = interp.interp1d(
         corr_wave, corr_flux, bounds_error=False, fill_value=numpy.inf
     )  # set divided flux outside bounds to zero
     halfframe = is_halfframe(inimg)
@@ -498,7 +498,7 @@ def derive_wifes_calibration(
     plot_stars=False,
     plot_sensf=False,
     plot_dir=".",
-    save_prefix="calib_",
+    plot_name="flux_calibration_solution.png",
     norm_stars=False,
     method="poly",
     polydeg=30,
@@ -508,6 +508,7 @@ def derive_wifes_calibration(
     extinction_fn=None,
     ytrim=5,
     boxcar=11,
+    interactive_plot=False,
     debug=False,
 ):
     """
@@ -535,8 +536,8 @@ def derive_wifes_calibration(
         Whether to plot the sensitivity function.
     plot_dir : str, optional
         Directory path to save the plots.
-    save_prefix : str, optional
-        Prefix for the saved calibration files.
+    plot_name : str, optional
+        Filename for the output sensitivity plot.
     norm_stars : bool, optional
         Whether to normalize the stars.
     method : str, optional
@@ -576,10 +577,10 @@ def derive_wifes_calibration(
         extinct_interp = sso_extinct_interp
     else:
         ext_data = numpy.loadtxt(extinction_fn)
-        extinct_interp = scipy.interpolate.interp1d(
+        extinct_interp = interp.interp1d(
             ext_data[:, 0], ext_data[:, 1], bounds_error=False, fill_value=numpy.nan
         )
-        extinct_interp = scipy.interpolate.interp1d(
+        extinct_interp = interp.interp1d(
             ext_data[:, 0], ext_data[:, 1], bounds_error=False, fill_value=numpy.nan
         )
     # first extract stdstar spectra and compare to reference
@@ -643,7 +644,7 @@ def derive_wifes_calibration(
 
         # get reference data
         ref_data = numpy.loadtxt(os.path.join(ref_dir, ref_fname))
-        ref_interp = scipy.interpolate.interp1d(
+        ref_interp = interp.interp1d(
             ref_data[:, 0], ref_data[:, 1], bounds_error=False, fill_value=numpy.nan
         )
         ref_flux = ref_interp(obs_wave)
@@ -679,8 +680,7 @@ def derive_wifes_calibration(
             plt.ylim(lower_limit, upper_limit)
             plt.ylabel(r"Scaled Flux ")
 
-            plot_name = f"{star_name}.png"
-            plot_path = os.path.join(plot_dir, plot_name)
+            plot_path = os.path.join(plot_dir, f"{star_name}.png")
             plt.savefig(plot_path, dpi=300)
             plt.close('all')
 
@@ -739,6 +739,15 @@ def derive_wifes_calibration(
             temp_full_y = temp_full_y[this_sort_order]
         # Then fit SG normally
         temp_fvals = savitzky_golay(temp_full_y, 101, 1, 0)
+        if interactive_plot:
+            plt.plot(init_full_x, init_full_y, label='Orig')
+            plt.scatter(init_full_x[init_bad_inds], init_full_y[init_bad_inds], c='r', label='Bad')
+            plt.plot(temp_full_x, temp_full_y, label='Data being fit')
+            plt.plot(init_full_x, temp_fvals, label='SG-101')
+            plt.plot(init_full_x, savitzky_golay(temp_full_y, 25, 1, 0), label='SG-25')
+            plt.plot(init_full_x, savitzky_golay(savitzky_golay(temp_full_y, 25, 1, 0), 75, 1, 0), label='SG-25-75')
+            plt.legend()
+            plt.show()
         excise_cut = 0.003
     else:
         temp_best_calib = numpy.polyfit(temp_full_x, temp_full_y, polydeg)
@@ -764,7 +773,7 @@ def derive_wifes_calibration(
             smooth_y, numpy.ones((boxcar,)) / boxcar, mode="same"
         )[boxcar:-boxcar]
         final_fvals = savitzky_golay(smooth_y, 101, 1, 0)
-        this_f = scipy.interpolate.interp1d(
+        this_f = interp.interp1d(
             smooth_x, final_fvals, bounds_error=False, kind="linear"
         )
         final_x = full_x
@@ -869,7 +878,6 @@ def derive_wifes_calibration(
         ax_hist.legend(bbox_to_anchor=(0.5, 1.2), loc='center', framealpha=1.0, handlelength=1.2, frameon=False)
 
         plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6, left=0.09, right=0.99, bottom=0.09)  # Adjust top to make room for suptitle
-        plot_name = "flux_calibration_solution.png"
         plot_path = os.path.join(plot_dir, plot_name)
         plt.savefig(plot_path, dpi=300)
         plt.close('all')
@@ -958,7 +966,7 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         extinct_interp = sso_extinct_interp
     else:
         ext_data = numpy.loadtxt(extinction_fn)
-        extinct_interp = scipy.interpolate.interp1d(
+        extinct_interp = interp.interp1d(
             ext_data[:, 0], ext_data[:, 1], bounds_error=False, fill_value=numpy.nan
         )
     # open data
@@ -984,7 +992,7 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         calib_wave = calib_info["wave"][sort_order]
         calib_flux = calib_info["cal"][sort_order]
         std_file = calib_info["std_file"]
-        calib_interp = scipy.interpolate.interp1d(
+        calib_interp = interp.interp1d(
             calib_wave, calib_flux, bounds_error=False, fill_value=-100.0, kind="linear"
         )
         all_final_fvals = calib_interp(wave_array)
@@ -995,7 +1003,7 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
             f[0].header["NAXIS1"], dtype="d"
         )
         calib_flux = f[0].data
-        calib_interp = scipy.interpolate.interp1d(
+        calib_interp = interp.interp1d(
             calib_wave, calib_flux, bounds_error=False, fill_value=0.0
         )
         inst_fcal_array = calib_interp(wave_array)
@@ -1191,14 +1199,14 @@ def derive_wifes_telluric(
     O2_corr_temp[0, :] = O2_corrections[0][1]
     H2O_corr_temp[0, :] = (H2O_corrections[0][1]) ** (1.0 / (airmass_list[0] ** 0.55))
     for i in range(1, len(cube_fn_list)):
-        O2_interp = scipy.interpolate.interp1d(
+        O2_interp = interp.interp1d(
             O2_corrections[i][0],
             (O2_corrections[i][1]) ** (1.0 / (airmass_list[i] ** O2_power)),
             bounds_error=False,
             fill_value=1.0,
         )
         O2_corr_temp[i, :] = O2_interp(base_wave)
-        H2O_interp = scipy.interpolate.interp1d(
+        H2O_interp = interp.interp1d(
             H2O_corrections[i][0],
             (H2O_corrections[i][1]) ** (1.0 / (airmass_list[i] ** H2O_power)),
             bounds_error=False,
@@ -1352,10 +1360,10 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
         tellstd_list = ",".join(str(tf) for tf in tellstd_list)
     else:
         tellstd_list = "None"
-    O2_interp = scipy.interpolate.interp1d(
+    O2_interp = interp.interp1d(
         tellcorr_info["wave"], tellcorr_info["O2"], bounds_error=False, fill_value=1.0
     )
-    H2O_interp = scipy.interpolate.interp1d(
+    H2O_interp = interp.interp1d(
         tellcorr_info["wave"], tellcorr_info["H2O"], bounds_error=False, fill_value=1.0
     )
     try:

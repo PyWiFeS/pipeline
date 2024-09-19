@@ -6,6 +6,38 @@ The automated Python data reduction pipeline for WiFeS.
 
 Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024, and updated to include PyWiFeS/pipeline updates to 7 Aug 2024 [commit f6a2d8c].
 
+What's been done [20240919]:
+
+- streamlined fitting of flatfield data, now using double Savitzky-Golay filter
+
+- does not search for raw files in subfolders (making it easier to hide away data that shouldn't be processed)
+
+- add interactive diagnostic plot to fitting of flux standard star
+
+***Future Development Underway***
+
+- improve fitting of standard star shapes
+
+- explore improving fitting and removal of fringing
+
+- add option for PSF-based source extraction
+
+- add time domain to the bad pixel mask
+
+- update standard star data with latest CALSPEC data
+
+- add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
+
+- allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
+
+- modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
+
+
+A note on charge transfer inefficiency (CTI): test data shows CTI of ~0.1%. Constraining the amplitude of the correction to a useful level of precision is thus extremely challenging, and is not expected to be implemented in the pipeline.
+
+
+### Previously ###
+
 What's been done [20240830]:
 
 - merge in documentation and other updates from official repository.
@@ -20,28 +52,7 @@ What's been done [20240830]:
 
 - handle saturated pixels in raw frames (flag in VAR and DQ frames for SCIENCE, STANDARD, SKY images; interpolate over for other image types).
 
-***Future Development Underway***
-
-- improve fitting of flatfield and standard star shapes
-
-- explore improving fitting and removal of fringing
-
-- add option for PSF-based source extraction
-
-- add time domain to the bad pixel mask
-
-- add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
-
-- allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
-
-- modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
-
-A note on charge transfer inefficiency (CTI): test data shows CTI of ~0.1%. Constraining the amplitude of the correction to a useful level of precision is thus extremely challenging, and is not expected to be implemented in the pipeline.
-
-
-### Previously ###
-
-What's been done [20240823]:
+[20240823]:
 
 - update JSON to JSON5 to allow (C-style) comments to aid user configuration setup.
 

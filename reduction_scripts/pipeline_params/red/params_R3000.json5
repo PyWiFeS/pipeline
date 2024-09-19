@@ -256,7 +256,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "source": "dome"
+                "source": "dome",
                 //
                 // Treatment of NaN values in data.
                 // Options:
@@ -274,7 +274,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "source": "twi"
+                "source": "twi",
                 //
                 // Treatment of NaN values in data.
                 // Options:
@@ -292,7 +292,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "source": "wire"
+                "source": "wire",
                 //
                 // Treatment of NaN values in data.
                 // Options:
@@ -310,7 +310,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "source": "arc"
+                "source": "arc",
                 //
                 // Treatment of NaN values in data.
                 // Options:
@@ -409,7 +409,6 @@
                 // - "mode": "dome",  // Determine system response only from dome flat.
                 //
                 // - "zero_var": true,  // Set the VAR extension values to zero in the output MEF.
-                // - "polydeg": 7,  // Order of polynomial used in fitting wavelength profile of dome flat (in log-flux).
                 // - "resp_min": 1.0e-4,  // Minimum value allowed in final flatfield.
                 //
                 // Additional user options.
@@ -519,7 +518,7 @@
                 // Additional user options.
                 "plot_stars": true,
                 "plot_sensf": true,
-                // - "save_prefix": "calib_",
+                // - "plot_name": "flux_calibration_solution.png",
                 // - "debug": false,
                 }
         },
