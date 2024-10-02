@@ -6,17 +6,21 @@ The automated Python data reduction pipeline for WiFeS.
 
 Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024, and updated to include PyWiFeS/pipeline updates to 7 Aug 2024 [commit f6a2d8c].
 
-What's been done [20240919]:
+What's been done [20241002]
 
-- streamlined fitting of flatfield data, now using double Savitzky-Golay filter
+- save smooth fit to flatfield (reflecting CCD, grating, beamsplitter throughput) and temporarily remove when fitting flux standard to reduce amplitude of fluctuations
 
-- does not search for raw files in subfolders (making it easier to hide away data that shouldn't be processed)
+- add one pass of filtering outlier pixels from Savitzky-Golay fitting to flatfield
 
-- add interactive diagnostic plot to fitting of flux standard star
+- have sensitivity curve better avoid absorption at the reddest wavelengths of R3000 grating
+
+- save sky spectrum from telluric standard to allow wavelength refinement when correcting science spectra
+
+- allow sub-aperture Nod & Shuffle extraction to find positive and negative peaks, and extract both (inverting the flux for the negative peaks)
+
+- more reliably associate red and blue spectra amongst multiple apertures by forcing lists to be sorted and allowing for differences in DATE-OBS timestamp between arms
 
 ***Future Development Underway***
-
-- improve fitting of standard star shapes
 
 - explore improving fitting and removal of fringing
 
@@ -38,7 +42,15 @@ A note on charge transfer inefficiency (CTI): test data shows CTI of ~0.1%. Cons
 
 ### Previously ###
 
-What's been done [20240830]:
+What's been done [20240919]:
+
+- streamlined fitting of flatfield data, now using double Savitzky-Golay filter
+
+- does not search for raw files in subfolders (making it easier to hide away data that shouldn't be processed)
+
+- add interactive diagnostic plot to fitting of flux standard star
+
+[20240830]:
 
 - merge in documentation and other updates from official repository.
 
@@ -62,7 +74,7 @@ What's been done [20240830]:
 
 - apply extinction correction to flux standard star (previously calculated but not applied).
 
-- associate any sky exposures with science exposures if IMAGETYP = 'SKY' (currently a manual modification of the image header by the user) and OBJECT keywords match. Use of `--coadd_mode prompt` allows manual association of SKY and OBJECT exposures. Use of `--coadd-mode none` blindly associates one SKY and one OBJECT using the order they appear in the image list. Multiple sky exposures are scaled by their exposure times and median-combined. Subtraction from science frame scales effective sky exposure time to that of science frame.
+- associate any sky exposures with science exposures if IMAGETYP = 'SKY' (currently a manual modification of the image header by the user) and OBJECT keywords match. Use of `--coadd-mode prompt` allows manual association of SKY and OBJECT exposures. Use of `--coadd-mode none` blindly associates one SKY and one OBJECT using the order they appear in the image list. Multiple sky exposures are scaled by their exposure times and median-combined. Subtraction from science frame scales effective sky exposure time to that of science frame.
 
 - avoid recopying existing, older files into 'intermediate' folder.
 

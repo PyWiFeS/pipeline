@@ -299,7 +299,7 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
     bin_x, bin_y = [int(b) for b in f[data_hdu].header["CCDSUM"].split()]
 
     nimg = len(inimg_list)
-    midrow_shift = 80 // bin_y if is_taros(inimg_list[0]) else 0
+    midrow_shift = 80 // bin_y if is_taros(inimg_list[0]) and is_halfframe(inimg_list[0]) else 0
     try:
         scale_factor = numpy.ones(nimg)
         if scale is not None:
@@ -600,7 +600,7 @@ def imcombine_mef(
     # (5) write to outfile!
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWCONUM", nimg, "PyWiFeS: number of coadded images")
-    outfits[0].header.set("PYWCOSCL", scale, "PyWiFeS: scaling prior to coadd")
+    outfits[0].header.set("PYWCOSCL", 'None' if scale is None else scale, "PyWiFeS: scaling prior to coadd")
     outfits[0].header.set("PYWCOMTH", method, "PyWiFeS: method for coadd")
     outfits.writeto(outimg, overwrite=True)
     f.close()
@@ -3275,7 +3275,7 @@ def wifes_response_pixel(inimg, outimg, wsol_fn=None, debug=False):
     return
 
 
-def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, debug=True):
+def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, shape_fn=None, debug=False):
     if debug:
         print(arguments())
     # check if halfframe
@@ -3291,7 +3291,7 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, d
         first = 1
         nslits = 25
 
-    mid_slit_idx = min(nslits, 13 - first + 1)
+    mid_slit_idx = min(nslits, 13 - first + 1) - 1
 
     # now open and operate on data
     f = pyfits.open(inimg)
@@ -3348,6 +3348,14 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, d
             curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
             init_normed_data = rect_data / curr_norm_array
             normed_data = detransform_data(init_normed_data, orig_data, wave)
+            if i == mid_slit_idx:
+                ny_sm, nx_sm = rect_data.shape
+                smooth_dat = numpy.median(rect_data[ny_sm // 2 - 3:ny_sm // 2 + 4, :], axis=1)
+                smooth_wav = numpy.median(lam_array[ny_sm // 2 - 3:ny_sm // 2 + 4, :], axis=1)
+                with open(shape_fn, 'w') as of:
+                    for smooth_row in range(nx_sm):
+                        of.write(f"{smooth_wav[smooth_row]} {smooth_dat[smooth_row]}\n")
+                
         else:
             lam_array = numpy.arange(len(orig_data[0, :]), dtype="d")
             curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
@@ -3397,7 +3405,7 @@ def wifes_2dim_response(
         nslits = 25
         first = 1
 
-    mid_slit_idx = min(nslits, 13 - first + 1)
+    mid_slit_idx = min(nslits, 13 - first + 1) - 1
 
     # open the two files!
     f1 = pyfits.open(spec_inimg)
@@ -3664,6 +3672,7 @@ def wifes_SG_response(
     plot_dir='.',
     save_prefix="flat_response",
     resp_min=1.0e-4,
+    shape_fn=None,
     debug=False,
     interactive_plot=False,
 ):
@@ -3682,7 +3691,7 @@ def wifes_SG_response(
         nslits = 25
         first = 1
 
-    mid_slit_idx = min(nslits, 13 - first + 1)
+    mid_slit_idx = min(nslits, 13 - first + 1) - 1
 
     # open the two files!
     f1 = pyfits.open(spec_inimg)
@@ -3723,6 +3732,11 @@ def wifes_SG_response(
             this_x = numpy.arange(orig_spec_data.shape[1])
             this_y = numpy.log10(numpy.interp(this_x, this_x[this_row > 0],
                                               this_row[this_row > 0]))
+            intermed0 = signal.savgol_filter(this_y, window_length=N, polyorder=3, mode='nearest')
+            # filter out large outliers
+            keep_idx = numpy.nonzero(numpy.abs(this_y - intermed0) / intermed0 < 0.2)[0]
+            this_y = numpy.log10(numpy.interp(this_x, this_x[keep_idx],
+                                              this_row[keep_idx]))
             intermed1 = signal.savgol_filter(this_y, window_length=N, polyorder=3, mode='nearest')
             intermed2 = signal.savgol_filter(intermed1, window_length=(window_factor * N), polyorder=3, mode='nearest')
 
@@ -3776,6 +3790,15 @@ def wifes_SG_response(
             lam_max = numpy.amax((wave[:, 1500 // bin_x], wave[:, 2000 // bin_x]), axis=0)
             for row in range(rect_spat_data.shape[0]):
                 illum[i, row] = numpy.median(rect_spat_data[row, :][(lam_array >= lam_min[row]) * (lam_array <= lam_max[row])])
+
+            # Save the smooth fit to the middle row of the middle slice
+            if i == mid_slit_idx:
+                smooth_wave = wave[(orig_spec_data.shape[0] // 2), :]
+                y3max = numpy.amax(y3)
+                with open(shape_fn, 'w') as of:
+                    for smooth_row in range(smooth_wave.shape[0]):
+                        of.write(f"{smooth_wave[smooth_row]} {y3[smooth_row] / y3max}\n")
+
         else:
             illum[i, :] = numpy.median(orig_spat_data[:, 1500 // bin_x:2000 // bin_x], axis=0)
 
@@ -4432,23 +4455,26 @@ def generate_wifes_cube(
         outfits[i + 1].data = flux_data_cube_tmp[i, :, :]
         outfits[i + 1].scale("float32")
         outfits[i + 1].header.set("CRVAL1", final_frame_wmin)
+        outfits[i + 1].header.set("CRPIX1", 1)
         outfits[i + 1].header.set("CDELT1", disp_ave)
         outfits[i + 1].header.set("NAXIS1", len(out_lambda))
         outfits[i + 1 + nslits].data = var_data_cube_tmp[i, :, :]
         outfits[i + 1 + nslits].scale("float32")
         outfits[i + 1 + nslits].header.set("CRVAL1", final_frame_wmin)
+        outfits[i + 1 + nslits].header.set("CRPIX1", 1)
         outfits[i + 1 + nslits].header.set("CDELT1", disp_ave)
         outfits[i + 1 + nslits].header.set("NAXIS1", len(out_lambda))
         outfits[i + 1 + 2 * nslits].data = dq_data_cube_tmp[i, :, :]
         outfits[i + 1 + 2 * nslits].scale("int16")
         outfits[i + 1 + 2 * nslits].header.set("CRVAL1", final_frame_wmin)
+        outfits[i + 1 + 2 * nslits].header.set("CRPIX1", 1)
         outfits[i + 1 + 2 * nslits].header.set("CDELT1", disp_ave)
         outfits[i + 1 + 2 * nslits].header.set("NAXIS1", len(out_lambda))
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWYORIG", ny_orig, "PyWiFeS: ny_orig")
     outfits[0].header.set("PYWOORIG", offset_orig, "PyWiFeS: offset_orig")
     outfits[0].header.set("PYWADR", adr, "PyWiFeS: ADR correction applied")
-    if subsample is not None:
+    if subsample > 1:
         outfits[0].header.set("PYWSSAMP", subsample, "PyWiFeS: wire/ADR spatial subsampling factor")
     outfits.writeto(outimg, overwrite=True)
     f3.close()
@@ -4478,6 +4504,7 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
             nx = 25
 
         lam0 = f[1].header["CRVAL1"]
+        pix0 = f[1].header["CRPIX1"]
         dlam = f[1].header["CDELT1"]
 
         # get data, variance and data quality
@@ -4498,6 +4525,7 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
         nlam, ny, nx = numpy.shape(f[1].data)
         # get wavelength array
         lam0 = f[1].header["CRVAL3"]
+        pix0 = f[1].header["CRPIX3"]
         dlam = f[1].header["CDELT3"]
         # get data and variance
         obj_cube_data = numpy.zeros([nlam, ny, nx], dtype="d")
@@ -4566,7 +4594,7 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     # Central pixel: defined in the centre of the central pixel
     crpix1 = nx / 2 + 0.5  # Central pixel
     crpix2 = ny / 2 + 0.5  # Central pixel
-    crpix3 = 1
+    crpix3 = pix0
 
     # Axis units
     cunit1 = "deg"

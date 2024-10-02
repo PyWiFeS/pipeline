@@ -1,5 +1,6 @@
 import astropy.io.fits as fits
 from astropy.stats import sigma_clipped_stats
+from astropy.table import Column, vstack
 from astropy.wcs import WCS
 import matplotlib.colors as mcolors
 from matplotlib.patheffects import withStroke
@@ -46,7 +47,7 @@ def extract_and_save(
         # Write out the results
         base = os.path.basename(cube_path)
         base_output = base.replace("cube.fits", f"spec.ap{ap_index}.fits")
-        print(f"Saving extracted spectra for {base}")
+        print(f"Saving extracted spectra for aperture {ap_index} in {base}")
         output_path = os.path.join(output_dir, base_output)
         write_1D_spec(flux, var, sci_hdr, var_hdr, output_path, dq_data=dq,
                       dq_cube_header=dq_hdr, sky_data=sky)
@@ -440,8 +441,9 @@ def detect_extract_and_save(
     red_cube_path=None,
     output_dir=None,
     r_arcsec=2,
-    border_width=3,
+    border_width=2,
     sky_sub=False,
+    subns=False,
     plot=False,
     plot_path="detected_apertures_plot.png",
     get_dq=False,
@@ -464,6 +466,8 @@ def detect_extract_and_save(
         Width of the border to be excluded from the statistics.
     sky_sub : bool, optional
         Flag indicating whether to perform sky subtraction.
+    subns : bool, optional
+        Flag indicating whether this is a sub-aperture nod & shuffle exposure.
     plot : bool, optional
         Flag indicating whether to generate a plot of the detected apertures.
     plot_path : str, optional
@@ -528,6 +532,25 @@ def detect_extract_and_save(
         npeaks=npeaks,
         centroid_func=centroid_com,
     )
+    if detection:
+        fcol = Column(name='flux_sense', data=numpy.ones(len(detection), dtype='float32'))
+        detection.add_column(fcol)
+
+    if subns:
+        det2 = find_peaks(
+            -1. * collapsed_cube,
+            threshold,
+            border_width=border_width,
+            npeaks=npeaks,
+            centroid_func=centroid_com,
+        )
+        if det2:
+            fcol = Column(name='flux_sense', data=-1. * numpy.ones(len(det2), dtype='float32'))
+            det2.add_column(fcol)
+            if detection:
+                detection = vstack([detection, det2])
+            else:
+                detection = det2
 
     if detection is None:
         print("No source detected.")
@@ -538,6 +561,9 @@ def detect_extract_and_save(
 
         # Detected sources positions
         positions = numpy.transpose((detection["x_peak"], detection["y_peak"]))
+
+        # Flux scale (1 for most obs, -1 for negative apertures in subN&S)
+        fscale = detection["flux_sense"]
 
         # Set the annulus
         a = r_arcsec / pixel_scale_x
@@ -565,7 +591,7 @@ def detect_extract_and_save(
             sky_aps = None
 
         # Flux extraction for the aperture at all the wavelenghts
-        for index, source_ap in enumerate(source_apertures):
+        for index, (source_ap, this_fscale) in enumerate(zip(source_apertures, fscale)):
             if sky_aps is not None:
                 sky_ap = sky_aps[index]
 
@@ -574,34 +600,36 @@ def detect_extract_and_save(
             ap_index = index + 1
 
             # Extracting blue cube
-            extract_and_save(
-                blue_cube_path,
-                blue_sci,
-                blue_var,
-                source_ap,
-                ap_index,
-                sky_ap,
-                output_dir,
-                blue_sci_hdr,
-                blue_var_hdr,
-                dq_data=blue_dq,
-                dq_hdr=blue_dq_hdr,
-            )
+            if blue_cube_path is not None:
+                extract_and_save(
+                    blue_cube_path,
+                    this_fscale * blue_sci,
+                    blue_var,
+                    source_ap,
+                    ap_index,
+                    sky_ap,
+                    output_dir,
+                    blue_sci_hdr,
+                    blue_var_hdr,
+                    dq_data=blue_dq,
+                    dq_hdr=blue_dq_hdr,
+                )
 
             # Extracting red cube
-            extract_and_save(
-                red_cube_path,
-                red_sci,
-                red_var,
-                source_ap,
-                ap_index,
-                sky_ap,
-                output_dir,
-                red_sci_hdr,
-                red_var_hdr,
-                dq_data=red_dq,
-                dq_hdr=red_dq_hdr,
-            )
+            if red_cube_path is not None:
+                extract_and_save(
+                    red_cube_path,
+                    this_fscale * red_sci,
+                    red_var,
+                    source_ap,
+                    ap_index,
+                    sky_ap,
+                    output_dir,
+                    red_sci_hdr,
+                    red_var_hdr,
+                    dq_data=red_dq,
+                    dq_hdr=red_dq_hdr,
+                )
 
         if plot:
             plt.suptitle(object)
@@ -648,7 +676,7 @@ class SingleSpec(object):
     def __init__(self, fitsFILE):
         self.flux, self.header = fits.getdata(fitsFILE, 0, header=True)
         self.wl = (
-            numpy.arange(self.header["NAXIS1"]) - self.header["CRPIX1"] + 1
+            numpy.arange(self.header["NAXIS1"], dtype="d") - self.header["CRPIX1"] + 1
         ) * self.header["CDELT1"] + self.header["CRVAL1"]
         # Temporary
         self.fluxvar = fits.getdata(fitsFILE, 1, header=False)

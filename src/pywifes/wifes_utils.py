@@ -4,7 +4,6 @@ import numpy
 import re
 
 
-# Diagnose inputs to any function
 def arguments():
     """
     Report current functions source file and as-called arguments.
@@ -75,6 +74,16 @@ def is_nodshuffle(inimg, data_hdu=0):
     return ns == "NodAndShuffle"
 
 
+def is_standard(inimg, data_hdu=0):
+    """
+    Report whether this exposure is a Nod & Shuffle frame.
+    """
+    f = pyfits.open(inimg)
+    imtype = f[data_hdu].header["IMAGETYP"]
+    f.close()
+    return imtype.upper() == "STANDARD"
+
+
 def is_subnodshuffle(inimg, data_hdu=0):
     """
     Report whether this exposure is a SubNodAndShuffle frame.
@@ -101,6 +110,53 @@ def is_taros(inimg):
     else:
         raise TypeError(f"The is_taros function takes headers, filenames, or HDULists; given {type(inimg)}")
     return 'TAROSREQ' in header
+
+
+def hl_envelopes_idx(s, dmin=1, dmax=1, split=False, as_bool=False):
+    """
+    Inputs:
+
+    s : 1d-array
+        data signal from which to extract high and low envelopes
+
+    dmin, dmax : int, optional
+        size of chunks, use this if the size of the input signal is too big
+
+    split : bool, optional
+        if True, split the signal in half along its mean, might help to generate the
+        envelope in some cases
+
+    as_bool : bool, optional
+        whether to return boolean arrays indicating if each element is a min or max value
+
+    Output:
+    lmin, lmax : low/high envelope idx of input signal s, or if as_bool=True, then boolean arrays where min/max
+
+    Adapted from https://stackoverflow.com/questions/34235530/how-to-get-high-and-low-envelope-of-a-signal/60402647#60402647
+    """
+    # locals min
+    lmin = (numpy.diff(numpy.sign(numpy.diff(s))) > 0).nonzero()[0] + 1
+    # locals max
+    lmax = (numpy.diff(numpy.sign(numpy.diff(s))) < 0).nonzero()[0] + 1
+
+    if split:
+        # s_mid is zero if s centered around x-axis or more generally mean of signal
+        s_mid = numpy.mean(s)
+        # pre-sorting of locals min based on relative position with respect to s_mid
+        lmin = lmin[s[lmin] < s_mid]
+        # pre-sorting of local max based on relative position with respect to s_mid
+        lmax = lmax[s[lmax] > s_mid]
+
+    # global min of dmin-chunks of locals min
+    lmin = lmin[[i + numpy.argmin(s[lmin[i:i + dmin]]) for i in range(0, len(lmin), dmin)]]
+    # global max of dmax-chunks of locals max
+    lmax = lmax[[i + numpy.argmax(s[lmax[i:i + dmax]]) for i in range(0, len(lmax), dmax)]]
+
+    if as_bool:
+        lmin = numpy.isin(numpy.arange(s.shape[0]), lmin)
+        lmax = numpy.isin(numpy.arange(s.shape[0]), lmax)
+
+    return lmin, lmax
 
 
 def nan_helper(y):

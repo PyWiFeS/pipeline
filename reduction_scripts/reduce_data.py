@@ -22,7 +22,7 @@ from pywifes.lacosmic import lacos_wifes
 from pywifes.logger_config import setup_logger, custom_print
 from pywifes.quality_plots import flatfield_plot
 from pywifes.splice import splice_spectra, splice_cubes
-from pywifes.wifes_utils import is_halfframe, is_nodshuffle, is_subnodshuffle, is_taros
+from pywifes.wifes_utils import is_halfframe, is_nodshuffle, is_standard, is_subnodshuffle, is_taros
 
 # Set paths
 working_dir = os.getcwd()
@@ -1489,11 +1489,12 @@ def main():
                 flat_resp_fn,
                 wsol_fn=wsol_out_fn,
                 plot_dir=plot_dir_arm,
+                shape_fn=smooth_shape_fn,
                 **args
             )
         elif mode == "dome":
             pywifes.wifes_response_poly(
-                super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn, **args
+                super_dflat_mef, flat_resp_fn, wsol_fn=wsol_out_fn, shape_fn=smooth_shape_fn, **args
             )
         else:
             error_print("Requested response mode not recognised")
@@ -2059,11 +2060,11 @@ def main():
         xtrim : int, optional
             The number of pixels to trim from the left and right of the data cube in
             the x spatial direction.
-            Default: 4.
+            Default: 2.
         ytrim : int, optional
             The number of (unbinned) pixels to trim from the top and bottom of the data
             cube in the y spatial direction.
-            Default: 8.
+            Default: 4.
         wmask: int, optional
             The number of (unbinned) wavelength pixels to mask from each end when
             peak-finding.
@@ -2094,7 +2095,7 @@ def main():
         return
 
     # Sensitivity Function fit
-    def run_derive_calib(metadata, prev_suffix, curr_suffix, method="poly", **args):
+    def run_derive_calib(metadata, prev_suffix, curr_suffix, method="poly", prefactor=False, **args):
         """
         Derive the sensitivity function from the extracted standard stars.
 
@@ -2110,6 +2111,10 @@ def main():
             Method for deriving the sensitivity function.
             Options: 'smooth_SG', 'poly.
             Default: 'poly'.
+        prefactor : bool, optional
+            Whether to remove a shape (e.g., from the flat lamp) before fitting the
+            shape of the standard star (and reapply to final sensitivity).
+            Default: False.
 
         Optional Function Arguments
         ---------------------------
@@ -2135,7 +2140,7 @@ def main():
         ytrim : int, optional
             If standard star spectrum not previously extracted, mask this number of
             (unbinned) y-axis pixels when peak-finding.
-            Default: 5.
+            Default: 4.
         boxcar : int, optional
             Boxcar smoothing length for'method'='smooth_SG'.
             Default: 11.
@@ -2188,13 +2193,23 @@ def main():
             os.path.join(out_dir, f"{fn}.x{prev_suffix}.dat")
             for fn in std_obs_list
         ]
+        if prefactor:
+            if os.path.isfile(smooth_shape_fn):
+                info_print(f"Using prefactor file {smooth_shape_fn}")
+                pf_fn = smooth_shape_fn
+            else:
+                info_print(f"Could not find prefactor file {smooth_shape_fn}")
+                prefactor = False
+                pf_fn = None
+        else:
+            pf_fn = None
         if skip_done and os.path.isfile(calib_fn) \
                 and os.path.getmtime(std_cube_list[0]) < os.path.getmtime(calib_fn):
             return
         info_print("Deriving sensitivity function")
         wifes_calib.derive_wifes_calibration(
             std_cube_list, calib_fn, extract_in_list=extract_list, method=method,
-            plot_dir=plot_dir_arm, **args
+            plot_dir=plot_dir_arm, prefactor=prefactor, prefactor_fn=pf_fn, **args
         )
         return
 
@@ -2220,11 +2235,11 @@ def main():
 
         Optional Function Arguments
         ---------------------------
-        extinction_fn : str
+        extinction_fn : str, optional
             Extinction file path containing the extinction curve information. If None,
             defaults to standard SSO extinction curve.
             Default: None.
-        interactive_plot : bool
+        interactive_plot : bool, optional
             Whether to interrupt processing to provide interactive plot to user.
             Default: False.
 
@@ -2301,7 +2316,7 @@ def main():
         ytrim : int, optional
             Number of (unbinned) pixels to trim from the top and bottom of the data
             cube if standard star spectrum has not been extracted previously.
-            Default: 3.
+            Default: 4.
         debug : bool, optional
             Whether to report the parameters used in this function call.
             Default: False.
@@ -2333,7 +2348,7 @@ def main():
         )
         return
 
-    def run_telluric_corr(metadata, prev_suffix, curr_suffix):
+    def run_telluric_corr(metadata, prev_suffix, curr_suffix, **args):
         """
         Apply telluric correction for all science and standard observations.
 
@@ -2345,6 +2360,15 @@ def main():
             Previous suffix of the file name (input).
         curr_suffix : str
             Current suffix of the file name (output).
+
+        Optional Function Arguments
+        ---------------------------
+        shift_sky : bool, optional
+            Whether to shift the telluric to better align the sky lines between telluric and object.
+            Default: True.
+        interactive_plot : bool, optional
+            Whether to interrupt processing to provide interactive plot to user.
+            Default: False.
 
         Returns
         -------
@@ -2359,7 +2383,7 @@ def main():
                     and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
                 continue
             info_print(f"Correcting telluric in {os.path.basename(in_fn)}")
-            wifes_calib.apply_wifes_telluric(in_fn, out_fn, tellcorr_fn)
+            wifes_calib.apply_wifes_telluric(in_fn, out_fn, tellcorr_fn, **args)
         return
 
     def run_save_3dcube(metadata, prev_suffix, curr_suffix, **args):
@@ -2665,6 +2689,7 @@ def main():
             super_dflat_raw = os.path.join(master_dir, "%s_super_domeflat_raw.fits" % calib_prefix)
             super_dflat_fn = os.path.join(master_dir, "%s_super_domeflat.fits" % calib_prefix)
             super_dflat_mef = os.path.join(master_dir, "%s_super_domeflat_mef.fits" % calib_prefix)
+            smooth_shape_fn = os.path.join(master_dir, "%s_smooth_shape.dat" % calib_prefix)
 
             # Twilight Master Files
             super_tflat_raw = os.path.join(master_dir, "%s_super_twiflat_raw.fits" % calib_prefix)
@@ -2788,10 +2813,11 @@ def main():
 
         if extract_and_splice:
             # ----------------------------------------------------------
-            # Find and list all reduced cubes in the destination directory
+            # Find all reduced cubes in the destination directory (except spliced cubes)
             # ----------------------------------------------------------
-            reduced_cubes_paths = [os.path.join(destination_dir, file_name) for file_name
-                                   in get_file_names(destination_dir, "*.cube.fits")]
+            reduced_cubes_paths = [os.path.join(destination_dir, fname) for fname
+                                   in get_file_names(destination_dir, "*.cube.fits")
+                                   if "Splice" not in fname]
 
             # ----------------------------------------------------------
             # Match cubes from the same observation based on DATE-OBS
@@ -2812,14 +2838,22 @@ def main():
                     # Extraction
                     # ----------
                     info_print('======================')
-                    info_print('Extracting spectra')
+                    info_print(f'Extracting spectra for {match_cubes["file_name"].replace(".cube", "")}')
                     info_print('======================')
                     blue_cube_path = match_cubes["Blue"]
                     red_cube_path = match_cubes["Red"]
+                    info_print(f'Found blue={blue_cube_path} and red={red_cube_path}')
                     plot_name = match_cubes["file_name"].replace(".cube", "_detection_plot.png")
                     plot_path = os.path.join(plot_dir, plot_name)
                     plot = extract_params["plot"]
-                    taros = is_taros(blue_cube_path)
+                    if blue_cube_path is None:
+                        taros = is_taros(red_cube_path)
+                        subns = is_subnodshuffle(red_cube_path)
+                        std = is_standard(red_cube_path)
+                    else:
+                        taros = is_taros(blue_cube_path)
+                        subns = is_subnodshuffle(blue_cube_path)
+                        std = is_standard(blue_cube_path)
 
                     get_dq = True if "get_dq" in extract_params and extract_params["get_dq"] else False
 
@@ -2830,7 +2864,8 @@ def main():
                         destination_dir,
                         r_arcsec=extract_params["r_arcsec"],
                         border_width=extract_params["border_width"],
-                        sky_sub=False if obs_mode == "ns" else True,
+                        sky_sub=False if (not std and obs_mode == "ns") else True,
+                        subns=subns,
                         plot=plot,
                         plot_path=plot_path,
                         get_dq=get_dq,
@@ -2865,13 +2900,13 @@ def main():
                         pattern_blue = os.path.join(
                             destination_dir, blue_cube_name.replace("cube", "spec.ap*")
                         )
-                        blue_specs = glob.glob(pattern_blue)
+                        blue_specs = sorted(glob.glob(pattern_blue))
 
                         # Find red spectra files matching the pattern 'xxx-Red-UTxxx.spec.ap*'
                         pattern_red = os.path.join(
                             destination_dir, red_cube_name.replace("cube", "spec.ap*")
                         )
-                        red_specs = glob.glob(pattern_red)
+                        red_specs = sorted(glob.glob(pattern_red))
 
                         # Splice spectra
                         for blue_spec, red_spec in zip(blue_specs, red_specs):
@@ -2897,10 +2932,10 @@ def main():
                         if blue_cube_path is not None and red_cube_path is not None:
 
                             blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")
-                            blue_specs = glob.glob(blue_pattern)
+                            blue_specs = sorted(glob.glob(blue_pattern))
 
                             red_pattern = red_cube_path.replace("cube.fits", "spec.ap*")
-                            red_specs = glob.glob(red_pattern)
+                            red_specs = sorted(glob.glob(red_pattern))
 
                             for blue_spec, red_spec in zip(blue_specs, red_specs):
                                 if taros:
@@ -2918,7 +2953,7 @@ def main():
                         elif blue_cube_path is not None:
 
                             blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")
-                            blue_specs = glob.glob(blue_pattern)
+                            blue_specs = sorted(glob.glob(blue_pattern))
 
                             for blue_spec in blue_specs:
 
@@ -2927,7 +2962,7 @@ def main():
                         elif red_cube_path is not None:
 
                             red_pattern = red_cube_path.replace("cube.fits", "spec.ap*")
-                            red_specs = glob.glob(red_pattern)
+                            red_specs = sorted(glob.glob(red_pattern))
 
                             for red_spec in red_specs:
 

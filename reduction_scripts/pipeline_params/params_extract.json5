@@ -1,7 +1,7 @@
 
 {
     "r_arcsec": 2,  // Source extraction radius (in arcseconds). Sky annulus is between 3 and 4 * r_arcsec.
-    "border_width": 3,  // Number of edge spaxels to omit when peak-finding and defining colourbar range for output plots.
+    "border_width": 2,  // Number of edge spaxels to omit when peak-finding and defining colourbar range for output plots.
     "plot": true,  // Create output plots.
     "get_dq": true,  // Extract science aperture from DQ extension and return in output.
 }   

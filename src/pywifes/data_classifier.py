@@ -432,6 +432,8 @@ def cube_matcher(paths_list):
             arm_list.append(fits_header["ARM"])
         elif "CAMERA" in fits_header:
             arm_list.append(re.sub("WiFeS", "", fits_header["CAMERA"]))
+        else:
+            arm_list.append("unknown_arm")
         date_obs_list.append(fits_header["DATE-OBS"])
 
     if not paths_list:
@@ -439,14 +441,18 @@ def cube_matcher(paths_list):
         return None
 
     df = pd.DataFrame({"path": paths_list, "arm": arm_list, "date_obs": date_obs_list})
+    df["date_obs"] = pd.to_datetime(df["date_obs"], utc=True, format="ISO8601")
 
+    df = df.sort_values("date_obs")
+    Nsec = 15  # allow Nsec seconds of difference between the arms
+    df['Group'] = df["date_obs"].diff().dt.seconds.gt(Nsec).cumsum()
     matched_obs_arms = (
-        df.groupby("date_obs")[["path", "arm"]]
+        df.groupby('Group')[["path", "arm"]]
         .apply(lambda x: x.to_dict("records"))
         .tolist()
     )
-    matched_dicts = []
 
+    matched_dicts = []
     for obs_arms in matched_obs_arms:
         matched_dict = {"Blue": None, "Red": None, "file_name": None}
         for obs_arm in obs_arms:

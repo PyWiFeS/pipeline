@@ -14,7 +14,7 @@ import logging
 from pywifes import wifes_ephemeris
 from pywifes.pywifes import imcopy
 from pywifes.wifes_metadata import metadata_dir, __version__
-from pywifes.wifes_utils import arguments, is_halfframe, is_taros
+from pywifes.wifes_utils import arguments, hl_envelopes_idx, is_halfframe, is_nodshuffle, is_taros
 
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
@@ -148,8 +148,9 @@ def load_wifes_cube(cube_fn, ytrim=[0, 0], return_dq=False):
         nx = 25
     ny, nlam = numpy.shape(f[1].data)
     lam0 = f[1].header["CRVAL1"]
+    pix0 = f[1].header["CRPIX1"]
     dlam = f[1].header["CDELT1"]
-    lam_array = lam0 + dlam * numpy.arange(nlam, dtype="d")
+    lam_array = lam0 + dlam * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
     # get data and variance
     obj_cube_data = numpy.zeros([nlam, ny - sum(ytrim), nx], dtype="d")
     obj_cube_var = numpy.zeros([nlam, ny - sum(ytrim), nx], dtype="d")
@@ -183,8 +184,8 @@ def extract_wifes_stdstar(
     y_ctr=None,
     extract_radius=5.0,
     sky_radius=8.0,
-    xtrim=4,
-    ytrim=8,
+    xtrim=2,
+    ytrim=4,
     wmask=500,
     save_mode=None,
     save_fn=None,
@@ -219,11 +220,11 @@ def extract_wifes_stdstar(
     xtrim : int, optional
         The number of pixels to trim from the left and right of the data cube in the x
         spatial direction.
-        Default: 4.
+        Default: 2.
     ytrim : int, optional
         The number of (unbinned) pixels to trim from the top and bottom of the data
         cube in the y spatial direction.
-        Default: 8.
+        Default: 4.
     wmask: int, optional
         The number of (unbinned) wavelength pixels to mask from each end when
         peak-finding.
@@ -249,6 +250,8 @@ def extract_wifes_stdstar(
             The wavelength array of the extracted spectrum.
         filtered_std_flux : numpy.ndarray
             The flux values of the extracted spectrum.
+        filtered_sky_flux : numpy.ndarray
+            The sky values subtracted from the flux.
     Else:
         None
 
@@ -293,6 +296,11 @@ def extract_wifes_stdstar(
     if x_ctr is None or y_ctr is None:
         cube_im = numpy.nansum(obj_cube_data[wmask:nlam - wmask, :, :], axis=0)
         y_ctr, x_ctr = numpy.unravel_index(numpy.argmax(cube_im), cube_im.shape)
+        if interactive_plot:
+            plt.imshow(cube_im, origin='lower', aspect=(0.5 * bin_y))
+            plt.title('Flattened, trimmed standard star')
+            plt.show()
+            plt.close('all')
     print(f"Extracting STD from IFU (x,y) = ({x_ctr + first + xtrim}, {y_ctr + 1 + ytrim})")
 
     # get *distance* of each pixels from stdstar center x/y
@@ -304,6 +312,7 @@ def extract_wifes_stdstar(
     obj_pix = numpy.nonzero((pix_dists <= extract_radius))
 
     sky_flux = numpy.nanmedian(obj_cube_data[:, sky_pix[0], sky_pix[1]], axis=1)
+    sky_flux[numpy.isnan(sky_flux)] = 0.
     std_flux = numpy.sum(obj_cube_data[:, obj_pix[0], obj_pix[1]], axis=1) - sky_flux * len(obj_pix[0])
     std_var = numpy.sum(obj_cube_var[:, obj_pix[0], obj_pix[1]], axis=1)
     std_dq = numpy.sum(obj_cube_dq[:, obj_pix[0], obj_pix[1]], axis=1)
@@ -319,7 +328,7 @@ def extract_wifes_stdstar(
         plt.yscale('log')
         plt.title(os.path.basename(cube_fn))
         plt.show()
-        plt.close()
+        plt.close('all')
 
     # DIVIDE FLUX BY EXPTIME AND BIN SIZE!!!
     dlam = lam_array[1] - lam_array[0]
@@ -334,20 +343,22 @@ def extract_wifes_stdstar(
     filtered_std_flux = std_flux[filter_nan]
     filtered_std_var = std_var[filter_nan]
     filtered_std_dq = std_dq[filter_nan]
+    filtered_sky_flux = sky_flux[filter_nan]
 
     len_filtered_lam = len(filtered_lam_array)
 
     # return flux or save!
     if save_mode is None:
         f.close()
-        return filtered_lam_array, filtered_std_flux
+        return filtered_lam_array, filtered_std_flux, filtered_sky_flux
     elif save_mode == "ascii":
         f.close()
-        save_data = numpy.zeros([len_filtered_lam, 4], dtype="d")
+        save_data = numpy.zeros([len_filtered_lam, 5], dtype="d")
         save_data[:, 0] = filtered_lam_array
         save_data[:, 1] = filtered_std_flux
         save_data[:, 2] = filtered_std_var
         save_data[:, 3] = filtered_std_dq
+        save_data[:, 4] = filtered_sky_flux
         numpy.savetxt(save_fn, save_data)
     elif save_mode == "iraf":
         out_header = f[1].header
@@ -387,9 +398,10 @@ def wifes_cube_divide(inimg, outimg, corr_wave, corr_flux):
     f3 = pyfits.open(inimg)
     # get the wavelength array
     wave0 = f3[1].header["CRVAL1"]
+    pix0 = f3[1].header["CRPIX1"]
     dwave = f3[1].header["CDELT1"]
     nlam = numpy.shape(f3[1].data)[1]
-    wave_array = wave0 + dwave * numpy.arange(nlam, dtype="d")
+    wave_array = wave0 + dwave * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
     # calculate the flux calibration array
     fcal_array = corr_interp(wave_array)
     outfits = pyfits.HDUList(f3)
@@ -428,10 +440,12 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
         Must be less then `window_size` - 1.
     deriv: int
         the order of the derivative to compute (default = 0 means only smoothing)
+
     Returns
     -------
     ys : ndarray, shape (N)
         the smoothed signal (or it's n-th derivative).
+
     Notes
     -----
     The Savitzky-Golay is a type of low-pass filter, particularly
@@ -439,6 +453,7 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     approach is to make for each point a least-square fit with a
     polynomial of high order over a odd-sized window centered at
     the point.
+
     Examples
     --------
     t = np.linspace(-4, 4, 500)
@@ -450,6 +465,7 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     plt.plot(t, ysg, 'r', label='Filtered signal')
     plt.legend()
     plt.show()
+
     References
     ----------
     .. [1] A. Savitzky, M. J. E. Golay, Smoothing and Differentiation of
@@ -508,11 +524,16 @@ def derive_wifes_calibration(
     extinction_fn=None,
     ytrim=5,
     boxcar=11,
+    prefactor=False,
+    prefactor_fn=None,
     interactive_plot=False,
     debug=False,
 ):
     """
-    Derives the calibration solution for WiFeS data. The calibration solution is derived by comparing the observed standard star spectra to reference data. The calibration solution is then used to correct the observed spectra for instrumental effects.
+    Derives the flux calibration solution for WiFeS data. The calibration solution is
+    derived by comparing the observed standard star spectra to reference data. The
+    calibration solution is then used to correct the observed spectra for instrumental
+    effects.
 
     Parameters
     ----------
@@ -556,6 +577,15 @@ def derive_wifes_calibration(
         Number of pixels to trim from the edges of the extracted spectra.
     boxcar : int, optional
         Size of the boxcar filter for smoothing the sensitivity function.
+    prefactor : bool, optional
+        Whether to remove the flatfield shape to ease fitting of sensitivity curve.
+        Default: False.
+    prefactor_fn : str, optional
+        Filename of the smooth fit to the flatfield shape (generated in flat_response).
+        Default: None.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user.
+        Default: False.
     debug : bool, optional
         Whether to report the parameters used in this function call.
         Default: False.
@@ -632,7 +662,7 @@ def derive_wifes_calibration(
 
         # get observed data
         if extract_in_list is None:
-            obs_wave, obs_flux = extract_wifes_stdstar(cube_fn_list[i], ytrim=ytrim)
+            obs_wave, obs_flux, _ = extract_wifes_stdstar(cube_fn_list[i], ytrim=ytrim)
         else:
             ex_data = numpy.loadtxt(extract_in_list[i])
             obs_wave = ex_data[:, 0]
@@ -648,13 +678,29 @@ def derive_wifes_calibration(
             ref_data[:, 0], ref_data[:, 1], bounds_error=False, fill_value=numpy.nan
         )
         ref_flux = ref_interp(obs_wave)
+
+        # Ease fitting by (temporarily) removing the shape of the flat lamp
+        if prefactor and os.path.isfile(prefactor_fn):
+            pf_data = numpy.loadtxt(prefactor_fn)
+            pf_interp = interp.interp1d(
+                pf_data[:, 0], pf_data[:, 1], bounds_error=False, fill_value=1.0
+            )
+        else:
+            # Flat curve, interpolable to other wavelength spacings
+            pf_interp = interp.interp1d(
+                obs_wave, numpy.ones_like(obs_wave), bounds_error=False, fill_value=1.0
+            )
+        prefactor_shape = pf_interp(obs_wave)
+        prefactor_shape /= numpy.amax(prefactor_shape)
+        obs_flux = obs_flux / prefactor_shape
+
         std_ext = extinct_interp(obs_wave)
         good_inds = numpy.nonzero(
             (numpy.isfinite(ref_flux))
             * (numpy.isfinite(std_ext))
             * (obs_wave >= wave_min)
             * (obs_wave <= wave_max)
-            * (obs_flux > 0.0)
+            * (obs_flux > 1E-19)
         )[0]
         init_flux_ratio = -2.5 * numpy.log10(obs_flux[good_inds] / ref_flux[good_inds])
         flux_ratio = init_flux_ratio + (secz - 1.0) * std_ext[good_inds]
@@ -701,11 +747,20 @@ def derive_wifes_calibration(
         init_full_y = numpy.concatenate([x[1] for x in fratio_results])
 
     init_full_x = numpy.concatenate([x[0] for x in fratio_results])
+    lopeak_bool, _ = hl_envelopes_idx(init_full_y, dmin=5, as_bool=True)
     init_good_inds = numpy.nonzero(
         (numpy.isfinite(init_full_y))
-        * (init_full_y < numpy.median(init_full_y) + 20.0)
+        * (init_full_y < numpy.nanmedian(init_full_y) + 20.0)
         * (strong_telluric_mask(init_full_x))
         * (halpha_mask(init_full_x))
+        * (
+            (
+                (init_full_x > numpy.max(strong_H2O_telluric_bands))
+                * (lopeak_bool)
+            ) + (
+                init_full_x < numpy.max(strong_H2O_telluric_bands)
+            )
+        )
     )[0]
     # do a first fit
     next_full_y = init_full_y[init_good_inds]
@@ -744,14 +799,24 @@ def derive_wifes_calibration(
             plt.scatter(init_full_x[init_bad_inds], init_full_y[init_bad_inds], c='r', label='Bad')
             plt.plot(temp_full_x, temp_full_y, label='Data being fit')
             plt.plot(init_full_x, temp_fvals, label='SG-101')
-            plt.plot(init_full_x, savitzky_golay(temp_full_y, 25, 1, 0), label='SG-25')
-            plt.plot(init_full_x, savitzky_golay(savitzky_golay(temp_full_y, 25, 1, 0), 75, 1, 0), label='SG-25-75')
+            plt.xlabel('Wavelength')
+            plt.ylabel('Counts-to-Flux Ratio [mag]')
             plt.legend()
             plt.show()
+            plt.close('all')
         excise_cut = 0.003
     else:
         temp_best_calib = numpy.polyfit(temp_full_x, temp_full_y, polydeg)
         temp_fvals = numpy.polyval(temp_best_calib, temp_full_x)
+        if interactive_plot:
+            plt.plot(init_full_x, init_full_y, label='Orig')
+            plt.plot(temp_full_x, temp_full_y, label='Data being fit')
+            plt.plot(temp_full_x, temp_fvals, label=f"Polyfit-{polydeg}")
+            plt.xlabel('Wavelength')
+            plt.ylabel('Counts-to-Flux Ratio [mag]')
+            plt.legend()
+            plt.show()
+            plt.close('all')
     # excise outliers
     final_good_inds = numpy.nonzero(
         numpy.abs(temp_fvals - temp_full_y) / numpy.abs(temp_fvals) < excise_cut
@@ -791,7 +856,7 @@ def derive_wifes_calibration(
         1.000001 * numpy.max(full_x),
         0.0001 * (numpy.max(full_x) - numpy.min(full_x)),
     )
-    final_y = this_f(final_x)
+    final_y = this_f(final_x) - 2.5 * numpy.log10(pf_interp(final_x))
 
     # Plot Sensitivity function
     if plot_sensf:
@@ -973,6 +1038,7 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
     f3 = pyfits.open(inimg)
     # get the wavelength array
     wave0 = f3[1].header["CRVAL1"]
+    pix0 = f3[1].header["CRPIX1"]
     dwave = f3[1].header["CDELT1"]
     exptime = f3[1].header["EXPTIME"]
     try:
@@ -981,7 +1047,7 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         secz = 1.0
         print("AIRMASS keyword not found, assuming airmass=1.0")
     nlam = numpy.shape(f3[1].data)[1]
-    wave_array = wave0 + dwave * numpy.arange(nlam, dtype="d")
+    wave_array = wave0 + dwave * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
     std_file = "None"
     # calculate the flux calibration array
     if mode == "pywifes":
@@ -999,8 +1065,8 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         inst_fcal_array = 10.0 ** (-0.4 * all_final_fvals)
     elif mode == "iraf":
         f = pyfits.open(calib_fn)
-        calib_wave = f[0].header["CRVAL1"] + f[0].header["CDELT1"] * numpy.arange(
-            f[0].header["NAXIS1"], dtype="d"
+        calib_wave = f[0].header["CRVAL1"] + f[0].header["CDELT1"] * (
+            numpy.arange(f[0].header["NAXIS1"], dtype="d") - f[0].header["CRPIX1"] + 1.0
         )
         calib_flux = f[0].data
         calib_interp = interp.interp1d(
@@ -1017,6 +1083,7 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         plt.title(f"Standard star - {std_file}")
         plt.legend()
         plt.show()
+        plt.close('all')
     # calculate extinction curve for observed airmass
     obj_ext = 10.0 ** (-0.4 * ((secz - 1.0) * extinct_interp(wave_array)))
     fcal_array = inst_fcal_array * obj_ext
@@ -1052,18 +1119,18 @@ def derive_wifes_telluric(
     cube_fn_list,
     out_fn,
     plot=True,
-    plot_stars=False,
     plot_dir=None,
     save_prefix="telluric",
     extract_in_list=None,
     airmass_list=None,
     telluric_threshold=0.97,
-    fit_wmin=5400.0,
+    fit_wmin=5500.0,
     fit_wmax=10000.0,
     H2O_power=0.72,
     O2_power=0.40,
     polydeg=4,
-    ytrim=3,
+    ytrim=4,
+    interactive_plot=False,
     debug=False,
 ):
     """
@@ -1080,9 +1147,6 @@ def derive_wifes_telluric(
         Output file name to save the telluric correction information.
     plot : bool, optional
         Flag indicating whether to generate and save a plot of the telluric correction function.
-    plot_stars : bool, optional
-        Flag indicating whether to plot the individual O2 and H2O corrections for each star.
-        Default: False.
     plot_dir : str, optional
         Directory to save the plot file.
         Default: None.
@@ -1117,7 +1181,10 @@ def derive_wifes_telluric(
         Default: 4.
     ytrim : int, optional
         Number of (unbinned) pixels to trim from the top and bottom of the data cube if standard star spectrum has not been extracted previously.
-        Default: 3.
+        Default: 4.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user.
+        Default: False.
     debug : bool, optional
         Whether to report the parameters used in this function call.
         Default: False.
@@ -1149,11 +1216,14 @@ def derive_wifes_telluric(
     for i in range(len(cube_fn_list)):
         # get extracted spectrum
         if extract_in_list is None:
-            obs_wave, obs_flux = extract_wifes_stdstar(cube_fn_list[i], ytrim=ytrim)
+            print(f"Re-extracting standard from {cube_fn_list[i]}")
+            obs_wave, obs_flux, obs_sky = extract_wifes_stdstar(cube_fn_list[i], ytrim=ytrim)
         else:
+            print(f"Using extracted standrard {extract_in_list[i]}")
             ex_data = numpy.loadtxt(extract_in_list[i])
             obs_wave = ex_data[:, 0]
             obs_flux = ex_data[:, 1]
+            obs_sky = ex_data[:, 4]
         tellhdr = pyfits.getheader(cube_fn_list[i])
         if "OBJECT" in tellhdr:
             tellstd_list.append(tellhdr["OBJECT"])
@@ -1165,13 +1235,28 @@ def derive_wifes_telluric(
         H2O_inds = numpy.nonzero(H2O_mask == 0)[0]
         # fit smooth polynomial to non-telluric regions!
         fit_inds = numpy.nonzero(
-            O2_mask * H2O_mask * (obs_wave >= fit_wmin) * (obs_wave <= fit_wmax)
+            (numpy.isfinite(obs_flux))
+            * (obs_flux > 1E-19)
+            * (O2_mask)
+            * (H2O_mask)
+            * (obs_wave >= fit_wmin)
+            * (obs_wave <= fit_wmax)
         )[0]
 
         smooth_poly = numpy.polyfit(obs_wave[fit_inds], obs_flux[fit_inds], polydeg)
         # get ratio of data to smooth continuum
         smooth_cont = numpy.polyval(smooth_poly, obs_wave)
         init_ratio = obs_flux / smooth_cont
+        if interactive_plot:
+            plt.plot(obs_wave, obs_flux, label='obs')
+            plt.scatter(obs_wave[fit_inds], obs_flux[fit_inds], c='r', label='fit_inds')
+            plt.plot(obs_wave, smooth_cont, label='smooth')
+            plt.xlabel('Wavelength')
+            plt.ylabel('Flux')
+            plt.title('Telluric standard star fit')
+            plt.legend()
+            plt.show()
+            plt.close('all')
 
         # isolate desired regions, apply thresholds!
         O2_ratio = numpy.ones(len(obs_wave), dtype="d")
@@ -1187,6 +1272,11 @@ def derive_wifes_telluric(
         # Didn't find any stars - there's no point in continuing
         print("Could not find telluric calibration data for any stars. Skipping.")
         return
+
+    # Prepare to interpolate the last sky spectrum onto the final wavelength grid
+    this_sky = interp.interp1d(
+        obs_wave, obs_sky, bounds_error=False, kind="linear"
+    )
 
     # ---------------------------------------------
     # now using all, derive the appropriate solutions!
@@ -1219,8 +1309,11 @@ def derive_wifes_telluric(
     final_O2_corr[numpy.nonzero(final_O2_corr < 0.01)[0]] = 0.01
     final_H2O_corr[numpy.nonzero(final_H2O_corr < 0.01)[0]] = 0.01
     # fix nan values
-    final_O2_corr[numpy.nonzero(final_O2_corr != final_O2_corr)[0]] = 1.0
-    final_H2O_corr[numpy.nonzero(final_H2O_corr != final_H2O_corr)[0]] = 1.0
+    final_O2_corr[numpy.isnan(final_O2_corr)] = 1.0
+    final_H2O_corr[numpy.isnan(final_H2O_corr)] = 1.0
+    # interpolate sky spectrum onto final wavelength grid
+    final_sky = this_sky(base_wave)
+
     # ---------------------------------------------
     # Check Plot
     if plot:
@@ -1300,6 +1393,7 @@ def derive_wifes_telluric(
         "H2O": final_H2O_corr,
         "O2_power": O2_power,
         "H2O_power": H2O_power,
+        "sky": final_sky,
         "tellstd_list": tellstd_list,
     }
     f1 = open(out_fn, "wb")
@@ -1308,7 +1402,7 @@ def derive_wifes_telluric(
     return
 
 
-def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
+def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=True, interactive_plot=False):
     """
     Apply telluric correction to the input image. The telluric correction is applied
     using the telluric correction file previously obtained in 'derive_wifes_telluric()'.
@@ -1326,6 +1420,12 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
     airmass : float, optional
         Airmass value for the correction. If not provided, it will be extracted from the input image header.
         Default: None.
+    shift_sky : bool, optional
+        Whether to shift the telluric to better align the sky lines between telluric and object.
+        Default: True.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user.
+        Default: False.
 
     Returns
     -------
@@ -1343,10 +1443,12 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
         return
 
     halfframe = is_halfframe(inimg)
+    first = 1
     if halfframe:
         if is_taros(inimg):
             nslits = 12
         else:
+            first = 7
             nslits = 13
     else:
         nslits = 25
@@ -1359,7 +1461,7 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
         tellstd_list = tellcorr_info["tellstd_list"]
         tellstd_list = ",".join(str(tf) for tf in tellstd_list)
     else:
-        tellstd_list = "None"
+        tellstd_list = "Unspecified"
     O2_interp = interp.interp1d(
         tellcorr_info["wave"], tellcorr_info["O2"], bounds_error=False, fill_value=1.0
     )
@@ -1372,6 +1474,14 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
     except:
         O2_power = 0.55
         H2O_power = 1.0
+    if shift_sky:
+        try:
+            sky_interp = interp.interp1d(
+                tellcorr_info["wave"], tellcorr_info["sky"] / numpy.nanmax(tellcorr_info["sky"]), bounds_error=False, fill_value=0.0
+            )
+        except KeyError:
+            print("Could not find 'sky' in telluric correction pickle file. Cannot shift to spectrum.")
+            shift_sky = False
     f1.close()
     # ---------------------------------------------
     # apply to chosen data
@@ -1385,21 +1495,59 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
             print("AIRMASS keyword not found, assuming airmass=1.0")
     # get the wavelength array
     wave0 = f3[1].header["CRVAL1"]
+    pix0 = f3[1].header["CRPIX1"]
     dwave = f3[1].header["CDELT1"]
     nlam = numpy.shape(f3[1].data)[1]
-    wave_array = wave0 + dwave * numpy.arange(nlam, dtype="d")
-    # calculate the telluric correction array
-    base_O2_corr = O2_interp(wave_array)
-    O2_corr = base_O2_corr ** (airmass**O2_power)
-    base_H2O_corr = H2O_interp(wave_array)
-    H2O_corr = base_H2O_corr ** (airmass**H2O_power)
-    fcal_array = O2_corr * H2O_corr
+    wave_array = wave0 + dwave * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
+
+    # do not shift sky if Nod & Shuffle has removed sky lines
+    if shift_sky and is_nodshuffle(inimg):
+        shift_sky = False
+
+    # if not adjusting for each slit
+    if not shift_sky:
+        # calculate the telluric correction array
+        base_O2_corr = O2_interp(wave_array)
+        O2_corr = base_O2_corr ** (airmass**O2_power)
+        base_H2O_corr = H2O_interp(wave_array)
+        H2O_corr = base_H2O_corr ** (airmass**H2O_power)
+        fcal_array = O2_corr * H2O_corr
+
     # correct the data
     outfits = pyfits.HDUList(f3)
+    shift_list = []
     for i in range(nslits):
         curr_hdu = i + 1
         curr_flux = f3[curr_hdu].data
         curr_var = f3[curr_hdu + nslits].data
+        if shift_sky:
+            targ_sky = numpy.nanmedian(curr_flux, axis=0)
+            targ_sky = targ_sky[(wave_array > 7200.0) * (wave_array < 8100.0)]
+            targ_wave = wave_array[(wave_array > 7200.0) * (wave_array < 8100.0)]
+            best_shift = 0.
+            best_ampl = 0
+            for this_shift in numpy.arange(-3., 3.25, 0.25):
+                this_ampl = numpy.nanmean(sky_interp(targ_wave + this_shift * dwave) * targ_sky / numpy.amax(targ_sky))
+                if this_ampl > best_ampl:
+                    best_shift = this_shift
+                    best_ampl = this_ampl
+            print(f"Slit {first + i}: best_shift = {best_shift}")
+            shift_list.append(best_shift)
+
+            # calculate the telluric correction array
+            base_O2_corr = O2_interp(wave_array + best_shift * dwave)
+            O2_corr = base_O2_corr ** (airmass**O2_power)
+            base_H2O_corr = H2O_interp(wave_array + best_shift * dwave)
+            H2O_corr = base_H2O_corr ** (airmass**H2O_power)
+            fcal_array = O2_corr * H2O_corr
+
+            if interactive_plot:
+                plt.plot(targ_wave, targ_sky / numpy.amax(targ_sky), label='Target sky')
+                plt.plot(targ_wave, sky_interp(targ_wave + best_shift * dwave), label='Interpolated telluric sky')
+                plt.legend()
+                plt.title(f"{os.path.basename(inimg)} - slit {first + i}")
+                plt.show()
+                plt.close('all')
         out_flux = curr_flux / fcal_array
         out_var = curr_var / (fcal_array**2)
         # save to data cube
@@ -1407,6 +1555,10 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None):
         outfits[curr_hdu + nslits].data = out_var.astype("float32", casting="same_kind")
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWTSTDF", tellstd_list, "PyWiFeS: telluric standard(s)")
+    outfits[0].header.set("PYWTO2P", O2_power, "PyWiFeS: telluric O2 power")
+    outfits[0].header.set("PYWTH2OP", H2O_power, "PyWiFeS: telluric H2O power")
+    if shift_sky:
+        outfits[0].header.set("PYWTSHFT", numpy.median(shift_list) * dwave, "PyWiFeS: median lambda shift of telluric (A)")
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return

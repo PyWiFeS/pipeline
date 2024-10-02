@@ -486,8 +486,8 @@
                 "type": "flux",
                 // - "extract_radius": 5.0,  // Radius (arcseconds) within which to sum standard star flux.
                 // - "sky_radius": 8.0,  // Radius (arcseconds) outside of which to determine median sky.
-                // - "xtrim": 4,  // Number of x-axis spaxels to exclude from each side when peak-finding.
-                // - "ytrim": 8,  // Number of (unbinned) y-axis spaxels to exclude from each side when peak-finding.
+                // - "xtrim": 2,  // Number of x-axis spaxels to exclude from each side when peak-finding.
+                // - "ytrim": 4,  // Number of (unbinned) y-axis spaxels to exclude from each side when peak-finding.
                 // - "wmask": 500,  // Number of wavelength pixels at each end to mask when peak-finding
                 //
                 // Additional user options.
@@ -511,12 +511,14 @@
                 "norm_stars": true,  // Recentre midpoint flux ratios at the minimum (in magnitude units) across all input standards.
                 // - "wave_min": None,  // Minimum wavelength to compute flux ratio. If None, defaults to minimum observed wavelength.
                 // - "wave_max": None,  // Maximum wavelength to compute flux ratio. If None, defaults to maximum observed wavelength.
-                // - "ytrim": 5,  // If standard star spectrum not previously extracted, mask this number of (unbinned) y-axis pixels when peak-finding.
+                // - "ytrim": 4,  // If standard star spectrum not previously extracted, mask this number of (unbinned) y-axis pixels when peak-finding.
+                "prefactor": true,  // Whether to remove the flatfield shape to ease fitting of sensitivity curve.
                 //
                 // Additional user options.
                 "plot_stars": true,
                 "plot_sensf": true,
-                // - "save_prefix": "calib_",
+                // - "plot_name": "flux_calibration_solution.png",
+                // - "interactive_plot": false,
                 // - "debug": false,
                 }
         },

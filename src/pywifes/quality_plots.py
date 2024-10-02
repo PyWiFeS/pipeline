@@ -5,7 +5,7 @@ import numpy
 import pickle
 from photutils.aperture import RectangularAperture
 
-from pywifes.wifes_utils import is_halfframe
+from pywifes.wifes_utils import is_halfframe, is_taros
 
 
 def slitlet_cutout(image, aperture):
@@ -14,17 +14,21 @@ def slitlet_cutout(image, aperture):
     return cutout
 
 
-def slitlet_aperture(boundaries, halfframe, bin_x=1, bin_y=2):
+def slitlet_aperture(boundaries, halfframe, taros, bin_x=1, bin_y=2):
     xmin, xmax, ymin, ymax = boundaries
     xmin = numpy.round(xmin // bin_x)
     xmax = numpy.round(xmax // bin_x)
 
     if halfframe:
-        ymin = numpy.round(ymin // bin_y) - (1028 // bin_y)
-        ymax = numpy.round(ymax // bin_y) - (1028 // bin_y)
+        if taros:
+            y_offset = 2056
+        else:
+            y_offset = 1028
     else:
-        ymin = numpy.round(ymin // bin_y)
-        ymax = numpy.round(ymax // bin_y)
+        y_offset = 0
+
+    ymin = numpy.round(ymin // bin_y) - (y_offset // bin_y)
+    ymax = numpy.round(ymax // bin_y) - (y_offset // bin_y)
 
     center_x = (xmin + xmax) / 2
     center_y = (ymin + ymax) / 2
@@ -40,23 +44,26 @@ def read_pkl(path_pkl):
     return data
 
 
-def plot_slitlet(ax, path_slitlet, halfframe):
-
+def plot_slitlet(ax, path_slitlet, halfframe=False, taros=False, bin_x=1, bin_y=2):
     if halfframe:
-        first = 7
-        last = 19
+        if taros:
+            first = 1
+            last = 12
+        else:
+            first = 7
+            last = 19
     else:
         first = 1
-        last = 26
+        last = 25
 
     slitlets = read_pkl(path_slitlet)
     # Toy plot for labeling
     ax.plot(0, 0, color='red', lw=1, ls='--', label='Slitlet boundary', zorder=-1)
 
-    for index in range(first, last):
+    for index in range(first, last + 1):
         slit_number = str(index)
         boundaries = slitlets[slit_number]
-        aperture = slitlet_aperture(boundaries, halfframe, bin_x=1, bin_y=2)
+        aperture = slitlet_aperture(boundaries, halfframe, taros, bin_x=bin_x, bin_y=bin_y)
         aperture.plot(ax=ax, color='red', lw=1, ls='--')
 
 
@@ -68,40 +75,43 @@ def plot_fits(ax, image_path, min=5, max=95, cmap="nipy_spectral"):
     return img
 
 
-def plot_collapsed_slitlets(ax, path_slitlet, image_path):
+def plot_collapsed_slitlets(ax, path_slitlet, image_path, halfframe=False, taros=False, bin_x=1, bin_y=2):
     image = fits.getdata(image_path)
     slitlets = read_pkl(path_slitlet)
     for slit_number in slitlets:
         boundaries = slitlets[slit_number]
-        aperture = slitlet_aperture(boundaries, bin_x=1, bin_y=2)
+        aperture = slitlet_aperture(boundaries, halfframe=halfframe, taros=taros, bin_x=bin_x, bin_y=bin_y)
         cutout = slitlet_cutout(image, aperture)
         median_slitlet = numpy.median(cutout, axis=0)
         ax.plot(median_slitlet)
 
 
-def slitlet_yticks(path_slitlet, halfframe, bin_x=1, bin_y=2):
+def slitlet_yticks(path_slitlet, halfframe=False, taros=False, bin_y=2):
     slitlets = read_pkl(path_slitlet)
     y_centers = []
     slit_numbers = []
 
     if halfframe:
-        first = 7
-        last = 19
+        if taros:
+            first = 1
+            last = 12
+            y_offset = 2056
+        else:
+            first = 7
+            last = 19
+            y_offset = 1028
     else:
         first = 1
-        last = 26
+        last = 25
+        y_offset = 0
 
-    for index in range(first, last):
+    for index in range(first, last + 1):
         slit_number = str(index)
         boundaries = slitlets[slit_number]
         xmin, xmax, ymin, ymax = boundaries
 
-        if halfframe:
-            ymin = numpy.round(ymin // bin_y) - (1028 // bin_y)
-            ymax = numpy.round(ymax // bin_y) - (1028 // bin_y)
-        else:
-            ymin = numpy.round(ymin // bin_y)
-            ymax = numpy.round(ymax // bin_y)
+        ymin = numpy.round(ymin // bin_y) - (y_offset // bin_y)
+        ymax = numpy.round(ymax // bin_y) - (y_offset // bin_y)
 
         center_y = (ymin + ymax) / 2
 
@@ -132,15 +142,24 @@ def flatfield_plot(flat_image_path, slitlet_path, title, output_plot):
 
     # Check if is half frame
     halfframe = is_halfframe(flat_image_path)
+    taros = is_taros(flat_image_path)
+
+    # Get binning
+    flat_hdr = fits.getheader(flat_image_path)
+    bin_x, bin_y = [int(b) for b in flat_hdr["CCDSUM"].split()]
 
     if halfframe:
-        first = 7
-        last = 19
+        if taros:
+            first = 1
+            last = 12
+        else:
+            first = 7
+            last = 19
     else:
         first = 1
-        last = 26
+        last = 25
 
-    plot_slitlet(ax1, slitlet_path, halfframe)
+    plot_slitlet(ax1, slitlet_path, halfframe, taros)
     ax1.label_outer()  # Hide x-tick labels for the top subplot
 
     # Add color bar to the top of ax1
@@ -149,7 +168,7 @@ def flatfield_plot(flat_image_path, slitlet_path, title, output_plot):
     cbar.set_label('Count [e$^{-}$]', size=15)
 
     # Set yticks and labels for ax1
-    y_centers, slit_numbers = slitlet_yticks(slitlet_path, halfframe, bin_x=1, bin_y=2)
+    y_centers, slit_numbers = slitlet_yticks(slitlet_path, halfframe=halfframe, taros=taros, bin_y=bin_y)
     ax1.set_yticks(y_centers)
     ax1.set_yticklabels(slit_numbers)
     ax1.set_ylabel('Slitlet number', size=15)
@@ -157,12 +176,12 @@ def flatfield_plot(flat_image_path, slitlet_path, title, output_plot):
     # Plot collapsed slitlet on the bottom
     slitlets = read_pkl(slitlet_path)
 
-    for i, index in enumerate(range(first, last)):
+    for i, index in enumerate(range(first, last + 1)):
         slit_number = str(index)
         # Use color from the list, cycle if more slitlets than colors
         color = colors[index % len(colors)]
         boundaries = slitlets[slit_number]
-        aperture = slitlet_aperture(boundaries, halfframe, bin_x=1, bin_y=2)
+        aperture = slitlet_aperture(boundaries, halfframe=halfframe, taros=taros, bin_x=bin_x, bin_y=bin_y)
         cutout = slitlet_cutout(fits.getdata(flat_image_path), aperture)
         median_slitlet = numpy.median(cutout, axis=0)
         ax2.plot(median_slitlet, color=color)
@@ -187,7 +206,6 @@ def flatfield_plot(flat_image_path, slitlet_path, title, output_plot):
 
     # Adjust layout and show the plot
     plt.savefig(output_plot, dpi=300)
-
     plt.close('all')
 
 
