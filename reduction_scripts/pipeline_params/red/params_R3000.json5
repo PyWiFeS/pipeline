@@ -581,6 +581,8 @@
             "suffix": "10",
             "args": {
                 // - "shift_sky": true,  // Whether to shift sky from telluric standard to match object sky lines.
+                // - "sky_wmin": 7200.0,   // Minimum wavelength to fit if shifting based on sky lines.
+                // - "sky_wmin": 8100.0,   // Maximum wavelength to fit if shifting based on sky lines.
                 //
                 // Additional user options.
                 // - "interactive_plot": false,

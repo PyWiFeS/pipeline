@@ -24,7 +24,7 @@ print = custom_print(logger)
 # reference star information!
 stdstar_fn = os.path.join(metadata_dir, "stdstar_lookup_table.dat")
 f1 = open(stdstar_fn, "r")
-stdstar_lines = f1.readlines()[1:]
+stdstar_lines = f1.readlines()[1:]  # Skip a line for the comments
 f1.close()
 
 ref_fname_lookup = {}
@@ -36,7 +36,7 @@ for line in stdstar_lines:
     fn = lns[0]
     name = lns[1]
     radec = "%s %s" % (lns[2], lns[3])
-    is_flux_standard = bool(int(lns[5]))  # Skip a line for the comments
+    is_flux_standard = bool(int(lns[5]))
     is_telluric_standard = bool(int(lns[6]))
     ref_fname_lookup[name] = fn
     ref_coords_lookup[name] = radec
@@ -1402,7 +1402,8 @@ def derive_wifes_telluric(
     return
 
 
-def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=True, interactive_plot=False):
+def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=True, 
+                         sky_wmin=7200.0, sky_wmax=8100.0, interactive_plot=False):
     """
     Apply telluric correction to the input image. The telluric correction is applied
     using the telluric correction file previously obtained in 'derive_wifes_telluric()'.
@@ -1423,6 +1424,12 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
     shift_sky : bool, optional
         Whether to shift the telluric to better align the sky lines between telluric and object.
         Default: True.
+    sky_wmin : float, optional
+        Minimum wavelength to fit if shifting based on sky lines.
+        Default: 7200.0.
+    sky_wmax : float, optional
+        Maximum wavelength to fit if shifting based on sky lines.
+        Default: 8100.0.
     interactive_plot : bool, optional
         Whether to interrupt processing to provide interactive plot to user.
         Default: False.
@@ -1522,8 +1529,8 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
         curr_var = f3[curr_hdu + nslits].data
         if shift_sky:
             targ_sky = numpy.nanmedian(curr_flux, axis=0)
-            targ_sky = targ_sky[(wave_array > 7200.0) * (wave_array < 8100.0)]
-            targ_wave = wave_array[(wave_array > 7200.0) * (wave_array < 8100.0)]
+            targ_sky = targ_sky[(wave_array > sky_wmin) * (wave_array < sky_wmax)]
+            targ_wave = wave_array[(wave_array > sky_wmin) * (wave_array < sky_wmax)]
             best_shift = 0.
             best_ampl = 0
             for this_shift in numpy.arange(-3., 3.25, 0.25):

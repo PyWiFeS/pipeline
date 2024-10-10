@@ -2366,6 +2366,12 @@ def main():
         shift_sky : bool, optional
             Whether to shift the telluric to better align the sky lines between telluric and object.
             Default: True.
+        sky_wmin : float, optional
+            Minimum wavelength to fit if shifting based on sky lines.
+            Default: 7200.0.
+        sky_wmax : float, optional
+            Maximum wavelength to fit if shifting based on sky lines.
+            Default: 8100.0.
         interactive_plot : bool, optional
             Whether to interrupt processing to provide interactive plot to user.
             Default: False.
