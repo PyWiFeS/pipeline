@@ -2217,7 +2217,7 @@ def main():
             plot_dir=plot_dir_arm, prefactor=prefactor, prefactor_fn=pf_fn, **args
         )
         if from_master:
-            move_files(master_dir, output_master_dir, calib_fn)
+            move_files(master_dir, output_master_dir, [os.path.basename(calib_fn)])
         return
 
     # ------------------------------------------------------
@@ -2358,7 +2358,7 @@ def main():
             plot_dir=plot_dir_arm, **args
         )
         if from_master:
-            move_files(master_dir, output_master_dir, tellcorr_fn)
+            move_files(master_dir, output_master_dir, [os.path.basename(tellcorr_fn)])
         return
 
     def run_telluric_corr(metadata, prev_suffix, curr_suffix, **args):
