@@ -210,7 +210,7 @@ def get_full_obs_list(metadata, exclude=None):
         keep_type = [t for t in keep_type if t not in exclude]
     for obs in [fdict for t in keep_type for fdict in metadata[t]]:
         for key in obs.keys():
-            if key != "type" and key != "name":
+            if key != "stdtype" and key != "name":
                 for fn in obs[key]:
                     if fn not in full_obs_list:
                         full_obs_list.append(fn)
@@ -264,7 +264,7 @@ def get_std_obs_list(metadata, type="all"):
         for fn in obs["sci"]:
             if fn not in std_obs_list and type == "all":
                 std_obs_list.append(fn)
-            if fn not in std_obs_list and (type in obs["type"]):
+            if fn not in std_obs_list and (type in obs["stdtype"]):
                 std_obs_list.append(fn)
     debug_print(f"Standard observation list ({type}): {std_obs_list}")
     return std_obs_list
@@ -345,7 +345,7 @@ def get_primary_sci_obs_list(metadata):
     return sci_obs_list
 
 
-def get_primary_std_obs_list(metadata, type="all"):
+def get_primary_std_obs_list(metadata, stdtype="all"):
     """
     Get the list of primary standard observations based on the given metadata and type.
 
@@ -353,7 +353,7 @@ def get_primary_std_obs_list(metadata, type="all"):
     ----------
         metadata : dict
             The metadata containing information about the observations.
-        type : str, optional
+        stdtype : str, optional
             The type of standard star observations to include in the list.
             Options: 'all', 'telluric', 'flux'.
             Default: 'all'.
@@ -368,18 +368,19 @@ def get_primary_std_obs_list(metadata, type="all"):
         ValueError
             If the standard star type is not understood.
     """
-    if type == "all":
+    print(f"In get_primary_std_obs_list wanting type {stdtype} from {metadata['std']}")
+    if stdtype == "all":
         std_obs_list = [obs["sci"][0] for obs in metadata["std"]]
-    elif type == "telluric" or type == "flux":
+    elif stdtype == "telluric" or stdtype == "flux":
         std_obs_list = []
         for obs in metadata["std"]:
-            if obs["sci"][0] not in std_obs_list and (type in obs["type"]):
+            if obs["sci"][0] not in std_obs_list and (stdtype in obs["stdtype"]):
                 std_obs_list.append(obs["sci"][0])
     else:
         error_print("Standard star type not understood!")
         error_print("PyWiFeS Data Reduction pipeline will crash now ...")
         raise ValueError("Standard star type not understood")
-    debug_print(f"Primary standard observation list ({type}): {std_obs_list}")
+    debug_print(f"Primary standard observation list ({stdtype}): {std_obs_list}")
     return std_obs_list
 
 # ------------------------------------------------------------------------
@@ -2022,7 +2023,7 @@ def main():
     # ------------------------------------------------------
     # Standard star extraction
     # ------------------------------------------------------
-    def run_extract_stars(metadata, prev_suffix, curr_suffix, type="all", **args):
+    def run_extract_stars(metadata, prev_suffix, curr_suffix, stdtype="all", **args):
         """
         Extract standard stars spectrum.
 
@@ -2035,9 +2036,9 @@ def main():
             The suffix of the previous data files.
         curr_suffix : str
             The suffix of the current data files.
-        type : str, optional
+        stdtype : str, optional
             The type of standard stars to extract.
-            Options: 'flux', 'standard', 'all'.
+            Options: 'flux', 'telluric', 'all'.
             Default: 'all'.
 
         Optional Function Arguments
@@ -2081,14 +2082,14 @@ def main():
         None
         """
         # For each std, extract spectrum as desired
-        std_obs_list = get_primary_std_obs_list(metadata, type=type)
+        std_obs_list = get_primary_std_obs_list(metadata, stdtype=stdtype)
         for fn in std_obs_list:
             in_fn = os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
             out_fn = os.path.join(out_dir, f"{fn}.x{prev_suffix}.dat")
             if skip_done and os.path.isfile(out_fn) \
                     and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
                 continue
-            info_print(f"Extract {type} standard star from {os.path.basename(in_fn)}")
+            info_print(f"Extract {stdtype} standard star from {os.path.basename(in_fn)}")
             wifes_calib.extract_wifes_stdstar(
                 in_fn, save_fn=out_fn, save_mode="ascii", **args
             )
@@ -2179,7 +2180,7 @@ def main():
         -------
         None
         """
-        std_obs_list = get_primary_std_obs_list(metadata, type="flux")
+        std_obs_list = get_primary_std_obs_list(metadata, stdtype="flux")
 
         if len(std_obs_list) == 0:
             info_print("No flux standard stars to derive calibration. Skipping.")
@@ -2204,13 +2205,19 @@ def main():
         else:
             pf_fn = None
         if skip_done and os.path.isfile(calib_fn) \
-                and os.path.getmtime(std_cube_list[0]) < os.path.getmtime(calib_fn):
+                and (
+                    os.path.getmtime(std_cube_list[0]) < os.path.getmtime(calib_fn)
+                    or from_master
+                ):
+            info_print("Skipping derivation of sensitivity function due to existing file.")
             return
         info_print("Deriving sensitivity function")
         wifes_calib.derive_wifes_calibration(
             std_cube_list, calib_fn, extract_in_list=extract_list, method=method,
             plot_dir=plot_dir_arm, prefactor=prefactor, prefactor_fn=pf_fn, **args
         )
+        if from_master:
+            move_files(master_dir, output_master_dir, calib_fn)
         return
 
     # ------------------------------------------------------
@@ -2325,7 +2332,7 @@ def main():
         -------
         None
         """
-        std_obs_list = get_primary_std_obs_list(metadata, "telluric")
+        std_obs_list = get_primary_std_obs_list(metadata, stdtype="telluric")
         if len(std_obs_list) == 0:
             info_print("No telluric standard stars found. Skipping.")
             return
@@ -2339,13 +2346,19 @@ def main():
             for fn in std_obs_list
         ]
         if skip_done and os.path.isfile(tellcorr_fn) \
-                and os.path.getmtime(std_cube_list[0]) < os.path.getmtime(tellcorr_fn):
+                and (
+                    os.path.getmtime(std_cube_list[0]) < os.path.getmtime(tellcorr_fn)
+                    or from_master
+                ):
+            info_print("Skipping derivation of telluric correction due to existing file.")
             return
         info_print("Deriving telluric correction")
         wifes_calib.derive_wifes_telluric(
             std_cube_list, tellcorr_fn, extract_in_list=extract_list,
             plot_dir=plot_dir_arm, **args
         )
+        if from_master:
+            move_files(master_dir, output_master_dir, tellcorr_fn)
         return
 
     def run_telluric_corr(metadata, prev_suffix, curr_suffix, **args):
@@ -2424,7 +2437,10 @@ def main():
         std_obs_list = get_primary_std_obs_list(metadata)
 
         # Check if is half-frame from the first sci image
-        sci_filename = temp_data_dir + sci_obs_list[0] + ".fits"
+        if sci_obs_list:
+            sci_filename = temp_data_dir + sci_obs_list[0] + ".fits"
+        else:
+            sci_filename = temp_data_dir + std_obs_list[0] + ".fits"
 
         halfframe = is_halfframe(sci_filename)
         taros = is_taros(sci_filename)
@@ -2595,6 +2611,8 @@ def main():
     # using master calibration files
     if from_master:
         master_dir = os.path.abspath(from_master)
+        output_master_dir = os.path.join(working_dir, "data_products/master_calib/")
+        os.makedirs(output_master_dir, exist_ok=True)
         extra_skip_steps = [
             "superbias",
             "superflat",
@@ -2718,10 +2736,13 @@ def main():
             calib_fn = os.path.join(master_dir, "%s_calib.pkl" % calib_prefix)
             tellcorr_fn = os.path.join(master_dir, "%s_tellcorr.pkl" % calib_prefix)
 
-            # When reducing from master calibration files, if the tellic_correction
-            # file is already among the master calibrations, skip its generation.
-            if from_master and os.path.exists(tellcorr_fn):
-                extra_skip_steps.append("derive_calib")
+            # When reducing from master calibration files, if calibration files
+            # are already among the master calibrations, skip their generation.
+            if from_master:
+                if os.path.exists(calib_fn):
+                    extra_skip_steps.append("derive_calib")
+                if os.path.exists(tellcorr_fn):
+                    extra_skip_steps.append("derive_telluric")
 
             # ------------------------------------------------------------------------
             # Run proccessing steps

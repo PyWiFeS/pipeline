@@ -486,7 +486,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "type": "flux",
+                "stdtype": "flux",
                 // - "extract_radius": 5.0,  // Radius (arcseconds) within which to sum standard star flux.
                 // - "sky_radius": 8.0,  // Radius (arcseconds) outside of which to determine median sky.
                 // - "xtrim": 2,  // Number of x-axis spaxels to exclude from each side when peak-finding.
@@ -544,7 +544,7 @@
             "run": true,
             "suffix": null,
             "args": {
-                "type": "telluric",
+                "stdtype": "telluric",
                 // - "extract_radius": 5.0,  // Radius (arcseconds) within which to sum standard star flux.
                 // - "sky_radius": 8.0,  // Radius (arcseconds) outside of which to determine median sky.
                 // - "xtrim": 2,  // Number of x-axis spaxels to exclude from each edge when peak-finding.

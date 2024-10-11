@@ -6,19 +6,11 @@ The automated Python data reduction pipeline for WiFeS.
 
 Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024, and updated to include PyWiFeS/pipeline updates to 7 Aug 2024 [commit f6a2d8c].
 
-What's been done [20241002]
+What's been done [20241011]:
 
-- save smooth fit to flatfield (reflecting CCD, grating, beamsplitter throughput) and temporarily remove when fitting flux standard to reduce amplitude of fluctuations
+- improve handling of flux vs. telluric standards
 
-- add one pass of filtering outlier pixels from Savitzky-Golay fitting to flatfield
-
-- have sensitivity curve better avoid absorption at the reddest wavelengths of R3000 grating
-
-- save sky spectrum from telluric standard to allow wavelength refinement when correcting science spectra
-
-- allow sub-aperture Nod & Shuffle extraction to find positive and negative peaks, and extract both (inverting the flux for the negative peaks)
-
-- more reliably associate red and blue spectra amongst multiple apertures by forcing lists to be sorted and allowing for differences in DATE-OBS timestamp between arms
+- when running from existing master_calib files, do not contaminate the input folder with newly generated sensitivity or telluric corrections, but move to a master_calib folder in the active data_products directory
 
 ***Future Development Underway***
 
@@ -42,7 +34,21 @@ A note on charge transfer inefficiency (CTI): test data shows CTI of ~0.1%. Cons
 
 ### Previously ###
 
-What's been done [20240919]:
+What's been done [20241002]:
+
+- save smooth fit to flatfield (reflecting CCD, grating, beamsplitter throughput) and temporarily remove when fitting flux standard to reduce amplitude of fluctuations
+
+- add one pass of filtering outlier pixels from Savitzky-Golay fitting to flatfield
+
+- have sensitivity curve better avoid absorption at the reddest wavelengths of R3000 grating
+
+- save sky spectrum from telluric standard to allow wavelength refinement when correcting science spectra
+
+- allow sub-aperture Nod & Shuffle extraction to find positive and negative peaks, and extract both (inverting the flux for the negative peaks)
+
+- more reliably associate red and blue spectra amongst multiple apertures by forcing lists to be sorted and allowing for differences in DATE-OBS timestamp between arms
+
+[20240919]:
 
 - streamlined fitting of flatfield data, now using double Savitzky-Golay filter
 

@@ -57,26 +57,55 @@ stdstar_list.sort()
 nstds = len(stdstar_list)
 stdstar_ra_array = numpy.zeros(nstds, dtype="d")
 stdstar_dec_array = numpy.zeros(nstds, dtype="d")
+stdstar_type_array = [[None]] * nstds
 for i in range(nstds):
     stdstar_radec = ref_coords_lookup[stdstar_list[i]]
     stdstar_ra, stdstar_dec = wifes_ephemeris.sex2dd(stdstar_radec)
     stdstar_ra_array[i] = stdstar_ra
     stdstar_dec_array[i] = stdstar_dec
+    if ref_flux_lookup[stdstar_list[i]]:
+        if ref_telluric_lookup[stdstar_list[i]]:
+            stdstar_type_array[i] = ["flux", "telluric"]
+        else:
+            stdstar_type_array[i] = ["flux"]
+    elif ref_telluric_lookup[stdstar_list[i]]:
+        stdstar_type_array[i] = ["telluric"]
 
 
-def find_nearest_stdstar(inimg, data_hdu=0):
+def find_nearest_stdstar(inimg, data_hdu=0, stdtype="flux"):
+    """
+    Find the standard star of the specified type that is closest on the sky to the
+    input image.
+
+    stdtype : str, optional
+        Type of standard to find: "flux", "telluric", or "any".
+        Default: "flux".
+    
+    Returns
+    -------
+    list
+        - List of observations of the closest standard star
+    float
+        - Angular offset of the closest standard star
+    str
+        - Calibration type(s) of the closest standard star
+    """
     f = pyfits.open(inimg)
     radec = "%s %s" % (f[data_hdu].header["RA"], f[data_hdu].header["DEC"])
     f.close()
     ra, dec = wifes_ephemeris.sex2dd(radec)
+    # crude-but-sufficient distance calculation
     angsep_array = (
         3600.0 * numpy.sqrt(
             (dec - stdstar_dec_array) ** 2
             + (numpy.cos(numpy.radians(dec)) * (ra - stdstar_ra_array)) ** 2
         )
     )
+    for i in range(len(stdstar_type_array)):
+        if stdtype != "any" and stdtype not in stdstar_type_array[i]:
+            angsep_array[i] = 9e9
     best_ind = numpy.argmin(angsep_array)
-    return stdstar_list[best_ind], angsep_array[best_ind]
+    return stdstar_list[best_ind], angsep_array[best_ind], stdstar_type_array[best_ind]
 
 
 # ------------------------------------------------------------------------
@@ -629,7 +658,7 @@ def derive_wifes_calibration(
         # try to find the nearest standard in the list
         if star_name is None:
             try:
-                star_name, dist = find_nearest_stdstar(cube_fn_list[i])
+                star_name, dist, _ = find_nearest_stdstar(cube_fn_list[i], stdtype="flux")
                 if dist > 200.0:
                     star_name = None
             except:
@@ -1402,7 +1431,7 @@ def derive_wifes_telluric(
     return
 
 
-def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=True, 
+def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=True,
                          sky_wmin=7200.0, sky_wmax=8100.0, interactive_plot=False):
     """
     Apply telluric correction to the input image. The telluric correction is applied

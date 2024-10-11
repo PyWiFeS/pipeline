@@ -89,10 +89,13 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
         # ---------------------------
         # Check if it is within a close distance to a standard star.
         # If so and greedy_stds is True, fix the object name to be the good one from the list
+        std_type = None
         try:
-            near_std, std_dist = wifes_calib.find_nearest_stdstar(data_dir + filename)
-            if (greedy_stds or imagetype == "STANDARD") and std_dist < 100.0:
-                obj_name = near_std
+            if (greedy_stds or imagetype == "STANDARD"):
+                near_std, std_dist, temp_std_type = wifes_calib.find_nearest_stdstar(data_dir + filename, stdtype="any")
+                if std_dist < 100.0:
+                    obj_name = near_std
+                    std_type = temp_std_type
         except:
             pass
         # ---------------------------
@@ -118,17 +121,17 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
         elif imagetype == "STANDARD":
             # group standard obs together!
             if obj_name in stdstar.keys():
-                stdstar[obj_name].append(basename)
+                stdstar[obj_name]['flist'].append(basename)
             else:
-                stdstar[obj_name] = [basename]
+                stdstar[obj_name] = {'flist': [basename], 'stdtype': std_type}
         # 8 - science targets (also allow for standard stars in imagetype = OBJECT)
         elif imagetype == "OBJECT":
             if greedy_stds and obj_name in stdstar_list:
                 # group standard obs together!
                 if obj_name in stdstar.keys():
-                    stdstar[obj_name].append(basename)
+                    stdstar[obj_name]['flist'].append(basename)
                 else:
-                    stdstar[obj_name] = [basename]
+                    stdstar[obj_name] = {'flist': [basename], 'stdtype': std_type}
             else:
                 # group science obs together, if desired
                 if coadd_mode == "all":
@@ -342,9 +345,9 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
 
     for obj_name in stdstar.keys():
         # sort to ensure coaddds get identical names in each arm
-        obs_list = sorted(stdstar[obj_name])
+        obs_list = sorted(stdstar[obj_name]['flist'])
         std_obs.append(
-            {"sci": obs_list, "name": obj_name, "type": ["flux", "telluric"]}
+            {"sci": obs_list, "name": obj_name, "stdtype": stdstar[obj_name]['stdtype']}
         )
 
     obs_metadata = {
