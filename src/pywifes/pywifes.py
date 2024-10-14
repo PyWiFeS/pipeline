@@ -3349,13 +3349,10 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, s
             init_normed_data = rect_data / curr_norm_array
             normed_data = detransform_data(init_normed_data, orig_data, wave)
             if i == mid_slit_idx:
-                ny_sm, nx_sm = rect_data.shape
-                smooth_dat = numpy.median(rect_data[ny_sm // 2 - 3:ny_sm // 2 + 4, :], axis=1)
-                smooth_wav = numpy.median(lam_array[ny_sm // 2 - 3:ny_sm // 2 + 4, :], axis=1)
                 with open(shape_fn, 'w') as of:
-                    for smooth_row in range(nx_sm):
-                        of.write(f"{smooth_wav[smooth_row]} {smooth_dat[smooth_row]}\n")
-                
+                    for smooth_row in range(lam_array.shape[0]):
+                        of.write(f"{lam_array[smooth_row]} {curr_norm_array[smooth_row]}\n")
+
         else:
             lam_array = numpy.arange(len(orig_data[0, :]), dtype="d")
             curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))

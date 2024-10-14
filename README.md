@@ -6,13 +6,15 @@ The automated Python data reduction pipeline for WiFeS.
 
 Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024, and updated to include PyWiFeS/pipeline updates to 7 Aug 2024 [commit f6a2d8c].
 
-What's been done [20241011]:
+What's been done [20241014]:
 
-- improve handling of flux vs. telluric standards
-
-- when running from existing master_calib files, do not contaminate the input folder with newly generated sensitivity or telluric corrections, but move to a master_calib folder in the active data_products directory
+- update flatfield algorithm when lacking twilight flats
 
 ***Future Development Underway***
+
+- make arc lamp reference wavelengths consistent between gratings
+
+- fit for slitlet position shifts
 
 - explore improving fitting and removal of fringing
 
@@ -34,7 +36,13 @@ A note on charge transfer inefficiency (CTI): test data shows CTI of ~0.1%. Cons
 
 ### Previously ###
 
-What's been done [20241002]:
+What's been done [20241011]:
+
+- improve handling of flux vs. telluric standards
+
+- when running from existing master_calib files, do not contaminate the input folder with newly generated sensitivity or telluric corrections, but move to a master_calib folder in the active data_products directory
+
+[20241002]:
 
 - save smooth fit to flatfield (reflecting CCD, grating, beamsplitter throughput) and temporarily remove when fitting flux standard to reduce amplitude of fluctuations
 

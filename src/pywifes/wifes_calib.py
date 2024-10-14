@@ -724,6 +724,7 @@ def derive_wifes_calibration(
         obs_flux = obs_flux / prefactor_shape
 
         std_ext = extinct_interp(obs_wave)
+
         good_inds = numpy.nonzero(
             (numpy.isfinite(ref_flux))
             * (numpy.isfinite(std_ext))
@@ -750,8 +751,8 @@ def derive_wifes_calibration(
             plt.legend()
 
             # Set y-limits to exclude peaks
-            lower_limit = min(numpy.nanpercentile(scaled_flux, 0.2), numpy.nanmin(ref_flux))
-            upper_limit = max(numpy.nanpercentile(scaled_flux, 99.8), numpy.nanmax(ref_flux))
+            lower_limit = numpy.nanmin([0, numpy.nanpercentile(scaled_flux, 0.2), numpy.nanmin(ref_flux)])
+            upper_limit = numpy.nanmax([numpy.nanpercentile(scaled_flux, 99.8), numpy.nanmax(ref_flux)])
             plt.ylim(lower_limit, upper_limit)
             plt.ylabel(r"Scaled Flux ")
 

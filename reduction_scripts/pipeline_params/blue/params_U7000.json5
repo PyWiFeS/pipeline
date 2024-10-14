@@ -512,7 +512,7 @@
                 // - "wave_min": None,  // Minimum wavelength to compute flux ratio. If None, defaults to minimum observed wavelength.
                 // - "wave_max": None,  // Maximum wavelength to compute flux ratio. If None, defaults to maximum observed wavelength.
                 // - "ytrim": 4,  // If standard star spectrum not previously extracted, mask this number of (unbinned) y-axis pixels when peak-finding.
-                "prefactor": true,  // Whether to remove the flatfield shape to ease fitting of sensitivity curve.
+                "prefactor": false,  // Whether to remove the flatfield shape to ease fitting of sensitivity curve.
                 //
                 // Additional user options.
                 "plot_stars": true,
