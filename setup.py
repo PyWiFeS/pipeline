@@ -5,7 +5,7 @@ setup(
     version="1.0.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    python_requires="==3.10.*",
+    python_requires=">=3.10.*",
     install_requires=[
         "astropy",
         "matplotlib",
@@ -13,7 +13,7 @@ setup(
         "pyjson5",
         "pandas",
         "photutils==1.8.0",
-        "scipy==1.9.1",
+        "scipy>=1.9.1",
         "setuptools",
         "wheel",
     ],
