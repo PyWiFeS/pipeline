@@ -1,5 +1,0 @@
-Metadata-Version: 2.1
-Name: pywifes
-Version: 1.0.0
-Summary: A Python package for optical data reduction pipeline.
-Requires-Python: >=3.10.*

@@ -1,9 +1,0 @@
-astropy
-matplotlib
-numpy<2.0
-pandas
-photutils==1.8.0
-pyjson5
-scipy>=1.9.1
-setuptools
-wheel
