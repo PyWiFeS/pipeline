@@ -19,6 +19,8 @@ from pywifes.mpfit import mpfit
 from pywifes.wifes_metadata import __version__, metadata_dir
 from pywifes.wifes_utils import arguments, is_halfframe, is_taros
 
+from .multiprocessing_utils import get_task, map_tasks, run_tasks_singlethreaded
+
 # Redirect print statements to logger
 logger = logging.getLogger("PyWiFeS")
 print = custom_print(logger)
@@ -1618,6 +1620,117 @@ def _fit_optical_model(
     print(f"Final RMSE {rmse}")
     return (allx, ally, alls, allarcs, pl, rmse)
 
+def run_slice(packaged_args):
+    """
+    A function to be used by multiprocessing in derive_wifes_optical_wave_solution to derive the wifes optical wave solution for each slice `s`.
+
+    Notes
+    -----
+    Parameters are the same as derive_wifes_optical_wave_solution except first parameter s (slice number from 1 to N).
+    """
+    (s, inimg, outfn, arc_name, ref_arclines, ref_arcline_file, dlam_cut_start, flux_threshold_nsig, find_method, shift_method, exclude_from, exclude, epsilon, doalphapfit, automatic, verbose, decimate, sigma, alphapfile, plot, plot_dir, multithread, debug) = packaged_args
+
+    # a dict to hold the results of this function
+    return_dict = {}
+    # since we are using multiprocessing over each slice, no need to use multiprocessing for each call to find_lines_and_guess_refs
+    multithread=False
+    max_processes=1
+
+    # pasted from derive_wifes_optical_wave_solution
+    # step 1 - gather metadata from header
+    f = pyfits.open(
+        inimg, ignore_missing_end=True
+    )
+
+
+    # other code
+
+    camera = f[1].header["CAMERA"]
+    if camera == "WiFeSRed":
+        grating = f[1].header["GRATINGR"]
+    else:
+        grating = f[1].header["GRATINGB"]
+    bin_x, bin_y = [int(b) for b in f[1].header["CCDSUM"].split()]
+
+    # Get some optional meta-data
+    dateobs = f[1].header.get("DATE-OBS")
+    tdk = f[1].header.get("TDK")
+    pmb = f[1].header.get("PMB")
+    rh = f[1].header.get("RH")
+    rma = f[1].header.get("ROTSKYPA")  # Dumb name for rotator mechanical angle
+
+    # save some metadata to the return_dict. since this is always from the f[1] extension, a key without the slice `s` is sufficient
+    return_dict['grating'] = grating
+    return_dict['bin_x'] = bin_x
+    return_dict['bin_y'] = bin_y
+    return_dict['dateobs'] = dateobs
+    return_dict['tdk'] = tdk
+    return_dict['pmb'] = pmb
+    return_dict['rh'] = rh
+    return_dict['rma'] = rma
+
+    if arc_name is None:
+        if "LAMP" in f[1].header:
+            init_arc_name = f[1].header["LAMP"]
+        else:
+            init_arc_name = f[1].header["M1ARCLMP"]
+        next_arc_name = re.sub("-", "", init_arc_name)
+        again_arc_name = re.sub(" ", "", next_arc_name)
+        arc_name = re.sub("_", "", again_arc_name)
+    # set the arc linelist!
+    if ref_arcline_file is not None:
+        f1 = open(ref_arcline_file, "r")
+        ref_arclines = numpy.array([float(line.split()[0]) for line in f1.readlines()])
+        f1.close()
+
+    # step 2 - find lines!
+    curr_hdu = s
+    # and the yrange...
+    detsec = f[curr_hdu].header["DETSEC"]
+    y0 = int(detsec.split(",")[1].split(":")[0])
+    y1 = int(detsec.split(",")[1].split(":")[1].split("]")[0])
+    # Make the values work nicely with the range() command
+    if y0 > y1:
+        ystop = y0 + 1
+        ystart = y1
+    else:
+        ystop = y1 + 1
+        ystart = y0
+
+    # guess the reference wavelengths
+    new_x, new_y, new_r = find_lines_and_guess_refs(
+        f[curr_hdu].data,
+        s,
+        grating,
+        arc_name,
+        find_method=find_method,
+        shift_method=shift_method,
+        ref_arclines=ref_arclines,
+        dlam_cut_start=dlam_cut_start,
+        bin_x=bin_x,
+        bin_y=bin_y,
+        yzp=ystart,
+        verbose=verbose,
+        flux_threshold_nsig=flux_threshold_nsig,
+        deriv_threshold_nsig=1.0,
+        multithread=multithread,
+        plot=False,
+        plot_dir=plot_dir,
+    )
+    # store the results in return_dict with keys that indicate the slice number `s`
+    nl = len(new_x)
+    xk = 'x_lists_{}'.format(s)
+    return_dict[xk] = new_x
+    rk = 'r_lists_{}'.format(s)
+    return_dict[rk] = new_r
+    sk = 's_lists_{}'.format(s)
+    return_dict[sk] = s*numpy.ones(nl)
+    yrk = 'yrange_{}'.format(s)
+    return_dict[yrk] = (ystart,ystop)
+    yk = 'y_lists_{}'.format(s)
+    return_dict[yk] = new_y+ystart
+    f.close()
+    return return_dict
 
 def derive_wifes_optical_wave_solution(
     inimg,
@@ -1703,10 +1816,6 @@ def derive_wifes_optical_wave_solution(
     """
     if debug:
         print(arguments())
-    # step 1 - gather metadata from header
-    f = pyfits.open(
-        inimg, ignore_missing_end=True
-    )
 
     # check if halfframe
     halfframe = is_halfframe(inimg)
@@ -1723,32 +1832,23 @@ def derive_wifes_optical_wave_solution(
         first = 1
         last = 25
 
-    camera = f[1].header["CAMERA"]
-    if camera == "WiFeSRed":
-        grating = f[1].header["GRATINGR"]
-    else:
-        grating = f[1].header["GRATINGB"]
-    bin_x, bin_y = [int(b) for b in f[1].header["CCDSUM"].split()]
+    tasks = []
+    for s in range(first,last+1):
+        task = get_task(run_slice,(s,inimg, outfn, arc_name, ref_arclines, ref_arcline_file, dlam_cut_start, flux_threshold_nsig, find_method, shift_method, exclude_from, exclude, epsilon, doalphapfit, automatic, verbose, decimate, sigma, alphapfile, plot, plot_dir, multithread, debug))
+        tasks.append(task)
 
-    # Get some optional meta-data
-    dateobs = f[1].header.get("DATE-OBS")
-    tdk = f[1].header.get("TDK")
-    pmb = f[1].header.get("PMB")
-    rh = f[1].header.get("RH")
-    rma = f[1].header.get("ROTSKYPA")  # Dumb name for rotator mechanical angle
-    if arc_name is None:
-        if "LAMP" in f[1].header:
-            init_arc_name = f[1].header["LAMP"]
-        else:
-            init_arc_name = f[1].header["M1ARCLMP"]
-        next_arc_name = re.sub("-", "", init_arc_name)
-        again_arc_name = re.sub(" ", "", next_arc_name)
-        arc_name = re.sub("_", "", again_arc_name)
-    # set the arc linelist!
-    if ref_arcline_file is not None:
-        f1 = open(ref_arcline_file, "r")
-        ref_arclines = numpy.array([float(line.split()[0]) for line in f1.readlines()])
-        f1.close()
+    # previously max_processes was a parameter to derive_wifes_optical_wave_solution
+    # it makes more sense to check whether nprocesses are available and just use them if available...
+    nworkers = multiprocessing.cpu_count()
+    if nworkers < 1:
+        nworkers = 1
+    max_processes = min(nworkers,int(last-first+1))
+
+    if multithread:
+        results = map_tasks(tasks,max_processes=max_processes)
+    else:
+        results = run_tasks_singlethreaded(tasks)
+
     # step 2 - find lines!
     found_x_lists = []
     found_y_lists = []
@@ -1756,47 +1856,31 @@ def derive_wifes_optical_wave_solution(
     found_r_lists = []
     yrange = []
 
-    for i, slit_num in enumerate(range(first, last + 1)):
-        curr_hdu = i + 1
-        # and the yrange...
-        detsec = f[curr_hdu].header["DETSEC"]
-        y0 = int(detsec.split(",")[1].split(":")[0])
-        y1 = int(detsec.split(",")[1].split(":")[1].split("]")[0])
-        # Make the values work nicely with the range() command
-        if y0 > y1:
-            ystop = y0 + 1
-            ystart = y1
-        else:
-            ystop = y1 + 1
-            ystart = y0
+    #first get some globals out
+    return_dict = results[0]
+    grating = return_dict['grating']
+    bin_x   = return_dict['bin_x']
+    bin_y   = return_dict['bin_y']
+    dateobs = return_dict['dateobs']
+    tdk     = return_dict['tdk']
+    pmb     = return_dict['pmb']
+    rh      = return_dict['rh']
+    rma     = return_dict['rma']
+    grating =  grating.lower()
 
-        # guess the reference wavelengths
-        new_x, new_y, new_r = find_lines_and_guess_refs(
-            f[curr_hdu].data,
-            slit_num,
-            grating,
-            arc_name,
-            find_method=find_method,
-            shift_method=shift_method,
-            ref_arclines=ref_arclines,
-            dlam_cut_start=dlam_cut_start,
-            bin_x=bin_x,
-            bin_y=bin_y,
-            yzp=ystart,
-            verbose=verbose,
-            flux_threshold_nsig=flux_threshold_nsig,
-            deriv_threshold_nsig=1.0,
-            multithread=multithread,
-            plot=False,
-            plot_dir=plot_dir,
-        )
-        nl = len(new_x)
-        found_x_lists.append(new_x)
-        found_r_lists.append(new_r)
-        found_s_lists.append(slit_num * numpy.ones(nl))
-        yrange.append((ystart, ystop))
-        found_y_lists.append(new_y + ystart)
-    f.close()
+    for return_dict in results:
+        for k in return_dict.keys():
+            if 'x_lists' in k:
+                found_x_lists.append(return_dict[k])
+            if 's_lists' in k:
+                found_s_lists.append(return_dict[k])
+            if 'y_lists' in k:
+                found_y_lists.append(return_dict[k])
+            if 'r_lists' in k:
+                found_r_lists.append(return_dict[k])
+            if 'yrange' in k:
+                yrange.append(return_dict[k])
+
     all_x = numpy.concatenate(found_x_lists)
     all_y = numpy.concatenate(found_y_lists)
     all_s = numpy.concatenate(found_s_lists)

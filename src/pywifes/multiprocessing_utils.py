@@ -26,6 +26,15 @@ def _unwrap_and_run(task):
     func, args, kwargs = task
     return func(*args, **kwargs)
 
+def run_tasks_singlethreaded(tasks):
+    """
+    Run the `tasks` in a single thread.
+
+    Each task should follow the pattern in `get_task`, storing the function, args and kwargs to run.
+
+    The results will be returned in order.
+    """
+    return [_unwrap_and_run(task) for task in tasks]
 
 def map_tasks(tasks, max_processes=-1, chunksize=-1):
     """
@@ -50,7 +59,8 @@ def map_tasks(tasks, max_processes=-1, chunksize=-1):
     with multiprocessing.Pool(num_processes) as pool:
         # `lazy_results` must be enumerated within the pool's scope or the threads will
         # not complete.
-        lazy_results = pool.imap(_unwrap_and_run, tasks, chunksize=chunksize)
+        # commented out chunksize here, since it can result in 'Chunksize must be 1+, not 0' error
+        lazy_results = pool.imap(_unwrap_and_run, tasks)# , chunksize=chunksize)
         results = list(lazy_results)
 
     return results
