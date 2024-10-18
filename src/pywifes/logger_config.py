@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import sys
 
 
 def custom_print(logger, level=logging.INFO):
@@ -24,12 +25,17 @@ def configure_logger(
 
     # Check if handlers already exist to avoid duplicates
     if not logger.handlers:
-        console_log = logging.StreamHandler()
-        console_log.setLevel(console_level)
-        console_log.setFormatter(formatter)
-        logger.addHandler(console_log)
-
-        if file is not None:
+        if file is sys.stdout or sys.stderr:
+            console_log = logging.StreamHandler(file)
+            console_log.setLevel(console_level)
+            console_log.setFormatter(formatter)
+            logger.addHandler(console_log)
+             
+        elif file is not None:
+            console_log = logging.StreamHandler()
+            console_log.setLevel(console_level)
+            console_log.setFormatter(formatter)
+            logger.addHandler(console_log)
             Path(file).parent.mkdir(parents=True, exist_ok=True)
             try:
                 file_log = logging.FileHandler(str(file))
