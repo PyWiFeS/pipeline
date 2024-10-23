@@ -38,17 +38,29 @@ logger = setup_logger(file=sys.stdout, console_level=logging.WARNING, file_level
 # logger = setup_logger(file=log_file, console_level=logging.WARNING, file_level=logging.INFO)
 
 # Redirect print statements to logger with different levels
-debug_print = custom_print(logger, logging.DEBUG)
-info_print = custom_print(logger, logging.INFO)
-warning_print = custom_print(logger, logging.WARNING)
-error_print = custom_print(logger, logging.ERROR)
-critical_print = custom_print(logger, logging.CRITICAL)
+debug_print = print #custom_print(logger, logging.DEBUG)
+info_print = print #custom_print(logger, logging.INFO)
+warning_print = print #custom_print(logger, logging.WARNING)
+error_print = print #custom_print(logger, logging.ERROR)
+critical_print = print #custom_print(logger, logging.CRITICAL)
 
 # Redirect warnings to logger
 # logging.captureWarnings(True)
 
 info_print("Starting PyWiFeS data reduction pipeline thread.")
 
+# -----------------------------------------------------------------------
+# Decorator to print name and execution time of each recipe step
+# -----------------------------------------------------------------------
+def wifes_recipe(func):
+    def wrapper(*args, **kwargs):
+        start_time = datetime.datetime.now()
+        print("Start of WiFeS Recipe {}.".format(func.__name__))
+        result = func(*args,**kwargs)
+        duration = datetime.datetime.now() - start_time
+        print ("End of WiFeS Recipe {}: took {} seconds.".format(func.__name__,duration.total_seconds()))
+        return result
+    return wrapper
 
 # ------------------------------------------------------------------------
 # Function definition
@@ -403,6 +415,7 @@ def main():
     # ------------------------------------------------------------------------
     # Overscan subtraction
     # ------------------------------------------------------------------------
+    @wifes_recipe
     def run_overscan_sub(metadata, gargs, prev_suffix, curr_suffix, poly_high_oscan=True, **args):
         """
         Subtract overscan from the input FITS files and save the results.
@@ -491,6 +504,7 @@ def main():
     # ------------------------------------------------------
     # repair bad pixels!
     # ------------------------------------------------------
+    @wifes_recipe
     def run_bpm_repair(metadata, gargs, prev_suffix, curr_suffix, **args):
         """
         Repairs bad pixels in the input FITS files and saves the repaired files.
@@ -546,6 +560,7 @@ def main():
     # ------------------------------------------------------
     # Generate super-bias
     # ------------------------------------------------------
+    @wifes_recipe
     def run_superbias(metadata, gargs, prev_suffix, curr_suffix, method="row_med", **args):
         """
         Generate superbias for the entire dataset and for each science frame.
@@ -649,6 +664,7 @@ def main():
     # ----------------------------------------------------
     # Subtract bias
     # ----------------------------------------------------
+    @wifes_recipe
     def run_bias_sub(metadata, gargs, prev_suffix, curr_suffix, method="subtract"):
         """
         Subtract bias from all the input data FITS files.
@@ -703,6 +719,7 @@ def main():
     # ------------------------------------------------------
     # Generate super-flat/wire/arc
     # ------------------------------------------------------
+    @wifes_recipe
     def run_superflat(
         metadata, gargs, prev_suffix, curr_suffix, source, **args
     ):
@@ -837,6 +854,7 @@ def main():
     # ------------------------------------------------------
     # Flat cleanup
     # ------------------------------------------------------
+    @wifes_recipe
     def run_flat_cleanup(
         metadata,
         gargs,
@@ -956,6 +974,7 @@ def main():
     # ------------------------------------------------------
     # Fit slitlet profiles
     # ------------------------------------------------------
+    @wifes_recipe
     def run_slitlet_profile(metadata, gargs, prev_suffix, curr_suffix, **args):
         """
         Fit the slitlet profiles to the flatfield.
@@ -1022,6 +1041,7 @@ def main():
     # ------------------------------------------------------
     # Create MEF files
     # ------------------------------------------------------
+    @wifes_recipe
     def run_superflat_mef(metadata, gargs, prev_suffix, curr_suffix, source, **args):
         """
         Generate a Multi-Extension FITS (MEF) file for the calibration files.
@@ -1153,6 +1173,7 @@ def main():
                                        slitlet_def_file=slitlet_fn)
         gc.collect()
 
+    @wifes_recipe
     def run_slitlet_mef(metadata, gargs, prev_suffix, curr_suffix, **args):
         """
         Create a Multi-Extension Fits (MEF) file for each observation in the metadata.
@@ -1234,6 +1255,7 @@ def main():
     # ------------------------------------------------------
     # Wavelength solution
     # ------------------------------------------------------
+    @wifes_recipe
     def run_wave_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
         """
         Wavelength Solution:
@@ -1374,6 +1396,7 @@ def main():
     # ------------------------------------------------------
     # Wire solution
     # ------------------------------------------------------
+    @wifes_recipe
     def run_wire_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
         """
         Global wire solution first, then local wire solutions for any specific
@@ -1473,6 +1496,7 @@ def main():
     # ------------------------------------------------------
     # Flatfield: Response
     # ------------------------------------------------------
+    @wifes_recipe
     def run_flat_response(metadata, gargs, prev_suffix, curr_suffix, mode="all", **args):
         """
         Generate the flatfield response function for each flat type, either dome or
@@ -1554,6 +1578,7 @@ def main():
     # ------------------------------------------------------
     # Cosmic Rays
     # ------------------------------------------------------
+    @wifes_recipe
     def run_cosmic_rays(
         metadata,
         gargs,
@@ -1678,6 +1703,9 @@ def main():
     # ------------------------------------------------------
     # Sky subtraction
     # ------------------------------------------------------
+    # since run_sky_sub_ns is called from run_sky_sub, 
+    # no need to have decorator here
+    # @wifes_recipe
     def run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix):
         """
         Subtract sky frames from science objects in nod-and-shuffle mode.
@@ -1712,6 +1740,7 @@ def main():
             pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime")
         return
 
+    @wifes_recipe
     def run_sky_sub(metadata, gargs, prev_suffix, curr_suffix):
         """
         Subtract sky frames from science objects.
@@ -1819,6 +1848,7 @@ def main():
             pywifes.imcombine_mef(in_fn_list, out_fn,
                                 scale=scale,
                                 method=method)
+    @wifes_recipe
     def run_obs_coadd(metadata, gargs, prev_suffix, curr_suffix, method="sum", scale=None):
         """
         Coadd science and standard frames.
@@ -1867,6 +1897,7 @@ def main():
     # ------------------------------------------------------
     # Flatfield: Division
     # ------------------------------------------------------
+    @wifes_recipe
     def run_flatfield(metadata, gargs, prev_suffix, curr_suffix):
         """
         Apply flat-field correction (division) to science and standard frames.
@@ -1912,6 +1943,7 @@ def main():
     # ------------------------------------------------------
     # Data Cube Generation
     # ------------------------------------------------------
+    @wifes_recipe
     def run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
         '''
         Generate data cubes for science and standard frames.
@@ -2102,6 +2134,7 @@ def main():
     # ------------------------------------------------------
     # Standard star extraction
     # ------------------------------------------------------
+    @wifes_recipe
     def run_extract_stars(metadata, gargs, prev_suffix, curr_suffix, stdtype="all", **args):
         """
         Extract standard stars spectrum.
@@ -2177,6 +2210,7 @@ def main():
         return
 
     # Sensitivity Function fit
+    @wifes_recipe
     def run_derive_calib(metadata, gargs, prev_suffix, curr_suffix, method="poly", prefactor=False, **args):
         """
         Derive the sensitivity function from the extracted standard stars.
@@ -2306,6 +2340,7 @@ def main():
     # ------------------------------------------------------
     # Flux Calibration
     # ------------------------------------------------------
+    @wifes_recipe
     def run_flux_calib(metadata, gargs, prev_suffix, curr_suffix, mode="pywifes", **args):
         """
         Flux calibrate all science and standard observations.
@@ -2354,6 +2389,7 @@ def main():
     # ------------------------------------------------------
     # Telluric - derive
     # ------------------------------------------------------
+    @wifes_recipe
     def run_derive_telluric(metadata, gargs, prev_suffix, curr_suffix, **args):
         """
         Derive the telluric correction from the standard star.
@@ -2448,6 +2484,7 @@ def main():
             move_files(master_dir, output_master_dir, [os.path.basename(gargs['tellcorr_fn'])])
         return
 
+    @wifes_recipe
     def run_telluric_corr(metadata, gargs, prev_suffix, curr_suffix, **args):
         """
         Apply telluric correction for all science and standard observations.
@@ -2494,6 +2531,7 @@ def main():
             wifes_calib.apply_wifes_telluric(in_fn, out_fn, gargs['tellcorr_fn'], **args)
         return
 
+    @wifes_recipe
     def run_save_3dcube(metadata, gargs, prev_suffix, curr_suffix, **args):
         '''
         Save 3D Data Cube for all science and standard observations.
@@ -2643,36 +2681,36 @@ def main():
             # Define names for master calibration files and set their path.
             # ------------------------------------------------------------------------
             # Bias Master Files
-            gargs['overscanmask_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_overscanmask.fits")
-            gargs['superbias_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_superbias.fits")
-            gargs['superbias_fit_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_superbias_fit.fits")
+            gargs['overscanmask_fn'] = os.path.join(master_dir, f"{calib_prefix}_overscanmask.fits")
+            gargs['superbias_fn'] = os.path.join(master_dir, f"{calib_prefix}_superbias.fits")
+            gargs['superbias_fit_fn'] = os.path.join(master_dir, f"{calib_prefix}_superbias_fit.fits")
 
             # Dome Master Files
-            gargs['super_dflat_raw'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_super_domeflat_raw.fits")
-            gargs['super_dflat_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_super_domeflat.fits")
-            gargs['super_dflat_mef'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_super_domeflat_mef.fits")
-            gargs['smooth_shape_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_smooth_shape.dat")
+            gargs['super_dflat_raw'] = os.path.join(master_dir, f"{calib_prefix}_super_domeflat_raw.fits")
+            gargs['super_dflat_fn'] = os.path.join(master_dir, f"{calib_prefix}_super_domeflat.fits")
+            gargs['super_dflat_mef'] = os.path.join(master_dir, f"{calib_prefix}_super_domeflat_mef.fits")
+            gargs['smooth_shape_fn'] = os.path.join(master_dir, f"{calib_prefix}_smooth_shape.dat")
 
             # Twilight Master Files
-            gargs['super_tflat_raw']= os.path.join(master_dir, f"{calib_prefix}_{arm}_super_twiflat_raw.fits")
-            gargs['super_tflat_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_super_twiflat.fits")
-            gargs['super_tflat_mef'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_super_twiflat_mef.fits")
+            gargs['super_tflat_raw']= os.path.join(master_dir, f"{calib_prefix}_super_twiflat_raw.fits")
+            gargs['super_tflat_fn'] = os.path.join(master_dir, f"{calib_prefix}_super_twiflat.fits")
+            gargs['super_tflat_mef'] = os.path.join(master_dir, f"{calib_prefix}_super_twiflat_mef.fits")
 
             # Wire Master Files
-            gargs['super_wire_raw'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_super_wire_raw.fits")
-            gargs['super_wire_mef'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_super_wire_mef.fits")
+            gargs['super_wire_raw'] = os.path.join(master_dir, f"{calib_prefix}_super_wire_raw.fits")
+            gargs['super_wire_mef'] = os.path.join(master_dir, f"{calib_prefix}_super_wire_mef.fits")
 
             # Arc Master Files
-            gargs['super_arc_raw'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_super_arc_raw.fits")
-            gargs['super_arc_mef'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_super_arc_mef.fits")
+            gargs['super_arc_raw'] = os.path.join(master_dir, f"{calib_prefix}_super_arc_raw.fits")
+            gargs['super_arc_mef'] = os.path.join(master_dir, f"{calib_prefix}_super_arc_mef.fits")
 
             # Slitlet definition
-            gargs['slitlet_def_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_slitlet_defs.pkl")
-            gargs['wsol_out_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_wave_soln.fits")
-            gargs['wire_out_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_wire_soln.fits")
-            gargs['flat_resp_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_resp_mef.fits")
-            gargs['calib_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_calib.pkl")
-            gargs['tellcorr_fn'] = os.path.join(master_dir, f"{calib_prefix}_{arm}_tellcorr.pkl")
+            gargs['slitlet_def_fn'] = os.path.join(master_dir, f"{calib_prefix}_slitlet_defs.pkl")
+            gargs['wsol_out_fn'] = os.path.join(master_dir, f"{calib_prefix}_wave_soln.fits")
+            gargs['wire_out_fn'] = os.path.join(master_dir, f"{calib_prefix}_wire_soln.fits")
+            gargs['flat_resp_fn'] = os.path.join(master_dir, f"{calib_prefix}_resp_mef.fits")
+            gargs['calib_fn'] = os.path.join(master_dir, f"{calib_prefix}_calib.pkl")
+            gargs['tellcorr_fn'] = os.path.join(master_dir, f"{calib_prefix}_tellcorr.pkl")
 
             # When reducing from master calibration files, if calibration files
             # are already among the master calibrations, skip their generation.
@@ -2685,8 +2723,10 @@ def main():
             # ------------------------------------------------------------------------
             # Run proccessing steps
             # ------------------------------------------------------------------------
+            flog_filename = os.path.join(gargs['out_dir'],f"{arm}.log")
             info_print("")
             info_print(f"Starting processing of {arm} arm")
+            info_print(f"See {flog_filename} for detailed output.")
             info_print("")
 
             prev_suffix = None
@@ -2699,7 +2739,7 @@ def main():
 
             # open a separate log file to direct all recipe stdout/stderr to
             # note that the info_print statements will go to stdout, so this will
-            with open(os.path.join(gargs['out_dir'],f"{arm}.log"),'w') as flog:
+            with open(flog_filename,'w') as flog:
                 # keep old stdout so we can update progress
                 with contextlib.redirect_stdout(flog),contextlib.redirect_stderr(flog):
                     counter = 1

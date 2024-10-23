@@ -12,9 +12,10 @@ class TestReduction:
 
     @staticmethod
     def get_datasets():
-        return [# 'classical_20230922',
-#               'nod-and-shuffle_20230927',
-#               'raw_data_half_frame',
+        return [
+                'classical_20230922',
+                'nod-and-shuffle_20230927',
+                'raw_data_half_frame',
                 'wifes_b3000_560_r3000_1x2',
                 'wifes_b7000_615_i7000_1x2',
                 'wifes_stellar_b3000_560_r3000_1x2',
@@ -135,7 +136,6 @@ class TestReduction:
             os.chdir(str(sub_folder))
 
             cmd = self.reduce_script + " ."
-            #cmd = """echo 'HELLO BRENT'"""
             with subprocess.Popen(args=cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,cwd='.',env={'PYWIFES_DIR' : self.ref_data},bufsize=1,universal_newlines=True) as p:
                 for line in p.stdout:
                     print (line.strip())
