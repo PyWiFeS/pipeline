@@ -23,7 +23,7 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
     Retrieve metadata for observed data files.
 
     This function categorizes observed data files based on their image type
-    ('BIAS', 'FLAT', 'SKYFLAT', 'DARK', 'ARC', 'WIRE', 'STANDARD', 'OBJECT', 'SKY')
+    ('BIAS', 'DARK', 'FLAT', 'SKYFLAT', 'ARC', 'WIRE', 'STANDARD', 'OBJECT', 'SKY')
     and object name. It groups standard star observations together and separates
     science observations from standard star observations.
 
@@ -51,9 +51,9 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
         has the following keys:
 
         - 'bias': List of filenames of bias frames.
+        - 'dark': List of filenames of dark frames.
         - 'domeflat': List of filenames of domeflat frames.
         - 'twiflat': List of filenames of twilight flat frames.
-        - 'dark': List of filenames of dark frames.
         - 'arc': List of filenames of arc frames.
         - 'wire': List of filenames of wire frames.
         - 'sci': List of dictionaries, each containing information about science observations. Each dictionary has the following keys:
@@ -67,11 +67,16 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
     """
     stdstar_list = wifes_calib.ref_fname_lookup.keys()
 
+    blue_grating = []
+    red_grating = []
+    blue_beamsplitter = []
+    red_beamsplitter = []
+
     # classify each obs
     bias = []
+    dark = []
     domeflat = []
     twiflat = []
-    dark = []
     arc = []
     wire = []
     stdstar = {}
@@ -85,6 +90,9 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
         f = pyfits.open(data_dir + filename)
         imagetype = f[0].header["IMAGETYP"].upper()
         obj_name = f[0].header["OBJECT"]
+        this_gratingb = f[0].header["GRATINGB"]
+        this_gratingr = f[0].header["GRATINGR"]
+        this_beamsplitter = f[0].header["BEAMSPLT"]
         f.close()
         # ---------------------------
         # Check if it is within a close distance to a standard star.
@@ -102,15 +110,28 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
         # 1 - bias frames
         if imagetype == "BIAS" or imagetype == "ZERO":
             bias.append(basename)
-        # 2 - quartz flats
-        elif imagetype == "FLAT":
-            domeflat.append(basename)
-        # 3 - twilight flats
-        elif imagetype == "SKYFLAT":
-            twiflat.append(basename)
-        # 4 - dark frames
+        # 2 - dark frames
         elif imagetype == "DARK":
             dark.append(basename)
+        else:
+        # Open shutter observations: Check for mixtures of gratings or beamsplitters
+            if camera == "blue":
+                if this_gratingb not in blue_grating:
+                    blue_grating.append(this_gratingb)
+                if this_beamsplitter not in blue_beamsplitter:
+                    blue_beamsplitter.append(this_beamsplitter)
+            if camera == "red":
+                if this_gratingr not in red_grating:
+                    red_grating.append(this_gratingr)
+                if this_beamsplitter not in red_beamsplitter:
+                    red_beamsplitter.append(this_beamsplitter)
+
+        # 3 - internal quartz lamp (dome) flats
+        if imagetype == "FLAT":
+            domeflat.append(basename)
+        # 4 - twilight flats
+        elif imagetype == "SKYFLAT":
+            twiflat.append(basename)
         # 5 - arc frames
         elif imagetype == "ARC":
             arc.append(basename)
@@ -173,6 +194,16 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
             elif coadd_mode == "prompt":
                 # otherwise keep all sky frames separate and invert key,val for manual association
                 sky[basename] = obj_name
+
+    if len(blue_beamsplitter) > 1:
+        print(f"WARNING: MIXING BEAMSPLITTERS (BLUE) CAN YIELD BAD REDUCTIONS: {', '.join(bb for bb in blue_beamsplitter)}")
+    if len(red_beamsplitter) > 1:
+        print(f"WARNING: MIXING BEAMSPLITTERS (RED) CAN YIELD BAD REDUCTIONS: {', '.join(bb for bb in red_beamsplitter)}")
+    if len(blue_grating) > 1:
+        print(f"WARNING: MIXING GRATINGS (BLUE) CAN YIELD BAD REDUCTIONS: {', '.join(gg for gg in blue_grating)}")
+    if len(red_grating) > 1:
+        print(f"WARNING: MIXING GRATINGS (RED) CAN YIELD BAD REDUCTIONS: {', '.join(gg for gg in red_grating)}")
+
 
     if coadd_mode == "prompt":
         create_new = True
@@ -352,9 +383,9 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
 
     obs_metadata = {
         "bias": sorted(bias),
+        "dark": sorted(dark),
         "domeflat": sorted(domeflat),
         "twiflat": sorted(twiflat),
-        "dark": sorted(dark),
         "wire": sorted(wire),
         "arc": sorted(arc),
         "sci": sci_obs,

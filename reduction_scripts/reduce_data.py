@@ -571,6 +571,10 @@ def main():
         -------
         None
         """
+        if len(metadata["bias"]) == 0:
+            info_print("No bias inputs found in run_superbias. Skipping.")
+            return
+
         bias_list = [os.path.join(out_dir, "%s.p%s.fits" % (x, prev_suffix))
                      for x in metadata["bias"]
                      ]
@@ -2217,6 +2221,7 @@ def main():
             plot_dir=plot_dir_arm, prefactor=prefactor, prefactor_fn=pf_fn, **args
         )
         if from_master:
+            # Move the output file into the working directory
             move_files(master_dir, output_master_dir, [os.path.basename(calib_fn)])
         return
 
@@ -2256,6 +2261,12 @@ def main():
         """
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
+        if from_master and os.path.isfile(os.path.join(output_master_dir, os.path.basename(calib_fn))):
+            # Point the code to the new location
+            this_calib_fn = os.path.join(output_master_dir, os.path.basename(calib_fn))
+        else:
+            this_calib_fn = calib_fn
+
         for fn in sci_obs_list + std_obs_list:
             in_fn = os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
             out_fn = os.path.join(out_dir, f"{fn}.p{curr_suffix}.fits")
@@ -2263,7 +2274,7 @@ def main():
                     and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
                 continue
             info_print(f"Flux-calibrating cube {os.path.basename(in_fn)}")
-            wifes_calib.calibrate_wifes_cube(in_fn, out_fn, calib_fn, mode, **args)
+            wifes_calib.calibrate_wifes_cube(in_fn, out_fn, this_calib_fn, mode, **args)
         return
 
     # ------------------------------------------------------
@@ -2358,6 +2369,7 @@ def main():
             plot_dir=plot_dir_arm, **args
         )
         if from_master:
+            # Move the output file into the working directory
             move_files(master_dir, output_master_dir, [os.path.basename(tellcorr_fn)])
         return
 
@@ -2395,6 +2407,12 @@ def main():
         """
         sci_obs_list = get_primary_sci_obs_list(metadata)
         std_obs_list = get_primary_std_obs_list(metadata)
+        if from_master and os.path.isfile(os.path.join(output_master_dir, os.path.basename(tellcorr_fn))):
+            # Point the code to the new location
+            this_tellcorr_fn = os.path.join(output_master_dir, os.path.basename(tellcorr_fn))
+        else:
+            this_tellcorr_fn = tellcorr_fn
+
         for fn in sci_obs_list + std_obs_list:
             in_fn = os.path.join(out_dir, f"{fn}.p{prev_suffix}.fits")
             out_fn = os.path.join(out_dir, f"{fn}.p{curr_suffix}.fits")
@@ -2402,7 +2420,7 @@ def main():
                     and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
                 continue
             info_print(f"Correcting telluric in {os.path.basename(in_fn)}")
-            wifes_calib.apply_wifes_telluric(in_fn, out_fn, tellcorr_fn, **args)
+            wifes_calib.apply_wifes_telluric(in_fn, out_fn, this_tellcorr_fn, **args)
         return
 
     def run_save_3dcube(metadata, prev_suffix, curr_suffix, **args):
