@@ -48,6 +48,10 @@ class TestReduction:
                 'OBK-528032-WiFeS-Blue-UT20230927T165551-6.cube.fits',
                 'OBK-528032-WiFeS-Red--UT20230927T165551-6.cube.fits',
             ],
+            'raw_data_half_frame' : 
+            [
+                'missing.fits',
+            ],
             'wifes_b3000_560_r3000_1x2' : 
             [
                 'OBK-124288-WiFeS-Blue-UT20240624T140040-4.cube.fits',
@@ -83,7 +87,7 @@ class TestReduction:
                 'cut_OBK-518144-WiFeS-Red--UT20240801T084638-2.cube.fits',
                 'cut_OBK-518176-WiFeS-Blue-UT20240807T083248-3.cube.fits',
                 'cut_OBK-518176-WiFeS-Red--UT20240807T083248-3.cube.fits',
-             ,
+            ],
             'wifes_subns_b3000_560_r3000_1x2' : 
             [
                 'OBK-124288-WiFeS-Blue-UT20240412T184018-5.cube.fits',
