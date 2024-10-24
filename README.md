@@ -6,17 +6,21 @@ The automated Python data reduction pipeline for WiFeS.
 
 Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024, and updated to include PyWiFeS/pipeline updates to 7 Aug 2024 [commit f6a2d8c].
 
-What's been done [20241014]:
+What's been done [20241023]:
 
-- update flatfield algorithm when lacking twilight flats
+- check for mixtures of gratings and beamsplitters (which can alter slitlet locations on CCD) and warn users
+
+- smoother handling of processing from existing master_calib folder when also using night-specific flux/telluric standards in the processing
+
+- cut darks to half-frame, if present
 
 ***Future Development Underway***
 
 - make arc lamp reference wavelengths consistent between gratings
 
-- fit for slitlet position shifts
-
 - explore improving fitting and removal of fringing
+
+- fit and remove scattered light from standard stars and other on-sky observations
 
 - add option for PSF-based source extraction
 
@@ -36,7 +40,11 @@ A note on charge transfer inefficiency (CTI): test data shows CTI of ~0.1%. Cons
 
 ### Previously ###
 
-What's been done [20241011]:
+What's been done [20241014]:
+
+- update flatfield algorithm when lacking twilight flats
+
+[20241011]:
 
 - improve handling of flux vs. telluric standards
 

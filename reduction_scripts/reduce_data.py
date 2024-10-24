@@ -128,7 +128,8 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
         gargs['out_dir'] = os.path.join(working_dir, f"data_products/intermediate/{arm}")
         os.makedirs(gargs['out_dir'], exist_ok=True)
 
-        calib_prefix = os.path.join(gargs['out_dir'],f"wifes_{arm}")
+        #calib_prefix = os.path.join(gargs['out_dir'],f"wifes_{arm}")
+        calib_prefix = f"wifes_{arm}"
 
         # Some WiFeS specific things
         gargs['my_data_hdu'] = 0
@@ -371,7 +372,7 @@ def main():
 
     # Option to reduce both blue and red arms simultaneously
     parser.add_argument(
-        "--reduce-both",
+        "-reduce-both",
         action="store_true",
         help="Optional: Reduce Red and Blue data simultaneously using multiprocessing.",
     )

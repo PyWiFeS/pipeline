@@ -40,6 +40,10 @@ def _run_telluric_corr(metadata, gargs, prev_suffix, curr_suffix, **args):
     """
     sci_obs_list = get_primary_sci_obs_list(metadata)
     std_obs_list = get_primary_std_obs_list(metadata)
+    if gargs['from_master'] and os.path.isfile(os.path.join(gargs['output_master_dir'], os.path.basename(gargs['tellcorr_fn']))):
+        this_tellcorr_fn = os.path.join(gargs['output_master_dir'], os.path.basename(gargs['tellcorr_fn']))
+    else:
+        this_tellcorr_fn = gargs['tellcorr_fn']
     for fn in sci_obs_list + std_obs_list:
         in_fn = os.path.join(gargs['out_dir'], f"{fn}.p{prev_suffix}.fits")
         out_fn = os.path.join(gargs['out_dir'], f"{fn}.p{curr_suffix}.fits")
@@ -47,5 +51,5 @@ def _run_telluric_corr(metadata, gargs, prev_suffix, curr_suffix, **args):
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             continue
         info_print(f"Correcting telluric in {os.path.basename(in_fn)}")
-        wifes_calib.apply_wifes_telluric(in_fn, out_fn, gargs['tellcorr_fn'], **args)
+        wifes_calib.apply_wifes_telluric(in_fn, out_fn, this_tellcorr_fn, **args)
     return

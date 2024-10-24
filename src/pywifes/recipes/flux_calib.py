@@ -41,6 +41,10 @@ def _run_flux_calib(metadata, gargs, prev_suffix, curr_suffix, mode="pywifes", *
     """
     sci_obs_list = get_primary_sci_obs_list(metadata)
     std_obs_list = get_primary_std_obs_list(metadata)
+    if gargs['from_master'] and os.path.isfile(os.path.join(gargs['output_master_dir'], os.path.basename(gargs['calib_fn']))):
+        this_calib_fn = os.path.join(gargs['output_master_dir'], os.path.basename(gargs['calib_fn']))
+    else:
+        this_calib_fn = gargs['calib_fn']
     for fn in sci_obs_list + std_obs_list:
         in_fn = os.path.join(gargs['out_dir'], f"{fn}.p{prev_suffix}.fits")
         out_fn = os.path.join(gargs['out_dir'], f"{fn}.p{curr_suffix}.fits")
@@ -48,5 +52,5 @@ def _run_flux_calib(metadata, gargs, prev_suffix, curr_suffix, mode="pywifes", *
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             continue
         info_print(f"Flux-calibrating cube {os.path.basename(in_fn)}")
-        wifes_calib.calibrate_wifes_cube(in_fn, out_fn, gargs['calib_fn'], mode, **args)
+        wifes_calib.calibrate_wifes_cube(in_fn, out_fn, this_calib_fn, mode, **args)
     return
