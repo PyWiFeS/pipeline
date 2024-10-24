@@ -150,7 +150,7 @@ def calib_to_half_frame(obs_metadata, temp_data_dir, to_taros=False):
 
     # A list of calibration types that need to be half-frame for the pipeline to work
     # properly in the half-frame scenario.
-    calib_types = ["domeflat", "twiflat", "wire", "arc", "bias"]
+    calib_types = ["domeflat", "twiflat", "wire", "arc", "bias","dark"]
     prefix = "cut_"
 
     for calib_type in calib_types:

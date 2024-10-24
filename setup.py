@@ -5,7 +5,8 @@ setup(
     version="1.0.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    python_requires=">=3.10.*",
+    python_requires=">=3.10",
+    include_package_data=True,
     install_requires=[
         "astropy",
         "matplotlib",

@@ -1,0 +1,52 @@
+import os
+from pywifes import pywifes
+from pywifes.wifes_utils import * 
+from pywifes import wifes_calib
+# ------------------------------------------------------
+# Flux Calibration
+# ------------------------------------------------------
+@wifes_recipe
+def _run_flux_calib(metadata, gargs, prev_suffix, curr_suffix, mode="pywifes", **args):
+    """
+    Flux calibrate all science and standard observations.
+
+    Parameters
+    ----------
+    metadata : dict
+        Metadata containing information about the observations.
+    gargs : dict
+        A dictionary containing global arguments used by the processing steps. 
+    prev_suffix : str
+        Previous suffix of the file name (input).
+    curr_suffix : str
+        Current suffix of the file name (output).
+    mode : str, optional
+        Calibration mode.
+        Options: 'iraf', 'pywifes'.
+        Default is "pywifes".
+
+    Optional Function Arguments
+    ---------------------------
+    extinction_fn : str, optional
+        Extinction file path containing the extinction curve information. If None,
+        defaults to standard SSO extinction curve.
+        Default: None.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user.
+        Default: False.
+
+    Returns
+    -------
+    None
+    """
+    sci_obs_list = get_primary_sci_obs_list(metadata)
+    std_obs_list = get_primary_std_obs_list(metadata)
+    for fn in sci_obs_list + std_obs_list:
+        in_fn = os.path.join(gargs['out_dir'], f"{fn}.p{prev_suffix}.fits")
+        out_fn = os.path.join(gargs['out_dir'], f"{fn}.p{curr_suffix}.fits")
+        if gargs['skip_done'] and os.path.isfile(out_fn) \
+                and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
+            continue
+        info_print(f"Flux-calibrating cube {os.path.basename(in_fn)}")
+        wifes_calib.calibrate_wifes_cube(in_fn, out_fn, gargs['calib_fn'], mode, **args)
+    return

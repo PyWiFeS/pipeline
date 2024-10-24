@@ -50,7 +50,10 @@ class TestReduction:
             ],
             'raw_data_half_frame' : 
             [
-                'missing.fits',
+                'OBK-727168-WiFeS-Blue-UT20240525T191600-2.cube.fits',
+                'cut_OBK-124224-WiFeS-Blue-UT20240523T081350-9.cube.fits',
+                'OBK-727168-WiFeS-Red--UT20240525T191600-2.cube.fits',
+                'cut_OBK-124224-WiFeS-Red--UT20240523T081350-9.cube.fits',
             ],
             'wifes_b3000_560_r3000_1x2' : 
             [
@@ -139,7 +142,7 @@ class TestReduction:
             # go into the tmp folder and run the pipeline
             os.chdir(str(sub_folder))
 
-            cmd = self.reduce_script + " ."
+            cmd = self.reduce_script + " ." + " --reduce-both"
             with subprocess.Popen(args=cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,cwd='.',env={'PYWIFES_DIR' : self.ref_data},bufsize=1,universal_newlines=True) as p:
                 for line in p.stdout:
                     print (line.strip())
