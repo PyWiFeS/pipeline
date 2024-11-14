@@ -5,6 +5,7 @@ import pandas as pd
 import pyjson5
 import re
 import string
+import sys
 
 from pywifes import wifes_calib
 
@@ -450,9 +451,11 @@ def classify(data_dir, naxis2_to_process=0, greedy_stds=False, coadd_mode='all',
                 red_filenames.append(filename)
 
     blue_obs_metadata = get_obs_metadata(blue_filenames, data_dir, greedy_stds=greedy_stds,
-                                         coadd_mode=coadd_mode, mode_save_fn=mode_save_fn, camera="blue")
+                                         coadd_mode=coadd_mode, mode_save_fn=mode_save_fn, 
+                                         camera="blue")
     red_obs_metadata = get_obs_metadata(red_filenames, data_dir, greedy_stds=greedy_stds,
-                                        coadd_mode=coadd_mode, mode_save_fn=mode_save_fn, camera="red")
+                                        coadd_mode=coadd_mode, mode_save_fn=mode_save_fn, 
+                                        camera="red")
 
     return {"blue": blue_obs_metadata, "red": red_obs_metadata}
 

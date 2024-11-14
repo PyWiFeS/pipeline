@@ -2,6 +2,7 @@
 
 import argparse
 from astropy.io import fits as pyfits
+import contextlib
 import datetime
 import gc
 import glob
@@ -27,7 +28,6 @@ from pywifes.splice import splice_spectra, splice_cubes
 from pywifes.wifes_utils import * 
 import pywifes.recipes as recipes
 from pywifes.multiprocessing_utils import _get_num_processes as get_num_proc
-import contextlib
 
 
 # Setup the logger.
@@ -128,7 +128,6 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
         gargs['out_dir'] = os.path.join(working_dir, f"data_products/intermediate/{arm}")
         os.makedirs(gargs['out_dir'], exist_ok=True)
 
-        #calib_prefix = os.path.join(gargs['out_dir'],f"wifes_{arm}")
         calib_prefix = f"wifes_{arm}"
 
         # Some WiFeS specific things
@@ -187,7 +186,7 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
         # ------------------------------------------------------------------------
         # Run proccessing steps
         # ------------------------------------------------------------------------
-        flog_filename = os.path.join(gargs['out_dir'],f"{arm}.log")
+        flog_filename = os.path.join(gargs['working_dir'] + "/data_products", f"{arm}.log")
         info_print("")
         info_print(f"Starting processing of {arm} arm")
         info_print(f"See {flog_filename} for detailed output.")
@@ -322,7 +321,7 @@ def main():
 
     # Option for specifying to auto-extract and splice the output datacubes
     parser.add_argument(
-        "-extract-and-splice",
+        "--extract-and-splice",
         action="store_true",
         help="Optional: Auto-extract and splice the datacubes.",
     )
@@ -339,21 +338,21 @@ def main():
 
     # Option for specifying to only produce the master calibration files
     parser.add_argument(
-        "-just-calib",
+        "--just-calib",
         action="store_true",
         help="Optional: Only basics master calibration files will produced.",
     )
 
     # Option for specifying to skip already completed steps
     parser.add_argument(
-        "-skip-done",
+        "--skip-done",
         action="store_true",
         help="Optional: Skip already completed steps.",
     )
 
     # Option for treating OBJECT images near standard stars as standards even if IMAGETYP != STANDARD
     parser.add_argument(
-        "-greedy-stds",
+        "--greedy-stds",
         action="store_true",
         help="Optional: Treat OBJECT as STANDARD if near known standard.",
     )
@@ -372,7 +371,7 @@ def main():
 
     # Option to reduce both blue and red arms simultaneously
     parser.add_argument(
-        "-reduce-both",
+        "--reduce-both",
         action="store_true",
         help="Optional: Reduce Red and Blue data simultaneously using multiprocessing.",
     )

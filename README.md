@@ -6,13 +6,12 @@ The automated Python data reduction pipeline for WiFeS.
 
 Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024, and updated to include PyWiFeS/pipeline updates to 7 Aug 2024 [commit f6a2d8c].
 
-What's been done [20241023]:
+What's been done [20241114]:
 
-- check for mixtures of gratings and beamsplitters (which can alter slitlet locations on CCD) and warn users
+- all command-line arguments now use double-dash
 
-- smoother handling of processing from existing master_calib folder when also using night-specific flux/telluric standards in the processing
+- new `--reduce-both` option to reduce arms simultaneously
 
-- cut darks to half-frame, if present
 
 ***Future Development Underway***
 
@@ -40,7 +39,15 @@ A note on charge transfer inefficiency (CTI): test data shows CTI of ~0.1%. Cons
 
 ### Previously ###
 
-What's been done [20241014]:
+What's been done [20241023]:
+
+- check for mixtures of gratings and beamsplitters (which can alter slitlet locations on CCD) and warn users
+
+- smoother handling of processing from existing master_calib folder when also using night-specific flux/telluric standards in the processing
+
+- cut darks to half-frame, if present
+
+[20241014]:
 
 - update flatfield algorithm when lacking twilight flats
 
@@ -202,11 +209,10 @@ Tested with 1x2 Full Frame (B/R3000, UB/RI7000), 1x1 Full Frame (B/R3000), 1x2 F
     - `sub-nod-and-shuffle` mode.
     - Stellar frame configuration (that is, only the middle part of the detector is used).
     - Binning along the spatial axis.
-- New `.JSON` config files provided for each ~~observing mode (`classic` and `nod-and-shuffle`) and~~ grating. 
+- New `.JSON` config files provided for each grating. 
   - The pipeline chooses the template automatically.
   - Users don't need to set anything in generate metadata or reduction scripts anymore.
   - Users can create their own `.JSON` file following the same structure as their preferred setup.
-  - ~~Another set of `.JSON` config files is provided for when the pipeline aims to generate the master calibration files only.~~
 - Logger file to track the data usage and pipeline performance.
 - Astrometry is now implemented in the data cubes although the accuracy is uncertain.
 - Extraction and splice of the spectra and splice of the 3D astrometrised cubes are now implemented.
@@ -306,13 +312,13 @@ When multiple sky frames are associated with a science image, they are scaled by
 
 **Other parameters**
 
-`-skip-done`: Skip already completed steps. This will check for the existence of the output files from each step, as well as whether the output files are newer than the input files -- if either part fails, the step will be executed.
+`--skip-done`: Skip already completed steps. This will check for the existence of the output files from each step, as well as whether the output files are newer than the input files -- if either part fails, the step will be executed.
 
-`-just-calib`: Triggers the data reduction in the absence of on-sky data (both science and calibration). It only produces basic calibration files.
+`--just-calib`: Triggers the data reduction in the absence of on-sky data (both science and calibration). It only produces basic calibration files.
 
-`-greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
+`--greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
 
-`-extract-and-splice`: Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON5 file:
+`--extract-and-splice`: Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON5 file:
 
     /.../pipeline/pipeline_params/params_extract.json5
 
@@ -335,7 +341,7 @@ Some steps in the data reduction process can be skipped by setting `"run": false
 
 ### DATA REDUCED
 The pipeline will generate the `data_products` directory within the working directory 
-`/.../.../working_directory` containing the reduced data, a logger file to track the information from the reduction process, and the following structure (the Splice files only appearing if the `-extract-and-splice` flag is used): 
+`/.../.../working_directory` containing the reduced data, a logger file to track the information from the reduction process, and the following structure (the Splice files only appearing if the `--extract-and-splice` flag is used): 
 
 - data_products
     - `pywifes_logger.log` 
@@ -393,7 +399,7 @@ Finally, we find `data_products/master_calib`, which is a directory with all mas
 
 
 ## Reporting Issues or Suggestions
-If you encounter any issues or have suggestions for improving the pipeline, please [**open a new issue**](https://github.com/conken/pipeline/issues) in the `issues` tab and fill out the provided template. Your feedback is very valuable!
+If you encounter any issues or have suggestions for improving the pipeline, please [**open a new issue**](https://github.com/PyWiFeS/pipeline) in the `issues` tab and fill out the provided template. Your feedback is very valuable!
 
 
 
