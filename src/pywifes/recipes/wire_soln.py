@@ -1,6 +1,8 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import get_associated_calib, get_sci_obs_list, get_std_obs_list, wifes_recipe
+
+
 # ------------------------------------------------------
 # Wire solution
 # ------------------------------------------------------
@@ -70,7 +72,7 @@ def _run_wire_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
         )
     if not (gargs['skip_done'] and os.path.isfile(gargs['wire_out_fn'])
             and os.path.getmtime(wire_in_fn) < os.path.getmtime(gargs['wire_out_fn'])):
-        info_print(f"Deriving global wire solution from {os.path.basename(wire_in_fn)}")
+        print(f"Deriving global wire solution from {os.path.basename(wire_in_fn)}")
         pywifes.derive_wifes_wire_solution(wire_in_fn,
                                            gargs['wire_out_fn'],
                                            plot_dir=gargs['plot_dir_arm'],
@@ -93,7 +95,7 @@ def _run_wire_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
             if gargs['skip_done'] and os.path.isfile(local_wire_out_fn) \
                     and os.path.getmtime(local_wire_fn) < os.path.getmtime(local_wire_out_fn):
                 continue
-            info_print(f"Deriving local wire solution for {local_wires[0]}")
+            print(f"Deriving local wire solution for {local_wires[0]}")
             pywifes.derive_wifes_wire_solution(local_wire_fn,
                                                local_wire_out_fn,
                                                plot_dir=gargs['plot_dir_arm'],

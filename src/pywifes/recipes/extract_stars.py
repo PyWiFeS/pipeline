@@ -1,7 +1,9 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
 from pywifes import wifes_calib
+from pywifes.wifes_utils import get_primary_std_obs_list, wifes_recipe
+
+
 # ------------------------------------------------------
 # Standard star extraction
 # ------------------------------------------------------
@@ -74,7 +76,7 @@ def _run_extract_stars(metadata, gargs, prev_suffix, curr_suffix, stdtype="all",
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             continue
-        info_print(f"Extract {stdtype} standard star from {os.path.basename(in_fn)}")
+        print(f"Extract {stdtype} standard star from {os.path.basename(in_fn)}")
         wifes_calib.extract_wifes_stdstar(
             in_fn, save_fn=out_fn, save_mode="ascii", **args
         )

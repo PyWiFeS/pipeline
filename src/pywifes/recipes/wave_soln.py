@@ -1,7 +1,9 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
 from pywifes import wifes_wsol
+from pywifes.wifes_utils import get_associated_calib, get_sci_obs_list, get_std_obs_list, wifes_recipe
+
+
 # ------------------------------------------------------
 # Wavelength solution
 # ------------------------------------------------------
@@ -110,7 +112,7 @@ def _run_wave_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
         )
     if not (gargs['skip_done'] and os.path.isfile(gargs['wsol_out_fn'])
             and os.path.getmtime(wsol_in_fn) < os.path.getmtime(gargs['wsol_out_fn'])):
-        info_print(f"Deriving master wavelength solution from {os.path.basename(wsol_in_fn)}")
+        print(f"Deriving master wavelength solution from {os.path.basename(wsol_in_fn)}")
         wifes_wsol.derive_wifes_wave_solution(wsol_in_fn, gargs['wsol_out_fn'],
                                               plot_dir=gargs['plot_dir_arm'], **args)
 
@@ -134,7 +136,7 @@ def _run_wave_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
                 if gargs['skip_done'] and os.path.isfile(local_wsol_out_fn) \
                         and os.path.getmtime(local_arc_fn) < os.path.getmtime(local_wsol_out_fn):
                     continue
-                info_print(f"Deriving local wavelength solution for {local_arcs[i]}")
+                print(f"Deriving local wavelength solution for {local_arcs[i]}")
 
                 wifes_wsol.derive_wifes_wave_solution(
                     local_arc_fn,

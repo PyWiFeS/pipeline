@@ -3,7 +3,6 @@ from astropy.coordinates import SkyCoord
 from astropy.io import fits as pyfits
 import astropy.units as u
 import gc
-import logging
 from matplotlib import colormaps as cm, colors
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -16,8 +15,6 @@ import scipy.ndimage as ndimage
 import scipy.signal as signal
 import sys
 
-from pywifes.logger_config import custom_print
-
 # Pipeline imports
 from pywifes.multiprocessing_utils import get_task, map_tasks
 from pywifes.wifes_metadata import __version__, metadata_dir
@@ -26,13 +23,6 @@ from pywifes.wifes_wsol import fit_wsol_poly, evaluate_wsol_poly
 from pywifes.wifes_adr import ha_degrees, dec_dms2dd, adr_x_y
 from pywifes.wifes_utils import arguments, fits_scale_from_bitpix, is_halfframe, is_taros, nan_helper
 from pywifes.mpfit import mpfit
-
-# Redirect print statements to logger
-logger = logging.getLogger("PyWiFeS")
-print = custom_print(logger)
-
-# Set up warning redirection
-logging.captureWarnings(True)
 
 # ------------------------------------------------------------------------
 # NEED TO OPEN / ACCESS WIFES METADATA FILE!!
@@ -44,7 +34,7 @@ try:
         wifes_metadata = pickle.load(f0)  # fix_imports doesn't work in python 2.7.
     f0.close()
 except Exception as e:
-    logger.error(f"Failed to open or load wifes_metadata: {e}")
+    print(f"Failed to open or load wifes_metadata: {e}")
     raise
 
 blue_slitlet_defs = wifes_metadata["blue_slitlet_defs"]
@@ -361,7 +351,7 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
                         try:
                             airmass_list.append(f[data_hdu].header["AIRMASS"])
                         except Exception as air_err:
-                            logger.warning(
+                            print(
                                 f"Failed to get airmass for {f[data_hdu].header['IMAGETYP'].upper()} image {inimg_list[i]}: {air_err}"
                             )
                             airmass_list.append(1.0)
@@ -412,7 +402,7 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
                 var_arr[:, xmin:xmax] = numpy.nanvar(coadd_arr, axis=2, dtype="float64")
 
     except Exception as e:
-        logger.error(f"An error occurred in imcombine: {str(e)}")
+        print(f"An error occurred in imcombine: {str(e)}")
         raise
     outfits[data_hdu].data = coadd_data.astype("float32", casting="same_kind")
     outfits[data_hdu].scale("float32")
@@ -1395,7 +1385,10 @@ def subtract_overscan(
                 plt.show()
             high_rows = (meancounts - numpy.nanmin(meancounts) > omask_threshold)
             nrows_high = numpy.count_nonzero(high_rows)
-            if nrows_high > 0:
+            if nrows_high > 0.5 * ovs_y:
+                print(f"WARNING: Likely light leak in {inimg}. Not masking high rows in overscan.")
+                omaskfile = None
+            elif nrows_high > 0:
                 masked_ovs_data = numpy.nanmedian(curr_ovs_data, axis=1)[numpy.nonzero(curr_omask * ~high_rows)]
                 masked_ovs_rows = numpy.arange(ovs_y)[numpy.nonzero(curr_omask * ~high_rows)]
                 ch_coeff = numpy.polynomial.chebyshev.chebfit(x=masked_ovs_rows, y=masked_ovs_data.T, deg=7)

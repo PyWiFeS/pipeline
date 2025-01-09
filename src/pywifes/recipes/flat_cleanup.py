@@ -1,6 +1,8 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import wifes_recipe
+
+
 # ------------------------------------------------------
 # Flat cleanup
 # ------------------------------------------------------
@@ -87,7 +89,7 @@ def _run_flat_cleanup(
                 and os.path.getmtime(gargs['super_dflat_raw']) < os.path.getmtime(gargs['super_dflat_fn']):
             return
         if os.path.isfile(gargs['super_dflat_raw']):
-            info_print(f"Correcting master domeflat {os.path.basename(gargs['super_dflat_raw'])}")
+            print(f"Correcting master domeflat {os.path.basename(gargs['super_dflat_raw'])}")
             pywifes.interslice_cleanup(
                 gargs['super_dflat_raw'],
                 gargs['super_dflat_fn'],
@@ -98,7 +100,7 @@ def _run_flat_cleanup(
                 **args,
             )
         else:
-            warning_print(f"Master dome flat {os.path.basename(gargs['super_dflat_raw'])} "
+            print(f"Master dome flat {os.path.basename(gargs['super_dflat_raw'])} "
                           "not found. Skipping dome flat cleanup.")
 
     if "twi" in type:
@@ -106,7 +108,7 @@ def _run_flat_cleanup(
                 and os.path.getmtime(gargs['super_tflat_raw']) < os.path.getmtime(gargs['super_tflat_fn']):
             return
         if os.path.isfile(gargs['super_tflat_raw']):
-            info_print(f"Correcting master twilight flat {os.path.basename(gargs['super_tflat_raw'])}")
+            print(f"Correcting master twilight flat {os.path.basename(gargs['super_tflat_raw'])}")
             pywifes.interslice_cleanup(
                 gargs['super_tflat_raw'],
                 gargs['super_tflat_fn'],
@@ -117,6 +119,6 @@ def _run_flat_cleanup(
                 **args,
             )
         else:
-            warning_print(f"Master twilight flat {os.path.basename(gargs['super_tflat_raw'])} "
+            print(f"Master twilight flat {os.path.basename(gargs['super_tflat_raw'])} "
                           "not found. Skipping twilight flat cleanup.")
     return

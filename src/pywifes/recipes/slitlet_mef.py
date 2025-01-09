@@ -2,9 +2,13 @@ import os
 import gc
 import multiprocessing
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
 from pywifes.multiprocessing_utils import _get_num_processes as get_num_proc
+from pywifes.wifes_utils import get_full_obs_list, get_sci_obs_list, get_std_obs_list, wifes_recipe
 
+
+# ------------------------------------------------------
+# MEF file creation
+# ------------------------------------------------------
 def _run_slitlet_mef_indiv(fn, gargs,prev_suffix,curr_suffix,slitlet_fn,use_ns):
     in_fn  = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, prev_suffix))
     out_fn = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, curr_suffix))
@@ -12,7 +16,7 @@ def _run_slitlet_mef_indiv(fn, gargs,prev_suffix,curr_suffix,slitlet_fn,use_ns):
         and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
         return
 
-    info_print('Creating MEF file for %s' % in_fn.split('/')[-1])
+    print('Creating MEF file for %s' % in_fn.split('/')[-1])
     
     if use_ns:
         sky_fn = os.path.join(gargs['out_dir'], '%s.s%s.fits' % (fn, curr_suffix))

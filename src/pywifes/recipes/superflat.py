@@ -1,6 +1,8 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import wifes_recipe
+
+
 # ------------------------------------------------------
 # Generate super-flat/wire/arc
 # ------------------------------------------------------
@@ -81,7 +83,7 @@ def _run_superflat(
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(flat_list[0]) < os.path.getmtime(out_fn):
             return
-        info_print(f"List of {source} flats: {flat_list}")
+        print(f"List of {source} flats: {flat_list}")
         kwstring = "FLATN"
         commstring = "lamp flat"
         outvarimg = os.path.join(gargs['master_dir'], f"wifes_{gargs['arm']}_super_domeflat_raw_var.fits")
@@ -95,7 +97,7 @@ def _run_superflat(
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(flat_list[0]) < os.path.getmtime(out_fn):
             return
-        info_print(f"List of {source} flats: {flat_list}")
+        print(f"List of {source} flats: {flat_list}")
         kwstring = "TWIN"
         commstring = "twilight flat"
         save_prefix = f"twi_{save_prefix}"
@@ -108,7 +110,7 @@ def _run_superflat(
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(flat_list[0]) < os.path.getmtime(out_fn):
             return
-        info_print(f"List of wire frames: {flat_list}")
+        print(f"List of wire frames: {flat_list}")
         kwstring = "WIREN"
         commstring = "wire"
     elif source == "arc":
@@ -120,16 +122,16 @@ def _run_superflat(
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(flat_list[0]) < os.path.getmtime(out_fn):
             return
-        info_print(f"List of arc frames: {flat_list}")
+        print(f"List of arc frames: {flat_list}")
         kwstring = "ARCN"
         commstring = "arc"
     else:
-        error_print(f"Calibration type '{source}' not recognised")
+        print(f"Calibration type '{source}' not recognised")
         raise ValueError(f"Calibration type '{source}' not recognised")
     if not flat_list:
-        warning_print(f"No {source} flats found. Skipping the superflat generation for {source}.")
+        print(f"No {source} flats found. Skipping the superflat generation for {source}.")
         return
-    info_print(f"Generating co-add {source} flat")
+    print(f"Generating co-add {source} flat")
     pywifes.imcombine(
         flat_list, out_fn, data_hdu=gargs['my_data_hdu'], kwstring=kwstring, commstring=commstring,
         outvarimg=outvarimg, plot_dir=gargs['plot_dir_arm'], save_prefix=save_prefix, **args

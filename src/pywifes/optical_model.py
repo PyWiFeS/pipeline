@@ -11,19 +11,11 @@
 from __future__ import division, print_function
 from astropy.io import fits as pf
 import functools
-import logging
 import math
-import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import multiprocessing
 import numpy as np
 import pickle
-
-from pywifes.logger_config import custom_print
-
-# Redirect print statements to logger
-logger = logging.getLogger('PyWiFeS')
-print = custom_print(logger)
 
 # The number of fitted parameters
 nparams = 18
@@ -661,78 +653,3 @@ def excludeAuto(lines, grating, bin_x, bin_y, resid, sigma, plot, verbose):
         plotResidKeep(allx, ally, allarcs, resid, keepargs)
 
     return lines[keepargs]
-
-
-def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
-
-    fig = plt.figure(1, figsize=(10, 6))
-    plt.suptitle(title)
-    # Define GridSpec (3 rows, 3 columns)
-    gs = gridspec.GridSpec(3, 3, width_ratios=[3, 1, 0.5])  # Add width_ratios for the columns
-
-    ax_left_top = fig.add_subplot(gs[0:2, 0:1])  # Subplot in the left column
-    ax_left_top.plot(allx, ally, 'r.', markeredgecolor='w', markeredgewidth=0.2)
-    ax_left_top.set_xlabel("X-axis [pixel]")
-    ax_left_top.set_ylabel("Y-axis [pixel]")
-    ax_left_top.grid(True)
-
-    ax_left_bottom = fig.add_subplot(gs[2:, 0:2])  # Bottom subplot in the left column
-    ax_left_bottom.plot(allarcs, resid, 'r.', markeredgecolor='w', markeredgewidth=0.2)
-    ax_left_bottom.set_xlabel(r"Wavelength [$\AA$]")
-    ax_left_bottom.set_ylabel(r"Residuals [$\AA$]")
-    ax_left_bottom.yaxis.set_label_position("left")
-    ax_left_bottom.yaxis.tick_left()
-    ax_left_bottom.grid(True)
-
-    # Create histogram of resid on the right side
-    ax_hist = fig.add_subplot(gs[2, 2])
-    ax_hist.hist(resid, orientation='vertical', bins=40, color='red', density=True)
-    ax_hist.yaxis.set_label_position("right")
-    ax_hist.label_outer()
-
-    # Compute mean and standard deviation of resid
-    mean_resid = np.mean(resid)
-    std_resid = np.std(resid)
-
-    # Plotting the 1-sigma marks
-    sigma_pos = mean_resid + std_resid
-    sigma_neg = mean_resid - std_resid
-
-    # Horizontal lines at +/-1 sigma
-    ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--', label=fr'$\sigma$: {std_resid:.2f} $\AA$')
-    ax_hist.axvline(sigma_neg, color='black', lw=0.8, linestyle='--')
-
-    # ax_hist.text(1.1, sigma_pos, '+σ', va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=10)
-    # ax_hist.text(1.1, sigma_neg, '-σ', va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=10)
-
-    # ax_hist.text(0.5, mean_resid, 'σ = '+ str(std_resid), va='center', ha='center', transform=ax_hist.get_yaxis_transform(), fontsize=12)
-    ax_hist.legend(bbox_to_anchor=(0.5, -0.3), loc='center', framealpha=1.0, handlelength=1.2, frameon=False)
-    ax_hist.grid(True)
-    ax_hist.set_yticklabels([])
-    ax_hist.set_yticks([])
-
-    ax_top = fig.add_subplot(gs[0, 1:])  # Top subplot in the right column
-    ax_top.plot(allx, resid, 'r.', markeredgecolor='w', markeredgewidth=0.2)
-    ax_top.set_xlabel("X-axis [pixel]")
-    ax_top.set_ylabel(r"Residuals [$\AA$]")
-    ax_top.yaxis.set_label_position("right")
-    ax_top.yaxis.tick_right()
-    ax_top.grid(True)
-    # ax_top.set_title("Residuals vs x pixel")
-
-    ax_middle = fig.add_subplot(gs[1, 1:])  # Middle subplot in the right column
-    ax_middle.plot(resid, ally, 'r.', markeredgecolor='w', markeredgewidth=0.2)
-    ax_middle.set_xlabel(r"Residuals [$\AA$]")
-    ax_middle.set_ylabel("Y-axis [pixel]")
-    ax_middle.yaxis.set_label_position("right")
-    ax_middle.yaxis.tick_right()
-    ax_middle.grid(True)
-    # ax_middle.set_title("Residuals vs y pixel")
-
-    # plt.tight_layout()
-
-    # Adjust top to make room for suptitle
-    plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6, left=0.075, right=0.925, bottom=0.09)
-
-    plt.savefig(plot_path, dpi=300)
-    plt.close('all')

@@ -4,16 +4,9 @@ import scipy.signal
 import scipy.ndimage
 import scipy.interpolate
 
-from pywifes.logger_config import custom_print
-import logging
-
 from pywifes.multiprocessing_utils import get_task, map_tasks
 from pywifes.wifes_imtrans import blkrep, blkavg, transform_data, detransform_data
 from pywifes.wifes_utils import arguments, is_halfframe, is_taros
-
-# Redirect print statements to logger
-logger = logging.getLogger("PyWiFeS")
-print = custom_print(logger)
 
 
 # -----------------------------------------------------------------------------

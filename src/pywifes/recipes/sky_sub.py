@@ -1,6 +1,8 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import get_sci_obs_list, get_std_obs_list, wifes_recipe
+
+
 # ------------------------------------------------------
 # Sky subtraction
 # ------------------------------------------------------
@@ -37,7 +39,7 @@ def _run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix):
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn) \
                 and os.path.getmtime(sky_fn) < os.path.getmtime(out_fn):
             continue
-        info_print(f"Subtracting N+S sky frame for {os.path.basename(in_fn)}")
+        print(f"Subtracting N+S sky frame for {os.path.basename(in_fn)}")
         pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime")
     return
 
@@ -80,7 +82,7 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix):
                     sky_proc_fn = os.path.join(
                         gargs['out_dir'], "%s.p%s.fits" % (obs["sky"][0], curr_suffix)
                     )
-                    info_print(f"Coadding sky frames into {os.path.basename(sky_proc_fn)}")
+                    print(f"Coadding sky frames into {os.path.basename(sky_proc_fn)}")
                     pywifes.imcombine_mef(in_fn_list, sky_proc_fn, scale="exptime", method="median")
                 else:
                     sky_fn = obs["sky"][0]
@@ -95,7 +97,7 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix):
                     if gargs['skip_done'] and os.path.isfile(out_fn) \
                             and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
                         continue
-                    info_print(f"Subtracting sky frame for {os.path.basename(in_fn)}")
+                    print(f"Subtracting sky frame for {os.path.basename(in_fn)}")
                     # subtract scaled sky framefrom science frame
                     pywifes.scaled_imarith_mef(
                         in_fn, "-", sky_proc_fn, out_fn, scale="exptime"
@@ -109,7 +111,7 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix):
                     if gargs['skip_done'] and os.path.isfile(out_fn) \
                             and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
                         continue
-                    info_print(f"Copying science image {os.path.basename(in_fn)}")
+                    print(f"Copying science image {os.path.basename(in_fn)}")
                     pywifes.imcopy(in_fn, out_fn)
         # copy stdstar frames
         std_obs_list = get_std_obs_list(metadata)
@@ -119,6 +121,6 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix):
             if gargs['skip_done'] and os.path.isfile(out_fn) \
                     and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
                 continue
-            info_print(f"Copying standard star image {os.path.basename(in_fn)}")
+            print(f"Copying standard star image {os.path.basename(in_fn)}")
             pywifes.imcopy(in_fn, out_fn)
     return

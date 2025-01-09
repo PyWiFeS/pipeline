@@ -5,17 +5,9 @@ import re
 import glob
 import os
 import shutil
-import sys
-import multiprocessing
-import pickle
 import pyjson5
 import datetime
 
-debug_print = print
-info_print = print
-warning_print = print
-error_print = print
-critical_print = print
 
 def arguments():
     """
@@ -194,6 +186,7 @@ def nan_helper(y):
 
     return numpy.isnan(y), lambda z: z.nonzero()[0]
 
+
 # -----------------------------------------------------------------------
 # Decorator to print name and execution time of each recipe step
 # -----------------------------------------------------------------------
@@ -201,11 +194,12 @@ def wifes_recipe(func):
     def wrapper(*args, **kwargs):
         start_time = datetime.datetime.now()
         print("Start of WiFeS Recipe {}.".format(func.__name__))
-        result = func(*args,**kwargs)
+        result = func(*args, **kwargs)
         duration = datetime.datetime.now() - start_time
-        print ("End of WiFeS Recipe {}: took {} seconds.".format(func.__name__,duration.total_seconds()))
+        print("End of WiFeS Recipe {}: took {} seconds.".format(func.__name__, duration.total_seconds()))
         return result
     return wrapper
+
 
 # ------------------------------------------------------------------------
 # Function definition
@@ -233,10 +227,10 @@ def move_files(src_dir_path, destination_dir_path, filenames):
         for file in filenames:
             src_file = os.path.join(src_dir_path, file)
             dest_file = os.path.join(destination_dir_path, file)
-            debug_print(f"Moving file {src_file} to {dest_file}")
+            print(f"Moving file {src_file} to {dest_file}")
             shutil.move(src_file, dest_file)
     except Exception as e:
-        error_print(f"Error moving files: {e}")
+        print(f"Error moving files: {e}")
 
 
 def copy_files(src_dir_path, destination_dir_path, filenames):
@@ -286,7 +280,7 @@ def copy_files(src_dir_path, destination_dir_path, filenames):
                     continue
                 shutil.copy(src_file, dest_file)
     except Exception as e:
-        error_print(f"Error copying files: {e}")
+        print(f"Error copying files: {e}")
 
 
 def get_file_names(src_dir_path, glob_pattern):
@@ -331,9 +325,10 @@ def load_config_file(filename):
     """
     reduction_scripts_dir = os.path.dirname(__file__)
     file_path = os.path.join(reduction_scripts_dir, filename)
-    info_print(f"Loading configuration file: {file_path}")
+    print(f"Loading configuration file: {file_path}")
     with open(file_path, "r") as f:
         return pyjson5.load(f)
+
 
 # ------------------------------------------------------------------------
 # METADATA WRANGLING FUNCTIONS
@@ -376,7 +371,7 @@ def get_full_obs_list(metadata, exclude=None):
                 for fn in obs[key]:
                     if fn not in full_obs_list:
                         full_obs_list.append(fn)
-    debug_print(f"Full observation list: {full_obs_list}")
+    print(f"Full observation list: {full_obs_list}")
     return full_obs_list
 
 
@@ -399,7 +394,7 @@ def get_sci_obs_list(metadata):
         for fn in obs["sci"]:
             if fn not in sci_obs_list:
                 sci_obs_list.append(fn)
-    debug_print(f"Science observation list: {sci_obs_list}")
+    print(f"Science observation list: {sci_obs_list}")
     return sci_obs_list
 
 
@@ -428,7 +423,7 @@ def get_std_obs_list(metadata, type="all"):
                 std_obs_list.append(fn)
             if fn not in std_obs_list and (type in obs["stdtype"]):
                 std_obs_list.append(fn)
-    debug_print(f"Standard observation list ({type}): {std_obs_list}")
+    print(f"Standard observation list ({type}): {std_obs_list}")
     return std_obs_list
 
 
@@ -453,7 +448,7 @@ def get_sky_obs_list(metadata):
         for fn in obs["sky"]:
             if fn not in sky_obs_list:
                 sky_obs_list.append(fn)
-    info_print(f"Sky observation list: {sky_obs_list}")
+    print(f"Sky observation list: {sky_obs_list}")
     return sky_obs_list
 
 
@@ -503,7 +498,7 @@ def get_primary_sci_obs_list(metadata):
         The list of primary science observations.
     """
     sci_obs_list = [obs["sci"][0] for obs in metadata["sci"]]
-    debug_print(f"Primary science observation list: {sci_obs_list}")
+    print(f"Primary science observation list: {sci_obs_list}")
     return sci_obs_list
 
 
@@ -539,10 +534,10 @@ def get_primary_std_obs_list(metadata, stdtype="all"):
             if obs["sci"][0] not in std_obs_list and (stdtype in obs["stdtype"]):
                 std_obs_list.append(obs["sci"][0])
     else:
-        error_print("Standard star type not understood!")
-        error_print("PyWiFeS Data Reduction pipeline will crash now ...")
+        print("Standard star type not understood!")
+        print("PyWiFeS Data Reduction pipeline will crash now ...")
         raise ValueError("Standard star type not understood")
-    debug_print(f"Primary standard observation list ({stdtype}): {std_obs_list}")
+    print(f"Primary standard observation list ({stdtype}): {std_obs_list}")
     return std_obs_list
 
 # ------------------------------------------------------------------------

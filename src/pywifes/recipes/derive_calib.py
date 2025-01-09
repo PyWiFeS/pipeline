@@ -1,7 +1,9 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
 from pywifes import wifes_calib
+from pywifes.wifes_utils import get_primary_std_obs_list, wifes_recipe
+
+
 # Sensitivity Function fit
 @wifes_recipe
 def _run_derive_calib(metadata, gargs, prev_suffix, curr_suffix, method="poly", prefactor=False, **args):
@@ -93,7 +95,7 @@ def _run_derive_calib(metadata, gargs, prev_suffix, curr_suffix, method="poly", 
     std_obs_list = get_primary_std_obs_list(metadata, stdtype="flux")
 
     if len(std_obs_list) == 0:
-        info_print("No flux standard stars to derive calibration. Skipping.")
+        print("No flux standard stars to derive calibration. Skipping.")
         return
 
     std_cube_list = [
@@ -106,10 +108,10 @@ def _run_derive_calib(metadata, gargs, prev_suffix, curr_suffix, method="poly", 
     ]
     if prefactor:
         if os.path.isfile(gargs['smooth_shape_fn']):
-            info_print(f"Using prefactor file {gargs['smooth_shape_fn']}")
+            print(f"Using prefactor file {gargs['smooth_shape_fn']}")
             pf_fn = gargs['smooth_shape_fn']
         else:
-            info_print(f"Could not find prefactor file {gargs['smooth_shape_fn']}")
+            print(f"Could not find prefactor file {gargs['smooth_shape_fn']}")
             prefactor = False
             pf_fn = None
     else:
@@ -119,9 +121,9 @@ def _run_derive_calib(metadata, gargs, prev_suffix, curr_suffix, method="poly", 
                 os.path.getmtime(std_cube_list[0]) < os.path.getmtime(gargs['calib_fn'])
                 or gargs['from_master']
             ):
-        info_print("Skipping derivation of sensitivity function due to existing file.")
+        print("Skipping derivation of sensitivity function due to existing file.")
         return
-    info_print("Deriving sensitivity function")
+    print("Deriving sensitivity function")
     wifes_calib.derive_wifes_calibration(
         std_cube_list, gargs['calib_fn'], extract_in_list=extract_list, method=method,
         plot_dir=gargs['plot_dir_arm'], prefactor=prefactor, prefactor_fn=pf_fn, **args

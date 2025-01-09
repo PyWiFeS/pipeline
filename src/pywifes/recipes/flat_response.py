@@ -1,6 +1,8 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import wifes_recipe
+
+
 # ------------------------------------------------------
 # Flatfield: Response
 # ------------------------------------------------------
@@ -59,9 +61,9 @@ def _run_flat_response(metadata, gargs, prev_suffix, curr_suffix, mode="all", **
     if gargs['skip_done'] and os.path.isfile(gargs['flat_resp_fn']) \
             and os.path.getmtime(gargs['super_dflat_mef']) < os.path.getmtime(gargs['flat_resp_fn']):
         return
-    info_print("Generating flatfield response function")
+    print("Generating flatfield response function")
     if mode == "all" and not os.path.isfile(gargs['super_tflat_mef']):
-        info_print("WARNING: No twilight superflat MEF found. Falling back to dome flat only.")
+        print("WARNING: No twilight superflat MEF found. Falling back to dome flat only.")
         mode = "dome"
 
     if mode == "all":
@@ -79,6 +81,6 @@ def _run_flat_response(metadata, gargs, prev_suffix, curr_suffix, mode="all", **
             gargs['super_dflat_mef'], gargs['flat_resp_fn'], wsol_fn=gargs['wsol_out_fn'], shape_fn=gargs['smooth_shape_fn'], **args
         )
     else:
-        error_print("Requested response mode not recognised")
+        print("Requested response mode not recognised")
         raise ValueError("Requested response mode not recognised")
     return

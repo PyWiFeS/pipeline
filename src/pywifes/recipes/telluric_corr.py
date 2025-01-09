@@ -1,9 +1,12 @@
 import os
-
-from pywifes.wifes_utils import get_primary_sci_obs_list, get_primary_std_obs_list, wifes_recipe
+from pywifes import pywifes
 from pywifes import wifes_calib
+from pywifes.wifes_utils import get_primary_sci_obs_list, get_primary_std_obs_list, wifes_recipe
 
 
+# ------------------------------------------------------
+# Apply telluric correction
+# ------------------------------------------------------
 @wifes_recipe
 def _run_telluric_corr(metadata, gargs, prev_suffix, curr_suffix, **args):
     """

@@ -1,6 +1,8 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import get_full_obs_list, wifes_recipe
+
+
 # ------------------------------------------------------------------------
 # Overscan subtraction
 # ------------------------------------------------------------------------
@@ -14,7 +16,7 @@ def _run_overscan_sub(metadata, gargs, prev_suffix, curr_suffix, poly_high_oscan
     metadata : dict
         A dictionary containing metadata information of the FITS files.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         The suffix of the previous FITS files.
     curr_suffix : str
@@ -77,7 +79,7 @@ def _run_overscan_sub(metadata, gargs, prev_suffix, curr_suffix, poly_high_oscan
         if gargs['skip_done'] and os.path.isfile(out_fn):
             # cannot check mtime here because of fresh copy to raw_data_temp
             continue
-        info_print(f"Subtracting Overscan for {os.path.basename(in_fn)}")
+        print(f"Subtracting Overscan for {os.path.basename(in_fn)}")
         if first:
             # Find a domeflat to generate mask for overscan
             if metadata["domeflat"]:
@@ -89,4 +91,3 @@ def _run_overscan_sub(metadata, gargs, prev_suffix, curr_suffix, poly_high_oscan
             first = False
         pywifes.subtract_overscan(in_fn, out_fn, data_hdu=gargs['my_data_hdu'], omaskfile=oscanmask, **args)
     return
-

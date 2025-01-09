@@ -15,16 +15,7 @@ import re
 # Suppress the NoDetectionsWarning as we have set a warning for no detection
 import warnings
 from photutils.utils.exceptions import NoDetectionsWarning
-
-# Logger
-from pywifes.logger_config import custom_print
-import logging
-
 warnings.filterwarnings("ignore", category=NoDetectionsWarning)
-
-# Redirect print statements to logger
-logger = logging.getLogger("PyWiFeS")
-print = custom_print(logger)
 
 
 def extract_aperture_name(spec_name):

@@ -4,13 +4,8 @@ import argparse
 from astropy.io import fits as pyfits
 import contextlib
 import datetime
-import gc
 import glob
-import logging
-import numpy
 import os
-import pickle
-import pyjson5
 import re
 import shutil
 import sys
@@ -18,38 +13,16 @@ import multiprocessing
 from pathlib import Path
 
 from pywifes import pywifes
-from pywifes import wifes_calib
-from pywifes import wifes_wsol
 from pywifes.data_classifier import classify, cube_matcher
 from pywifes.extract_spec import detect_extract_and_save, plot_1D_spectrum
-from pywifes.logger_config import setup_logger, custom_print
 from pywifes.quality_plots import flatfield_plot
 from pywifes.splice import splice_spectra, splice_cubes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import is_halfframe, is_nodshuffle, is_standard, is_subnodshuffle, is_taros
+from pywifes.wifes_utils import copy_files, get_file_names, load_config_file, move_files
 import pywifes.recipes as recipes
-from pywifes.multiprocessing_utils import _get_num_processes as get_num_proc
 
 
-# Setup the logger.
-# Now we send the output to stdout, so that we can capture it more easily
-logger = setup_logger(file=sys.stdout, console_level=logging.WARNING, file_level=logging.INFO)
-# log_file = os.path.join(working_dir, "data_products/pywifes_logger.log")
-# logger = setup_logger(file=log_file, console_level=logging.WARNING, file_level=logging.INFO)
-
-# Redirect print statements to logger with different levels
-debug_print = print #custom_print(logger, logging.DEBUG)
-info_print = print #custom_print(logger, logging.INFO)
-warning_print = print #custom_print(logger, logging.WARNING)
-error_print = print #custom_print(logger, logging.ERROR)
-critical_print = print #custom_print(logger, logging.CRITICAL)
-
-# Redirect warnings to logger
-# logging.captureWarnings(True)
-
-info_print("Starting PyWiFeS data reduction pipeline thread.")
-
-
-def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,working_dir,params_path,grism_key,just_calib,plot_dir,from_master,extra_skip_steps,return_dict):
+def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, working_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done):
     """
     Reduces the data for an individual arm.
     """
@@ -65,9 +38,8 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
         gargs['data_dir'] = temp_data_dir
         gargs['arm'] = arm
         gargs['master_dir'] = master_dir
-        gargs['from_master'] = from_master 
+        gargs['from_master'] = from_master
         gargs['output_master_dir'] = output_master_dir
-
 
         # Determine the grism and observing mode used in the first image of science,
         # standard, or arc of the respective arm.
@@ -80,7 +52,7 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
         elif obs_metadata["arc"]:
             reference_filename = obs_metadata["arc"][0] + ".fits"
         else:
-            error_print("No science, standard, or arc files found in metadata.")
+            print("No science, standard, or arc files found in metadata.")
             raise ValueError("No science, standard, or arc files found in metadata.")
 
         # Check observing mode
@@ -93,9 +65,9 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
         halfframe = is_halfframe(temp_data_dir + reference_filename)
         taros = is_taros(temp_data_dir + reference_filename)
         gargs['halfframe'] = halfframe
-        gargs['taros'] = taros 
+        gargs['taros'] = taros
         if halfframe:
-            info_print(f"Cutting data to half-frame with to_taros = {taros}")
+            print(f"Cutting data to half-frame with to_taros = {taros}")
             obs_metadata = pywifes.calib_to_half_frame(obs_metadata, temp_data_dir,
                                                        to_taros=taros)
 
@@ -134,7 +106,7 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
         gargs['my_data_hdu'] = 0
 
         # SET SKIP ALREADY DONE FILES ?
-        gargs['skip_done'] = True
+        gargs['skip_done'] = skip_done
 
         # Creates a directory for diagnisis plots (one per arm).
         gargs['plot_dir_arm'] = os.path.join(plot_dir, arm)
@@ -155,7 +127,7 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
         gargs['smooth_shape_fn'] = os.path.join(master_dir, f"{calib_prefix}_smooth_shape.dat")
 
         # Twilight Master Files
-        gargs['super_tflat_raw']= os.path.join(master_dir, f"{calib_prefix}_super_twiflat_raw.fits")
+        gargs['super_tflat_raw'] = os.path.join(master_dir, f"{calib_prefix}_super_twiflat_raw.fits")
         gargs['super_tflat_fn'] = os.path.join(master_dir, f"{calib_prefix}_super_twiflat.fits")
         gargs['super_tflat_mef'] = os.path.join(master_dir, f"{calib_prefix}_super_twiflat_mef.fits")
 
@@ -187,24 +159,22 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
         # Run proccessing steps
         # ------------------------------------------------------------------------
         flog_filename = os.path.join(gargs['working_dir'] + "/data_products", f"{arm}.log")
-        info_print("")
-        info_print(f"Starting processing of {arm} arm")
-        info_print(f"See {flog_filename} for detailed output.")
-        info_print("")
+        print("")
+        print(f"Starting processing of {arm} arm")
+        print(f"See {flog_filename} for detailed output.")
+        print("")
 
         prev_suffix = None
 
         # keep a reference to current stdout so we can use it to print progress
         old_stdout = sys.stdout
-        
+
         # get the current time to track how long each arm's reductions take
         start_time = datetime.datetime.now()
 
         # open a separate log file to direct all recipe stdout/stderr to
-        # note that the info_print statements will go to stdout, so this will
-        with open(flog_filename,'w') as flog:
-            # keep old stdout so we can update progress
-            with contextlib.redirect_stdout(flog),contextlib.redirect_stderr(flog):
+        with open(flog_filename, 'a') as flog:
+            with contextlib.redirect_stdout(flog), contextlib.redirect_stderr(flog):
                 counter = 1
                 nsteps = len(proc_steps[arm])
                 for step in proc_steps[arm]:
@@ -214,24 +184,21 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
                     step_args = step["args"]
                     func_name = "run_" + step_name
 
-                    print (f"Running {arm}/{func_name} ({counter}/{nsteps})",file=old_stdout)
-                    func = getattr(recipes,func_name)
+                    print(f"Running {arm}/{func_name} ({counter}/{nsteps})", file=old_stdout)
+                    func = getattr(recipes, func_name)
 
                     # When master calibrations are in use, the steps listed in skip_steps
                     # will be skipped.
                     if step_name in extra_skip_steps:
-                        # print('======================',file=old_stdout)
-                        # print(f"Skipping step: {step_name}",file=old_stdout)
-                        # print('======================',file=old_stdout)
-                        info_print('======================')
-                        info_print(f"Skipping step: {step_name}")
-                        info_print('======================')
+                        print('======================')
+                        print(f"Skipping step: {step_name}")
+                        print('======================')
                         continue
 
                     if step_run:
-                        info_print('======================')
-                        info_print(step_name)
-                        info_print('======================')
+                        print('======================')
+                        print(step_name)
+                        print('======================')
 
                         func(
                             obs_metadata,
@@ -248,7 +215,7 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
                     counter = counter + 1
                 duration = datetime.datetime.now() - start_time
                 # this print goes to the log file, since we don't specify file=old_stdout
-                print (f"WiFeS {arm} arm reductions took a total of {duration.total_seconds()} seconds.")
+                print(f"WiFeS {arm} arm reductions took a total of {duration.total_seconds()} seconds.")
 
         # Extra Data Reduction Quality Plots:
         # Dome Flats
@@ -272,24 +239,24 @@ def run_arm_indiv(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,w
         except:
             pass
 
-        info_print(f"Successfully completed {arm} arm\n")
+        print(f"Successfully completed {arm} arm\n")
 
     except Exception as exc:
-        warning_print("")
-        warning_print(f"{arm} arm skipped, an error occurred during processing: '{exc}'.")
-        warning_print("")
+        print("")
+        print(f"{arm} arm skipped, an error occurred during processing: '{exc}'.")
+        print("")
 
     return_dict.update(gargs)
 # end of run_arm_indiv
 
+
 def main():
     start_time = datetime.datetime.now()
-    info_print(f"Pipeline started at {start_time}")
+    print(f"Pipeline started at {start_time}")
 
     # ------------------------------------------------------------------------
     # DEFINE THE PROCESSING STEPS
     # ------------------------------------------------------------------------
-
 
     # --------------------------------------------
     # INITIATE THE SCRIPT
@@ -385,7 +352,7 @@ def main():
 
     if not user_data_dir.endswith("/"):
         user_data_dir += "/"
-    info_print(f"Processing data in directory: {user_data_dir}")
+    print(f"Processing data in directory: {user_data_dir}")
 
     # Handling reduction parameters.
     params_path = {
@@ -396,12 +363,12 @@ def main():
     # Red
     if args.red_params:
         params_path["red"] = os.path.abspath(args.red_params)
-        info_print(f"Using red parameters from: {params_path['red']}")
+        print(f"Using red parameters from: {params_path['red']}")
 
     # Blue
     if args.blue_params:
         params_path["blue"] = os.path.abspath(args.blue_params)
-        info_print(f"Using blue parameters from: {params_path['blue']}")
+        print(f"Using blue parameters from: {params_path['blue']}")
 
     # Reduction from master calibration frames
     from_master = args.from_master
@@ -470,7 +437,7 @@ def main():
         # No extra skiped steps in principal.
         extra_skip_steps = []
 
-    info_print(f"Processing using master calibrations {'to' if just_calib else 'from'}: '{master_dir}'.")
+    print(f"Processing using master calibrations {'to' if just_calib else 'from'}: '{master_dir}'.")
 
     manager = multiprocessing.Manager()
     return_dict = manager.dict()
@@ -478,7 +445,7 @@ def main():
     if args.reduce_both:
         # Try and reduce both arms at the same time
         for arm in obs_metadatas.keys():
-            p = multiprocessing.Process(target=run_arm_indiv,args=(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,working_dir,params_path,grism_key,just_calib,plot_dir,from_master,extra_skip_steps,return_dict))
+            p = multiprocessing.Process(target=run_arm_indiv, args=(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, working_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done))
             jobs.append(p)
             p.start()
 
@@ -487,7 +454,7 @@ def main():
     else:
         # Otherwise reduce them sequentially
         for arm in obs_metadatas.keys():
-            p = multiprocessing.Process(target=run_arm_indiv,args=(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,working_dir,params_path,grism_key,just_calib,plot_dir,from_master,extra_skip_steps,return_dict))
+            p = multiprocessing.Process(target=run_arm_indiv, args=(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, working_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done))
             jobs.append(p)
             p.start()
 
@@ -501,10 +468,10 @@ def main():
     # Move reduce cube to the data_products directory
     # ----------------------------------------------------------
     if just_calib:
-        info_print("Only basics master calibration files have been produced.")
+        print("Only basics master calibration files have been produced.")
     else:
         destination_dir = os.path.join(working_dir, "data_products")
-        info_print(f"Moving reduced 3D cubes to {destination_dir}.")
+        print(f"Moving reduced 3D cubes to {destination_dir}.")
 
         # Red
         red_cubes_path = os.path.join(working_dir, "data_products/intermediate/red/")
@@ -544,12 +511,12 @@ def main():
                     # ----------
                     # Extraction
                     # ----------
-                    info_print('======================')
-                    info_print(f'Extracting spectra for {match_cubes["file_name"].replace(".cube", "")}')
-                    info_print('======================')
+                    print('======================')
+                    print(f'Extracting spectra for {match_cubes["file_name"].replace(".cube", "")}')
+                    print('======================')
                     blue_cube_path = match_cubes["Blue"]
                     red_cube_path = match_cubes["Red"]
-                    info_print(f'Found blue={blue_cube_path} and red={red_cube_path}')
+                    print(f'Found blue={blue_cube_path} and red={red_cube_path}')
                     plot_name = match_cubes["file_name"].replace(".cube", "_detection_plot.png")
                     plot_path = os.path.join(plot_dir, plot_name)
                     plot = extract_params["plot"]
@@ -557,10 +524,14 @@ def main():
                         taros = is_taros(red_cube_path)
                         ns = is_nodshuffle(red_cube_path)
                         subns = is_subnodshuffle(red_cube_path)
+                        ns = is_nodshuffle(red_cube_path)
+                        std = is_standard(red_cube_path)
                     else:
                         taros = is_taros(blue_cube_path)
                         ns = is_nodshuffle(blue_cube_path)
                         subns = is_subnodshuffle(blue_cube_path)
+                        ns = is_nodshuffle(blue_cube_path)
+                        std = is_standard(blue_cube_path)
 
                     get_dq = True if "get_dq" in extract_params and extract_params["get_dq"] else False
 
@@ -571,7 +542,7 @@ def main():
                         destination_dir,
                         r_arcsec=extract_params["r_arcsec"],
                         border_width=extract_params["border_width"],
-                        sky_sub=False if (ns or subns) else True,
+                        sky_sub=False if ((not std) and (ns or subns)) else True,
                         subns=subns,
                         plot=plot,
                         plot_path=plot_path,
@@ -583,9 +554,9 @@ def main():
                     # ------------------------------------
 
                     if blue_cube_path is not None and red_cube_path is not None:
-                        info_print('======================')
-                        info_print('Splicing blue and red cubes')
-                        info_print('======================')
+                        print('======================')
+                        print('Splicing blue and red cubes')
+                        print('======================')
 
                         blue_cube_name = os.path.basename(blue_cube_path)
                         red_cube_name = os.path.basename(red_cube_path)
@@ -595,7 +566,7 @@ def main():
                             if re.search("T2m3wb", blue_cube_name):
                                 spliced_cube_name = blue_cube_name.replace("T2m3wb", "T2m3wSplice")
                             else:
-                                splice_cube_name = "Splice_" + blue_cube_name
+                                spliced_cube_name = "Splice_" + blue_cube_name
                         else:
                             spliced_cube_name = blue_cube_name.replace("Blue", "Splice")
                         spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
@@ -680,9 +651,9 @@ def main():
     # ----------------------------------------------------------
     end_time = datetime.datetime.now()
     duration = end_time - start_time
-    messagge = "All done in %.01f seconds." % duration.total_seconds()
-    info_print(messagge)
-    print('\U0001F52D', messagge, '\u2B50')
+    message = "All done in %.01f seconds." % duration.total_seconds()
+    print(message)
+    print('\U0001F52D', message, '\u2B50')
 
 
 if __name__ == "__main__":

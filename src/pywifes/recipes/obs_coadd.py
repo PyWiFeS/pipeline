@@ -1,8 +1,10 @@
 import os
 import multiprocessing
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
 from pywifes.multiprocessing_utils import _get_num_processes as get_num_proc
+from pywifes.wifes_utils import wifes_recipe
+
+
 # ------------------------------------------------------
 # Image coaddition for science and standards
 # ------------------------------------------------------
@@ -15,14 +17,14 @@ def _run_obs_coadd_indiv(obs, gargs, prev_suffix,curr_suffix,method,scale, **arg
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                     and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             return
-        info_print(f"Copying image {os.path.basename(in_fn)}")
+        print(f"Copying image {os.path.basename(in_fn)}")
         pywifes.imcopy(in_fn, out_fn)            
     # coadd sci frames!
     else:
         in_fn_list = [os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, prev_suffix))
                     for fn in obs['sci']]
         out_fn = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (obs['sci'][0], curr_suffix))
-        info_print(f"Coadding images for {os.path.basename(in_fn_list[0])}")
+        print(f"Coadding images for {os.path.basename(in_fn_list[0])}")
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn_list[0]) < os.path.getmtime(out_fn):
             return 

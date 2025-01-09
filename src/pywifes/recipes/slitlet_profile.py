@@ -1,6 +1,8 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import wifes_recipe
+
+
 # ------------------------------------------------------
 # Fit slitlet profiles
 # ------------------------------------------------------

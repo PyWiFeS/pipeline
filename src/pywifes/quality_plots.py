@@ -210,6 +210,19 @@ def flatfield_plot(flat_image_path, slitlet_path, title, output_plot):
 
 
 def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
+    # Whether to plot full residual range or truncate
+    limit_resid_range = False
+
+    # Compute mean and standard deviation of resid
+    mean_resid = numpy.mean(resid)
+    std_resid = numpy.std(resid)
+
+    # Values for lines/limits
+    sigma_pos = mean_resid + std_resid
+    sigma_neg = mean_resid - std_resid
+    limsig_pos = mean_resid + 10.0 * std_resid
+    limsig_neg = mean_resid - 10.0 * std_resid
+
     fig = plt.figure(figsize=(10, 6))
     plt.suptitle(title)
 
@@ -225,6 +238,8 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
 
     ax_left_bottom = fig.add_subplot(gs[2:, 0:2])  # Bottom subplot in the left column
     ax_left_bottom.plot(allarcs, resid, 'r.', markeredgecolor='w', markeredgewidth=0.2)
+    if limit_resid_range:
+        ax_left_bottom.set_ylim(limsig_neg, limsig_pos)
     ax_left_bottom.set_xlabel(r'Wavelength [$\AA$]')
     ax_left_bottom.set_ylabel(r'Residuals [$\AA$]')
     ax_left_bottom.yaxis.set_label_position("left")
@@ -232,19 +247,12 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     ax_left_bottom.grid(True)
 
     # Create histogram of resid on the right side
-    # Can use sharey to share y-axis with ax_bottom
-    ax_hist = fig.add_subplot(gs[2, 2])  # sharey=ax_left_bottom)
-    ax_hist.hist(resid, orientation='vertical', bins=40, color='red', density=True)
+    ax_hist = fig.add_subplot(gs[2, 2])
+    ax_hist.hist(resid, orientation='vertical', bins=numpy.arange(limsig_neg, limsig_pos + std_resid, 0.25 * std_resid), color='red', density=True)
     ax_hist.yaxis.set_label_position("right")
+    if limit_resid_range:
+        ax_hist.set_xlim(limsig_neg, limsig_pos)
     ax_hist.label_outer()
-
-    # Compute mean and standard deviation of resid
-    mean_resid = numpy.mean(resid)
-    std_resid = numpy.std(resid)
-
-    # Plotting the 1-sigma marks
-    sigma_pos = mean_resid + std_resid
-    sigma_neg = mean_resid - std_resid
 
     # Horizontal lines at +/-1 sigma
     ax_hist.axvline(sigma_pos, color='black', lw=0.8, linestyle='--',
@@ -261,6 +269,8 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     ax_top.plot(allx, resid, 'r.', markeredgecolor='w', markeredgewidth=0.2)
     ax_top.set_xlabel("X-axis [pixel]")
     ax_top.set_ylabel(r"Residuals [$\AA$]")
+    if limit_resid_range:
+        ax_top.set_ylim(limsig_neg, limsig_pos)
     ax_top.yaxis.set_label_position("right")
     ax_top.yaxis.tick_right()
     ax_top.grid(True)
@@ -269,11 +279,13 @@ def final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=None):
     ax_middle.plot(resid, ally, 'r.', markeredgecolor='w', markeredgewidth=0.2)
     ax_middle.set_xlabel(r"Residuals [$\AA$]")
     ax_middle.set_ylabel("Y-axis [pixel]")
+    if limit_resid_range:
+        ax_middle.set_xlim(limsig_neg, limsig_pos)
     ax_middle.yaxis.set_label_position("right")
     ax_middle.yaxis.tick_right()
     ax_middle.grid(True)
 
-    plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6, left=0.065, right=0.935,
+    plt.subplots_adjust(top=0.9, wspace=0.05, hspace=0.6, left=0.08, right=0.92,
                         bottom=0.09)  # Adjust top to make room for suptitle
 
     plt.savefig(plot_path, dpi=300)

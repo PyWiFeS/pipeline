@@ -1,8 +1,11 @@
+from astropy.io import fits as pyfits
 import os
 import datetime
 import pickle
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import get_associated_calib, get_primary_sci_obs_list, get_primary_std_obs_list, wifes_recipe
+
+
 # ------------------------------------------------------
 # Data Cube Generation
 # ------------------------------------------------------
@@ -17,7 +20,7 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
         Metadata dictionary containing information about the FITS of the
         observations.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix used in the file names (input).
     curr_suffix : str
@@ -81,14 +84,11 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
     for fn in sci_obs_list + std_obs_list:
         in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
         out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
-        if gargs['skip_done'] and os.path.isfile(out_fn) \
-                and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
-            continue
         # decide whether to use global or local wsol and wire files
         local_wires = get_associated_calib(metadata, fn, "wire")
         if local_wires:
             wire_fn = os.path.join(gargs['out_dir'], "%s.wire.fits" % (local_wires[0]))
-            info_print(f"(Note: using {os.path.basename(wire_fn)} as wire file)")
+            print(f"(Note: using {os.path.basename(wire_fn)} as wire file)")
         else:
             wire_fn = gargs['wire_out_fn']
         local_arcs = get_associated_calib(metadata, fn, "arc")
@@ -162,28 +162,31 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
                     wsol_fn = os.path.join(gargs['out_dir'], "%s.wsol.fits" % (fn))
                     fits0.writeto(wsol_fn, overwrite=True)
 
-                    info_print("(2 arcs found)")
-                    info_print(f"(Note: using {w1:.2f}x{local_arcs[0]}.wsol.fits + {w2:.2f}x{local_arcs[1]}.wsol.fits as wsol file)")
+                    print("(2 arcs found)")
+                    print(f"(Note: using {w1:.2f}x{local_arcs[0]}.wsol.fits + {w2:.2f}x{local_arcs[1]}.wsol.fits as wsol file)")
 
                 else:
                     # Arcs do not surround the Science frame
                     # Revert to using the first one instead
                     wsol_fn = os.path.join(gargs['out_dir'], f"{local_arcs[0]}.wsol.fits")
-                    info_print("(2 arcs found, but they do not bracket the Science frame!)")
-                    info_print(f"(Note: using {os.path.basename(wsol_fn)} as wsol file)")
+                    print("(2 arcs found, but they do not bracket the Science frame!)")
+                    print(f"(Note: using {os.path.basename(wsol_fn)} as wsol file)")
             else:
                 # IF Either 1 or more than two arcs present, only use the first one.
                 wsol_fn = os.path.join(gargs['out_dir'], f"{local_arcs[0]}.wsol.fits")
-                info_print(f"(Note: using {os.path.basename(wsol_fn)} as wsol file)")
+                print(f"(Note: using {os.path.basename(wsol_fn)} as wsol file)")
         else:
             wsol_fn = gargs['wsol_out_fn']
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn) \
                 and os.path.getmtime(wire_fn) < os.path.getmtime(out_fn) \
                 and os.path.getmtime(wsol_fn) < os.path.getmtime(out_fn):
+            # CAOdebug
+            print(f"Inputs to cube_gen: {gargs['skip_done']}, {os.path.isfile(out_fn)}, Out: {out_fn}, {os.path.getmtime(out_fn)}, In: {in_fn}, {os.path.getmtime(in_fn)}, {os.path.getmtime(in_fn) < os.path.getmtime(out_fn)}, Wire: {os.path.getmtime(wire_fn)}, {os.path.getmtime(wire_fn) < os.path.getmtime(out_fn)}, Wsol: {os.path.getmtime(wsol_fn)}, {os.path.getmtime(wsol_fn) < os.path.getmtime(out_fn)}")
+            # End CAOdebug
             continue
 
-        info_print(f"Generating Data Cube for {os.path.basename(in_fn)}")
+        print(f"Generating Data Cube for {os.path.basename(in_fn)}")
         # All done, let's generate the cube
         pywifes.generate_wifes_cube(
             in_fn,

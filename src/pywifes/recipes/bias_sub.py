@@ -1,6 +1,7 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import get_associated_calib, get_full_obs_list, wifes_recipe
+
 
 # ----------------------------------------------------
 # Subtract bias
@@ -48,7 +49,7 @@ def _run_bias_sub(metadata, gargs, prev_suffix, curr_suffix, method="subtract"):
             bias_type = "global"
 
         # subtract it!
-        info_print(f"Subtracting {bias_type} superbias for {os.path.basename(in_fn)}")
+        print(f"Subtracting {bias_type} superbias for {os.path.basename(in_fn)}")
         if method == "copy":
             pywifes.imcopy(in_fn, out_fn)
         elif method == "subtract":

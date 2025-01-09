@@ -1,6 +1,8 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import get_associated_calib, get_sci_obs_list, get_std_obs_list, wifes_recipe
+
+
 # ------------------------------------------------------
 # Generate super-bias
 # ------------------------------------------------------
@@ -47,7 +49,7 @@ def _run_superbias(metadata, gargs, prev_suffix, curr_suffix, method="row_med", 
                  ]
     if not (gargs['skip_done'] and os.path.isfile(gargs['superbias_fn']) and os.path.isfile(gargs['superbias_fit_fn'])
             and os.path.getmtime(gargs['superbias_fn']) < os.path.getmtime(gargs['superbias_fit_fn'])):
-        info_print("Calculating Global Superbias")
+        print("Calculating Global Superbias")
         pywifes.imcombine(bias_list, gargs['superbias_fn'], data_hdu=gargs['my_data_hdu'],
                           kwstring="BIASN", commstring="bias")
         if method == "fit" or method == "row_med":
@@ -65,10 +67,10 @@ def _run_superbias(metadata, gargs, prev_suffix, curr_suffix, method="row_med", 
     # generate local superbiases for any science frames
     sci_obs_list = get_sci_obs_list(metadata)
     std_obs_list = get_std_obs_list(metadata)
-    info_print('***************************************************')
-    info_print(f"Science observation list: {sci_obs_list}")
-    info_print(f"Standard observation list: {std_obs_list}")
-    info_print('***************************************************')
+    print('***************************************************')
+    print(f"Science observation list: {sci_obs_list}")
+    print(f"Standard observation list: {std_obs_list}")
+    print('***************************************************')
     for fn in sci_obs_list + std_obs_list:
         local_biases = get_associated_calib(metadata, fn, "bias")
         if local_biases:
@@ -82,7 +84,7 @@ def _run_superbias(metadata, gargs, prev_suffix, curr_suffix, method="row_med", 
             if gargs['skip_done'] and os.path.isfile(local_superbias) and os.path.isfile(local_superbias_fit) \
                     and os.path.getmtime(local_superbias) < os.path.getmtime(local_superbias_fit):
                 continue
-            info_print(f"Calculating Local Superbias for {local_bias_fn}")
+            print(f"Calculating Local Superbias for {local_bias_fn}")
             # step 1 - coadd biases
             local_biases_filename = [
                 os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))

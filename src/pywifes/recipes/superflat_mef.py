@@ -1,6 +1,8 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import wifes_recipe
+
+
 # ------------------------------------------------------
 # Create MEF files
 # ------------------------------------------------------
@@ -68,7 +70,7 @@ def _run_superflat_mef(metadata, gargs, prev_suffix, curr_suffix, source, **args
         elif os.path.isfile(gargs['super_dflat_raw']):
             in_fn = gargs['super_dflat_raw']
         else:
-            warning_print("No master dome flat found. Skipping MEF generation for dome flat.")
+            print("No master dome flat found. Skipping MEF generation for dome flat.")
             return
         out_fn = gargs['super_dflat_mef']
 
@@ -78,7 +80,7 @@ def _run_superflat_mef(metadata, gargs, prev_suffix, curr_suffix, source, **args
         elif os.path.isfile(gargs['super_tflat_raw']):
             in_fn = gargs['super_tflat_raw']
         else:
-            warning_print("No master twilight flat found. Skipping MEF generation for twilight flat.")
+            print("No master twilight flat found. Skipping MEF generation for twilight flat.")
             return
         out_fn = gargs['super_tflat_mef']
 
@@ -86,7 +88,7 @@ def _run_superflat_mef(metadata, gargs, prev_suffix, curr_suffix, source, **args
         if os.path.isfile(gargs['super_wire_raw']):
             in_fn = gargs['super_wire_raw']
         else:
-            warning_print("No master wire frame found. Skipping MEF generation for wire.")
+            print("No master wire frame found. Skipping MEF generation for wire.")
             return
         out_fn = gargs['super_wire_mef']
 
@@ -94,12 +96,12 @@ def _run_superflat_mef(metadata, gargs, prev_suffix, curr_suffix, source, **args
         if os.path.isfile(gargs['super_arc_raw']):
             in_fn = gargs['super_arc_raw']
         else:
-            warning_print("No master arc frame found. Skipping MEF generation for arc.")
+            print("No master arc frame found. Skipping MEF generation for arc.")
             return
         out_fn = gargs['super_arc_mef']
 
     else:
-        error_print(f"Calibration type '{source}' not recognised")
+        print(f"Calibration type '{source}' not recognised")
         raise ValueError(f"Calibration type '{source}'' not recognised")
 
     # check the slitlet definition file
@@ -111,7 +113,7 @@ def _run_superflat_mef(metadata, gargs, prev_suffix, curr_suffix, source, **args
     if gargs['skip_done'] and os.path.isfile(out_fn) \
             and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
         return
-    info_print(f"Generating MEF {source} flat")
+    print(f"Generating MEF {source} flat")
     pywifes.wifes_slitlet_mef(
         in_fn, out_fn, data_hdu=gargs['my_data_hdu'], slitlet_def_file=slitlet_fn, **args
     )

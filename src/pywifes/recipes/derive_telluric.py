@@ -1,7 +1,9 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
 from pywifes import wifes_calib
+from pywifes.wifes_utils import get_primary_std_obs_list, wifes_recipe
+
+
 # ------------------------------------------------------
 # Telluric - derive
 # ------------------------------------------------------
@@ -73,7 +75,7 @@ def _run_derive_telluric(metadata, gargs, prev_suffix, curr_suffix, **args):
     """
     std_obs_list = get_primary_std_obs_list(metadata, stdtype="telluric")
     if len(std_obs_list) == 0:
-        info_print("No telluric standard stars found. Skipping.")
+        print("No telluric standard stars found. Skipping.")
         return
 
     std_cube_list = [
@@ -89,9 +91,9 @@ def _run_derive_telluric(metadata, gargs, prev_suffix, curr_suffix, **args):
                 os.path.getmtime(std_cube_list[0]) < os.path.getmtime(gargs['tellcorr_fn'])
                 or gargs['from_master']
             ):
-        info_print("Skipping derivation of telluric correction due to existing file.")
+        print("Skipping derivation of telluric correction due to existing file.")
         return
-    info_print("Deriving telluric correction")
+    print("Deriving telluric correction")
     wifes_calib.derive_wifes_telluric(
         std_cube_list, gargs['tellcorr_fn'], extract_in_list=extract_list,
         plot_dir=gargs['plot_dir_arm'], **args

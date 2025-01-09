@@ -1,6 +1,8 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import get_full_obs_list, wifes_recipe
+
+
 # ------------------------------------------------------
 # repair bad pixels!
 # ------------------------------------------------------
@@ -52,7 +54,7 @@ def _run_bpm_repair(metadata, gargs, prev_suffix, curr_suffix, **args):
         if gargs['skip_done'] and os.path.isfile(output_filepath) \
                 and os.path.getmtime(input_filepath) < os.path.getmtime(output_filepath):
             continue
-        info_print(f"Repairing {gargs['arm']} bad pixels for {input_filename}")
+        print(f"Repairing {gargs['arm']} bad pixels for {input_filename}")
         pywifes.repair_bad_pix(
             input_filepath, output_filepath, gargs['arm'], data_hdu=gargs['my_data_hdu'], **args
         )

@@ -1,8 +1,11 @@
+from astropy.io import fits as pyfits
 import os
 import gc
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
 from pywifes.lacosmic import lacos_wifes
+from pywifes.wifes_utils import get_sci_obs_list, get_sky_obs_list, get_std_obs_list, wifes_recipe
+
+
 # ------------------------------------------------------
 # Cosmic Rays
 # ------------------------------------------------------
@@ -50,7 +53,7 @@ def _run_cosmic_rays(
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             continue
-        info_print(f"Cleaning cosmics in {os.path.basename(in_fn)}")
+        print(f"Cleaning cosmics in {os.path.basename(in_fn)}")
         in_hdr = pyfits.getheader(in_fn)
         rdnoise = 5.0 if 'RDNOISE' not in in_hdr else in_hdr['RDNOISE']
         lacos_wifes(
@@ -69,7 +72,7 @@ def _run_cosmic_rays(
             # Also process extracted sky slitlets.
             in_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, curr_suffix))
-            info_print(f"Cleaning cosmics in {os.path.basename(in_fn)}")
+            print(f"Cleaning cosmics in {os.path.basename(in_fn)}")
             in_hdr = pyfits.getheader(in_fn)
             rdnoise = 5.0 if 'RDNOISE' not in in_hdr else in_hdr['RDNOISE']
             lacos_wifes(
@@ -91,7 +94,7 @@ def _run_cosmic_rays(
         if gargs['skip_done'] and os.path.isfile(out_fn) \
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
             continue
-        info_print(f"Cleaning cosmics in standard star {os.path.basename(in_fn)}")
+        print(f"Cleaning cosmics in standard star {os.path.basename(in_fn)}")
         in_hdr = pyfits.getheader(in_fn)
         rdnoise = 5.0 if 'RDNOISE' not in in_hdr else in_hdr['RDNOISE']
         lacos_wifes(
@@ -110,7 +113,7 @@ def _run_cosmic_rays(
             # Also process extracted sky slitlets.
             in_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, curr_suffix))
-            info_print(f"Cleaning cosmics in standard star {os.path.basename(in_fn)}")
+            print(f"Cleaning cosmics in standard star {os.path.basename(in_fn)}")
             in_hdr = pyfits.getheader(in_fn)
             rdnoise = 5.0 if 'RDNOISE' not in in_hdr else in_hdr['RDNOISE']
             lacos_wifes(

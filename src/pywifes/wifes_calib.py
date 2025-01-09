@@ -8,17 +8,11 @@ import os
 import pickle
 import scipy.interpolate as interp
 
-from pywifes.logger_config import custom_print
-import logging
-
 from pywifes import wifes_ephemeris
 from pywifes.pywifes import imcopy
 from pywifes.wifes_metadata import metadata_dir, __version__
 from pywifes.wifes_utils import arguments, hl_envelopes_idx, is_halfframe, is_nodshuffle, is_taros
 
-# Redirect print statements to logger
-logger = logging.getLogger("PyWiFeS")
-print = custom_print(logger)
 
 # ------------------------------------------------------------------------
 # reference star information!
@@ -508,13 +502,13 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
         window_size = numpy.abs(int(window_size))
         order = numpy.abs(int(order))
     except ValueError:
-        logger.error("window_size and order have to be of type int")
+        print("window_size and order have to be of type int")
         raise
     if window_size % 2 != 1 or window_size < 1:
-        logger.error("window_size size must be a positive odd number")
+        print("window_size size must be a positive odd number")
         raise
     if window_size < order + 2:
-        logger.error("window_size is too small for the polynomials order")
+        print("window_size is too small for the polynomials order")
         raise
     order_range = range(order + 1)
     half_window = (window_size - 1) // 2

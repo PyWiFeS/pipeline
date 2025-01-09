@@ -2,7 +2,6 @@ from __future__ import print_function
 from astropy.io import fits as pyfits
 import datetime
 from itertools import cycle
-import logging
 import math
 import matplotlib.pyplot as plt
 import multiprocessing
@@ -14,16 +13,12 @@ import scipy.interpolate
 import scipy.optimize as op
 
 from pywifes import optical_model as om
-from pywifes.logger_config import custom_print
+from pywifes import quality_plots as qp
 from pywifes.mpfit import mpfit
 from pywifes.wifes_metadata import __version__, metadata_dir
 from pywifes.wifes_utils import arguments, is_halfframe, is_taros
 
 from .multiprocessing_utils import get_task, map_tasks, run_tasks_singlethreaded
-
-# Redirect print statements to logger
-logger = logging.getLogger("PyWiFeS")
-print = custom_print(logger)
 
 # ------------------------------------------------------------------------
 f0 = open(os.path.join(metadata_dir, "basic_wifes_metadata.pkl"), "rb")
@@ -362,8 +357,9 @@ def quick_arcline_fit(
     # excise adjacent indices
     ind_diffs = init_inds[1:] - init_inds[:-1]
     full_diffs = numpy.zeros(len(init_inds))
-    full_diffs[:-1] = ind_diffs
-    potential_line_inds = init_inds[numpy.nonzero(ind_diffs != 1)[0]]
+    full_diffs[1:] = ind_diffs
+    full_diffs[0] = full_diffs[1]  # if 1st was adjacent to 0th, also remove 0th
+    potential_line_inds = init_inds[numpy.nonzero(full_diffs != 1)[0]]
 
     # Ok, so roughly the same lines will be selected in each row.
     # 30-50% are rubbsih ... so, if we do it once, we could avoid to do it
@@ -509,7 +505,7 @@ def find_lines_and_guess_refs(
     # then for all other slices, just re-fit the lines that are real.
     # Do this, and you reduce the total time by 50% for this step !
     if find_method == "mpfit":
-        mid_slit = nrows // (2 * bin_y)
+        mid_slit = nrows // 2
         mid_fit_centers = quick_arcline_fit(
             slitlet_data[mid_slit, :],
             find_method=find_method,
@@ -540,12 +536,15 @@ def find_lines_and_guess_refs(
         print("  done in", datetime.datetime.now() - start)
     # ------------------------------
     # 2b - use xcorr to get shift of the wavelength guess!
-    ref_interp = scipy.interpolate.interp1d(
-        wifes_metadata["ref_arc_spectra"][grating][arc_name]["x"],
-        wifes_metadata["ref_arc_spectra"][grating][arc_name]["y"],
-        bounds_error=False,
-        fill_value=0.0,
-    )
+
+    # interpolate the reference spectrum, if used
+    if shift_method in ["xcorr_single", "xcorr_grid"]:
+        ref_interp = scipy.interpolate.interp1d(
+            wifes_metadata["ref_arc_spectra"][grating][arc_name]["x"],
+            wifes_metadata["ref_arc_spectra"][grating][arc_name]["y"],
+            bounds_error=False,
+            fill_value=0.0,
+        )
     # ---------
     # no xcorr shift
     if shift_method is None:
@@ -619,14 +618,15 @@ def find_lines_and_guess_refs(
             metadata_dir, "arclines." + grating + "." + arc_name + ".txt"
         )
         if os.path.exists(ref_fn):
-            ref_arc = numpy.loadtxt(ref_fn, skiprows=1)
+            ref_arc = numpy.loadtxt(ref_fn, skiprows=1, usecols=(0, 1))
         else:
-            raise ValueError("Ref. file for the current arc lamp + grating unavailable.")
+            raise ValueError(f"Ref. file for the current arc lamp + grating unavailable.\nWanted {ref_fn}")
 
         # Careful here ... some reference files have line position inverted
         # Check which one
         f = open(ref_fn, "r")
         if "Channel" in f.readline() and "B" in grating:
+            print("REVERSING PIXEL VALUES IN REFERENCE")
             ref_arc[:, 0] = ncols - ref_arc[:, 0]
         f.close()
 
@@ -642,11 +642,12 @@ def find_lines_and_guess_refs(
         # Stretch value is not varying much over 1 slice.
         # So, get it in the middle, and use it throughout.
         # Gain some ~6.3 sec per slice by doing this !
-        mid_row = int(nrows / 2)
+        mid_row = nrows // 2
         mid_row_ind = init_y_array == mid_row
         best_stretch = _xcorr_shift_all(
             (mid_row, ncols, init_x_array[mid_row_ind], ref_arc, None, True)
         )
+
         jobs = []
         for i in range(nrows):
             row_inds = init_y_array == i + 1
@@ -844,8 +845,8 @@ def _xcorr_shift_all(packaged_args):
         this_init_x_array,
         this_ref_arc,
         stretches,  # if provided, will only try these ones !
-        get_stretch,
-    ) = packaged_args  # if yes, get the best stretch+exit
+        get_stretch  # if yes, get the best stretch+exit
+    ) = packaged_args
 
     if stretches is None:
         stretches = numpy.arange(0.98, 1.03, 0.001)
@@ -878,8 +879,7 @@ def _xcorr_shift_all(packaged_args):
         return best_stretch
 
     # if verbose :
-    #    print '   row:',this_row+1,\
-    #        'best_shift/stretch:',best_shift,best_stretch
+    #    print('   row:',this_row+1,'best_shift/stretch:',best_shift,best_stretch)
 
     # Some more temporary storage structures
     x_obs = numpy.zeros(ncols)
@@ -906,16 +906,17 @@ def _xcorr_shift_all(packaged_args):
             final_x_bes[best_shift - ncols:] = pseudo_x_bes[0:ncols - best_shift]
             final_lam_bes[best_shift - ncols:] = pseudo_lam_bes[0:ncols - best_shift]
 
-    # Make sure there are no other line within 10 Angstroem
-    # on either side ... should maybe be a parameter ...
+    # Make sure there are no other line within min_line_spacing
+    # on either side
+    min_line_spacing = 10  # Original: 10 "Angstroem" (probably pixels)
     this_ref_array = numpy.zeros_like(this_init_x_array)
     for j, item in enumerate(this_init_x_array):
         if j > 0:
-            cond1 = int(item) > (int(this_init_x_array[j - 1]) + 10)
+            cond1 = int(item) > (int(this_init_x_array[j - 1]) + min_line_spacing)
         else:
             cond1 = True
         if j < len(this_init_x_array) - 1:
-            cond2 = int(item) < (int(this_init_x_array[j + 1]) - 10)
+            cond2 = int(item) < (int(this_init_x_array[j + 1]) - min_line_spacing)
         else:
             cond2 = True
         # Finally, associate each identified line
@@ -1615,10 +1616,11 @@ def _fit_optical_model(
         # Final wavelenght solution
         plot_name = f"wavelength_solution_{grating.upper()}.png"
         plot_path = os.path.join(plot_dir, plot_name)
-        om.final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=plot_path)
+        qp.final_wsol_plot(title, allx, ally, allarcs, resid, plot_path=plot_path)
 
     print(f"Final RMSE {rmse}")
     return (allx, ally, alls, allarcs, pl, rmse)
+
 
 def run_slice(packaged_args):
     """
@@ -1628,22 +1630,18 @@ def run_slice(packaged_args):
     -----
     Parameters are the same as derive_wifes_optical_wave_solution except first parameter s (slice number from 1 to N).
     """
-    (s, inimg, outfn, arc_name, ref_arclines, ref_arcline_file, dlam_cut_start, flux_threshold_nsig, find_method, shift_method, exclude_from, exclude, epsilon, doalphapfit, automatic, verbose, decimate, sigma, alphapfile, plot, plot_dir, multithread, debug) = packaged_args
+    (s, inimg, arc_name, ref_arclines, ref_arcline_file, dlam_cut_start, flux_threshold_nsig, find_method, shift_method, verbose, plot_dir, multithread, plot_slices) = packaged_args
 
     # a dict to hold the results of this function
     return_dict = {}
     # since we are using multiprocessing over each slice, no need to use multiprocessing for each call to find_lines_and_guess_refs
-    multithread=False
-    max_processes=1
+    multithread = False
 
     # pasted from derive_wifes_optical_wave_solution
     # step 1 - gather metadata from header
     f = pyfits.open(
         inimg, ignore_missing_end=True
     )
-
-
-    # other code
 
     camera = f[1].header["CAMERA"]
     if camera == "WiFeSRed":
@@ -1714,7 +1712,7 @@ def run_slice(packaged_args):
         flux_threshold_nsig=flux_threshold_nsig,
         deriv_threshold_nsig=1.0,
         multithread=multithread,
-        plot=False,
+        plot=plot_slices,
         plot_dir=plot_dir,
     )
     # store the results in return_dict with keys that indicate the slice number `s`
@@ -1724,13 +1722,14 @@ def run_slice(packaged_args):
     rk = 'r_lists_{}'.format(s)
     return_dict[rk] = new_r
     sk = 's_lists_{}'.format(s)
-    return_dict[sk] = s*numpy.ones(nl)
+    return_dict[sk] = s * numpy.ones(nl)
     yrk = 'yrange_{}'.format(s)
-    return_dict[yrk] = (ystart,ystop)
+    return_dict[yrk] = (ystart, ystop)
     yk = 'y_lists_{}'.format(s)
-    return_dict[yk] = new_y+ystart
+    return_dict[yk] = new_y + ystart
     f.close()
     return return_dict
+
 
 def derive_wifes_optical_wave_solution(
     inimg,
@@ -1757,6 +1756,7 @@ def derive_wifes_optical_wave_solution(
     plot=False,
     plot_dir=".",
     multithread=False,
+    plot_slices=False,
     debug=False,
 ):
     """
@@ -1806,6 +1806,9 @@ def derive_wifes_optical_wave_solution(
         Directory to save the plots.
     multithread : bool, optional
         Whether to use multithreading.
+    plot_slices : bool, optional
+        Whether to plot per-slice wavelength fits
+        Default: False.
     debug : bool, optional
         Whether to report the parameters used in this function call.
         Default: False.
@@ -1833,8 +1836,8 @@ def derive_wifes_optical_wave_solution(
         last = 25
 
     tasks = []
-    for s in range(first,last+1):
-        task = get_task(run_slice,(s,inimg, outfn, arc_name, ref_arclines, ref_arcline_file, dlam_cut_start, flux_threshold_nsig, find_method, shift_method, exclude_from, exclude, epsilon, doalphapfit, automatic, verbose, decimate, sigma, alphapfile, plot, plot_dir, multithread, debug))
+    for s in range(first, last + 1):
+        task = get_task(run_slice, (s, inimg, arc_name, ref_arclines, ref_arcline_file, dlam_cut_start, flux_threshold_nsig, find_method, shift_method, verbose, plot_dir, multithread, plot_slices))
         tasks.append(task)
 
     # previously max_processes was a parameter to derive_wifes_optical_wave_solution
@@ -1842,10 +1845,10 @@ def derive_wifes_optical_wave_solution(
     nworkers = multiprocessing.cpu_count()
     if nworkers < 1:
         nworkers = 1
-    max_processes = min(nworkers,int(last-first+1))
+    max_processes = min(nworkers, int(last - first + 1))
 
     if multithread:
-        results = map_tasks(tasks,max_processes=max_processes)
+        results = map_tasks(tasks, max_processes=max_processes)
     else:
         results = run_tasks_singlethreaded(tasks)
 
@@ -1856,17 +1859,17 @@ def derive_wifes_optical_wave_solution(
     found_r_lists = []
     yrange = []
 
-    #first get some globals out
+    # first get some globals out
     return_dict = results[0]
     grating = return_dict['grating']
-    bin_x   = return_dict['bin_x']
-    bin_y   = return_dict['bin_y']
+    bin_x = return_dict['bin_x']
+    bin_y = return_dict['bin_y']
     dateobs = return_dict['dateobs']
-    tdk     = return_dict['tdk']
-    pmb     = return_dict['pmb']
-    rh      = return_dict['rh']
-    rma     = return_dict['rma']
-    grating =  grating.lower()
+    tdk = return_dict['tdk']
+    pmb = return_dict['pmb']
+    rh = return_dict['rh']
+    rma = return_dict['rma']
+    grating = grating.lower()
 
     for return_dict in results:
         for k in return_dict.keys():
@@ -2022,6 +2025,7 @@ def derive_wifes_wave_solution(inimg, out_file, method="optical", **args):
                 row, just the central row of each slitlet, sampling a grid of rows
                 in the y-axis, or guessing from the optical model.
                 Options: 'xcorr_all', 'xcorr_single', 'xcorr_grid', None.
+                Default: 'xcorr_single'.
             find_method : str
                 Method for fitting the arc lines, using MPFIT, numpy fitter (using
                 logFlux), or scipy fitter.
