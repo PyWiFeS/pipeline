@@ -40,6 +40,9 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
         Wavelength step of output cube in Anstroms. If None, uses the mean of the
         per-slitlet mean pixel spacings.
         Default: None.
+    wavelength_ref : str
+        Whether to output cube with wavelengths calibrated to "AIR" or "VACUUM".
+        Default: "AIR".
     adr : bool
         Apply atmospheric differential refraction correction.
         Default: False.
@@ -64,10 +67,10 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
     verbose : bool
         Whether to output extra messages.
         Default: True.
-    multithread : bool, optional
+    multithread : bool
         Flag indicating whether to use multithreading for cosmic ray cleaning.
         Default: False.
-    max_processes : int, optional
+    max_processes : int
         Maximum number of processes to use for multithreading (-1 uses all
         available processes).
         Default: -1.

@@ -1,4 +1,4 @@
-# Pixel Wavelength Source
+# Pixel AirWavelength Source
 0119.63 5330.7771  NeI
 0142.06 5341.0932  NeI
 0271.81 5400.5618  NeI

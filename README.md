@@ -6,16 +6,15 @@ The automated Python data reduction pipeline for WiFeS.
 
 Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024, and updated to include PyWiFeS/pipeline updates to 7 Aug 2024 [commit f6a2d8c].
 
-What's been done [20241114]:
+What's been done [20250115]:
 
-- all command-line arguments now use double-dash
+- new NeAr line list from NIST (Ritz wavelengths in air)
 
-- new `--reduce-both` option to reduce arms simultaneously
-
+- option to output datacubes in vacuum wavelengths instead of air
 
 ***Future Development Underway***
 
-- make arc lamp reference wavelengths consistent between gratings
+- update CuAr reference wavelengths
 
 - explore improving fitting and removal of fringing
 
@@ -39,7 +38,13 @@ A note on charge transfer inefficiency (CTI): test data shows CTI of ~0.1%. Cons
 
 ### Previously ###
 
-What's been done [20241023]:
+What's been done [20241114]:
+
+- all command-line arguments now use double-dash
+
+- new `--reduce-both` option to reduce arms simultaneously
+
+[20241023]:
 
 - check for mixtures of gratings and beamsplitters (which can alter slitlet locations on CCD) and warn users
 

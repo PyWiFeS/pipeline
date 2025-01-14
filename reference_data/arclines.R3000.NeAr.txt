@@ -1,4 +1,4 @@
-# Pixel Wavelength Source
+# Pixel AirWavelength Source
 0794.04 5764.4189  NeI
 1026.19 6074.3377  NeI
 1042.66 6096.1631  NeI

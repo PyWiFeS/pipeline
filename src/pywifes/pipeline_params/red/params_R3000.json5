@@ -467,6 +467,7 @@
                 "wmin_set": 5300.0,  // Minimum wavelength of output cube.
                 "wmax_set": 9800.0,  // Maximum wavelength of output cube.
                 // - "dw_set": None,  // If None, output cube wavelength step is set to mean of per-slitlet mean wavelength steps.
+                // - "wavelength_ref": "AIR",  // Wavelength reference ("AIR" or "VACUUM").
                 //
                 "adr": true,  // Apply atmospheric differential refraction correction.
                 //

@@ -1,4 +1,4 @@
-# Pixel Wavelength Source
+# Pixel AirWavelength Source
 0049.14 5572.5412  ArI
 0078.72 5562.7668  NeI
 0091.01 5558.7018  ArI

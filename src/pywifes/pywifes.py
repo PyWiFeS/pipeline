@@ -4072,6 +4072,7 @@ def generate_wifes_cube(
     wmin_set=None,
     wmax_set=None,
     dw_set=None,
+    wavelength_ref="AIR",
     bin_x=None,
     bin_y=None,
     ny_orig=76,
@@ -4127,9 +4128,23 @@ def generate_wifes_cube(
     frame_wdisps = []
 
     f4 = pyfits.open(wsol_fn)
+    convert_wave = False
+    if wavelength_ref.upper() == "VACUUM":
+        wavelength_ref = "VACUUM"  # Ensure capitalised
+        convert_wave = True
+    else:
+        wavelength_ref = "AIR"
     for i in range(nslits):
         # Wavelenghts
         wave = f4[i + 1].data
+        if convert_wave:
+            # Remove the vacuum-to-air conversion applied by NIST to arcline
+            # wavelengths. From Peck & Reeder (1972).
+            n = 1.0 + 1E-8 * (
+                8060.51 + 2480990.0 / (132.274 - numpy.float_power(wave/1E4, -2)) + 
+                17455.7 / (39.32957 - numpy.float_power(wave/1E4, -2))
+                )
+            wave = wave * n
         curr_wmin = numpy.nanmax(numpy.nanmin(wave, axis=1))
         curr_wmax = numpy.nanmin(numpy.nanmax(wave, axis=1))
         curr_wdisp = numpy.abs(numpy.nanmean(wave[:, 1:] - wave[:, :-1]))
@@ -4233,6 +4248,14 @@ def generate_wifes_cube(
     for i in range(nslits):
         curr_hdu = i + 1
         wave = f4[curr_hdu].data
+        if convert_wave:
+            # Remove the vacuum-to-air conversion applied by NIST to arcline
+            # wavelengths. From Peck & Reeder (1972).
+            n = 1.0 + 1E-8 * (
+                8060.51 + 2480990.0 / (132.274 - numpy.float_power(wave/1E4, -2)) + 
+                17455.7 / (39.32957 - numpy.float_power(wave/1E4, -2))
+                )
+            wave = wave * n
 
         curr_flux = f3[curr_hdu].data
         curr_var = f3[curr_hdu + nslits].data
@@ -4465,6 +4488,7 @@ def generate_wifes_cube(
     outfits[0].header.set("PYWYORIG", ny_orig, "PyWiFeS: ny_orig")
     outfits[0].header.set("PYWOORIG", offset_orig, "PyWiFeS: offset_orig")
     outfits[0].header.set("PYWADR", adr, "PyWiFeS: ADR correction applied")
+    outfits[0].header.set("PYWWVREF", wavelength_ref, "PyWiFeS: wavelength reference (air or vacuum)")
     if subsample > 1:
         outfits[0].header.set("PYWSSAMP", subsample, "PyWiFeS: wire/ADR spatial subsampling factor")
     outfits.writeto(outimg, overwrite=True)
