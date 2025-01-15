@@ -232,7 +232,7 @@ For more information, we refer the users to the [**PyWiFeS User Manual**](https:
 ## Installation
 1. Download or clone this fork of the `pipeline` repository in the `automation` branch:
     ```sh
-   git clone -b automation https://github.com/conken/pipeline.git
+   git clone -b automation https://github.com/PyWiFeS/pipeline.git
    ```
 2. Set up a python environment (via conda, for example) with:
 
@@ -282,6 +282,14 @@ To specify the reduction steps for blue and red data other than the defaults, us
     pywifes-reduce my_raw_data --red-params /.../user_red_param_file.json5 --blue-params /.../user_blue_param_file.json5
 
 
+**Reduce Both Arms in Parallel**
+
+Processing may be sped up by processing both arms simultaneously. Obviously, this entails utilising more of the machine's resources. To enable, use the `--run-both` flag as follows:
+
+    
+    pywifes-reduce --run-both my_raw_data
+
+    
 **Reduce Data Using Master Calibration Files**
 
 To perform data reduction using master calibration files from previous reductions, use the `--from-master` flag along with the path to the directory containing all calibration files. Both blue and red data should be stored together in the same directory for coherence. If no path is specified after the `--from-master` flag, the default directory `./data_products/master_calib` is assumed.
@@ -334,7 +342,7 @@ The sky annulus is hard-coded to extend from 3 to 4 times the JSON5-specified so
 When multiprocessing is enabled, the pipeline *may* do the job faster. This will depend on the operative system used to run the pipeline. The multiprocessing setup is recommended for **Linux** users, as they will see a significant improvement in the computation time. On the other side, Mac OS users might get a similar running time (or just slightly faster) than in one-process mode. 
 To enable the multithreading option, please follow these steps:
 
-1. Open the `.json` file that corresponds to your grating. That is, `reduction_scripts/pipeline_parms/params_<grating>.json`.
+1. Open the `.json5` file that corresponds to your grating. That is, `reduction_scripts/pipeline_parms/params_<grating>.json5`.
 2. Set `"multithread": true` in all the cases. There should be a total of 6 `"multithread"`, 3 for each of the blue and red arms in the following steps: `"step": "wave_soln"`, `"step": "cosmic_rays"`, and `"step": "cube_gen"`.
 3. [Optional] Set `max_processes` to the *maximum* number of sub-processes you would like to launch for `"step": "cosmic_rays"`, and `"step": "cube_gen"`. If `-1`, the pipeline will use as many processes as there are hardware & logical cores on your device, which may be larger than the number of *available* cores, e.g. for Slurm users. Limiting the number of sub-processes can improve the efficiency and availability of your device.
 4. Run the pipeline following the instructions above.
