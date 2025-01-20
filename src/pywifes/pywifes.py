@@ -3701,6 +3701,11 @@ def wifes_SG_response(
     except:
         print("Could not retrieve number of input dome flats from header, defaulting to 1")
         nflat = 1.0
+    try:
+        ntflat = float(f2[0].header["PYWTWIN"])
+    except:
+        print("Could not retrieve number of input twi flats from header, defaulting to 1")
+        ntflat = 1.0
 
     outfits = pyfits.HDUList(f1)
     pixel_response = numpy.ones((nslits, ndy, ndx))
@@ -3808,6 +3813,7 @@ def wifes_SG_response(
 
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWRESIN", "dome+twi", "PyWiFeS: flatfield inputs")
+    outfits[0].header.set("PYWTWIN", ntflat, "PyWiFeS: number of twilight flat images combined")
     outfits[0].header.set("PYWRESZV", zero_var, "PyWiFeS: 2D response zero_var")
     outfits[0].header.set("PYWRESW1", N, "PyWiFeS: 1st Savitzky-Golay window size")
     outfits[0].header.set("PYWRESW2", N * window_factor, "PyWiFeS: 2nd Savitzky-Golay window size")
@@ -3949,6 +3955,9 @@ def derive_wifes_wire_solution(
     ccd_x = numpy.arange(nx, dtype="f")
     # number of groupings to do
     ng = nx // nave - 1
+
+    nwire = f[1].header.get("PYWWIREN", default="Unknown")
+
     if plot:
         wparam = []
     for q in range(nslits):
@@ -4044,6 +4053,7 @@ def derive_wifes_wire_solution(
     results = pyfits.PrimaryHDU(data=ctr_results)
     g = pyfits.HDUList([results])
     g[0].header.set("PYWIFES", __version__, "PyWiFeS version")
+    g[0].header.set("PYWWIREN", nwire, "PyWiFeS: number wire images combined")
     g[0].header.set("PYWWIFZ", ", ".join(str(fz) for fz in fit_zones), "PyWiFeS: wire fit zones")
     g[0].header.set("PYWWIFT", flux_threshold, "PyWiFeS: wire flux_threshold")
     g[0].header.set("PYWWIWPD", wire_polydeg, "PyWiFeS: wire_polydeg")
@@ -4134,6 +4144,10 @@ def generate_wifes_cube(
         convert_wave = True
     else:
         wavelength_ref = "AIR"
+    kwwavemodel = f4[0].header.get("PYWWAVEM", default="Unknown")
+    kwwaverms = f4[0].header.get("PYWWRMSE", default="Unknown")
+    kwwavenum = f4[0].header.get("PYWARCN", default="Unknown")
+
     for i in range(nslits):
         # Wavelenghts
         wave = f4[i + 1].data
@@ -4141,9 +4155,9 @@ def generate_wifes_cube(
             # Remove the vacuum-to-air conversion applied by NIST to arcline
             # wavelengths. From Peck & Reeder (1972).
             n = 1.0 + 1E-8 * (
-                8060.51 + 2480990.0 / (132.274 - numpy.float_power(wave/1E4, -2)) + 
-                17455.7 / (39.32957 - numpy.float_power(wave/1E4, -2))
-                )
+                8060.51 + 2480990.0 / (132.274 - numpy.float_power(wave / 1E4, -2))
+                + 17455.7 / (39.32957 - numpy.float_power(wave / 1E4, -2))
+            )
             wave = wave * n
         curr_wmin = numpy.nanmax(numpy.nanmin(wave, axis=1))
         curr_wmax = numpy.nanmin(numpy.nanmax(wave, axis=1))
@@ -4188,9 +4202,13 @@ def generate_wifes_cube(
         wire_trans = f5[0].data
         if subsample > 1:
             wire_trans = subsample * ndimage.zoom(wire_trans, zoom=[subsample, 1], order=0, mode='nearest', grid_mode=True)
+        kwwiredeg = f5[0].header.get("PYWWIWPD", default="Unknown")
+        kwwirenum = f5[0].header.get("PYWWIREN", default="Unknown")
         f5.close()
     except:
         wire_trans = numpy.zeros([ndy, ndx], dtype="d") + numpy.nanmax(yarr) / 2
+        kwwiredeg = "N/A"
+        kwwirenum = "N/A"
     wire_offset = float(offset_orig) / float(bin_y) * subsample
     ny = int(numpy.ceil(ny_orig / bin_y * subsample))
     nx = int(numpy.ceil(nslits * subsample))
@@ -4252,9 +4270,9 @@ def generate_wifes_cube(
             # Remove the vacuum-to-air conversion applied by NIST to arcline
             # wavelengths. From Peck & Reeder (1972).
             n = 1.0 + 1E-8 * (
-                8060.51 + 2480990.0 / (132.274 - numpy.float_power(wave/1E4, -2)) + 
-                17455.7 / (39.32957 - numpy.float_power(wave/1E4, -2))
-                )
+                8060.51 + 2480990.0 / (132.274 - numpy.float_power(wave / 1E4, -2))
+                + 17455.7 / (39.32957 - numpy.float_power(wave / 1E4, -2))
+            )
             wave = wave * n
 
         curr_flux = f3[curr_hdu].data
@@ -4485,6 +4503,11 @@ def generate_wifes_cube(
         outfits[i + 1 + 2 * nslits].header.set("CDELT1", disp_ave)
         outfits[i + 1 + 2 * nslits].header.set("NAXIS1", len(out_lambda))
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
+    outfits[0].header.set("PYWWAVEM", kwwavemodel, "PyWiFeS: method for wavelength solution")
+    outfits[0].header.set("PYWWRMSE", kwwaverms, "PyWiFeS: Final RMSE of wavelength solution")
+    outfits[0].header.set("PYWARCN", kwwavenum, "PyWiFeS: number of arc exposures combined")
+    outfits[0].header.set("PYWWIWPD", kwwiredeg, "PyWiFeS: wire_polydeg")
+    outfits[0].header.set("PYWWIREN", kwwirenum, "PyWiFeS: number of wire exposures combined")
     outfits[0].header.set("PYWYORIG", ny_orig, "PyWiFeS: ny_orig")
     outfits[0].header.set("PYWOORIG", offset_orig, "PyWiFeS: offset_orig")
     outfits[0].header.set("PYWADR", adr, "PyWiFeS: ADR correction applied")

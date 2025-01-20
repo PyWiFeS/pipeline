@@ -17,7 +17,7 @@ def _run_wire_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
     metadata : dict
         Metadata containing information about the observations.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix used in the file names.
     curr_suffix : str

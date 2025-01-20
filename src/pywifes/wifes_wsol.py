@@ -1768,6 +1768,7 @@ def derive_wifes_optical_wave_solution(
         Path to the input image.
     outfn : str
         Path to save the output file.
+
     arc_name : str, optional
         Name of the arc.
     ref_arclines : array-like, optional
@@ -1782,6 +1783,7 @@ def derive_wifes_optical_wave_solution(
         Method for finding lines.
     shift_method : str, optional
         Method for shifting lines.
+
     exclude_from : str, optional
         Path to the file containing lines to exclude.
     exclude : array-like, optional
@@ -1800,6 +1802,7 @@ def derive_wifes_optical_wave_solution(
         Sigma value for fitting.
     alphapfile : str, optional
         Path to the file containing alphap values.
+
     plot : bool, optional
         Whether to plot the results.
     plot_dir : str, optional
@@ -1834,6 +1837,9 @@ def derive_wifes_optical_wave_solution(
     else:
         first = 1
         last = 25
+
+    fh = pyfits.getheader(inimg)
+    narc = fh.get("PYWARCN", default="Unknown")
 
     tasks = []
     for s in range(first, last + 1):
@@ -1977,7 +1983,8 @@ def derive_wifes_optical_wave_solution(
         # And the resampling data
         om.saveResamplingData(
             outfn, yrange, grating, bin_x, bin_y, params, halfframe=halfframe, taros=taros,
-            keywlist=[["PYWWRMSE", rmse, "PyWiFeS: Final RMSE of wavelength solution"],]
+            keywlist=[["PYWWRMSE", rmse, "PyWiFeS: Final RMSE of wavelength solution"],
+                      ["PYWARCN", narc, "PyWiFeS: number arc images combined"]]
         )
 
     return

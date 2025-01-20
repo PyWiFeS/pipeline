@@ -1,3 +1,4 @@
+from astropy.io import fits as pyfits
 import os
 from pywifes import pywifes
 from pywifes.wifes_utils import get_associated_calib, get_full_obs_list, wifes_recipe
@@ -16,7 +17,7 @@ def _run_bias_sub(metadata, gargs, prev_suffix, curr_suffix, method="subtract"):
     metadata : dict
         Metadata dictionary containing information about the FITS files of the observations.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix of the data files.
     curr_suffix : str
@@ -54,6 +55,15 @@ def _run_bias_sub(metadata, gargs, prev_suffix, curr_suffix, method="subtract"):
             pywifes.imcopy(in_fn, out_fn)
         elif method == "subtract":
             pywifes.imarith(in_fn, "-", bias_fit_fn, out_fn, data_hdu=gargs['my_data_hdu'])
+
+            bh = pyfits.getheader(bias_fit_fn)
+            bnum = bh.get("PYWBIASN", default="Unknown")
+            bmode = bh.get("PYWBMTHD", default="Unknown")
+            of = pyfits.open(out_fn, mode="update")
+            of[0].header.set("PYWBIASN", bnum, "PyWiFeS: number of bias images combined")
+            of[0].header.set("PYWBMTHD", bmode, "PyWiFeS: bias fit method")
+            of.close()
+
         else:
             raise ValueError(f"Unknown bias_sub method '{method}'. Options: 'subtract', 'copy'.")
     return

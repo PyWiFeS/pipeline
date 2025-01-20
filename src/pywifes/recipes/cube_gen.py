@@ -184,9 +184,6 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
                 and os.path.getmtime(in_fn) < os.path.getmtime(out_fn) \
                 and os.path.getmtime(wire_fn) < os.path.getmtime(out_fn) \
                 and os.path.getmtime(wsol_fn) < os.path.getmtime(out_fn):
-            # CAOdebug
-            print(f"Inputs to cube_gen: {gargs['skip_done']}, {os.path.isfile(out_fn)}, Out: {out_fn}, {os.path.getmtime(out_fn)}, In: {in_fn}, {os.path.getmtime(in_fn)}, {os.path.getmtime(in_fn) < os.path.getmtime(out_fn)}, Wire: {os.path.getmtime(wire_fn)}, {os.path.getmtime(wire_fn) < os.path.getmtime(out_fn)}, Wsol: {os.path.getmtime(wsol_fn)}, {os.path.getmtime(wsol_fn) < os.path.getmtime(out_fn)}")
-            # End CAOdebug
             continue
 
         print(f"Generating Data Cube for {os.path.basename(in_fn)}")

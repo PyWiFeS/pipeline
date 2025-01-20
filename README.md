@@ -12,6 +12,9 @@ What's been done [20250115]:
 
 - option to output datacubes in vacuum wavelengths instead of air
 
+- propagate various calibration keywords into science data
+
+
 ***Future Development Underway***
 
 - update CuAr reference wavelengths
