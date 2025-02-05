@@ -1,5 +1,5 @@
+import numpy
 import os
-from pywifes import pywifes
 from pywifes import wifes_wsol
 from pywifes.wifes_utils import get_associated_calib, get_sci_obs_list, get_std_obs_list, wifes_recipe
 
@@ -25,7 +25,7 @@ def _run_wave_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
     metadata : dict
         Metadata information for the data.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix of the file.
     curr_suffix : str
@@ -45,11 +45,12 @@ def _run_wave_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
                 row, just the central row of each slitlet, sampling a grid of rows
                 in the y-axis, or guessing from the optical model.
                 Options: 'xcorr_all', 'xcorr_single', 'xcorr_grid', None.
+                Default: 'xcorr_all'.
             find_method : str
                 Method for fitting the arc lines, using MPFIT, numpy fitter (using
                 logFlux), or scipy fitter.
                 Options: 'mpfit', 'loggauss', 'least_squares'.
-                Default: 'loggauss'.
+                Default: 'mpfit'.
             doalphapfit : bool
                 Whether to fit each slitlet angle of incidence.
                 Default: True.
@@ -107,9 +108,12 @@ def _run_wave_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
     if os.path.isfile(gargs['super_arc_mef']):
         wsol_in_fn = gargs['super_arc_mef']
     else:
-        wsol_in_fn = os.path.join(
-            gargs['out_dir'], "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
-        )
+        try:
+            wsol_in_fn = os.path.join(
+                gargs['out_dir'], "%s.p%s.fits" % (metadata["arc"][0], prev_suffix)
+            )
+        except IndexError:
+            raise FileNotFoundError("No arc spectra available to fit.")
     if not (gargs['skip_done'] and os.path.isfile(gargs['wsol_out_fn'])
             and os.path.getmtime(wsol_in_fn) < os.path.getmtime(gargs['wsol_out_fn'])):
         print(f"Deriving master wavelength solution from {os.path.basename(wsol_in_fn)}")

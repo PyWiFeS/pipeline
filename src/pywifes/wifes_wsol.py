@@ -1740,8 +1740,8 @@ def derive_wifes_optical_wave_solution(
     ref_arcline_file=None,
     dlam_cut_start=5.0,
     flux_threshold_nsig=3.0,
-    find_method="loggauss",
-    shift_method="xcorr_single",
+    find_method="mpfit",
+    shift_method="xcorr_all",
     # optical model parameters
     exclude_from=None,
     exclude=None,
@@ -2032,12 +2032,12 @@ def derive_wifes_wave_solution(inimg, out_file, method="optical", **args):
                 row, just the central row of each slitlet, sampling a grid of rows
                 in the y-axis, or guessing from the optical model.
                 Options: 'xcorr_all', 'xcorr_single', 'xcorr_grid', None.
-                Default: 'xcorr_single'.
+                Default: 'xcorr_all'.
             find_method : str
                 Method for fitting the arc lines, using MPFIT, numpy fitter (using
                 logFlux), or scipy fitter.
                 Options: 'mpfit', 'loggauss', 'least_squares'.
-                Default: 'loggauss'.
+                Default: 'mpfit'.
             doalphapfit : bool
                 Whether to fit each slitlet angle of incidence.
                 Default: True.

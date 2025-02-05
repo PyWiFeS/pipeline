@@ -8,12 +8,15 @@ Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024, and updated to inclu
 
 What's been done [20250115]:
 
-- new NeAr line list from NIST (Ritz wavelengths in air)
+- new NeAr and CuAr line list from NIST (Ritz wavelengths in air)
 
 - option to output datacubes in vacuum wavelengths instead of air
 
 - propagate various calibration keywords into science data
 
+- clean up logging
+
+- update method of standard star association with observations
 
 ***Future Development Underway***
 

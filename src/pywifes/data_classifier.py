@@ -1,11 +1,10 @@
-import os
 from astropy.io import fits as pyfits
 import itertools
+import os
 import pandas as pd
 import pyjson5
 import re
 import string
-import sys
 
 from pywifes import wifes_calib
 
@@ -102,7 +101,7 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
         try:
             if (greedy_stds or imagetype == "STANDARD"):
                 near_std, std_dist, temp_std_type = wifes_calib.find_nearest_stdstar(data_dir + filename, stdtype="any")
-                if std_dist < 100.0:
+                if imagetype == "STANDARD" or std_dist < 200.0:
                     obj_name = near_std
                     std_type = temp_std_type
         except:
@@ -115,7 +114,7 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
         elif imagetype == "DARK":
             dark.append(basename)
         else:
-        # Open shutter observations: Check for mixtures of gratings or beamsplitters
+            # Open shutter observations: Check for mixtures of gratings or beamsplitters
             if camera == "blue":
                 if this_gratingb not in blue_grating:
                     blue_grating.append(this_gratingb)
@@ -204,7 +203,6 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
         print(f"WARNING: MIXING GRATINGS (BLUE) CAN YIELD BAD REDUCTIONS: {', '.join(gg for gg in blue_grating)}")
     if len(red_grating) > 1:
         print(f"WARNING: MIXING GRATINGS (RED) CAN YIELD BAD REDUCTIONS: {', '.join(gg for gg in red_grating)}")
-
 
     if coadd_mode == "prompt":
         create_new = True
@@ -451,10 +449,10 @@ def classify(data_dir, naxis2_to_process=0, greedy_stds=False, coadd_mode='all',
                 red_filenames.append(filename)
 
     blue_obs_metadata = get_obs_metadata(blue_filenames, data_dir, greedy_stds=greedy_stds,
-                                         coadd_mode=coadd_mode, mode_save_fn=mode_save_fn, 
+                                         coadd_mode=coadd_mode, mode_save_fn=mode_save_fn,
                                          camera="blue")
     red_obs_metadata = get_obs_metadata(red_filenames, data_dir, greedy_stds=greedy_stds,
-                                        coadd_mode=coadd_mode, mode_save_fn=mode_save_fn, 
+                                        coadd_mode=coadd_mode, mode_save_fn=mode_save_fn,
                                         camera="red")
 
     return {"blue": blue_obs_metadata, "red": red_obs_metadata}

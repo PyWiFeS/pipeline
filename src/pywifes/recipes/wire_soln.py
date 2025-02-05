@@ -70,6 +70,12 @@ def _run_wire_soln(metadata, gargs, prev_suffix, curr_suffix, **args):
         wire_in_fn = os.path.join(
             gargs['out_dir'], "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
         )
+        try:
+            wire_in_fn = os.path.join(
+                gargs['out_dir'], "%s.p%s.fits" % (metadata["wire"][0], prev_suffix)
+            )
+        except IndexError:
+            raise FileNotFoundError("No wire spectra available to fit.")
     if not (gargs['skip_done'] and os.path.isfile(gargs['wire_out_fn'])
             and os.path.getmtime(wire_in_fn) < os.path.getmtime(gargs['wire_out_fn'])):
         print(f"Deriving global wire solution from {os.path.basename(wire_in_fn)}")

@@ -348,13 +348,13 @@
                 // - "method": "poly",  // Use polynomial method for wavelength solution.
                 //
                 // Optical method parameters:
-                "shift_method": "xcorr_all", // Shift model to fit every row of every slitlet.
-                // - "shift_method": "xcorr_single",  // Default. Shift model to central row of each slitlet.
+                "shift_method": "xcorr_all", // Default. Shift model to fit every row of every slitlet.
+                // - "shift_method": "xcorr_single",  // Shift model to central row of each slitlet.
                 // - "shift_method": "xcorr_grid",  // Shift optical model by sampling in y-axis.
                 // - "shift_method": None,  // Guess the wavelengths using the optical model.
                 // 
-                "find_method": "mpfit",  // Use Levenberg-Marquardt least-squares fitter assuming Gaussian line.
-                // - "find_method": "loggauss",  // Default. Use numpy least-squares fitter to log of flux.
+                "find_method": "mpfit",  // Default. Use Levenberg-Marquardt least-squares fitter assuming Gaussian line.
+                // - "find_method": "loggauss",  // Use numpy least-squares fitter to log of flux.
                 // - "find_method": "least_squares",  // Use scipy least-squares fitter assuming Gaussian line.
                 //
                 "doalphapfit": true,  // Fit each slitlet angle of incidence.

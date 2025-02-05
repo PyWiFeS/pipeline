@@ -5,12 +5,13 @@ from astropy.io import fits as pyfits
 import contextlib
 import datetime
 import glob
+import multiprocessing
 import os
+from pathlib import Path
 import re
 import shutil
 import sys
-import multiprocessing
-from pathlib import Path
+import traceback
 
 from pywifes import pywifes
 from pywifes.data_classifier import classify, cube_matcher
@@ -243,7 +244,8 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
 
     except Exception as exc:
         print("")
-        print(f"{arm} arm skipped, an error occurred during processing: '{exc}'.")
+        print(f"{arm} arm skipped, an error occurred during processing.")
+        traceback.print_exc()
         print("")
 
     return_dict.update(gargs)
