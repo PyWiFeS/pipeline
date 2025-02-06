@@ -1800,7 +1800,8 @@ def fit_wifes_interslit_bias(
                     plt.ylabel("Number")
                     plt.title(f"Slitlet {i + first}")
                     plt.show()
-                row_med[i] = numpy.nanmean(curr_col[good_inds])
+                if good_inds.size > 0:
+                    row_med[i] = numpy.nanmean(curr_col[good_inds])
             # row_med = numpy.nanmedian(curr_data, axis=0)
             bias_sub = row_med ** numpy.ones(numpy.shape(curr_data), dtype="d")
             out_data[reg[0]:reg[1] + 1, reg[2]:reg[3] + 1] = bias_sub
@@ -2028,7 +2029,8 @@ def generate_wifes_bias_fit(
                 curr_col = curr_data[:, i]
                 curr_med = numpy.nanmedian(curr_col)
                 good_inds = numpy.nonzero(numpy.abs(curr_col - curr_med) < 20.0)[0]
-                row_med[i] = numpy.nanmean(curr_col[good_inds])
+                if good_inds.size > 0:
+                    row_med[i] = numpy.nanmean(curr_col[good_inds])
             bias_sub = row_med ** numpy.ones(numpy.shape(curr_data), dtype="float32")
             # 's update (bias fit) ------
             # To remove the variations (some at least) along the

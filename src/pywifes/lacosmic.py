@@ -175,7 +175,9 @@ def lacos_spec_data(
                 * (numpy.abs(x_mg - bpx) <= n_nx)
                 * (global_bpm == 0)
             )
-            clean_data[bpy, bpx] = numpy.nanmedian(data[n_inds])
+            if n_inds[0].size > 0:
+                clean_data[bpy, bpx] = numpy.nanmedian(data[n_inds])
+
         clean_data[numpy.isnan(clean_data)] = data[numpy.isnan(clean_data)]
 
     # ------------------------------------------------------

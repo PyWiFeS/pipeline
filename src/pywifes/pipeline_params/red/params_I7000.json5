@@ -380,7 +380,7 @@
                 // Additional user options.
                 "plot": true,
                 // - "plot_slices": false,  // Whether to plot per-slice fits
-                "verbose": true,
+                // - "verbose": false,
             }
         },
         {

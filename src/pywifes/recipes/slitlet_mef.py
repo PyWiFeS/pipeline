@@ -16,7 +16,7 @@ def _run_slitlet_mef_indiv(fn, gargs,prev_suffix,curr_suffix,slitlet_fn,use_ns):
         and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
         return
 
-    print('Creating MEF file for %s' % in_fn.split('/')[-1])
+    # print('Creating MEF file for %s' % in_fn.split('/')[-1])
     
     if use_ns:
         sky_fn = os.path.join(gargs['out_dir'], '%s.s%s.fits' % (fn, curr_suffix))

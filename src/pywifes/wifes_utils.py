@@ -227,7 +227,7 @@ def move_files(src_dir_path, destination_dir_path, filenames):
         for file in filenames:
             src_file = os.path.join(src_dir_path, file)
             dest_file = os.path.join(destination_dir_path, file)
-            print(f"Moving file {src_file} to {dest_file}")
+            # print(f"Moving file {src_file} to {dest_file}")
             shutil.move(src_file, dest_file)
     except Exception as e:
         print(f"Error moving files: {e}")
