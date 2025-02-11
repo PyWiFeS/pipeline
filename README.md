@@ -20,13 +20,11 @@ What's been done [20250115]:
 
 ***Future Development Underway***
 
-- update CuAr reference wavelengths
+- allow retention of applied telluric model for user-rescaling
 
 - explore improving fitting and removal of fringing
 
 - fit and remove scattered light from standard stars and other on-sky observations
-
-- add option for PSF-based source extraction
 
 - add time domain to the bad pixel mask
 
