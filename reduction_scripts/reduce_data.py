@@ -485,7 +485,7 @@ def main():
         for proc in jobs:
             proc.join()
     else:
-        # Otherwise reduce them sequentially 
+        # Otherwise reduce them sequentially
         for arm in obs_metadatas.keys():
             p = multiprocessing.Process(target=run_arm_indiv,args=(temp_data_dir,obs_metadatas,arm,master_dir,output_master_dir,working_dir,params_path,grism_key,just_calib,plot_dir,from_master,extra_skip_steps,return_dict))
             jobs.append(p)
@@ -535,7 +535,7 @@ def main():
                 # ----------------------------------------------------------
                 # Read extraction parameters from JSON file
                 # ----------------------------------------------------------
-                extract_params = load_config_file(f"./pipeline_params/params_extract_{return_dict['obs_mode']}.json5")
+                extract_params = load_config_file("./pipeline_params/params_extract.json5")
 
                 # ----------------------------------------------------------
                 # Loop over matched cubes list
@@ -555,12 +555,12 @@ def main():
                     plot = extract_params["plot"]
                     if blue_cube_path is None:
                         taros = is_taros(red_cube_path)
+                        ns = is_nodshuffle(red_cube_path)
                         subns = is_subnodshuffle(red_cube_path)
-                        std = is_standard(red_cube_path)
                     else:
                         taros = is_taros(blue_cube_path)
+                        ns = is_nodshuffle(blue_cube_path)
                         subns = is_subnodshuffle(blue_cube_path)
-                        std = is_standard(blue_cube_path)
 
                     get_dq = True if "get_dq" in extract_params and extract_params["get_dq"] else False
 
@@ -571,7 +571,7 @@ def main():
                         destination_dir,
                         r_arcsec=extract_params["r_arcsec"],
                         border_width=extract_params["border_width"],
-                        sky_sub=False if (not std and gargs['obs_mode'] == "ns") else True,
+                        sky_sub=False if (ns or subns) else True,
                         subns=subns,
                         plot=plot,
                         plot_path=plot_path,

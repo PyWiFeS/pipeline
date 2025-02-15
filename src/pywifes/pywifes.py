@@ -150,7 +150,7 @@ def calib_to_half_frame(obs_metadata, temp_data_dir, to_taros=False):
 
     # A list of calibration types that need to be half-frame for the pipeline to work
     # properly in the half-frame scenario.
-    calib_types = ["domeflat", "twiflat", "wire", "arc", "bias","dark"]
+    calib_types = ["domeflat", "twiflat", "wire", "arc", "bias", "dark"]
     prefix = "cut_"
 
     for calib_type in calib_types:
@@ -4172,6 +4172,7 @@ def generate_wifes_cube(
         print(" Cube spectral resolution : ", disp_ave)
 
     out_lambda = numpy.arange(final_frame_wmin, final_frame_wmax, disp_ave)
+
     # set up output data
     # load in spatial solutions
     try:
@@ -4485,10 +4486,10 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
         print(arguments())
     f = pyfits.open(inimg)
     # full frame or half
-    if len(f) == 76 or (
+    if len(f) >= 76 or (
         halfframe and (
-            (taros and len(f) == 37)
-            or (not taros and len(f) == 40)
+            (taros and len(f) >= 37)
+            or (not taros and len(f) >= 40)
         )
     ):
         ny, nlam = numpy.shape(f[1].data)
@@ -4579,7 +4580,7 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
 
     # Equiv. to 1 pixel width in each axis' units
     try:
-        binning_2 = int(f[0].header["CCDSUM"][2])
+        binning_2 = int(f[0].header["CCDSUM"].split()[1])
     except KeyError:
         # Default to common 1x2 binning assumption
         binning_2 = 2
@@ -4679,6 +4680,17 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     dq_hdu.header.set("CDELT3", cdelt3, "Wavelength step")
     dq_hdu.header.set("CRPIX3", crpix3, "Reference pixel on wavelength (axis 3)")
     outfits.append(dq_hdu)
+
+    # Pass along telluric spectrum, if present
+    try:
+        tdata = f['TelluricModel'].data
+        thead = f['TelluricModel'].header
+        tellext = pyfits.ImageHDU(data=tdata, header=thead, name="TelluricModel")
+        outfits.append(tellext)
+    except KeyError:
+        pass
+    except Exception as e:
+        print(f"Error attaching telluric model: {e}")
 
     # SAVE IT
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")

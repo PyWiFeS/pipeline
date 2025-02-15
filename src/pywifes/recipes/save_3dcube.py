@@ -1,6 +1,10 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import * 
+from pywifes.wifes_utils import (
+    get_primary_sci_obs_list, get_primary_std_obs_list, is_halfframe, is_taros,
+    wifes_recipe
+)
+
 
 @wifes_recipe
 def _run_save_3dcube(metadata, gargs, prev_suffix, curr_suffix, **args):
@@ -13,7 +17,7 @@ def _run_save_3dcube(metadata, gargs, prev_suffix, curr_suffix, **args):
     metadata : dict
         Metadata containing information about the observations.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix of the file name (input).
     curr_suffix : str
@@ -59,8 +63,7 @@ def _run_save_3dcube(metadata, gargs, prev_suffix, curr_suffix, **args):
             )
         ):
             continue
-        info_print(f"Saving 3D Data Cube for {os.path.basename(in_fn)}")
+        print(f"Saving 3D Data Cube for {os.path.basename(in_fn)}")
         pywifes.generate_wifes_3dcube(in_fn, out_fn, halfframe=halfframe,
                                       taros=taros, **args)
     return
-

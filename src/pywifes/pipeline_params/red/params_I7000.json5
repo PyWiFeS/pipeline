@@ -586,6 +586,7 @@
                 // - "sky_wmin": 8100.0,   // Maximum wavelength to fit if shifting based on sky lines.
                 //
                 // Additional user options.
+                // - "save_telluric": false,  // Whether to save the applied telluric model to the datacube.
                 // - "interactive_plot": false,
             }
         },

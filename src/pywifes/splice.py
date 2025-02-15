@@ -141,12 +141,14 @@ def join_spectra(blueSpec, redSpec, get_dq=False):
         flux_B = numpy.array(AB * blueSpec.flux).ravel()
         diag_B = sp.dia_matrix(
             ([blueSpec.fluxvar], [0]), shape=[blue_NAXIS1, blue_NAXIS1]
-        )
+        ).astype(numpy.float64)
         fluxvar_B = numpy.array((AB * diag_B * AB.T).sum(axis=1)).ravel()
 
         # Red
         flux_R = numpy.array(AR * redSpec.flux).ravel()
-        diag_R = sp.dia_matrix(([redSpec.fluxvar], [0]), shape=[red_NAXIS1, red_NAXIS1])
+        diag_R = sp.dia_matrix(
+            ([redSpec.fluxvar], [0]), shape=[red_NAXIS1, red_NAXIS1]
+        ).astype(numpy.float64)
         fluxvar_R = numpy.array((AR * diag_R * AR.T).sum(axis=1)).ravel()
 
         BUFFER = 10.0
@@ -385,7 +387,9 @@ def join_cubes(blue_path, red_path, get_dq=False):
             flux_R = numpy.array(AR * red_flux).ravel()
 
             red_fluxvar = red_fluxvar_cube[:, i, j]
-            diag_R = sp.dia_matrix(([red_fluxvar], [0]), shape=[red_NAXIS1, red_NAXIS1])
+            diag_R = sp.dia_matrix(
+                ([red_fluxvar], [0]), shape=[red_NAXIS1, red_NAXIS1]
+            ).astype(numpy.float64)
             fluxvar_R = numpy.array((AR * diag_R * AR.T).sum(axis=1)).ravel()
 
             # Blue
@@ -395,7 +399,7 @@ def join_cubes(blue_path, red_path, get_dq=False):
             blue_fluxvar = blue_fluxvar_cube[:, i, j]
             diag_B = sp.dia_matrix(
                 ([blue_fluxvar], [0]), shape=[blue_NAXIS1, blue_NAXIS1]
-            )
+            ).astype(numpy.float64)
             fluxvar_B = numpy.array((AB * diag_B * AB.T).sum(axis=1)).ravel()
 
             # Average the two taking into account the buffer region and weighting

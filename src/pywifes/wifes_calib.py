@@ -80,7 +80,7 @@ def find_nearest_stdstar(inimg, data_hdu=0, stdtype="flux"):
     stdtype : str, optional
         Type of standard to find: "flux", "telluric", or "any".
         Default: "flux".
-    
+
     Returns
     -------
     list
@@ -1433,7 +1433,8 @@ def derive_wifes_telluric(
 
 
 def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=True,
-                         sky_wmin=7200.0, sky_wmax=8100.0, interactive_plot=False):
+                         sky_wmin=7200.0, sky_wmax=8100.0, save_telluric=False,
+                         interactive_plot=False):
     """
     Apply telluric correction to the input image. The telluric correction is applied
     using the telluric correction file previously obtained in 'derive_wifes_telluric()'.
@@ -1460,6 +1461,9 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
     sky_wmax : float, optional
         Maximum wavelength to fit if shifting based on sky lines.
         Default: 8100.0.
+    save_telluric : bool, optional
+        Whether to save the applied telluric model in the datacube.
+        Default: False.
     interactive_plot : bool, optional
         Whether to interrupt processing to provide interactive plot to user.
         Default: False.
@@ -1550,6 +1554,13 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
         H2O_corr = base_H2O_corr ** (airmass**H2O_power)
         fcal_array = O2_corr * H2O_corr
 
+    # prepare telluric spectrum if saving
+    if save_telluric:
+        if shift_sky:
+            telldata = numpy.ones((nslits, nlam))
+        else:
+            telldata = numpy.ones(nlam)
+
     # correct the data
     outfits = pyfits.HDUList(f3)
     shift_list = []
@@ -1587,9 +1598,23 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
                 plt.close('all')
         out_flux = curr_flux / fcal_array
         out_var = curr_var / (fcal_array**2)
+        if save_telluric:
+            if shift_sky:
+                hcomment = "Applied telluric model for each slit"
+                telldata[i, :] = fcal_array
+            elif i == 0:
+                hcomment = "Applied telluric model for all slits"
+                telldata = fcal_array
         # save to data cube
         outfits[curr_hdu].data = out_flux.astype("float32", casting="same_kind")
         outfits[curr_hdu + nslits].data = out_var.astype("float32", casting="same_kind")
+    if save_telluric:
+        tellext = pyfits.ImageHDU(data=telldata, name="TelluricModel")
+        for kw in ['CTYPE1', 'CUNIT1', 'CRVAL1', 'CDELT1', 'CRPIX1']:
+            if kw in outfits[1].header:
+                tellext.header[kw] = outfits[1].header[kw]
+        tellext.header['COMMENT'] = hcomment
+        outfits.append(tellext)
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWTSTDF", tellstd_list, "PyWiFeS: telluric standard(s)")
     outfits[0].header.set("PYWTO2P", O2_power, "PyWiFeS: telluric O2 power")
