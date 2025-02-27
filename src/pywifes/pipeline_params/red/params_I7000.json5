@@ -583,12 +583,12 @@
             "run": true,
             "suffix": "10",
             "args": {
-                // - "shift_sky": true,  // Whether to shift sky from telluric standard to match object sky lines.
+                // - "shift_sky": true,  // Whether to shift sky from telluric standard to match object sky lines. (Automatically disabled for Nod & Shuffle.)
                 // - "sky_wmin": 7200.0,   // Minimum wavelength to fit if shifting based on sky lines.
                 // - "sky_wmin": 8100.0,   // Maximum wavelength to fit if shifting based on sky lines.
                 //
                 // Additional user options.
-                // - "save_telluric": false,  // Whether to save the applied telluric model to the datacube.
+                "save_telluric": true,  // Whether to save the applied telluric model to the datacube.
                 // - "interactive_plot": false,
             }
         },

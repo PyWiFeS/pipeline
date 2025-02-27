@@ -492,16 +492,16 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False):
         hdulist[0].header["CRPIX3"] = blue_header["CRPIX3"]
         hdulist[0].header["CRVAL3"] = blue_header["CRVAL3"]
         hdulist[0].header["CDELT3"] = blue_header["CDELT3"]
-        hdulist[0].header["CTYPE3"] = "wavelength"
-        hdulist[0].header["CUNIT3"] = "angstrom"
+        hdulist[0].header["CTYPE3"] = "Wavelength"
+        hdulist[0].header["CUNIT3"] = "Angstrom"
 
         hdr_fluxvar = fits.Header()
         hdr_fluxvar["EXTNAME"] = "VAR"
         hdr_fluxvar["CRPIX3"] = blue_header["CRPIX3"]
         hdr_fluxvar["CRVAL3"] = blue_header["CRVAL3"]
         hdr_fluxvar["CDELT3"] = blue_header["CDELT3"]
-        hdr_fluxvar["CTYPE3"] = "wavelength"
-        hdr_fluxvar["CUNIT3"] = "angstrom"
+        hdr_fluxvar["CTYPE3"] = "Wavelength"
+        hdr_fluxvar["CUNIT3"] = "Angstrom"
         hdr_fluxvar["BUNIT"] = "(count / Angstrom)^2"
 
         hdu_fluxvar = fits.ImageHDU(data=fluxVar.astype("float32", casting="same_kind"), header=hdr_fluxvar)
@@ -514,8 +514,8 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False):
             hdr_dq["CRPIX3"] = blue_header["CRPIX3"]
             hdr_dq["CRVAL3"] = blue_header["CRVAL3"]
             hdr_dq["CDELT3"] = blue_header["CDELT3"]
-            hdr_dq["CTYPE3"] = "wavelength"
-            hdr_dq["CUNIT3"] = "angstrom"
+            hdr_dq["CTYPE3"] = "Wavelength"
+            hdr_dq["CUNIT3"] = "Angstrom"
 
             hdu_dq = fits.ImageHDU(data=dq.astype("int16", casting="unsafe"), header=hdr_dq)
             hdu_dq.scale('int16')

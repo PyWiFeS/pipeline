@@ -18,7 +18,7 @@ from pywifes.data_classifier import classify, cube_matcher
 from pywifes.extract_spec import detect_extract_and_save, plot_1D_spectrum
 from pywifes.quality_plots import flatfield_plot
 from pywifes.splice import splice_spectra, splice_cubes
-from pywifes.wifes_utils import is_halfframe, is_nodshuffle, is_standard, is_subnodshuffle, is_taros
+from pywifes.wifes_utils import is_halfframe, is_nodshuffle, is_subnodshuffle, is_taros
 from pywifes.wifes_utils import copy_files, get_file_names, load_config_file, move_files
 import pywifes.recipes as recipes
 
@@ -227,7 +227,7 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
             flat_image_path = os.path.join(master_dir, f"wifes_{arm}_super_domeflat_raw.fits")
             slitlet_path = os.path.join(master_dir, f"wifes_{arm}_slitlet_defs.pkl")
             flatfield_plot(flat_image_path, slitlet_path, title, output_plot)
-        except:
+        except Exception:
             pass
 
         # Twilight Flats
@@ -237,12 +237,12 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
             flat_image_path = os.path.join(master_dir, f"wifes_{arm}_super_twiflat_raw.fits")
             slitlet_path = os.path.join(master_dir, f"wifes_{arm}_slitlet_defs.pkl")
             flatfield_plot(flat_image_path, slitlet_path, title, output_plot)
-        except:
+        except Exception:
             pass
 
         print(f"Successfully completed {arm} arm\n")
 
-    except Exception as exc:
+    except Exception:
         print("")
         print(f"{arm} arm skipped, an error occurred during processing.")
         traceback.print_exc()
@@ -521,7 +521,6 @@ def main():
                     print(f'Found blue={blue_cube_path} and red={red_cube_path}')
                     plot_name = match_cubes["file_name"].replace(".cube", "_detection_plot.png")
                     plot_path = os.path.join(plot_dir, plot_name)
-                    plot = extract_params["plot"]
                     if blue_cube_path is None:
                         taros = is_taros(red_cube_path)
                         ns = is_nodshuffle(red_cube_path)
@@ -535,20 +534,20 @@ def main():
                         ns = is_nodshuffle(blue_cube_path)
                         std = is_standard(blue_cube_path)
 
-                    get_dq = True if "get_dq" in extract_params and extract_params["get_dq"] else False
-
                     # Run auto-extraction
                     detect_extract_and_save(
                         blue_cube_path,
                         red_cube_path,
                         destination_dir,
+                        npeaks=extract_params["npeaks"],
+                        sigma_threshold=extract_params["sigma_threshold"],
                         r_arcsec=extract_params["r_arcsec"],
                         border_width=extract_params["border_width"],
                         sky_sub=False if ((not std) and (ns or subns)) else True,
                         subns=subns,
-                        plot=plot,
+                        plot=extract_params["plot"],
                         plot_path=plot_path,
-                        get_dq=get_dq,
+                        get_dq=extract_params["get_dq"],
                     )
 
                     # ------------------------------------
@@ -574,7 +573,7 @@ def main():
                         spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
 
                         # Splice cubes
-                        splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path, get_dq=get_dq)
+                        splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path, get_dq=extract_params["get_dq"])
 
                         # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.ap*'
                         pattern_blue = os.path.join(
@@ -605,10 +604,10 @@ def main():
                             output = os.path.join(
                                 working_dir, destination_dir, spliced_spectrum_name
                             )
-                            splice_spectra(blue_spec, red_spec, output, get_dq=get_dq)
+                            splice_spectra(blue_spec, red_spec, output, get_dq=extract_params["get_dq"])
 
                     # Plot extracted spectra:
-                    if plot:
+                    if extract_params["plot"]:
                         if blue_cube_path is not None and red_cube_path is not None:
 
                             blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")

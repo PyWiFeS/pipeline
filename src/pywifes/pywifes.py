@@ -30,7 +30,7 @@ try:
     f0 = open(os.path.join(metadata_dir, "basic_wifes_metadata.pkl"), "rb")
     try:
         wifes_metadata = pickle.load(f0, fix_imports=True, encoding="latin")
-    except:
+    except Exception:
         wifes_metadata = pickle.load(f0)  # fix_imports doesn't work in python 2.7.
     f0.close()
 except Exception as e:
@@ -556,7 +556,7 @@ def imcombine_mef(
             try:
                 if "AIRMASS" in f2:
                     airmass_list.append(f2["AIRMASS"])
-            except:
+            except Exception:
                 pass
             exptime_list.append(f2["EXPTIME"])
         last_hdr = pyfits.getheader(inimg_list[-1], ext=1)
@@ -564,19 +564,19 @@ def imcombine_mef(
         outfits[1].header.set("EXPTIME", sum(exptime_list))
         try:
             outfits[1].header.set("LSTEND", last_hdr["LSTEND"])
-        except:
+        except Exception:
             pass
         try:
             outfits[1].header.set("UTCEND", last_hdr["UTCEND"])
-        except:
+        except Exception:
             pass
         try:
             outfits[1].header.set("HAEND", last_hdr["HAEND"])
-        except:
+        except Exception:
             pass
         try:
             outfits[1].header.set("ZDEND", last_hdr["ZDEND"])
-        except:
+        except Exception:
             pass
         if len(airmass_list) > 0:
             outfits[1].header.set("AIRMASS", numpy.nanmean(numpy.array(airmass_list)))
@@ -662,7 +662,7 @@ def imarith_mef(inimg1, operator, inimg2, outimg):
             var2 = f2[var_hdu].data
             data1 = f1[data_hdu].data
             data2 = f2[data_hdu].data
-        except:
+        except Exception:
             continue
         # do the desired operation
         if (operator == "+") or (operator == "-"):
@@ -682,7 +682,7 @@ def imarith_mef(inimg1, operator, inimg2, outimg):
         try:
             dq1 = f1[dq_hdu].data
             dq2 = f2[dq_hdu].data
-        except:
+        except Exception:
             continue
         # always add the DQ images!!
         op_dq = dq1 + dq2
@@ -2203,7 +2203,7 @@ def derive_slitlet_profiles(
     # check for binning, if not specified read from header
     try:
         default_bin_x, default_bin_y = [int(b) for b in orig_hdr["CCDSUM"].split()]
-    except:
+    except Exception:
         default_bin_x = 1
         default_bin_y = 1
     if bin_x is None:
@@ -2388,7 +2388,7 @@ def interslice_cleanup(
     # check for binning, if no specified read from header
     try:
         default_bin_x, default_bin_y = [int(b) for b in header["CCDSUM"].split()]
-    except:
+    except Exception:
         default_bin_x = 1
         default_bin_y = 1
     if bin_x is None:
@@ -2644,7 +2644,7 @@ def wifes_slitlet_mef(
         f2 = open(slitlet_def_file, "rb")
         try:
             slitlet_defs = pickle.load(f2, fix_imports=True, encoding="latin")
-        except:
+        except Exception:
             slitlet_defs = pickle.load(f2)  # for python 2.7
         f2.close()
     elif camera == "WiFeSRed":
@@ -2655,7 +2655,7 @@ def wifes_slitlet_mef(
     # check for binning, if no specified read from header
     try:
         default_bin_x, default_bin_y = [int(b) for b in old_hdr["CCDSUM"].split()]
-    except:
+    except Exception:
         default_bin_x = 1
         default_bin_y = 1
     if bin_x is None:
@@ -2894,7 +2894,7 @@ def wifes_slitlet_mef_ns(
     # check for binning, if no specified read from header
     try:
         default_bin_x, default_bin_y = [int(b) for b in old_hdr["CCDSUM"].split()]
-    except:
+    except Exception:
         default_bin_x = 1
         default_bin_y = 1
     if bin_x is None:
@@ -3408,7 +3408,7 @@ def wifes_2dim_response(
 
     try:
         bin_x, bin_y = [int(b) for b in f1[1].header["CCDSUM"].split()]
-    except:
+    except Exception:
         bin_x = 1
         bin_y = 1
 
@@ -3535,7 +3535,7 @@ def wifes_2dim_response(
             # Force spectral flat to 1 at wavelengths where sum of median counts < 100 (S/N ~ 10)
             try:
                 nflat = float(f1[0].header["PYWFLATN"])
-            except:
+            except Exception:
                 print("Could not retrieve number of input dome flats from header, defaulting to 1")
                 nflat = 1.0
             force_idx = numpy.nonzero(nflat * numpy.nanmedian(rect_spec_data, axis=0) < 100.0)
@@ -3583,7 +3583,7 @@ def wifes_2dim_response(
             # Force spectral flat to 1 at wavelengths where sum of median counts < 100 (S/N ~ 10)
             try:
                 nflat = float(f1[0].header["PYWFLATN"])
-            except:
+            except Exception:
                 print("Could not retrieve number of input dome flats from header, defaulting to 1")
                 nflat = 1.0
             force_idx = numpy.nonzero(nflat * numpy.nanmedian(normed_data, axis=0) < 100.0)
@@ -3694,18 +3694,18 @@ def wifes_SG_response(
 
     try:
         bin_x, bin_y = [int(b) for b in f1[0].header["CCDSUM"].split()]
-    except:
+    except Exception:
         bin_x = 1
         bin_y = 1
 
     try:
         nflat = float(f1[0].header["PYWFLATN"])
-    except:
+    except Exception:
         print("Could not retrieve number of input dome flats from header, defaulting to 1")
         nflat = 1.0
     try:
         ntflat = float(f2[0].header["PYWTWIN"])
-    except:
+    except Exception:
         print("Could not retrieve number of input twi flats from header, defaulting to 1")
         ntflat = 1.0
 
@@ -3929,7 +3929,7 @@ def derive_wifes_wire_solution(
     # figure out the binning!
     try:
         default_bin_x, default_bin_y = [int(b) for b in f[1].header["CCDSUM"].split()]
-    except:
+    except Exception:
         default_bin_x = 1
         default_bin_y = 1
     if bin_x is None:
@@ -4127,7 +4127,7 @@ def generate_wifes_cube(
     # figure out the binning!
     try:
         default_bin_x, default_bin_y = [int(b) for b in f3[1].header["CCDSUM"].split()]
-    except:
+    except Exception:
         default_bin_x = 1
         default_bin_y = 1
     if bin_x is None:
@@ -4207,7 +4207,7 @@ def generate_wifes_cube(
         kwwiredeg = f5[0].header.get("PYWWIWPD", default="Unknown")
         kwwirenum = f5[0].header.get("PYWWIREN", default="Unknown")
         f5.close()
-    except:
+    except Exception:
         wire_trans = numpy.zeros([ndy, ndx], dtype="d") + numpy.nanmax(yarr) / 2
         kwwiredeg = "N/A"
         kwwirenum = "N/A"
