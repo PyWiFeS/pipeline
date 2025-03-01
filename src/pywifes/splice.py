@@ -107,7 +107,7 @@ class SingleSpec(object):
 def join_spectra(blueSpec, redSpec, get_dq=False):
 
     if redSpec.min_wl > blueSpec.max_wl:
-        return None, None, None
+        return None, None, None, None
 
     else:
         # Generate the resampling matrices

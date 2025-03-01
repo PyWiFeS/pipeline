@@ -43,8 +43,11 @@ def _run_save_3dcube(metadata, gargs, prev_suffix, curr_suffix, **args):
     # Check if is half-frame from the first sci image
     if sci_obs_list:
         sci_filename = gargs['data_dir'] + sci_obs_list[0] + ".fits"
-    else:
+    elif std_obs_list:
         sci_filename = gargs['data_dir'] + std_obs_list[0] + ".fits"
+    else:
+        # no files to process
+        return
 
     halfframe = is_halfframe(sci_filename)
     taros = is_taros(sci_filename)

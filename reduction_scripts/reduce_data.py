@@ -554,6 +554,7 @@ def main():
                     # Splice only paired cubes and spectra
                     # ------------------------------------
 
+                    spliced_output = []
                     if blue_cube_path is not None and red_cube_path is not None:
                         print('======================')
                         print('Splicing blue and red cubes')
@@ -601,51 +602,33 @@ def main():
                                 spliced_spectrum_name = os.path.basename(blue_spec).replace(
                                     "Blue", "Splice"
                                 )
-                            output = os.path.join(
+                            spliced_output.append(os.path.join(
                                 working_dir, destination_dir, spliced_spectrum_name
-                            )
-                            splice_spectra(blue_spec, red_spec, output, get_dq=extract_params["get_dq"])
+                            ))
+                            splice_spectra(blue_spec, red_spec, spliced_output[-1], get_dq=extract_params["get_dq"])
 
                     # Plot extracted spectra:
                     if extract_params["plot"]:
-                        if blue_cube_path is not None and red_cube_path is not None:
-
-                            blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")
-                            blue_specs = sorted(glob.glob(blue_pattern))
-
-                            red_pattern = red_cube_path.replace("cube.fits", "spec.ap*")
-                            red_specs = sorted(glob.glob(red_pattern))
-
-                            for blue_spec, red_spec in zip(blue_specs, red_specs):
-                                if taros:
-                                    if re.search("T2m3wb", blue_spec):
-                                        spliced_spec = blue_spec.replace("T2m3wb", "T2m3wSplice")
-                                    else:
-                                        spliced_spec = "Splice_" + blue_spec
-                                else:
-                                    spliced_spec = blue_spec.replace("Blue", "Splice")
-
-                                plot_1D_spectrum(blue_spec, plot_dir=plot_dir)
-                                plot_1D_spectrum(red_spec, plot_dir=plot_dir)
-                                plot_1D_spectrum(spliced_spec, plot_dir=plot_dir)
-
-                        elif blue_cube_path is not None:
+                        if blue_cube_path is not None:
 
                             blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")
                             blue_specs = sorted(glob.glob(blue_pattern))
 
                             for blue_spec in blue_specs:
-
                                 plot_1D_spectrum(blue_spec, plot_dir=plot_dir)
 
-                        elif red_cube_path is not None:
+                        if red_cube_path is not None:
 
                             red_pattern = red_cube_path.replace("cube.fits", "spec.ap*")
                             red_specs = sorted(glob.glob(red_pattern))
 
                             for red_spec in red_specs:
-
                                 plot_1D_spectrum(red_spec, plot_dir=plot_dir)
+
+                        for spliced_spec in spliced_output:
+                            if os.path.isfile(spliced_spec):
+                                plot_1D_spectrum(spliced_spec, plot_dir=plot_dir)
+
 
     # ----------------------------------------------------------
     # Print total running time

@@ -813,8 +813,12 @@ def plot_1D_spectrum(spec_path, plot_dir):
     plt.step(wl, flux, where="mid", color="b")
 
     # Customize the plot
-    plt.ylim(numpy.nanpercentile(flux - flux_error, 2),
-             numpy.nanpercentile(flux + flux_error, 98))
+    ylims = [numpy.nanpercentile(flux - flux_error, 2), 
+             numpy.nanpercentile(flux + flux_error, 98)]
+    # Catch bad values
+    if numpy.any(numpy.isnan(ylims)) or numpy.any(numpy.isinf(ylims)):
+        ylims = [0, 1]
+    plt.ylim(ylims)
     plt.title(f"{spec_name} \n" + aperture_name)
     plt.xlabel("Wavelength (Å)")
     plt.ylabel("Flux")

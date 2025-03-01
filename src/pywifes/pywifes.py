@@ -2552,13 +2552,9 @@ def interslice_cleanup(
         xall = numpy.arange(xmin, xmax, 1)
         yall = numpy.arange(y1, y4, 1)
 
-        if taros and halfframe and slit == last_slit:
-            func = interp.interp2d(y, x, grid.T, bounds_error=False, fill_value=None)
-            fitted[y1:y4, xmin:xmax] = func(yall, xall).T
+        func = interp.RectBivariateSpline(y, x, grid, kx=1, ky=1)
+        fitted[y1:y4, xmin:xmax] = func(yall, xall)
 
-        else:
-            func = interp.RectBivariateSpline(y, x, grid, kx=1, ky=1)
-            fitted[y1:y4, xmin:xmax] = func(yall, xall)
         if interactive_plot:
             plt.imshow(grid, aspect='auto', origin='lower')
             plt.title(f"Slitlet {slit} - grid[{y1}:{y4}, {xmin}:{xmax}]")
@@ -4224,30 +4220,37 @@ def generate_wifes_cube(
     # Prepare ADR corrections ...
     if adr:
         # observatory stuff
-        lat = obs_hdr["LAT-OBS"]  # degrees
+        if "LAT-OBS" in obs_hdr:
+            lat = obs_hdr["LAT-OBS"]  # degrees
+        else:
+            lat = -31.27336  # Standard value for 2.3m
         # alt = obs_hdr["ALT-OBS"]  # meters
-        dec = dec_dms2dd(obs_hdr["DEC"])
-        # want to calculate average HA...
-        ha_start = obs_hdr["HA"]
-        ha_end = obs_hdr["HAEND"]
-        ha = 0.5 * (ha_degrees(ha_start) + ha_degrees(ha_end))
-        # and average ZD...
-        zd_start = obs_hdr["ZD"]
-        zd_end = obs_hdr["ZDEND"]
-        zd = numpy.radians(0.5 * (zd_start + zd_end))
-        secz = 1.0 / numpy.cos(zd)
-        # tanz = numpy.tan(zd)
-        # telescope PA!
-        telpa = numpy.radians(obs_hdr["TELPAN"])
+        if set(["DEC", "HA", "HAEND", "ZD", "ZDEND", "TELPAN"]).issubset(obs_hdr):
+            dec = dec_dms2dd(obs_hdr["DEC"])
+            # want to calculate average HA...
+            ha_start = obs_hdr["HA"]
+            ha_end = obs_hdr["HAEND"]
+            ha = 0.5 * (ha_degrees(ha_start) + ha_degrees(ha_end))
+            # and average ZD...
+            zd_start = obs_hdr["ZD"]
+            zd_end = obs_hdr["ZDEND"]
+            zd = numpy.radians(0.5 * (zd_start + zd_end))
+            secz = 1.0 / numpy.cos(zd)
+            # tanz = numpy.tan(zd)
+            # telescope PA!
+            telpa = numpy.radians(obs_hdr["TELPAN"])
 
-        # Assumes 12 C air temperature, 665 mmHg (887 hPa) air pressure,
-        # and 6.0 mmHg water vapour, the approximate median clear-night
-        # values for SSO from 10 years of SkyMapper data (2014-2024).
-        # Water vapour pressure derived from air temperature and relative
-        # humidity, following Stone 1996 (PASP, 108, 1051), equations 18-21.
-        sso_temp = 12.0
-        sso_pres = 665.0
-        sso_wvp = 6.0
+            # Assumes 12 C air temperature, 665 mmHg (887 hPa) air pressure,
+            # and 6.0 mmHg water vapour, the approximate median clear-night
+            # values for SSO from 10 years of SkyMapper data (2014-2024).
+            # Water vapour pressure derived from air temperature and relative
+            # humidity, following Stone 1996 (PASP, 108, 1051), equations 18-21.
+            sso_temp = 12.0
+            sso_pres = 665.0
+            sso_wvp = 6.0
+        else:
+            # TCS info missing or incomplete, no ADR correction possible
+            adr = False
 
     # ---------------------------
     # Create a temporary storage array for first iteration
