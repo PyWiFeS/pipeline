@@ -1630,7 +1630,7 @@ def run_slice(packaged_args):
     -----
     Parameters are the same as derive_wifes_optical_wave_solution except first parameter s (slice number from 1 to N).
     """
-    (s, inimg, arc_name, ref_arclines, ref_arcline_file, dlam_cut_start, flux_threshold_nsig, find_method, shift_method, verbose, plot_dir, multithread, plot_slices) = packaged_args
+    (s, s_first, inimg, arc_name, ref_arclines, ref_arcline_file, dlam_cut_start, flux_threshold_nsig, find_method, shift_method, verbose, plot_dir, multithread, plot_slices) = packaged_args
 
     # a dict to hold the results of this function
     return_dict = {}
@@ -1682,7 +1682,7 @@ def run_slice(packaged_args):
         f1.close()
 
     # step 2 - find lines!
-    curr_hdu = s
+    curr_hdu = s - s_first + 1
     # and the yrange...
     detsec = f[curr_hdu].header["DETSEC"]
     y0 = int(detsec.split(",")[1].split(":")[0])
@@ -1843,7 +1843,7 @@ def derive_wifes_optical_wave_solution(
 
     tasks = []
     for s in range(first, last + 1):
-        task = get_task(run_slice, (s, inimg, arc_name, ref_arclines, ref_arcline_file, dlam_cut_start, flux_threshold_nsig, find_method, shift_method, verbose, plot_dir, multithread, plot_slices))
+        task = get_task(run_slice, (s, first, inimg, arc_name, ref_arclines, ref_arcline_file, dlam_cut_start, flux_threshold_nsig, find_method, shift_method, verbose, plot_dir, multithread, plot_slices))
         tasks.append(task)
 
     # previously max_processes was a parameter to derive_wifes_optical_wave_solution

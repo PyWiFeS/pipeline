@@ -159,7 +159,7 @@ def flatfield_plot(flat_image_path, slitlet_path, title, output_plot):
         first = 1
         last = 25
 
-    plot_slitlet(ax1, slitlet_path, halfframe, taros)
+    plot_slitlet(ax1, slitlet_path, halfframe, taros, bin_x=bin_x, bin_y=bin_y)
     ax1.label_outer()  # Hide x-tick labels for the top subplot
 
     # Add color bar to the top of ax1
