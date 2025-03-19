@@ -1840,6 +1840,9 @@ def derive_wifes_optical_wave_solution(
 
     fh = pyfits.getheader(inimg)
     narc = fh.get("PYWARCN", default="Unknown")
+    cam = fh.get("CAMERA", default="Unknown")
+    gratb = fh.get("GRATINGB", default="Unknown")
+    gratr = fh.get("GRATINGR", default="Unknown")
 
     tasks = []
     for s in range(first, last + 1):
@@ -1984,7 +1987,10 @@ def derive_wifes_optical_wave_solution(
         om.saveResamplingData(
             outfn, yrange, grating, bin_x, bin_y, params, halfframe=halfframe, taros=taros,
             keywlist=[["PYWWRMSE", rmse, "PyWiFeS: Final RMSE of wavelength solution"],
-                      ["PYWARCN", narc, "PyWiFeS: number arc images combined"]]
+                      ["PYWARCN", narc, "PyWiFeS: number arc images combined"],
+                      ["CAMERA", cam, "Camera name"],
+                      ["GRATINGB", gratb, "Camera Grating Disperser"],
+                      ["GRATINGR", gratr, "Camera Grating Disperser"],]
         )
 
     return

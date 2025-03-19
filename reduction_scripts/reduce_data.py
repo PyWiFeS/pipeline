@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 import argparse
-from astropy.io import fits as pyfits
+import astropy.io.fits as pyfits
 import contextlib
 import datetime
 import glob
