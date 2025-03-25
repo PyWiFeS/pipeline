@@ -9,24 +9,23 @@ from pywifes.wifes_utils import get_full_obs_list, get_sci_obs_list, get_std_obs
 # ------------------------------------------------------
 # MEF file creation
 # ------------------------------------------------------
-def _run_slitlet_mef_indiv(fn, gargs,prev_suffix,curr_suffix,slitlet_fn,use_ns):
-    in_fn  = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, prev_suffix))
+def _run_slitlet_mef_indiv(fn, gargs, prev_suffix, curr_suffix, slitlet_fn, use_ns):
+    in_fn = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, prev_suffix))
     out_fn = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, curr_suffix))
     if gargs['skip_done'] and os.path.isfile(out_fn) \
-        and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
+            and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
         return
 
-    # print('Creating MEF file for %s' % in_fn.split('/')[-1])
-    
     if use_ns:
         sky_fn = os.path.join(gargs['out_dir'], '%s.s%s.fits' % (fn, curr_suffix))
         pywifes.wifes_slitlet_mef_ns(in_fn, out_fn, sky_fn,
-                                    data_hdu=gargs['my_data_hdu'],
-                                    slitlet_def_file=slitlet_fn)
+                                     data_hdu=gargs['my_data_hdu'],
+                                     slitlet_def_file=slitlet_fn)
     else:
         pywifes.wifes_slitlet_mef(in_fn, out_fn, data_hdu=gargs['my_data_hdu'],
-                                   slitlet_def_file=slitlet_fn)
+                                  slitlet_def_file=slitlet_fn)
     gc.collect()
+
 
 @wifes_recipe
 def _run_slitlet_mef(metadata, gargs, prev_suffix, curr_suffix, **args):
@@ -38,7 +37,7 @@ def _run_slitlet_mef(metadata, gargs, prev_suffix, curr_suffix, **args):
     metadata : dict
         Metadata containing information about the observations.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix of the fits file.
     curr_suffix : str
@@ -89,21 +88,19 @@ def _run_slitlet_mef(metadata, gargs, prev_suffix, curr_suffix, **args):
     nworkers = get_num_proc()
     nobs = len(full_obs_list)
 
-    for worker in range(0,nobs,nworkers):
+    for worker in range(0, nobs, nworkers):
         nmax = worker + nworkers
         if nmax > nobs:
             nmax = nobs
         jobs = []
-        for fidx in range(worker,nmax): 
+        for fidx in range(worker, nmax):
             fn = full_obs_list[fidx]
             use_ns = (ns and fn in ns_proc_list)
-            p = multiprocessing.Process(target=_run_slitlet_mef_indiv,args=(fn,gargs,prev_suffix,curr_suffix,slitlet_fn,use_ns))
+            p = multiprocessing.Process(target=_run_slitlet_mef_indiv, args=(
+                fn, gargs, prev_suffix, curr_suffix, slitlet_fn, use_ns))
             jobs.append(p)
             p.start()
 
         for proc in jobs:
             proc.join()
     return
-
-
-

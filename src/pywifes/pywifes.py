@@ -4063,7 +4063,7 @@ def _scale_grid_data(
     points, values, xi, method="linear", fill_value=0, scale_factor=1.0
 ):
     return (
-        scale_factor
+        numpy.abs(scale_factor)
         * interp.griddata(
             points, values, xi, method=method, fill_value=fill_value
         ).T
@@ -4081,6 +4081,7 @@ def generate_wifes_cube(
     wmax_set=None,
     dw_set=None,
     wavelength_ref="AIR",
+    wave_native=False,
     bin_x=None,
     bin_y=None,
     ny_orig=76,
@@ -4090,6 +4091,7 @@ def generate_wifes_cube(
     subsample=1,
     multithread=False,
     max_processes=-1,
+    print_progress=False,
     debug=False,
 ):
     if debug:
@@ -4100,10 +4102,13 @@ def generate_wifes_cube(
     if halfframe:
         if is_taros(inimg):
             nslits = 12
+            central_slit = 12
         else:
             nslits = 13
+            central_slit = 6
     else:
         nslits = 25
+        central_slit = 12
 
     # setup base x/y array
     f3 = pyfits.open(inimg)
@@ -4146,6 +4151,7 @@ def generate_wifes_cube(
     kwwaverms = f4[0].header.get("PYWWRMSE", default="Unknown")
     kwwavenum = f4[0].header.get("PYWARCN", default="Unknown")
 
+    central_wave = None
     for i in range(nslits):
         # Wavelenghts
         wave = f4[i + 1].data
@@ -4165,6 +4171,8 @@ def generate_wifes_cube(
         if curr_wmax < frame_wmax:
             frame_wmax = curr_wmax
         frame_wdisps.append(curr_wdisp)
+        if wave_native and i == central_slit:
+            central_wave = wave[wave.shape[0] // 2]
     f4.close()
 
     if dw_set is not None:
@@ -4172,7 +4180,7 @@ def generate_wifes_cube(
     else:
         disp_ave = numpy.nanmean(frame_wdisps)
     # shift lowest pixel so interpolation doesn't fail
-    frame_wmin += disp_ave
+    frame_wmin += numpy.abs(disp_ave)
     # finally check against the user input value
     if wmin_set is not None:
         final_frame_wmin = max(wmin_set, frame_wmin)
@@ -4183,6 +4191,17 @@ def generate_wifes_cube(
     else:
         final_frame_wmax = frame_wmax
 
+    # Output wavelength arrangement of datacube
+    if wave_native and central_wave is not None:
+        out_lambda = central_wave
+        # Reset values that go into headers, even if non-linear
+        final_frame_wmin = numpy.amin(out_lambda)
+        final_frame_wmax = numpy.amax(out_lambda)
+        mididx = out_lambda.shape[0] // 2
+        disp_ave = out_lambda[mididx] - out_lambda[mididx - 1]
+    else:
+        out_lambda = numpy.arange(final_frame_wmin, final_frame_wmax, disp_ave)
+
     if verbose:
         print(
             " Data spectral resolution (min/max):",
@@ -4191,9 +4210,6 @@ def generate_wifes_cube(
         )
         print(" Cube spectral resolution : ", disp_ave)
 
-    out_lambda = numpy.arange(final_frame_wmin, final_frame_wmax, disp_ave)
-
-    # set up output data
     # load in spatial solutions
     try:
         f5 = pyfits.open(wire_fn)
@@ -4208,6 +4224,8 @@ def generate_wifes_cube(
         kwwiredeg = "N/A"
         kwwirenum = "N/A"
     wire_offset = float(offset_orig) / float(bin_y) * subsample
+
+    # set up output data
     ny = int(numpy.ceil(ny_orig / bin_y * subsample))
     nx = int(numpy.ceil(nslits * subsample))
     nlam = len(out_lambda)
@@ -4264,6 +4282,7 @@ def generate_wifes_cube(
     # First interpolation : Wavelength + y (=wire & ADR)
     if verbose:
         print(" -> Step 1: interpolating along lambda and y (2D interp.)\r")
+    if print_progress:
         sys.stdout.write("\r 0%")
         sys.stdout.flush()
 
@@ -4380,7 +4399,7 @@ def generate_wifes_cube(
                     scale_factor=1.0,
                 )
 
-                if verbose:
+                if print_progress:
                     sys.stdout.flush()
                     sys.stdout.write("\r\r %d" % (ii / (numpy.ceil(nslits * subsample)) * 100.0) + "%")
                     sys.stdout.flush()
@@ -4468,7 +4487,7 @@ def generate_wifes_cube(
                 var_data_cube_tmp[:, j, i] = g(out_x)
                 dq_data_cube_tmp[:, j, i] = h(out_x)
 
-            if verbose:
+            if print_progress:
                 if i > 0:
                     sys.stdout.flush()
                 sys.stdout.write("\r\r %d" % (i / (nlam - 1.0) * 100.0) + "%")
@@ -4491,21 +4510,24 @@ def generate_wifes_cube(
         # save to data cube
         outfits[i + 1].data = flux_data_cube_tmp[i, :, :]
         outfits[i + 1].scale("float32")
-        outfits[i + 1].header.set("CRVAL1", final_frame_wmin)
-        outfits[i + 1].header.set("CRPIX1", 1)
-        outfits[i + 1].header.set("CDELT1", disp_ave)
+        if not wave_native:
+            outfits[i + 1].header.set("CRVAL1", final_frame_wmin)
+            outfits[i + 1].header.set("CRPIX1", 1)
+            outfits[i + 1].header.set("CDELT1", disp_ave)
         outfits[i + 1].header.set("NAXIS1", len(out_lambda))
         outfits[i + 1 + nslits].data = var_data_cube_tmp[i, :, :]
         outfits[i + 1 + nslits].scale("float32")
-        outfits[i + 1 + nslits].header.set("CRVAL1", final_frame_wmin)
-        outfits[i + 1 + nslits].header.set("CRPIX1", 1)
-        outfits[i + 1 + nslits].header.set("CDELT1", disp_ave)
+        if not wave_native:
+            outfits[i + 1 + nslits].header.set("CRVAL1", final_frame_wmin)
+            outfits[i + 1 + nslits].header.set("CRPIX1", 1)
+            outfits[i + 1 + nslits].header.set("CDELT1", disp_ave)
         outfits[i + 1 + nslits].header.set("NAXIS1", len(out_lambda))
         outfits[i + 1 + 2 * nslits].data = dq_data_cube_tmp[i, :, :]
         outfits[i + 1 + 2 * nslits].scale("int16")
-        outfits[i + 1 + 2 * nslits].header.set("CRVAL1", final_frame_wmin)
-        outfits[i + 1 + 2 * nslits].header.set("CRPIX1", 1)
-        outfits[i + 1 + 2 * nslits].header.set("CDELT1", disp_ave)
+        if not wave_native:
+            outfits[i + 1 + 2 * nslits].header.set("CRVAL1", final_frame_wmin)
+            outfits[i + 1 + 2 * nslits].header.set("CRPIX1", 1)
+            outfits[i + 1 + 2 * nslits].header.set("CDELT1", disp_ave)
         outfits[i + 1 + 2 * nslits].header.set("NAXIS1", len(out_lambda))
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWWAVEM", kwwavemodel, "PyWiFeS: method for wavelength solution")
@@ -4519,6 +4541,9 @@ def generate_wifes_cube(
     outfits[0].header.set("PYWWVREF", wavelength_ref, "PyWiFeS: wavelength reference (air or vacuum)")
     if subsample > 1:
         outfits[0].header.set("PYWSSAMP", subsample, "PyWiFeS: wire/ADR spatial subsampling factor")
+    if wave_native:
+        outfits[0].header.set("PYWWNONL", True, "PyWiFeS: non-linear wavelengths axis")
+        outfits.append(pyfits.ImageHDU(data=out_lambda, header=outfits[1].header, name="WAVELENGTH"))
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return
@@ -4546,9 +4571,14 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
         else:
             nx = 25
 
-        lam0 = f[1].header["CRVAL1"]
-        pix0 = f[1].header["CRPIX1"]
-        dlam = f[1].header["CDELT1"]
+        if "WAVELENGTH" in f:
+            lam0 = f["WAVELENGTH"].data[0]
+            wave_ext = True
+        else:
+            lam0 = f[1].header["CRVAL1"]
+            pix0 = f[1].header["CRPIX1"]
+            dlam = f[1].header["CDELT1"]
+            wave_ext = False
 
         # get data, variance and data quality
         obj_cube_data = numpy.zeros([nlam, ny, nx], dtype="d")
@@ -4567,9 +4597,14 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     else:
         nlam, ny, nx = numpy.shape(f[1].data)
         # get wavelength array
-        lam0 = f[1].header["CRVAL3"]
-        pix0 = f[1].header["CRPIX3"]
-        dlam = f[1].header["CDELT3"]
+        if "WAVELENGTH" in f:
+            lam0 = f["WAVELENGTH"].data[0]
+            wave_ext = True
+        else:
+            lam0 = f[1].header["CRVAL1"]
+            pix0 = f[1].header["CRPIX1"]
+            dlam = f[1].header["CDELT1"]
+            wave_ext = False
         # get data and variance
         obj_cube_data = numpy.zeros([nlam, ny, nx], dtype="d")
         obj_cube_var = numpy.zeros([nlam, ny, nx], dtype="d")
@@ -4601,7 +4636,10 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     # Set up a tangential projection
     ctype1 = "RA---TAN"
     ctype2 = "DEC--TAN"
-    ctype3 = "WAVE"
+    if wave_ext:
+        ctype3 = "PIXEL"
+    else:
+        ctype3 = "WAVE"
 
     # Coordinate transformations
     # Telescope angle
@@ -4632,17 +4670,26 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     arsec_deg = 0.00027777777777778  # 1 arcsecond in degrees
     cdelt1 = -arsec_deg
     cdelt2 = arsec_deg / 2 * binning_2
-    cdelt3 = dlam
+    if wave_ext:
+        cdelt3 = 1
+    else:
+        cdelt3 = dlam
 
     # Central pixel: defined in the centre of the central pixel
     crpix1 = nx / 2 + 0.5  # Central pixel
     crpix2 = ny / 2 + 0.5  # Central pixel
-    crpix3 = pix0
+    if wave_ext:
+        crpix3 = 1
+    else:
+        crpix3 = pix0
 
     # Axis units
     cunit1 = "deg"
     cunit2 = "deg"
-    cunit3 = "Angstrom"
+    if wave_ext:
+        cunit3 = "pixel"
+    else:
+        cunit3 = "Angstrom"
 
     # save to data cube
     # DATA
@@ -4725,6 +4772,17 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     dq_hdu.header.set("CDELT3", cdelt3, "Wavelength step")
     dq_hdu.header.set("CRPIX3", crpix3, "Reference pixel on wavelength (axis 3)")
     outfits.append(dq_hdu)
+
+    # Pass along wavelength array, if present
+    try:
+        wdata = f['WAVELENGTH'].data
+        whead = f['WAVELENGTH'].header
+        wext = pyfits.ImageHDU(data=wdata, header=whead, name="WAVELENGTH")
+        outfits.append(wext)
+    except KeyError:
+        pass
+    except Exception as e:
+        print(f"Error attaching wavelength array: {e}")
 
     # Pass along telluric spectrum, if present
     try:

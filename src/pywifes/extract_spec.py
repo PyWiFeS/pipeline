@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 import numpy
 import os
 from photutils.aperture import EllipticalAperture, EllipticalAnnulus
-from photutils.centroids import centroid_com
-from photutils.detection import find_peaks
+from photutils.detection import DAOStarFinder
 import re
+
+from pywifes.wifes_utils import arguments
 
 # Suppress the NoDetectionsWarning as we have set a warning for no detection
 import warnings
@@ -18,73 +19,90 @@ from photutils.utils.exceptions import NoDetectionsWarning
 warnings.filterwarnings("ignore", category=NoDetectionsWarning)
 
 
-def extract_aperture_name(spec_name):
-    match = re.search(r"ap(\d)", spec_name)
+def extract_detection_name(spec_name):
+    match = re.search(r"det(\d)", spec_name)
     if match:
-        aperture_number = match.group(1)
-        return f"Aperture {aperture_number}"
+        detection_number = match.group(1)
+        return f"Detection {detection_number}"
     return None
 
 
+def extract_object_name(hdr):
+    if "OBJECT" in hdr:
+        return hdr["OBJECT"] + " - "
+    return ""
+
+
 def extract_and_save(
-    cube_path, sci, var, source_ap, ap_index, sky_ap, output_dir, sci_hdr, var_hdr,
-    dq_data=None, dq_hdr=None, tell_data=None,
+    cube_path, sci, var, source_region, det_index, sky_region, output_dir, sci_hdr,
+    var_hdr, extraction_method='aperture', dq_data=None, dq_hdr=None,
+    wave_data=None, tell_data=None,
 ):
     if cube_path is not None:
         kwlist = [
-            ["PYWXMETH", 'aperture',
+            ["PYWXMETH", extraction_method,
              "PyWiFeS: extraction method"],
-            ["PYWXAPX", numpy.round(source_ap.positions[0], decimals=2),
+            ["PYWXAPX", numpy.round(source_region.positions[0], decimals=2),
              "PyWiFeS: extraction x centroid"],
-            ["PYWXAPY", numpy.round(source_ap.positions[1], decimals=2),
+            ["PYWXAPY", numpy.round(source_region.positions[1], decimals=2),
              "PyWiFeS: extraction y centroid"]
         ]
-        if sky_ap is None:
+        if sky_region is None:
             bkg_inner = None
             bkg_outer = None
             kwlist.extend([["PYWXSKYS", False,
                             "PyWiFeS: extraction was sky-subtracted"]])
         else:
-            bkg_inner = sky_ap.a_in
-            bkg_outer = sky_ap.a_out
+            bkg_inner = sky_region.a_in
+            bkg_outer = sky_region.a_out
             kwlist.extend([
                 ["PYWXSKYS", True,
                  "PyWiFeS: extraction was sky-subtracted"],
                 ["PYWXSKYI", numpy.round(bkg_inner, decimals=2),
                  "PyWiFeS: extraction sky annulus r_in (pixels)"],
                 ["PYWXSKYO", numpy.round(bkg_outer, decimals=2),
-                 "PyWiFeS: extraction sky annulus r_out (pixels)"],
-                ["PYWXSKY", "aperture total",
-                 "PyWiFeS: extraction SKY extension type"]])
+                 "PyWiFeS: extraction sky annulus r_out (pixels)"]])
+            if extraction_method == 'aperture':
+                kwlist.extend([
+                    ["PYWXSKY", "science aperture total",
+                     "PyWiFeS: extraction SKY extension type"]])
 
         # Extraction
-        flux, fluxvar, dq, sky, tell = spect_extract(sci, var, source_ap, sky_ap=sky_ap,
-                                                     dq_cube=dq_data, tell_data=tell_data)
-        kwlist.extend([
-            ["PYWXAMAJ", source_ap.a,
-             "PyWiFeS: extraction semi-major axis (pixels)"],
-            ["PYWXAMIN", source_ap.b,
-             "PyWiFeS: extraction semi-minor axis (pixels)"]])
+        if extraction_method == 'aperture':
+            flux, fluxvar, dq, sky, tell = aperture_extract(sci, var, source_region,
+                                                            sky_ap=sky_region,
+                                                            dq_cube=dq_data,
+                                                            tell_data=tell_data)
+            kwlist.extend([
+                ["PYWXAMAJ", source_region.a,
+                 "PyWiFeS: extraction semi-major axis (pixels)"],
+                ["PYWXAMIN", source_region.b,
+                 "PyWiFeS: extraction semi-minor axis (pixels)"]])
+
+        else:
+            print(f"Unknown extraction method <{extraction_method}>. Not performed.")
+            return
 
         # Write out the results
         base = os.path.basename(cube_path)
-        base_output = base.replace("cube.fits", f"spec.ap{ap_index}.fits")
-        print(f"Saving extracted spectra for aperture {ap_index} in {base}")
+        base_output = base.replace("cube.fits", f"spec.det{det_index}.fits")
+        print(f"Saving extracted spectra for detection {det_index} in {base}")
         output_path = os.path.join(output_dir, base_output)
         write_1D_spec(flux, fluxvar, sci_hdr, var_hdr, output_path, dq_data=dq,
-                      dq_cube_header=dq_hdr, sky_data=sky, tell_data=tell,
-                      kwlist=kwlist)
+                      dq_cube_header=dq_hdr, sky_data=sky, wave_data=wave_data,
+                      tell_data=tell, kwlist=kwlist)
 
 
-def plot_arm(ax, cube_path, sci, title, source_apertures, sky_aps, border_width, bin_y):
+def plot_arm(ax, cube_path, sci, title, source_regions, sky_regions, border_width,
+             bin_y):
     ax.set_title(title)
     if cube_path is not None:
-        plot_apertures(
-            sci, source_apertures, sky_aps=sky_aps, border_width=border_width,
+        plot_regions(
+            sci, source_regions, sky_regions=sky_regions, border_width=border_width,
             bin_y=bin_y
         )
         ax.set_xlabel("Right Ascension")
-        ax.set_ylabel("Declination ")
+        ax.set_ylabel("Declination")
     else:
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
@@ -164,7 +182,8 @@ def sec_image(ap, image):
     return sec_data
 
 
-def spect_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None, tell_data=None):
+def aperture_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None,
+                     tell_data=None):
     """
     Extract and calculate spectral flux and variance within the given aperture.
 
@@ -247,8 +266,13 @@ def spect_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None, tell
 
     if tell_data is not None:
         if tell_data.ndim > 1:
-            # Rearrange the axes and extract the median telluric correction applicable to the aperture
-            tell = numpy.nanmedian(sec_image(source_ap, numpy.swapaxes(numpy.tile(tell_data, (sci_cube.shape[1], 1, 1)), 0, 1)), axis=1)
+            # Rearrange the axes and extract the median telluric correction applicable
+            # to the aperture
+            tell = numpy.nanmedian(
+                sec_image(source_ap,
+                          numpy.swapaxes(numpy.tile(tell_data,
+                                                    (sci_cube.shape[1], 1, 1)), 0, 1)),
+                axis=1)
         else:
             tell = tell_data
     else:
@@ -258,8 +282,8 @@ def spect_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None, tell
 
 
 def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
-                  dq_data=None, dq_cube_header=None, sky_data=None, tell_data=None,
-                  kwlist=None):
+                  dq_data=None, dq_cube_header=None, sky_data=None, wave_data=None,
+                  tell_data=None, kwlist=None):
     """
     This function writes the 1D spectrum data and its variance to a FITS file.
     It updates the WCS headers to match the 1D spectrum header.
@@ -282,6 +306,8 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
         Header object from the data quality extension.
     sky_data : numpy.ndarray, optional
         1D array containing the subtracted sky spectrum, or None.
+    wave_data : numpy.ndarray, optional
+        1D array containing wavelength value per pixel, or None.
     tell_data : numpy.ndarray, optional
         1D or 2D array containing the applied telluric model, or None.
     kwlist : list of lists, optional
@@ -304,14 +330,23 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
         headers.append(dq_cube_header_copy)
 
     for header in headers:
-        # Update axis 1 WCS information to match wavelength solution (axis 3)
-        header["CDELT1"] = header["CDELT3"]
-        header["CRPIX1"] = header["CRPIX3"]
-        header["CRVAL1"] = header["CRVAL3"]
-        header["CUNIT1"] = "Angstrom"
-        header["CTYPE1"] = header["CTYPE3"]
+        if wave_data is None:
+            # Update axis 1 WCS information to match wavelength solution (axis 3)
+            header["CDELT1"] = header["CDELT3"]
+            header["CRPIX1"] = header["CRPIX3"]
+            header["CRVAL1"] = header["CRVAL3"]
+            header["CUNIT1"] = "Angstrom"
+            header["CTYPE1"] = header["CTYPE3"]
+            header["NAXIS1"] = header["NAXIS3"]
+        else:
+            # Wavelengths provided in separate extension
+            header["CDELT1"] = 1
+            header["CRPIX1"] = 1
+            header["CRVAL1"] = 1
+            header["CUNIT1"] = "pixel"
+            header["CTYPE1"] = "Pixel"
+            header["NAXIS1"] = wave_data.shape[0]
         header["NAXIS"] = 1
-        header["NAXIS1"] = header["NAXIS3"]
 
         # Remove spatial WCS keys
         keys_to_remove = [
@@ -363,6 +398,14 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
         hdu_sky.header['EXTNAME'] = 'SKY'
         hdulist.append(hdu_sky)
 
+    # Add wavelength extension if provided
+    if wave_data is not None:
+        hdu_wave = fits.ImageHDU(data=wave_data.astype("float32", casting="same_kind"),
+                                 header=sci_cube_header_copy)
+        hdu_wave.scale("float32")
+        hdu_wave.header['EXTNAME'] = 'WAVELENGTH'
+        hdulist.append(hdu_wave)
+
     # Add telluric extension if provided
     if tell_data is not None:
         hdu_tell = fits.ImageHDU(data=tell_data.astype("float32", casting="same_kind"),
@@ -376,20 +419,21 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
     hdulist.close()
 
 
-def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0, bin_y=1):
+def plot_regions(data_cube, source_regions, sky_regions=None, border_width=0, bin_y=1):
     """
-    Plot apertures on a collapsed data cube image.
+    Plot regions on a collapsed data cube image.
 
     Parameters
     ----------
     data_cube : numpy.ndarray
         The 3D data cube containing the image data.
 
-    source_apertures : list of photutils.aperture objects
-        List of source apertures to plot on the image.
+    source_regions : list of photutils.aperture objects
+        List of source regions to plot on the image.
 
-    sky_aps : list of photutils.aperture objects, optional
-        List of sky apertures to plot on the image. Default is None.
+    sky_regions : list of photutils.aperture objects, optional
+        List of sky regions to plot on the image.
+        Default is None.
 
     border_width : int, optional
         Width of the border to exclude from the image when calculating the image
@@ -403,11 +447,11 @@ def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0, bi
     Returns
     -------
     None
-        This function does not return any value. It plots the apertures on the image.
+        This function does not return any value. It plots the regions on the image.
 
     """
 
-    # Collapse cube in the waevelenght dimesion for obtaing a median image
+    # Collapse cube in the waevelength dimesion for obtaing a median image
     collapsed_cube = collapse_cube(data_cube)
     cc_shape = collapsed_cube.shape
 
@@ -423,19 +467,19 @@ def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0, bi
     cmap = mcolors.ListedColormap(["white"])
     alpha = 0.5
 
-    for index, source_ap in enumerate(source_apertures):
-        ap_index = index + 1
-        # Plot a overlaped transparent area
-        mask = source_ap.to_mask(method="center").to_image(cc_shape)
+    for index, source_reg in enumerate(source_regions):
+        det_index = index + 1
+        # Plot an overlapped transparent area
+        mask = source_reg.to_mask(method="center").to_image(cc_shape)
         mask[mask == 0] = numpy.nan
         plt.imshow(mask, alpha=alpha, cmap=cmap)
-        # Plot theoretical aperture contourngit
-        source_ap.plot(color="white", lw=0.8, ls="--")
-        # Plot the aperture number
+        # Plot theoretical region outline
+        source_reg.plot(color="white", lw=0.8, ls="--")
+        # Plot the region
         plt.text(
-            source_ap.positions[0],
-            source_ap.positions[1],
-            ap_index,
+            source_reg.positions[0],
+            source_reg.positions[1],
+            det_index,
             color="white",
             ha="center",
             va="center",
@@ -443,14 +487,14 @@ def plot_apertures(data_cube, source_apertures, sky_aps=None, border_width=0, bi
             path_effects=[withStroke(linewidth=2, foreground="black")],
         )
 
-    if sky_aps is not None:
-        for sky_ap in sky_aps:
-            # Plot a overlaped transparent area
-            mask = sky_ap.to_mask(method="center").to_image(cc_shape)
+    if sky_regions is not None:
+        for sky_reg in sky_regions:
+            # Plot an overlapped transparent area
+            mask = sky_reg.to_mask(method="center").to_image(cc_shape)
             mask[mask == 0] = numpy.nan
             plt.imshow(mask, alpha=alpha, cmap=cmap)
-            # Plot theoretical aperture contourn
-            sky_ap.plot(color="white", lw=0.8, ls="--")
+            # Plot theoretical region outline
+            sky_reg.plot(color="white", lw=0.8, ls="--")
 
     # Set axis proportions to right values
     plt.gca().set_aspect(0.5 * bin_y)
@@ -467,11 +511,12 @@ def read_cube_data(cube_path, get_dq=False):
         "dq_hdr": None,
         "binning_x": None,
         "binning_y": None,
+        "wave": None,
         "tell": None,
     }
 
     if cube_path is not None:
-        sci, sci_hdr = fits.getdata(cube_path, 0, header=True)
+        sci, sci_hdr = fits.getdata(cube_path, ext=0, header=True)
         var, var_hdr = fits.getdata(cube_path, extname="VAR", header=True)
         if get_dq:
             try:
@@ -483,10 +528,17 @@ def read_cube_data(cube_path, get_dq=False):
         else:
             dq = None
             dq_hdr = None
+
+        try:
+            wave = fits.getdata(cube_path, extname="WAVELENGTH", header=False)
+        except KeyError:
+            wave = None
+
         try:
             tell = fits.getdata(cube_path, extname="TELLURICMODEL", header=False)
         except KeyError:
             tell = None
+
         wcs = WCS(sci_hdr).celestial
         binning_x, binning_y = [int(x) for x in sci_hdr["CCDSUM"].split()]
         cube_data["sci"] = sci
@@ -498,6 +550,7 @@ def read_cube_data(cube_path, get_dq=False):
         cube_data["wcs"] = wcs
         cube_data["binning_x"] = binning_x
         cube_data["binning_y"] = binning_y
+        cube_data["wave"] = wave
         cube_data["tell"] = tell
 
     return cube_data
@@ -507,19 +560,24 @@ def detect_extract_and_save(
     blue_cube_path=None,
     red_cube_path=None,
     output_dir=None,
-    npeaks=3,
+    nsources=3,
     sigma_threshold=3,
+    det_fwhm=2.0,
+    extraction_method="aperture",
     r_arcsec=2,
+    bkg_in_factor=3,
+    bkg_out_factor=4,
     border_width=2,
     sky_sub=True,
     subns=False,
     plot=True,
-    plot_path="detected_apertures_plot.png",
+    plot_path="detected_sources_plot.png",
     get_dq=True,
+    debug=False,
 ):
     """
     Detects sources in the input cubes, extracts and saves their spectra. Optionally,
-    it can plot the extracted spurces and the detected apertures around them.
+    it can plot the extracted sources and the sky regions around them.
 
     Parameters:
     -----------
@@ -529,7 +587,10 @@ def detect_extract_and_save(
         Path to the red cube file.
     output_dir : str, optional
         Directory where the extracted spectra will be saved.
-    npeaks : int, optional
+
+    Detection Parameters:
+    ---------------------
+    nsources : int, optional
         Number of sources above the threshold that will be found and extracted (in
         descending brightness).
         Default: 3.
@@ -537,32 +598,58 @@ def detect_extract_and_save(
         Number of sigma-clipped standard deviations above the median of the collapsed
         cube to use for source-finding.
         Default: 3.
-    r_arcsec : float, optional
-        Radius of the circular aperture in arcseconds.
-        Default: 2.
     border_width : int, optional
-        Width of the border to be excluded from the statistics.
+        Width of the border to be excluded from the statistics and source-finding.
         Default: 2.
+    det_fwhm : float, optional
+        Full-width at half maximum (in pixels) of the Gaussian convolution kernal used
+        for source-finding.
+        Default: 4.3.
+
+    Extraction Parameters:
+    ----------------------
+    extraction_method : str, optional
+        Method to extract source spectra from datacubes. Options: "aperture".
+        Default: "aperture".
+    r_arcsec : float, optional
+        Radius of the circular extraction aperture in arcseconds.
+        Default: 2.
+    bkg_in_factor : float, optional
+        Inner radius of background annulus: bkg_in_factor * r_arcsec.
+        Default: 3.
+    bkg_out_factor : float, optional
+        Outer radius of background annulus: bkg_out_factor * r_arcsec.
+        Default: 4.
     sky_sub : bool, optional
         Flag indicating whether to perform sky subtraction.
         Default: True.
     subns : bool, optional
         Flag indicating whether this is a sub-aperture nod & shuffle exposure.
         Default: False.
-    plot : bool, optional
-        Flag indicating whether to generate a plot of the detected apertures.
-        Default: True.
-    plot_path : str, optional
-        Path to save the plot.
-        Default: "detected_apertures_plot.png".
     get_dq : bool, optional
         Whether to include the DQ extension in the output.
         Default: True.
+
+
+    General Parameters:
+    -------------------
+    plot : bool, optional
+        Flag indicating whether to generate a plot of the detected sources.
+        Default: True.
+    plot_path : str, optional
+        Path to save the plot.
+        Default: "detected_sources_plot.png".
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default: False.
 
     Returns:
     --------
     None
     """
+    if debug:
+        print(arguments())
+
     # reading the data from cubes
     # Blue arm
     blue_cube_data = read_cube_data(blue_cube_path, get_dq=get_dq)
@@ -606,61 +693,74 @@ def detect_extract_and_save(
     collapsed_cube_no_edge = collapsed_cube[
         border_width:-border_width, border_width:-border_width
     ]
-    _, median, std = sigma_clipped_stats(collapsed_cube_no_edge, sigma=5.0)
+    _, median, std = sigma_clipped_stats(collapsed_cube_no_edge, sigma=3.0)
     threshold = median + (sigma_threshold * std)
 
-    detections = find_peaks(
-        collapsed_cube,
-        threshold,
-        border_width=border_width,
-        npeaks=npeaks,
-        centroid_func=centroid_com,
-    )
+    # Automatic source detection in the collapsed cubes (red + blue)
+    finder = DAOStarFinder(threshold,
+                           fwhm=det_fwhm,
+                           brightest=nsources,
+                           exclude_border=False,
+                           ratio=1.0,
+                           theta=0.0,
+                           sharplo=0.3,
+                           sharphi=1.0,
+                           roundlo=-1.0,
+                           roundhi=1.0,
+                           min_separation=3)
+
+    try:
+        detections = finder(collapsed_cube_no_edge)
+    except ValueError:
+        print(f"No positive sources found in {blue_cube_path} / {red_cube_path}")
+        detections = None
+
     if detections:
-        fcol = Column(name='flux_sense', data=numpy.ones(len(detections), dtype='float32'))
+        fcol = Column(name='flux_sense', data=numpy.ones(len(detections),
+                                                         dtype='float32'))
         detections.add_column(fcol)
 
     if subns:
-        det2 = find_peaks(
-            -1. * collapsed_cube,
-            threshold,
-            border_width=border_width,
-            npeaks=npeaks,
-            centroid_func=centroid_com,
-        )
+        try:
+            det2 = finder(-1.0 * collapsed_cube_no_edge)
+        except ValueError:
+            print(f"No negative sources found in {blue_cube_path} / {red_cube_path}")
+            det2 = None
+
         if det2:
-            fcol = Column(name='flux_sense', data=-1. * numpy.ones(len(det2), dtype='float32'))
+            fcol = Column(name='flux_sense', data=-1. * numpy.ones(len(det2),
+                                                                   dtype='float32'))
             det2.add_column(fcol)
             if detections:
                 detections = vstack([detections, det2])
             else:
                 detections = det2
 
-    if detections is None:
-        print("No source detected.")
-
-    else:
+    if detections is not None:
         # Sort detections as brighter peaks first
-        detections.sort("peak_value", reverse=True)
+        detections.sort("flux", reverse=True)
 
         # Detected sources positions
-        positions = numpy.transpose((detections["x_peak"], detections["y_peak"]))
+        positions = numpy.transpose((detections["xcentroid"], detections["ycentroid"]))
+
+        # Account for any trimmed border
+        positions = positions + border_width
 
         # Set the annulus
         a = r_arcsec / pixel_scale_x
         b = r_arcsec / pixel_scale_y
 
-        # Creates source apertures in the detected positions
-        source_apertures = EllipticalAperture(positions, a=a, b=b)
+        # Creates source regions in the detected positions
+        source_regions = EllipticalAperture(positions, a=a, b=b)
 
         if sky_sub:
-            a_in = a * 3
-            a_out = a * 4
+            a_in = a * bkg_in_factor
+            a_out = a * bkg_out_factor
 
-            b_in = b * 3
-            b_out = b * 4
+            b_in = b * bkg_in_factor
+            b_out = b * bkg_out_factor
 
-            sky_aps = EllipticalAnnulus(
+            sky_regions = EllipticalAnnulus(
                 positions,
                 a_in=a_in,
                 a_out=a_out,
@@ -669,15 +769,16 @@ def detect_extract_and_save(
             )
 
         else:
-            sky_aps = None
+            sky_regions = None
 
-        # Flux extraction for the aperture at all the wavelenghts
-        for index, (detection, source_ap) in enumerate(zip(detections, source_apertures)):
-            if sky_aps is not None:
-                sky_ap = sky_aps[index]
+        # Flux extraction at all the wavelengths
+        for index, (detection, source_reg) in enumerate(zip(detections,
+                                                            source_regions)):
+            if sky_regions is not None:
+                sky_reg = sky_regions[index]
             else:
-                sky_ap = None
-            ap_index = index + 1
+                sky_reg = None
+            det_index = index + 1
 
             # Extracting blue cube
             if blue_cube_path is not None:
@@ -685,14 +786,16 @@ def detect_extract_and_save(
                     blue_cube_path,
                     blue_sci * detection['flux_sense'],
                     blue_var,
-                    source_ap,
-                    ap_index,
-                    sky_ap,
+                    source_reg,
+                    det_index,
+                    sky_reg,
                     output_dir,
                     blue_sci_hdr,
                     blue_var_hdr,
+                    extraction_method=extraction_method,
                     dq_data=blue_dq,
                     dq_hdr=blue_dq_hdr,
+                    wave_data=blue_cube_data["wave"],
                 )
 
             # Extracting red cube
@@ -701,14 +804,16 @@ def detect_extract_and_save(
                     red_cube_path,
                     red_sci * detection['flux_sense'],
                     red_var,
-                    source_ap,
-                    ap_index,
-                    sky_ap,
+                    source_reg,
+                    det_index,
+                    sky_reg,
                     output_dir,
                     red_sci_hdr,
                     red_var_hdr,
+                    extraction_method=extraction_method,
                     dq_data=red_dq,
                     dq_hdr=red_dq_hdr,
+                    wave_data=red_cube_data["wave"],
                     tell_data=red_tell,
                 )
 
@@ -721,11 +826,18 @@ def detect_extract_and_save(
                 cube_path=red_cube_path,
                 sci=red_sci,
                 title="Red arm",
-                source_apertures=source_apertures,
-                sky_aps=sky_aps,
+                source_regions=source_regions,
+                sky_regions=sky_regions,
                 border_width=border_width,
                 bin_y=binning_y,
             )
+            # Catch rotations near 90deg to adapt axis labels and ticks
+            if "TELPAN" in red_sci_hdr \
+                    and numpy.abs(numpy.mod(red_sci_hdr["TELPAN"], 180) - 90.) < 5.0:
+                ax1.coords[0].set_ticklabel_position('l')
+                ax1.set_ylabel('Right Ascension')
+                ax1.coords[1].set_ticklabel_position('b')
+                ax1.set_xlabel('Declination')
 
             # Plot Blue
             ax0 = plt.subplot(1, 2, 1, projection=blue_wcs)
@@ -734,11 +846,23 @@ def detect_extract_and_save(
                 cube_path=blue_cube_path,
                 sci=blue_sci,
                 title="Blue arm",
-                source_apertures=source_apertures,
-                sky_aps=sky_aps,
+                source_regions=source_regions,
+                sky_regions=sky_regions,
                 border_width=border_width,
                 bin_y=binning_y,
             )
+            # Catch rotations near 90deg to adapt axis labels and ticks
+            if "TELPAN" in blue_sci_hdr \
+                    and numpy.abs(numpy.mod(blue_sci_hdr["TELPAN"], 180) - 90.) < 5.0:
+                ax0.coords[0].set_ticklabel_position('l')
+                ax0.set_ylabel('Right Ascension')
+                ax0.coords[1].set_ticklabel_position('b')
+                ax0.set_xlabel('Declination')
+
+            # Add PA to plot
+            if "ROTREF" in blue_sci_hdr and blue_sci_hdr["ROTREF"] == "POSITION_ANGLE" \
+                    and "TELPAN" in blue_sci_hdr:
+                plt.gcf().text(0.05, 0.05, r"PA = {:.1f}$^\circ$".format(blue_sci_hdr["TELPAN"]))
 
             plt.tight_layout()
             fig_output = os.path.join(output_dir, plot_path)
@@ -755,14 +879,22 @@ class SingleSpec(object):
     """
 
     def __init__(self, fitsFILE):
-        self.flux, self.header = fits.getdata(fitsFILE, 0, header=True)
-        self.wl = (
-            numpy.arange(self.header["NAXIS1"], dtype="d") - self.header["CRPIX1"] + 1
-        ) * self.header["CDELT1"] + self.header["CRVAL1"]
+        f = fits.open(fitsFILE)
+        self.flux = f[0].data
+        self.header = f[0].header
+        if "WAVELENGTH" in f:
+            self.wl = f["WAVELENGTH"].data
+        else:
+            self.wl = (
+                (
+                    numpy.arange(self.header["NAXIS1"], dtype="d")
+                ) - self.header["CRPIX1"] + 1
+            ) * self.header["CDELT1"] + self.header["CRVAL1"]
+        self.min_wl = min(self.wl)
+        self.max_wl = max(self.wl)
         # Temporary
-        self.fluxvar = fits.getdata(fitsFILE, extname="VAR", header=False)
-        self.minWL = min(self.wl)
-        self.maxWL = max(self.wl)
+        self.fluxvar = f["VAR"].data
+        f.close()
         return
 
 
@@ -796,7 +928,8 @@ def plot_1D_spectrum(spec_path, plot_dir):
     spec_name = os.path.basename(spec_path)
     plot_name = spec_name.replace(".fits", ".png")
     plot_path = os.path.join(plot_dir, plot_name)
-    aperture_name = extract_aperture_name(spec_name)
+    detection_name = extract_detection_name(spec_name)
+    objname = extract_object_name(spec.header)
 
     # Plot the error bars
     plt.errorbar(
@@ -813,13 +946,16 @@ def plot_1D_spectrum(spec_path, plot_dir):
     plt.step(wl, flux, where="mid", color="b")
 
     # Customize the plot
-    ylims = [numpy.nanpercentile(flux - flux_error, 2), 
-             numpy.nanpercentile(flux + flux_error, 98)]
+    good = numpy.abs(flux) > 1E-37
+    ylims = [min(numpy.nanmin(flux[good]),
+                 numpy.nanpercentile(flux[good] - flux_error[good], 2)),
+             max(numpy.nanmax(flux[good]),
+                 numpy.nanpercentile(flux[good] + flux_error[good], 98))]
     # Catch bad values
     if numpy.any(numpy.isnan(ylims)) or numpy.any(numpy.isinf(ylims)):
         ylims = [0, 1]
     plt.ylim(ylims)
-    plt.title(f"{spec_name} \n" + aperture_name)
+    plt.title(f"{spec_name} \n{objname}{detection_name}")
     plt.xlabel("Wavelength (Å)")
     plt.ylabel("Flux")
     plt.grid(True)

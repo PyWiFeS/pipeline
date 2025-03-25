@@ -2,9 +2,35 @@
 
 The automated Python data reduction pipeline for WiFeS. 
 
-## [Updates for this fork of the automation branch]
+## Updates
 
-Forked from PyWiFeS/pipeline [commit 45c69d8] in July 2024, and updated to include PyWiFeS/pipeline updates to 7 Aug 2024 [commit f6a2d8c].
+What's been done [20250324]:
+
+- allow user to propagate telluric spectrum into datacubes and extracted spectra
+
+- add option to use 'native' wavelength scale of spectrograph and report wavelengths in new FITS extension
+
+- add option to only extract spectra from datacubes without also splicing the cubes and spectra
+
+- allow user specification of sky annulus size and output wavelength step in extraction
+
+- allow user to splice cubes and spectra that do not overlap in wavelength
+
+- restore WCS info for detection plots when PA near 90/270
+
+
+From branch fji_deps_updates-and-spec_extract [20241205]:
+
+- Improved source detection routine by implementing DAOStarFinder (`photutils`), which identifies sources based on local density maxima and fits a 2D Gaussian model.
+
+- Updated the extraction parameters JSON file (`./pipeline_params/params_extract.json5`), making it more structured and including the parameters required for the new routine.
+
+- Introduced the `--extract-params` command-line argument, allowing users to pass a tailored extraction configuration file. This is particularly useful for local users who need to adjust detection and extraction parameters (e.g., for detecting faint sources, changing the default aperture size for extraction).
+
+- Update dependencies to photutils >= 2.0.0 (requiring scipy requirement update) and to allow any numpy version.
+
+
+### Previously ###
 
 What's been done [20250115]:
 
@@ -18,31 +44,7 @@ What's been done [20250115]:
 
 - update method of standard star association with observations
 
-***Future Development Underway***
-
-- allow retention of applied telluric model for user-rescaling
-
-- explore improving fitting and removal of fringing
-
-- fit and remove scattered light from standard stars and other on-sky observations
-
-- add time domain to the bad pixel mask
-
-- update standard star data with latest CALSPEC data
-
-- add option to use [Astro-SCRAPPY](https://astroscrappy.readthedocs.io/en/latest/), a fast Cython/C implementation of LACosmic (requires installation via pip)
-
-- allow for position shifts (and strange PSF) between coadded frames when extracting the STD (it also means the N*nanmean estimate of the sum will go wrong where there are NaNs)
-
-- modify wavelength treatment in cube generation to better reflect native resolution of the VPH gratings
-
-
-A note on charge transfer inefficiency (CTI): test data shows CTI of ~0.1%. Constraining the amplitude of the correction to a useful level of precision is thus extremely challenging, and is not expected to be implemented in the pipeline.
-
-
-### Previously ###
-
-What's been done [20241114]:
+[20241114]:
 
 - all command-line arguments now use double-dash
 
@@ -335,11 +337,13 @@ When multiple sky frames are associated with a science image, they are scaled by
 
 `--greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
 
-`--extract-and-splice`: Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON5 file:
+`--extract`: Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON5 file:
 
     /.../pipeline/pipeline_params/params_extract.json5
 
-The sky annulus is hard-coded to extend from 3 to 4 times the JSON5-specified source radius. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON5 setup). If the inputs are Nod & Shuffle frames, the sky is not subtracted.
+If the inputs are Nod & Shuffle frames, the sky is not subtracted.
+
+`--extract-and-splice`: In addition to the extraction described above, splice together the datacubes and extracted spectra. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON5 setup). 
 
 ### Extra usabilities
 #### Multiprocessing
@@ -417,9 +421,3 @@ Finally, we find `data_products/master_calib`, which is a directory with all mas
 
 ## Reporting Issues or Suggestions
 If you encounter any issues or have suggestions for improving the pipeline, please [**open a new issue**](https://github.com/PyWiFeS/pipeline) in the `issues` tab and fill out the provided template. Your feedback is very valuable!
-
-
-
-
-
-

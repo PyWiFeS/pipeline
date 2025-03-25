@@ -104,7 +104,7 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
                 if imagetype == "STANDARD" or std_dist < 200.0:
                     obj_name = near_std
                     std_type = temp_std_type
-        except:
+        except Exception:
             pass
         # ---------------------------
         # 1 - bias frames
@@ -250,7 +250,7 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
                 else:
                     print("Input files have changed since definition of previous coadd association file.")
                     raise
-            except:
+            except Exception:
                 print("Will create a new file.")
                 pass
         while create_new:
@@ -352,7 +352,7 @@ def get_obs_metadata(filenames, data_dir, greedy_stds=False, coadd_mode="all", m
             try:
                 with open(mode_save_fn, "wb") as f:
                     pyjson5.dump(old_science_full, f)
-            except:
+            except Exception:
                 raise IOError(f"Could not write coadd association file {mode_save_fn}")
 
     # #------------------
@@ -433,7 +433,7 @@ def classify(data_dir, naxis2_to_process=0, greedy_stds=False, coadd_mode='all',
             camera = f[0].header["CAMERA"]
             naxis2 = f[0].header["NAXIS2"]
             f.close()
-        except:
+        except Exception:
             continue
         if naxis2_to_process != 0 and naxis2_to_process != naxis2:
             continue
@@ -479,7 +479,7 @@ def cube_matcher(paths_list):
     df["date_obs"] = pd.to_datetime(df["date_obs"], utc=True, format="ISO8601")
 
     df = df.sort_values("date_obs")
-    Nsec = 15  # allow Nsec seconds of difference between the arms
+    Nsec = 60  # allow Nsec seconds of difference between the arms
     df['Group'] = df["date_obs"].diff().dt.seconds.gt(Nsec).cumsum()
     matched_obs_arms = (
         df.groupby('Group')[["path", "arm"]]
@@ -497,7 +497,7 @@ def cube_matcher(paths_list):
                 base = os.path.basename(obs_arm["path"])
                 # Remove extention, Blue and Red- label to form the name
                 file_name = (
-                    os.path.splitext(base)[0].replace("Red--", "").replace("Blue-", "")
+                    os.path.splitext(base)[0].replace("Red--", "").replace("Blue-", "").replace("T2m3wb-", "").replace("T2m3wr-", "")
                 )
                 matched_dict["file_name"] = file_name
         matched_dicts.append(matched_dict)

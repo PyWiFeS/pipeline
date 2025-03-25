@@ -18,12 +18,16 @@ from pywifes.data_classifier import classify, cube_matcher
 from pywifes.extract_spec import detect_extract_and_save, plot_1D_spectrum
 from pywifes.quality_plots import flatfield_plot
 from pywifes.splice import splice_spectra, splice_cubes
-from pywifes.wifes_utils import is_halfframe, is_nodshuffle, is_subnodshuffle, is_taros
-from pywifes.wifes_utils import copy_files, get_file_names, load_config_file, move_files
+from pywifes.wifes_utils import (
+    is_halfframe, is_nodshuffle, is_subnodshuffle, is_taros,
+    copy_files, get_file_names, load_config_file, move_files
+)
 import pywifes.recipes as recipes
 
 
-def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir, working_dir, params_path, grism_key, just_calib, plot_dir, from_master, extra_skip_steps, return_dict, skip_done):
+def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir,
+                  working_dir, params_path, grism_key, just_calib, plot_dir,
+                  from_master, extra_skip_steps, return_dict, skip_done):
     """
     Reduces the data for an individual arm.
     """
@@ -288,13 +292,6 @@ def main():
              "reducing the blue arm.",
     )
 
-    # Option for specifying to auto-extract and splice the output datacubes
-    parser.add_argument(
-        "--extract-and-splice",
-        action="store_true",
-        help="Optional: Auto-extract and splice the datacubes.",
-    )
-
     # Option for triggering the reduction from master calibrations
     parser.add_argument(
         "--from-master",
@@ -319,7 +316,8 @@ def main():
         help="Optional: Skip already completed steps.",
     )
 
-    # Option for treating OBJECT images near standard stars as standards even if IMAGETYP != STANDARD
+    # Option for treating OBJECT images near standard stars as standards,
+    # even if IMAGETYP != STANDARD
     parser.add_argument(
         "--greedy-stds",
         action="store_true",
@@ -343,6 +341,28 @@ def main():
         "--reduce-both",
         action="store_true",
         help="Optional: Reduce Red and Blue data simultaneously using multiprocessing.",
+    )
+
+    # Option for specifying to auto-extract the output datacubes
+    parser.add_argument(
+        "--extract",
+        action="store_true",
+        help="Optional: Auto-extract the datacubes.",
+    )
+
+    # Option for specifying to auto-extract AND splice the output datacubes
+    parser.add_argument(
+        "--extract-and-splice",
+        action="store_true",
+        help="Optional: Auto-extract AND splice the datacubes.",
+    )
+
+    # Option for specifying the path to the extraction JSON file
+    parser.add_argument(
+        "--extract-params",
+        type=str,
+        help="Optional: Path to the configuration JSON file containing parameters for "
+             "extracting the spectra.",
     )
 
     args = parser.parse_args()
@@ -372,6 +392,13 @@ def main():
         params_path["blue"] = os.path.abspath(args.blue_params)
         print(f"Using blue parameters from: {params_path['blue']}")
 
+    # Extraction
+    if args.extract_params:
+        extract_params_path = os.path.abspath(args.extract_params)
+        print(f"Using extraction parameters from: {extract_params_path}")
+    else:
+        extract_params_path = "./pipeline_params/params_extract.json5"
+
     # Reduction from master calibration frames
     from_master = args.from_master
 
@@ -381,7 +408,10 @@ def main():
     # Set to skip already done files
     skip_done = args.skip_done
 
-    # Auto-extract and splice the datacubes
+    # Auto-extract the datacubes
+    extract = args.extract
+
+    # Auto-extract AND splice the datacubes
     extract_and_splice = args.extract_and_splice
 
     # Set paths
@@ -487,7 +517,7 @@ def main():
         # Move reduced cubes to the data_product
         move_files(blue_cubes_path, destination_dir, blue_cubes_file_name)
 
-        if extract_and_splice:
+        if extract or extract_and_splice:
             # ----------------------------------------------------------
             # Find all reduced cubes in the destination directory (except spliced cubes)
             # ----------------------------------------------------------
@@ -504,7 +534,7 @@ def main():
                 # ----------------------------------------------------------
                 # Read extraction parameters from JSON file
                 # ----------------------------------------------------------
-                extract_params = load_config_file("./pipeline_params/params_extract.json5")
+                extract_args = load_config_file(extract_params_path)
 
                 # ----------------------------------------------------------
                 # Loop over matched cubes list
@@ -539,16 +569,32 @@ def main():
                         blue_cube_path,
                         red_cube_path,
                         destination_dir,
-                        npeaks=extract_params["npeaks"],
-                        sigma_threshold=extract_params["sigma_threshold"],
-                        r_arcsec=extract_params["r_arcsec"],
-                        border_width=extract_params["border_width"],
-                        sky_sub=False if ((not std) and (ns or subns)) else True,
+                        sky_sub=False if (ns or subns) else True,
                         subns=subns,
-                        plot=extract_params["plot"],
                         plot_path=plot_path,
-                        get_dq=extract_params["get_dq"],
+                        **extract_args['detext_args'],
                     )
+
+                    # Plot extracted spectra:
+                    if extract_args["plot"]:
+                        if blue_cube_path is not None:
+
+                            blue_pattern = blue_cube_path.replace("cube.fits", "spec.det*")
+                            blue_specs = sorted(glob.glob(blue_pattern))
+
+                            for blue_spec in blue_specs:
+                                plot_1D_spectrum(blue_spec, plot_dir=plot_dir)
+
+                        if red_cube_path is not None:
+
+                            red_pattern = red_cube_path.replace("cube.fits", "spec.det*")
+                            red_specs = sorted(glob.glob(red_pattern))
+
+                            for red_spec in red_specs:
+                                plot_1D_spectrum(red_spec, plot_dir=plot_dir)
+
+                    if not extract_and_splice:
+                        continue
 
                     # ------------------------------------
                     # Splice only paired cubes and spectra
@@ -574,23 +620,23 @@ def main():
                         spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
 
                         # Splice cubes
-                        splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path, get_dq=extract_params["get_dq"])
+                        splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path, **extract_args['splice_args'])
 
-                        # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.ap*'
+                        # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.det*'
                         pattern_blue = os.path.join(
-                            destination_dir, blue_cube_name.replace("cube", "spec.ap*")
+                            destination_dir, blue_cube_name.replace("cube", "spec.det*")
                         )
                         blue_specs = sorted(glob.glob(pattern_blue))
 
-                        # Find red spectra files matching the pattern 'xxx-Red-UTxxx.spec.ap*'
+                        # Find red spectra files matching the pattern 'xxx-Red-UTxxx.spec.det*'
                         pattern_red = os.path.join(
-                            destination_dir, red_cube_name.replace("cube", "spec.ap*")
+                            destination_dir, red_cube_name.replace("cube", "spec.det*")
                         )
                         red_specs = sorted(glob.glob(pattern_red))
 
                         # Splice spectra
                         for blue_spec, red_spec in zip(blue_specs, red_specs):
-                            # Generate filename for spliced spectrum 'xxx-Splice-UTxxx.spec.apx.fits'
+                            # Generate filename for spliced spectrum 'xxx-Splice-UTxxx.spec.det*.fits'
                             if taros:
                                 if re.search("T2m3wb", blue_spec):
                                     spliced_spectrum_name = os.path.basename(blue_spec).replace(
@@ -605,30 +651,13 @@ def main():
                             spliced_output.append(os.path.join(
                                 working_dir, destination_dir, spliced_spectrum_name
                             ))
-                            splice_spectra(blue_spec, red_spec, spliced_output[-1], get_dq=extract_params["get_dq"])
+                            splice_spectra(blue_spec, red_spec, spliced_output[-1], **extract_args['splice_args'])
 
                     # Plot extracted spectra:
-                    if extract_params["plot"]:
-                        if blue_cube_path is not None:
-
-                            blue_pattern = blue_cube_path.replace("cube.fits", "spec.ap*")
-                            blue_specs = sorted(glob.glob(blue_pattern))
-
-                            for blue_spec in blue_specs:
-                                plot_1D_spectrum(blue_spec, plot_dir=plot_dir)
-
-                        if red_cube_path is not None:
-
-                            red_pattern = red_cube_path.replace("cube.fits", "spec.ap*")
-                            red_specs = sorted(glob.glob(red_pattern))
-
-                            for red_spec in red_specs:
-                                plot_1D_spectrum(red_spec, plot_dir=plot_dir)
-
+                    if extract_args["plot"]:
                         for spliced_spec in spliced_output:
                             if os.path.isfile(spliced_spec):
                                 plot_1D_spectrum(spliced_spec, plot_dir=plot_dir)
-
 
     # ----------------------------------------------------------
     # Print total running time

@@ -1,5 +1,4 @@
 import os
-from pywifes import pywifes
 from pywifes import wifes_calib
 from pywifes.wifes_utils import get_primary_sci_obs_list, get_primary_std_obs_list, wifes_recipe
 
@@ -17,7 +16,7 @@ def _run_flux_calib(metadata, gargs, prev_suffix, curr_suffix, mode="pywifes", *
     metadata : dict
         Metadata containing information about the observations.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix of the file name (input).
     curr_suffix : str

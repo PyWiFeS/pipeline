@@ -6,10 +6,10 @@
             "suffix": "00",
             "args": {
                 // Values determined from headers / timestamp. Must manually set all 4 to override.
-                // - "detector_regions": None,
-                // - "overscan_regions": None,
-                // - "gain": None,
-                // - "rdnoise": None,
+                // - "detector_regions": null,
+                // - "overscan_regions": null,
+                // - "gain": null,
+                // - "rdnoise": null,
                 //
                 // Treatment of elevated overscan counts when row level is high.
                 // - "poly_high_oscan": true,
@@ -76,12 +76,12 @@
                 "source": "dome",
                 //
                 // Pre-combination scaling options.
-                // - "sregion": None,  // Default: None. Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
+                // - "sregion": null,  // Default: null (None). Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
                 //
                 // Scaling methods.
                 // Options:
                 "scale": "midrow_ratio",  // Use the middle row of each input to scale by the median per-x-pixel ratio to the first input.
-                // - "scale": None,  // Default. Apply no scaling.
+                // - "scale": null,  // Default. Apply no scaling.
                 // - "scale": "median",  // Scale by the median value of the whole image.
                 // - "scale": "median_nonzero",  // Scale by the median value pixels above "nonzero_thresh".
                 // - "scale": "exptime",  // Scale by the exposure time.
@@ -110,12 +110,12 @@
                 "source": "twi",
                 //
                 // Pre-combination scaling options.
-                // - "sregion": None,  // Default: None. Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
+                // - "sregion": null,  // Default: null (None). Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
                 //
                 // Scaling methods.
                 // Options:
                 "scale": "midrow_ratio",  // Use the middle row of each input to scale by the median per-x-pixel ratio to the first input.
-                // - "scale": None,  // Default. Apply no scaling.
+                // - "scale": null,  // Default. Apply no scaling.
                 // - "scale": "median",  // Scale by the median value of the whole image.
                 // - "scale": "median_nonzero",  // Scale by the median value pixels above "nonzero_thresh".
                 // - "scale": "exptime",  // Scale by the exposure time.
@@ -144,12 +144,12 @@
                 "source": "wire",
                 //
                 // Pre-combination scaling options.
-                // - "sregion": None,  // Default: None. Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
+                // - "sregion": null,  // Default: null (None). Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
                 //
                 // Scaling methods.
                 // Options:
                 "scale": "percentile90",  // Scale by the Nth percentile counts of the image, e.g., "percentile90".
-                // - "scale": None,  // Default. Apply no scaling.
+                // - "scale": null,  // Default. Apply no scaling.
                 // - "scale": "median",  // Scale by the median value of the whole image.
                 // - "scale": "median_nonzero",  // Scale by the median value pixels above "nonzero_thresh".
                 // - "scale": "midrow_ratio",  // Use the middle row of each input to scale by the median per-x-pixel ratio to the first input.
@@ -178,12 +178,12 @@
                 "source": "arc",
                 //
                 // Pre-combination scaling options.
-                // - "sregion": None,  // Default: None. Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
+                // - "sregion": null,  // Default: null (None). Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
                 //
                 // Scaling methods.
                 // Options:
                 "scale": "exptime",  // Scale by the exposure time.
-                // - "scale": None,  // Default. Apply no scaling.
+                // - "scale": null,  // Default. Apply no scaling.
                 // - "scale": "median",  // Scale by the median value of the whole image.
                 // - "scale": "median_nonzero",  // Scale by the median value pixels above "nonzero_thresh".
                 // - "scale": "midrow_ratio",  // Use the middle row of each input to scale by the median per-x-pixel ratio to the first input.
@@ -351,7 +351,7 @@
                 "shift_method": "xcorr_all", // Default. Shift model to fit every row of every slitlet.
                 // - "shift_method": "xcorr_single",  // Shift model to central row of each slitlet.
                 // - "shift_method": "xcorr_grid",  // Shift optical model by sampling in y-axis.
-                // - "shift_method": None,  // Guess the wavelengths using the optical model.
+                // - "shift_method": null,  // Guess the wavelengths using the optical model.
                 // 
                 "find_method": "mpfit",  // Default. Use Levenberg-Marquardt least-squares fitter assuming Gaussian line.
                 // - "find_method": "loggauss",  // Use numpy least-squares fitter to log of flux.
@@ -445,7 +445,7 @@
                 //
                 // Scaling on inputs.
                 // Options:
-                // - "scale": None,  // Default. Do not scale the inputs.
+                // - "scale": null,  // Default. Do not scale the inputs.
                 // - "scale": "per_slice_median",  // Scale each slitlet by its NaN-safe median counts before coadding.
                 // - "scale": "exptime",  // Scale each image by its exposure time.
 
@@ -464,8 +464,9 @@
             "args": {
                 "wmin_set": 4184.0,  // Minimum wavelength of output cube.
                 "wmax_set": 5580.0,  // Maximum wavelength of output cube.
-                // - "dw_set": None,  // If None, output cube wavelength step is set to mean of per-slitlet mean wavelength steps.
+                // - "dw_set": null,  // If null (None), output cube wavelength step is set to mean of per-slitlet mean wavelength steps.
                 // - "wavelength_ref": "AIR",  // Wavelength reference ("AIR" or "VACUUM").
+                // - "wave_native": false,  // Override wmin_set, wmax_set, dw_set and use native dispersion of central slitlet. N.B.: Prevents clean splicing of blue/red cubes and spectra.
                 //
                 "adr": true,  // Apply atmospheric differential refraction correction.
                 //
@@ -477,6 +478,7 @@
                 //
                 // Additional user options.
                 // - "verbose": true,
+                // - "print_progress": false,  // Write interpolation progress to screen/log.
                 // - "debug": false,
             }
         },
@@ -511,8 +513,8 @@
                 "excise_cut": 0.005,  // Fractional threshold for outliers (applied to magnitude units). Overridden with 0.003 if method = "smooth_SG".
                 "boxcar": 10,  // Boxcar smoothing length for method = "smooth_SG".
                 "norm_stars": true,  // Recentre midpoint flux ratios at the minimum (in magnitude units) across all input standards.
-                // - "wave_min": None,  // Minimum wavelength to compute flux ratio. If None, defaults to minimum observed wavelength.
-                // - "wave_max": None,  // Maximum wavelength to compute flux ratio. If None, defaults to maximum observed wavelength.
+                // - "wave_min": null,  // Minimum wavelength to compute flux ratio. If null (None), defaults to minimum observed wavelength.
+                // - "wave_max": null,  // Maximum wavelength to compute flux ratio. If null (None), defaults to maximum observed wavelength.
                 // - "ytrim": 4,  // If standard star spectrum not previously extracted, mask this number of (unbinned) y-axis pixels when peak-finding.
                 "prefactor": true,  // Whether to remove the flatfield shape to ease fitting of sensitivity curve.
                 //

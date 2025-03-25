@@ -16,7 +16,7 @@ def _run_slitlet_profile(metadata, gargs, prev_suffix, curr_suffix, **args):
     metadata : dict
         Metadata information.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix.
     curr_suffix : str

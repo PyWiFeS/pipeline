@@ -38,12 +38,12 @@ def angsep(pos1, pos2):
     try:
         ra1 = pos1[0]
         dec1 = pos1[1]
-    except:
+    except Exception:
         ra1, dec1 = sex2dd(pos1)
     try:
         ra2 = pos2[0]
         dec2 = pos2[1]
-    except:
+    except Exception:
         ra2, dec2 = sex2dd(pos2)
     # calculate separation
     sep = 3600.0*(

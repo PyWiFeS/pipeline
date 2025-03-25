@@ -4,12 +4,10 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 
-
 # Add the directory containing your module to the Python paths
 import os
 import sys
 print(sys.executable)
-import pywifes
 
 sys.path.insert(0, os.path.abspath("."))
 sys.path.insert(0, os.path.abspath('../src/pywifes/'))
@@ -20,7 +18,7 @@ sys.path.insert(0, os.path.abspath('../../reduction_scripts/'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'PyWiFeS'
-copyright = '2024, Automation Team'
+copyright = '2025, Automation Team'
 author = 'Automation Team'
 
 # -- General configuration ---------------------------------------------------
@@ -31,7 +29,6 @@ extensions = ['sphinx.ext.autodoc',
 
 templates_path = ['_templates']
 exclude_patterns = []
-
 
 
 # -- Options for HTML output -------------------------------------------------

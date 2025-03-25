@@ -17,7 +17,7 @@ def _run_superbias(metadata, gargs, prev_suffix, curr_suffix, method="row_med", 
     metadata: dict
         Metadata containing information about the dataset.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix: str
         Previous suffix used in the filenames.
     curr_suffix: str
@@ -47,7 +47,8 @@ def _run_superbias(metadata, gargs, prev_suffix, curr_suffix, method="row_med", 
     bias_list = [os.path.join(gargs['out_dir'], "%s.p%s.fits" % (x, prev_suffix))
                  for x in metadata["bias"]
                  ]
-    if not (gargs['skip_done'] and os.path.isfile(gargs['superbias_fn']) and os.path.isfile(gargs['superbias_fit_fn'])
+    if not (gargs['skip_done'] and os.path.isfile(gargs['superbias_fn'])
+            and os.path.isfile(gargs['superbias_fit_fn'])
             and os.path.getmtime(gargs['superbias_fn']) < os.path.getmtime(gargs['superbias_fit_fn'])):
         print("Calculating Global Superbias")
         pywifes.imcombine(bias_list, gargs['superbias_fn'], data_hdu=gargs['my_data_hdu'],

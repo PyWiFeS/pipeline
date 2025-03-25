@@ -24,7 +24,7 @@ def _run_flat_cleanup(
     metadata : str
         The metadata information for the flat cleanup.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         The previous suffix.
     curr_suffix : str
@@ -101,7 +101,7 @@ def _run_flat_cleanup(
             )
         else:
             print(f"Master dome flat {os.path.basename(gargs['super_dflat_raw'])} "
-                          "not found. Skipping dome flat cleanup.")
+                  "not found. Skipping dome flat cleanup.")
 
     if "twi" in type:
         if gargs['skip_done'] and os.path.isfile(gargs['super_tflat_fn']) \
@@ -120,5 +120,5 @@ def _run_flat_cleanup(
             )
         else:
             print(f"Master twilight flat {os.path.basename(gargs['super_tflat_raw'])} "
-                          "not found. Skipping twilight flat cleanup.")
+                  "not found. Skipping twilight flat cleanup.")
     return

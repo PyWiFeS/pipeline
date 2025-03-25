@@ -111,7 +111,7 @@ def _run_cube_gen(metadata, gargs, prev_suffix, curr_suffix, **args):
                     with open(local_wsol_out_fn_extra, "rb") as f:
                         try:
                             f_pickled = pickle.load(f, protocol=2)
-                        except:
+                        except Exception:
                             f_pickled = pickle.load(f)
                     f.close()
                     arc_times[i] = f_pickled[-1][0]

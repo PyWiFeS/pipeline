@@ -1,7 +1,6 @@
 from astropy.io import fits as pyfits
 import os
 import gc
-from pywifes import pywifes
 from pywifes.lacosmic import lacos_wifes
 from pywifes.wifes_utils import get_sci_obs_list, get_sky_obs_list, get_std_obs_list, wifes_recipe
 
@@ -26,7 +25,7 @@ def _run_cosmic_rays(
     metadata : dict
         Metadata containing information about the observations.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix of the FITS file to apply the correction (input).
     curr_suffix : str

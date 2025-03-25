@@ -24,7 +24,7 @@ from .multiprocessing_utils import get_task, map_tasks, run_tasks_singlethreaded
 f0 = open(os.path.join(metadata_dir, "basic_wifes_metadata.pkl"), "rb")
 try:
     wifes_metadata = pickle.load(f0, fix_imports=True, encoding="latin")
-except:
+except Exception:
     wifes_metadata = pickle.load(
         f0
     )  # Python 2.7 can't handle fix_imports or encoding=latin
@@ -88,7 +88,7 @@ def wavelength_guess_poly(x_array, y_array, chosen_slitlet, grating):
             curr_poly = base_wsols[grating][slit_str][y_str]
             curr_results = numpy.polyval(curr_poly, x)
             results[yinds] = curr_results
-        except:
+        except Exception:
             results[yinds] = -1.0
     return results
 
@@ -240,7 +240,7 @@ def _get_loggauss_arc_fit(subbed_arc_data, peak_centers, width_guess):
         yfit = y[ifit_lo:ifit_hi]
         try:
             good_pix = numpy.nonzero(yfit > 0.2 * yfit.max())[0]
-        except:
+        except Exception:
             fitted_centers.append(float("nan"))
             continue
         P = numpy.ones([len(good_pix), 3], dtype="d")
@@ -1171,7 +1171,7 @@ def derive_wifes_polynomial_wave_solution(
     # check binning
     try:
         default_bin_x, default_bin_y = [int(b) for b in arc_hdr["CCDSUM"].split()]
-    except:
+    except Exception:
         default_bin_x = 1
         default_bin_y = 1
     if bin_x is None:
@@ -1263,7 +1263,7 @@ def save_found_lines(
     # check binning
     try:
         default_bin_x, default_bin_y = [int(b) for b in arc_hdr["CCDSUM"].split()]
-    except:
+    except Exception:
         default_bin_x = 1
         default_bin_y = 1
     if bin_x is None:

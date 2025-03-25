@@ -56,7 +56,7 @@ The pipeline will generate the `data_products` directory within the working dire
         - `wifes_red_<master_calibration>_files.fits`
         - ...
 
-`data_products` contains the `plots` directory with the final figures of the data reduction: the 2D extracted spectra, the spliced spectra, and the sources detection plots. The figures generated during the calibration steps are saved in a different directory for each arm (`data_products/plots/arm`). 
+`data_products` contains the `plots` directory with the final figures of the data reduction: the 2D extracted spectra, the spliced spectra, and the sources detection plots. The figures generated during the calibration steps are saved in a different directory for each arm (`data_products/plots/[arm]`). 
 Then, the `data_products/intermediate` directory with the calibration files generated during the data reduction process and saves the data separately for each red and blue arm. Also in `intermediate` there is the temporary directory `raw_data_temp` aimed to store the raw data and any pre-treated images (e.g. cut down calibration frames to stellar mode size, when needed) during the data reduction process. `raw_data_temp` is automatically removed when the pipeline is successfully completed. 
 
 Finally, we find `data_products/master_calib`, which is a directory with all master calibration files produced in the data reduction. They are stored to be used in further reductions if required.

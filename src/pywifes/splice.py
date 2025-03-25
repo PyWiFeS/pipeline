@@ -2,28 +2,35 @@ import astropy.io.fits as fits
 import numpy
 import scipy.sparse as sp
 
+from pywifes.wifes_utils import arguments
+
 
 def calculate_wavelength_array(
-    blue_CRVAL1, blue_CDELT1, blue_CRPIX1, red_CRVAL1, red_CDELT1, red_NAXIS1
+    blue_CRVAL, blue_CDELT, blue_CRPIX, red_CRVAL, red_CDELT, red_CRPIX, red_NAXIS,
+    wstep
 ):
     """
-    Calculates the wavelength array for the overlap between blue and red spectra.
+    Calculates the wavelength array for the merged blue and red spectra, using the
+    wavelength step of the blue spectrum.
 
     Parameters:
-    - blue_CRVAL1 (float): Reference value of the first wavelength for the blue spectrum.
-    - blue_CDELT1 (float): Wavelength increment per pixel for the blue spectrum.
-    - blue_CRPIX1 (float): Reference pixel for the blue spectrum.
-    - red_CRVAL1 (float): Reference value of the first wavelength for the red spectrum.
-    - red_CDELT1 (float): Wavelength increment per pixel for the red spectrum.
-    - red_NAXIS1 (int): Number of pixels in the red spectrum.
+    - blue_CRVAL (float): Wavelength of the reference pixel for the blue spectrum.
+    - blue_CDELT (float): Wavelength increment per pixel for the blue spectrum.
+    - blue_CRPIX (float): Reference pixel for the blue spectrum.
+    - red_CRVAL (float): Wavelength of the reference pixel for the red spectrum.
+    - red_CDELT (float): Wavelength increment per pixel for the red spectrum.
+    - red_CRPIX (float): Reference pixel for the red spectrum.
+    - red_NAXIS (int): Number of pixels in the red spectrum.
+    - wstep (float): Wavelength increment per pixel for the output spectrum.
 
     Returns:
     - numpy.ndarray: Wavelength array calculated from the given parameters.
     """
     # Calculate the number of wavelength points needed
-    nwl = int((red_CRVAL1 + red_CDELT1 * red_NAXIS1 - blue_CRVAL1) / blue_CDELT1)
+    nwl = int((red_CRVAL + red_CDELT * (red_NAXIS - red_CRPIX)
+               - (blue_CRVAL - (blue_CRPIX - 1) * blue_CDELT)) / wstep)
     # Generate the wavelength array
-    wl = (numpy.arange(nwl) - blue_CRPIX1 + 1) * blue_CDELT1 + blue_CRVAL1
+    wl = (numpy.arange(nwl) - blue_CRPIX + 1) * wstep + blue_CRVAL
     return wl
 
 
@@ -85,32 +92,44 @@ class SingleSpec(object):
     """
 
     def __init__(self, fits_path):
-        self.flux, self.header = fits.getdata(fits_path, extname='SCI', header=True)
-        self.wl = (
-            numpy.arange(self.header["NAXIS1"]) - self.header["CRPIX1"] + 1
-        ) * self.header["CDELT1"] + self.header["CRVAL1"]
-        self.fluxvar = fits.getdata(fits_path, extname='VAR', header=False)
-        try:
-            self.dq = fits.getdata(fits_path, extname='DQ', header=False)
-        except KeyError:
+        f = fits.open(fits_path)
+        self.flux = f[0].data
+        self.header = f[0].header
+        if "WAVELENGTH" in f:
+            self.wl = f["WAVELENGTH"].data
+            self.wave_ext = True
+        else:
+            self.wl = (
+                numpy.arange(self.header["NAXIS1"], dtype="d") - (self.header["CRPIX1"] + 1)
+            ) * self.header["CDELT1"] + self.header["CRVAL1"]
+            self.wave_ext = False
+        self.min_wl = min(self.wl)
+        self.max_wl = max(self.wl)
+        self.fluxvar = f["VAR"].data
+        if "DQ" in f:
+            self.dq = f["DQ"].data
+        else:
             self.dq = None
-        try:
-            self.sky = fits.getdata(fits_path, extname='SKY', header=False)
-        except KeyError:
+        if "SKY" in f:
+            self.sky = f["SKY"].data
+        else:
             self.sky = None
+        if "TELLURICMODEL" in f:
+            self.tell = f["TELLURICMODEL"].data
+        else:
+            self.tell = None
+        f.close()
 
-        self.min_wl = numpy.min(self.wl)
-        self.max_wl = numpy.max(self.wl)
-        return
 
-
-def join_spectra(blueSpec, redSpec, get_dq=False):
-
-    if redSpec.min_wl > blueSpec.max_wl:
-        return None, None, None, None
-
+def join_spectra(blueSpec, redSpec, get_dq=False, wstep=None):
+    # Generate the resampling matrices
+    if blueSpec.wave_ext:
+        if wstep is None:
+            wstep = min(numpy.abs(blueSpec.wl - numpy.roll(blueSpec.wl, 1)))
+        wl = numpy.arange(min(blueSpec.wl), max(redSpec.wl) + wstep, wstep)
+        blue_NAXIS1 = blueSpec.wl.size
+        red_NAXIS1 = redSpec.wl.size
     else:
-        # Generate the resampling matrices
         blue_CRVAL1 = blueSpec.header["CRVAL1"]
         blue_CDELT1 = blueSpec.header["CDELT1"]
         blue_CRPIX1 = blueSpec.header["CRPIX1"]
@@ -118,84 +137,99 @@ def join_spectra(blueSpec, redSpec, get_dq=False):
 
         red_CRVAL1 = redSpec.header["CRVAL1"]
         red_CDELT1 = redSpec.header["CDELT1"]
+        red_CRPIX1 = redSpec.header["CRPIX1"]
         red_NAXIS1 = redSpec.header["NAXIS1"]
 
+        if wstep is None:
+            wstep = blue_CDELT1
         wl = calculate_wavelength_array(
-            blue_CRVAL1, blue_CDELT1, blue_CRPIX1, red_CRVAL1, red_CDELT1, red_NAXIS1
+            blue_CRVAL1, blue_CDELT1, blue_CRPIX1, red_CRVAL1, red_CDELT1,
+            red_CRPIX1, red_NAXIS1, wstep
         )
 
-        # One does not need to interplolate the blue spectra if the waveelength is
-        # set to the blue spectrum. However the code is robust to this.
+    blueSpec.fluxvar[blueSpec.fluxvar < 1E-37] = 9E9
+    redSpec.fluxvar[redSpec.fluxvar < 1E-37] = 9E9
 
-        AB = a_lanczos(blueSpec.wl, wl, 3).tocsr()
-        AR = a_lanczos(redSpec.wl, wl, 3).tocsr()
+    # One does not need to interplolate the blue spectra if the wavelength is
+    # set to the blue spectrum. However the code is robust to this.
 
-        # Blue
-        flux_B = numpy.array(AB * blueSpec.flux).ravel()
-        diag_B = sp.dia_matrix(
-            ([blueSpec.fluxvar], [0]), shape=[blue_NAXIS1, blue_NAXIS1]
-        ).astype(numpy.float64)
-        fluxvar_B = numpy.array((AB * diag_B * AB.T).sum(axis=1)).ravel()
+    AB = a_lanczos(blueSpec.wl, wl, 3).tocsr()
+    AR = a_lanczos(redSpec.wl, wl, 3).tocsr()
 
-        # Red
-        flux_R = numpy.array(AR * redSpec.flux).ravel()
-        diag_R = sp.dia_matrix(
-            ([redSpec.fluxvar], [0]), shape=[red_NAXIS1, red_NAXIS1]
-        ).astype(numpy.float64)
-        fluxvar_R = numpy.array((AR * diag_R * AR.T).sum(axis=1)).ravel()
+    # Blue
+    flux_B = numpy.array(AB * blueSpec.flux).ravel()
+    diag_B = sp.dia_matrix(
+        ([blueSpec.fluxvar], [0]), shape=[blue_NAXIS1, blue_NAXIS1]
+    ).astype(numpy.float64)
+    fluxvar_B = numpy.array((AB * diag_B * AB.T).sum(axis=1)).ravel()
 
-        BUFFER = 10.0
+    # Red
+    flux_R = numpy.array(AR * redSpec.flux).ravel()
+    diag_R = sp.dia_matrix(
+        ([redSpec.fluxvar], [0]), shape=[red_NAXIS1, red_NAXIS1]
+    ).astype(numpy.float64)
+    fluxvar_R = numpy.array((AR * diag_R * AR.T).sum(axis=1)).ravel()
 
-        # Check for wavelngth overlap
-        blue_only = numpy.where(wl <= redSpec.min_wl + BUFFER)
-        overlap = numpy.where(
-            (wl < blueSpec.max_wl - BUFFER) & (wl > redSpec.min_wl + BUFFER)
-        )
-        red_only = numpy.where(wl >= blueSpec.max_wl - BUFFER)
+    BUFFER = 10.0
 
-        # Average the two taking into account the buffer region and weighting
+    # Check for wavelngth overlap
+    blue_only = numpy.where(wl <= redSpec.min_wl + BUFFER)
+    overlap = numpy.where(
+        (wl < blueSpec.max_wl - BUFFER) & (wl > redSpec.min_wl + BUFFER)
+    )
+    red_only = numpy.where(wl >= blueSpec.max_wl - BUFFER)
 
-        flux = numpy.zeros(len(flux_B), dtype=numpy.float32)
-        fluxVar = numpy.zeros(len(flux_B), dtype=numpy.float32)
+    # Average the two taking into account the buffer region and weighting
 
-        flux[blue_only] = flux_B[blue_only]
-        fluxVar[blue_only] = fluxvar_B[blue_only]
+    flux = numpy.zeros(len(flux_B), dtype=numpy.float32)
+    fluxVar = numpy.zeros(len(flux_B), dtype=numpy.float32)
 
-        fluxVar[overlap] = 1.0 / (1.0 / fluxvar_B[overlap] + 1.0 / fluxvar_R[overlap])
-        flux[overlap] = (
-            flux_B[overlap] / fluxvar_B[overlap] + flux_R[overlap] / fluxvar_R[overlap]
-        ) * fluxVar[overlap]
+    flux[blue_only] = flux_B[blue_only]
+    fluxVar[blue_only] = fluxvar_B[blue_only]
 
-        flux[red_only] = flux_R[red_only]
-        fluxVar[red_only] = fluxvar_R[red_only]
+    fluxVar[overlap] = 1.0 / (1.0 / fluxvar_B[overlap] + 1.0 / fluxvar_R[overlap])
+    flux[overlap] = (
+        flux_B[overlap] / fluxvar_B[overlap] + flux_R[overlap] / fluxvar_R[overlap]
+    ) * fluxVar[overlap]
 
-        # Ensure no bad effects from Lanczos interpolation.
-        fluxVar = numpy.abs(fluxVar)
+    flux[red_only] = flux_R[red_only]
+    fluxVar[red_only] = fluxvar_R[red_only]
 
-        if get_dq:
-            dq = numpy.zeros(len(flux_B), dtype=numpy.int16)
-            dq_B = numpy.array(AB * blueSpec.dq).ravel()
-            dq_R = numpy.array(AR * redSpec.dq).ravel()
-            dq[blue_only] = dq_B[blue_only]
-            dq[overlap] = numpy.amin((dq_B[overlap], dq_R[overlap]), axis=0)
-            dq[red_only] = dq_R[red_only]
-        else:
-            dq = None
+    # Ensure no bad effects from Lanczos interpolation.
+    fluxVar = numpy.abs(fluxVar)
 
-        if blueSpec.sky is not None and redSpec.sky is not None:
-            sky = numpy.zeros(len(flux_B), dtype=numpy.float32)
-            sky_B = numpy.array(AB * blueSpec.sky).ravel()
-            sky_R = numpy.array(AR * redSpec.sky).ravel()
-            sky[blue_only] = sky_B[blue_only]
-            sky[overlap] = numpy.nanmean((sky_B[overlap], sky_R[overlap]), axis=0)
-            sky[red_only] = sky_R[red_only]
-        else:
-            sky = None
+    if get_dq:
+        dq = numpy.zeros(len(flux_B), dtype=numpy.int16)
+        dq_B = numpy.array(AB * blueSpec.dq).ravel()
+        dq_R = numpy.array(AR * redSpec.dq).ravel()
+        dq[blue_only] = dq_B[blue_only]
+        dq[overlap] = numpy.amin((dq_B[overlap], dq_R[overlap]), axis=0)
+        dq[red_only] = dq_R[red_only]
+    else:
+        dq = None
 
-        return flux, fluxVar, dq, sky
+    if blueSpec.sky is not None and redSpec.sky is not None:
+        sky = numpy.zeros(len(flux_B), dtype=numpy.float32)
+        sky_B = numpy.array(AB * blueSpec.sky).ravel()
+        sky_R = numpy.array(AR * redSpec.sky).ravel()
+        sky[blue_only] = sky_B[blue_only]
+        sky[overlap] = numpy.nanmean((sky_B[overlap], sky_R[overlap]), axis=0)
+        sky[red_only] = sky_R[red_only]
+    else:
+        sky = None
+
+    if redSpec.tell is not None:
+        tell = numpy.ones(len(flux_R), dtype=numpy.float32)
+        tell_R = numpy.array(AR * redSpec.tell).ravel()
+        tell[red_only] = tell_R[red_only]
+    else:
+        tell = None
+
+    return wstep, min(wl), flux, fluxVar, dq, sky, tell
 
 
-def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False):
+def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
+                   wstep=None):
     """
     Main routine to splice two spectra together.
 
@@ -210,6 +244,9 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False):
     get_dq : bool, optional
         Whether to include the DQ extension in the output.
         Default: False.
+    wstep : float, optional
+        User-defined wavelength step of output spectra.
+        Default: None (minimum blue wavelength step).
 
     Returns
     -------
@@ -223,14 +260,11 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False):
     The splicing process involves combining the flux data from the blue and red spectra,
     and updating the header information of the red spectrum to match the blue spectrum.
 
-    If there is no spectral overlap between the blue and red spectra, a message will be
-    printed indicating the lack of overlap.
-
     The spliced spectrum is saved as a FITS file with the provided output path.
 
     Examples
     --------
-    >>> splice_spectra('blue_spectrum.fits', 'red_spectrum.fits', 'spliced_spectrum.fits')
+    splice_spectra('blue_spectrum.fits', 'red_spectrum.fits', 'spliced_spectrum.fits')
     """
     # Create to instances of SingleSpec
     blueSpec = SingleSpec(blue_spec_path)
@@ -238,117 +272,153 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False):
 
     # Join the spectra
     print("Splicing spectra.")
-    flux, fluxVar, dq, sky = join_spectra(blueSpec, redSpec, get_dq=get_dq)
+    wstep_out, wave_min, flux, fluxVar, dq, sky, tell = join_spectra(
+        blueSpec, redSpec, get_dq=get_dq, wstep=wstep
+    )
 
-    if flux is None:
-        print("No spectral overlap.")
+    # Write out the results
+    # Use the header in red arm to start with
+    # Add additional blue CCD keywords as required
+    hdulist = fits.HDUList(fits.PrimaryHDU())
+    hdulist[0].data = flux.astype("float32", casting="same_kind")
+    hdulist[0].scale("float32")
 
-    else:
-        # Write out the results
-        # Use the header in red arm to start with
-        # Add additional blue CCD keywords as required
-        hdulist = fits.HDUList(fits.PrimaryHDU())
-        hdulist[0].data = flux.astype("float32", casting="same_kind")
-        hdulist[0].scale("float32")
+    hdulist[0].header = redSpec.header.copy()
+    hdulist[0].header["CRPIX1"] = 1
+    hdulist[0].header["CRVAL1"] = wave_min
+    hdulist[0].header["CDELT1"] = wstep_out
+    hdulist[0].header["CTYPE1"] = "WAVE"
+    hdulist[0].header["CUNIT1"] = "Angstrom"
 
-        hdulist[0].header = redSpec.header.copy()
-        hdulist[0].header["CRPIX1"] = blueSpec.header["CRPIX1"]
-        hdulist[0].header["CRVAL1"] = blueSpec.header["CRVAL1"]
-        hdulist[0].header["CDELT1"] = blueSpec.header["CDELT1"]
-        hdulist[0].header["CTYPE1"] = "WAVE"
-        hdulist[0].header["CUNIT1"] = "Angstrom"
+    hdr_fluxvar = fits.Header()
+    hdr_fluxvar["EXTNAME"] = "VAR"
+    hdr_fluxvar["CRPIX1"] = 1
+    hdr_fluxvar["CRVAL1"] = wave_min
+    hdr_fluxvar["CDELT1"] = wstep_out
+    hdr_fluxvar["CTYPE1"] = "WAVE"
+    hdr_fluxvar["CUNIT1"] = "Angstrom"
+    hdr_fluxvar["BUNIT"] = "(Flux)^2"
 
-        hdr_fluxvar = fits.Header()
-        hdr_fluxvar["EXTNAME"] = "VAR"
-        hdr_fluxvar["CRPIX1"] = blueSpec.header["CRPIX1"]
-        hdr_fluxvar["CRVAL1"] = blueSpec.header["CRVAL1"]
-        hdr_fluxvar["CDELT1"] = blueSpec.header["CDELT1"]
-        hdr_fluxvar["CTYPE1"] = "WAVE"
-        hdr_fluxvar["CUNIT1"] = "Angstrom"
-        hdr_fluxvar["BUNIT"] = "(count / Angstrom)^2"
+    hdu_fluxvar = fits.ImageHDU(data=fluxVar.astype("float32", casting="same_kind"),
+                                header=hdr_fluxvar)
+    hdu_fluxvar.scale("float32")
+    hdulist.append(hdu_fluxvar)
 
-        hdu_fluxvar = fits.ImageHDU(data=fluxVar.astype("float32", casting="same_kind"),
-                                    header=hdr_fluxvar)
-        hdu_fluxvar.scale("float32")
-        hdulist.append(hdu_fluxvar)
+    if get_dq:
+        hdr_dq = fits.Header()
+        hdr_dq["EXTNAME"] = "DQ"
+        hdr_dq["CRPIX1"] = 1
+        hdr_dq["CRVAL1"] = wave_min
+        hdr_dq["CDELT1"] = wstep_out
+        hdr_dq["CTYPE1"] = "WAVE"
+        hdr_dq["CUNIT1"] = "Angstrom"
 
-        if get_dq:
-            hdr_dq = fits.Header()
-            hdr_dq["EXTNAME"] = "DQ"
-            hdr_dq["CRPIX1"] = blueSpec.header["CRPIX1"]
-            hdr_dq["CRVAL1"] = blueSpec.header["CRVAL1"]
-            hdr_dq["CDELT1"] = blueSpec.header["CDELT1"]
-            hdr_dq["CTYPE1"] = "WAVE"
-            hdr_dq["CUNIT1"] = "Angstrom"
+        hdu_dq = fits.ImageHDU(data=dq.astype("int16", casting="unsafe"),
+                               header=hdr_dq)
+        hdu_dq.scale('int16')
+        hdulist.append(hdu_dq)
 
-            hdu_dq = fits.ImageHDU(data=dq.astype("int16", casting="unsafe"),
-                                   header=hdr_dq)
-            hdu_dq.scale('int16')
-            hdulist.append(hdu_dq)
+    if sky is not None:
+        hdr_sky = fits.Header()
+        hdr_sky["EXTNAME"] = "SKY"
+        hdr_sky["CRPIX1"] = 1
+        hdr_sky["CRVAL1"] = wave_min
+        hdr_sky["CDELT1"] = wstep_out
+        hdr_sky["CTYPE1"] = "WAVE"
+        hdr_sky["CUNIT1"] = "Angstrom"
 
-        if sky is not None:
-            hdr_sky = fits.Header()
-            hdr_sky["EXTNAME"] = "SKY"
-            hdr_sky["CRPIX1"] = blueSpec.header["CRPIX1"]
-            hdr_sky["CRVAL1"] = blueSpec.header["CRVAL1"]
-            hdr_sky["CDELT1"] = blueSpec.header["CDELT1"]
-            hdr_sky["CTYPE1"] = "WAVE"
-            hdr_sky["CUNIT1"] = "Angstrom"
+        hdu_sky = fits.ImageHDU(data=sky.astype("float32", casting="same_kind"),
+                                header=hdr_sky)
+        hdu_sky.scale("float32")
+        hdulist.append(hdu_sky)
 
-            hdu_sky = fits.ImageHDU(data=sky.astype("float32", casting="same_kind"),
-                                    header=hdr_sky)
-            hdu_sky.scale("float32")
-            hdulist.append(hdu_sky)
+    if tell is not None:
+        hdr_tell = fits.Header()
+        hdr_tell["EXTNAME"] = "TELLURICMODEL"
+        hdr_tell["CRPIX1"] = 1
+        hdr_tell["CRVAL1"] = wave_min
+        hdr_tell["CDELT1"] = wstep_out
+        hdr_tell["CTYPE1"] = "WAVE"
+        hdr_tell["CUNIT1"] = "Angstrom"
 
-        print("Saving spliced spectra.")
-        hdulist.writeto(output_path, overwrite=True)
-        hdulist.close()
+        tell_data = tell.astype("float32", casting="same_kind")
+        tell_data[tell_data > 1] = 1.0
+        hdu_tell = fits.ImageHDU(data=tell_data, header=hdr_tell)
+        hdu_tell.scale("float32")
+        hdulist.append(hdu_tell)
+
+    print("Saving spliced spectra.")
+    hdulist.writeto(output_path, overwrite=True)
+    hdulist.close()
 
 
-def join_cubes(blue_path, red_path, get_dq=False):
+def join_cubes(blue_path, red_path, get_dq=False, wstep=None):
 
     # Read red data and metadata
-    red_flux_cube, red_header = fits.getdata(red_path, extname='SCI', header=True)
-    red_fluxvar_cube = fits.getdata(red_path, extname='VAR', header=False)
+    red_hdu = fits.open(red_path)
+    red_flux_cube = red_hdu["SCI"].data
+    red_header = red_hdu["SCI"].header
+    red_fluxvar_cube = red_hdu["VAR"].data
     if get_dq:
-        try:
-            red_dq_cube = fits.getdata(red_path, extname='DQ', header=False)
-        except IndexError:
+        if "DQ" in red_hdu:
+            red_dq_cube = red_hdu["DQ"].data
+        else:
             red_dq_cube = None
-    red_CRVAL1 = red_header["CRVAL3"]
-    red_CDELT1 = red_header["CDELT3"]
-    red_CRPIX1 = red_header["CRPIX3"]
-    red_NAXIS1 = red_header["NAXIS3"]
-    red_wavelength = (numpy.arange(red_NAXIS1) - red_CRPIX1 + 1) * red_CDELT1 + red_CRVAL1
+    wave_kw = True
+    if "WAVELENGTH" in red_hdu:
+        red_wavelength = red_hdu["WAVELENGTH"].data
+        red_NAXIS1 = red_wavelength.size
+        wave_kw = False
+    else:
+        red_CRVAL1 = red_header["CRVAL3"]
+        red_CDELT1 = red_header["CDELT3"]
+        red_CRPIX1 = red_header["CRPIX3"]
+        red_NAXIS1 = red_header["NAXIS3"]
+        red_wavelength = (
+            (numpy.arange(red_NAXIS1) - red_CRPIX1 + 1) * red_CDELT1 + red_CRVAL1
+        )
+    red_hdu.close()
     red_min_wavelength = min(red_wavelength)
 
     # Read blue data and metadata
-    blue_flux_cube, blue_header = fits.getdata(blue_path, extname='SCI', header=True)
-    blue_fluxvar_cube = fits.getdata(blue_path, extname='VAR', header=False)
+    blue_hdu = fits.open(blue_path)
+    blue_flux_cube = blue_hdu["SCI"].data
+    blue_header = blue_hdu["SCI"].header
+    blue_fluxvar_cube = blue_hdu["VAR"].data
     if get_dq:
-        try:
-            blue_dq_cube = fits.getdata(blue_path, extname='DQ', header=False)
-        except IndexError:
+        if "DQ" in blue_hdu:
+            blue_dq_cube = blue_hdu["DQ"].data
+        else:
             blue_dq_cube = None
-    blue_CRVAL1 = blue_header["CRVAL3"]
-    blue_CDELT1 = blue_header["CDELT3"]
-    blue_CRPIX1 = blue_header["CRPIX3"]
-    blue_NAXIS1 = blue_header["NAXIS3"]
-    blue_wavelength = (
-        numpy.arange(blue_NAXIS1) - blue_CRPIX1 + 1
-    ) * blue_CDELT1 + blue_CRVAL1
+    if "WAVELENGTH" in blue_hdu:
+        blue_wavelength = blue_hdu["WAVELENGTH"].data
+        blue_NAXIS1 = blue_wavelength.size
+        wave_kw = False
+    else:
+        blue_CRVAL1 = blue_header["CRVAL3"]
+        blue_CDELT1 = blue_header["CDELT3"]
+        blue_CRPIX1 = blue_header["CRPIX3"]
+        blue_NAXIS1 = blue_header["NAXIS3"]
+        blue_wavelength = (
+            (numpy.arange(blue_NAXIS1) - blue_CRPIX1 + 1) * blue_CDELT1
+        ) + blue_CRVAL1
+    blue_hdu.close()
     blue_max_wavelength = max(blue_wavelength)
 
-    # No wavelength overlap
-    if red_min_wavelength > blue_max_wavelength:
-        return None, None, None
+    # Define final wavelength grid
+    if wave_kw:
+        if wstep is None:
+            wstep = blue_CDELT1
+        wl = calculate_wavelength_array(
+            blue_CRVAL1, blue_CDELT1, blue_CRPIX1, red_CRVAL1, red_CDELT1, red_CRPIX1,
+            red_NAXIS1, wstep
+        )
+    else:
+        if wstep is None:
+            wstep = min(numpy.abs(blue_wavelength - numpy.roll(blue_wavelength, 1)))
+        wl = numpy.arange(min(blue_wavelength), max(red_wavelength) + wstep, wstep)
 
-    # Cubes overlap in wavelength
-    wl = calculate_wavelength_array(
-        blue_CRVAL1, blue_CDELT1, blue_CRPIX1, red_CRVAL1, red_CDELT1, red_NAXIS1
-    )
-
-    # One does not need to interplolate the blue spectra if the waveelength is
+    # One does not need to interplolate the blue spectra if the wavelength is
     # set to the blue spectrum. However the code is robust to this.
 
     AB = a_lanczos(blue_wavelength, wl, 3).tocsr()
@@ -398,6 +468,8 @@ def join_cubes(blue_path, red_path, get_dq=False):
             # Average the two taking into account the buffer region and weighting
             flux = numpy.zeros(len(flux_B), float)
             fluxVar = numpy.zeros(len(flux_B), float)
+            fluxvar_B[fluxvar_B < 1E-37] = 9E9
+            fluxvar_R[fluxvar_R < 1E-37] = 9E9
 
             flux[blue_only] = flux_B[blue_only]
             fluxVar[blue_only] = fluxvar_B[blue_only]
@@ -430,10 +502,11 @@ def join_cubes(blue_path, red_path, get_dq=False):
                 dq_cube[red_only, i, j] = dq_R[red_only]
         dq_cube[dq_cube > 0.1] = 1
 
-    return flux_cube, fluxvar_cube, dq_cube
+    return wstep, min(wl), flux_cube, fluxvar_cube, dq_cube
 
 
-def splice_cubes(blue_path, red_path, output_path, get_dq=False):
+def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
+                 debug=False):
     """
     Main function to splice two previously generated cubes from both WiFeS arms
     together.
@@ -449,6 +522,12 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False):
     get_dq : bool, optional
         Whether to include the DQ extension in the output.
         Default: False.
+    wstep : float, optional
+        User-defined wavelength step of output cubes.
+        Default: None (minimum blue wavelength step).
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default: False.
 
     Returns
     -------
@@ -460,67 +539,66 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False):
     to the specified output path. It uses the header information from the red cube
     as a starting point and adds additional blue CCD keywords as required.
 
-    If there is no spectral overlap between the cubes, a message will be printed.
-
     The spliced cube is saved in FITS format with the following extensions:
     - Primary HDU: Contains the spliced flux data.
     - Extension HDU: Contains the variance data.
-
-    The wavelength information is added to the header of both HDUs.
+    - Optional Extension HDU: Contains the data quality data.
 
     Examples
     --------
     >>> splice_cubes('blue_cube.fits', 'red_cube.fits', 'spliced_cube.fits')
     """
+    if debug:
+        print(arguments())
 
     red_header = fits.getheader(red_path, 0)
-    blue_header = fits.getheader(blue_path, 0)
 
     # Join the cubes
     print("Splicing cubes.")
-    flux, fluxVar, dq = join_cubes(blue_path, red_path, get_dq=get_dq)
+    wstep_out, wave_min, flux, fluxVar, dq = join_cubes(
+        blue_path, red_path, get_dq=get_dq, wstep=wstep
+    )
 
-    if flux is None:
-        print("No spectral overlap between the cubes.")
-    else:
-        # Write out the results. Use the header in red arm to start with then add additional blue CCD keywords as required
-        hdulist = fits.HDUList(fits.PrimaryHDU())
-        hdulist[0].data = flux.astype("float32", casting="same_kind")
-        hdulist[0].scale("float32")
+    # Write out the results. Use the header in red arm to start with then add
+    # additional blue CCD keywords as required
+    hdulist = fits.HDUList(fits.PrimaryHDU())
+    hdulist[0].data = flux.astype("float32", casting="same_kind")
+    hdulist[0].scale("float32")
 
-        hdulist[0].header = red_header
-        hdulist[0].header["CRPIX3"] = blue_header["CRPIX3"]
-        hdulist[0].header["CRVAL3"] = blue_header["CRVAL3"]
-        hdulist[0].header["CDELT3"] = blue_header["CDELT3"]
-        hdulist[0].header["CTYPE3"] = "Wavelength"
-        hdulist[0].header["CUNIT3"] = "Angstrom"
+    hdulist[0].header = red_header
+    hdulist[0].header["CRPIX3"] = 1
+    hdulist[0].header["CRVAL3"] = wave_min
+    hdulist[0].header["CDELT3"] = wstep_out
+    hdulist[0].header["CTYPE3"] = "Wavelength"
+    hdulist[0].header["CUNIT3"] = "Angstrom"
 
-        hdr_fluxvar = fits.Header()
-        hdr_fluxvar["EXTNAME"] = "VAR"
-        hdr_fluxvar["CRPIX3"] = blue_header["CRPIX3"]
-        hdr_fluxvar["CRVAL3"] = blue_header["CRVAL3"]
-        hdr_fluxvar["CDELT3"] = blue_header["CDELT3"]
-        hdr_fluxvar["CTYPE3"] = "Wavelength"
-        hdr_fluxvar["CUNIT3"] = "Angstrom"
-        hdr_fluxvar["BUNIT"] = "(count / Angstrom)^2"
+    hdr_fluxvar = fits.Header()
+    hdr_fluxvar["EXTNAME"] = "VAR"
+    hdr_fluxvar["CRPIX3"] = 1
+    hdr_fluxvar["CRVAL3"] = wave_min
+    hdr_fluxvar["CDELT3"] = wstep_out
+    hdr_fluxvar["CTYPE3"] = "Wavelength"
+    hdr_fluxvar["CUNIT3"] = "Angstrom"
+    hdr_fluxvar["BUNIT"] = "(Flux)^2"
 
-        hdu_fluxvar = fits.ImageHDU(data=fluxVar.astype("float32", casting="same_kind"), header=hdr_fluxvar)
-        hdu_fluxvar.scale("float32")
-        hdulist.append(hdu_fluxvar)
+    hdu_fluxvar = fits.ImageHDU(data=fluxVar.astype("float32", casting="same_kind"),
+                                header=hdr_fluxvar)
+    hdu_fluxvar.scale("float32")
+    hdulist.append(hdu_fluxvar)
 
-        if get_dq:
-            hdr_dq = fits.Header()
-            hdr_dq["EXTNAME"] = "DQ"
-            hdr_dq["CRPIX3"] = blue_header["CRPIX3"]
-            hdr_dq["CRVAL3"] = blue_header["CRVAL3"]
-            hdr_dq["CDELT3"] = blue_header["CDELT3"]
-            hdr_dq["CTYPE3"] = "Wavelength"
-            hdr_dq["CUNIT3"] = "Angstrom"
+    if get_dq:
+        hdr_dq = fits.Header()
+        hdr_dq["EXTNAME"] = "DQ"
+        hdr_dq["CRPIX3"] = 1
+        hdr_dq["CRVAL3"] = wave_min
+        hdr_dq["CDELT3"] = wstep_out
+        hdr_dq["CTYPE3"] = "Wavelength"
+        hdr_dq["CUNIT3"] = "Angstrom"
 
-            hdu_dq = fits.ImageHDU(data=dq.astype("int16", casting="unsafe"), header=hdr_dq)
-            hdu_dq.scale('int16')
-            hdulist.append(hdu_dq)
+        hdu_dq = fits.ImageHDU(data=dq.astype("int16", casting="unsafe"), header=hdr_dq)
+        hdu_dq.scale("int16")
+        hdulist.append(hdu_dq)
 
-        print("Saving spliced cube.")
-        hdulist.writeto(output_path, overwrite=True)
-        hdulist.close()
+    print("Saving spliced cube.")
+    hdulist.writeto(output_path, overwrite=True)
+    hdulist.close()

@@ -6,7 +6,7 @@ from pywifes.wifes_utils import get_sci_obs_list, get_std_obs_list, wifes_recipe
 # ------------------------------------------------------
 # Sky subtraction
 # ------------------------------------------------------
-# since run_sky_sub_ns is called from run_sky_sub, 
+# since run_sky_sub_ns is called from run_sky_sub,
 # no need to have decorator here
 # @wifes_recipe
 def _run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix):
@@ -18,7 +18,7 @@ def _run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix):
     metadata : dict
         Metadata containing information about the observations.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix of the file names (input).
     curr_suffix : str
@@ -43,6 +43,7 @@ def _run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix):
         pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime")
     return
 
+
 @wifes_recipe
 def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix):
     """
@@ -53,7 +54,7 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix):
     metadata : dict
         Metadata containing information about the observations.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix of the file names (input).
     curr_suffix : str

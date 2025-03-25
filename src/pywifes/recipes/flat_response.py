@@ -17,7 +17,7 @@ def _run_flat_response(metadata, gargs, prev_suffix, curr_suffix, mode="all", **
     metadata : dict
         Metadata containing information about the data FITS files.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Suffix of the previous data.
     curr_suffix : str

@@ -1,7 +1,6 @@
 import os
-from pywifes import pywifes
 from pywifes import wifes_calib
-from pywifes.wifes_utils import get_primary_std_obs_list, wifes_recipe
+from pywifes.wifes_utils import get_primary_std_obs_list, move_files, wifes_recipe
 
 
 # Sensitivity Function fit
@@ -15,7 +14,7 @@ def _run_derive_calib(metadata, gargs, prev_suffix, curr_suffix, method="poly", 
     metadata : dict
         Metadata containing information about the standard stars.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix of the file names.
     curr_suffix : str
@@ -116,11 +115,9 @@ def _run_derive_calib(metadata, gargs, prev_suffix, curr_suffix, method="poly", 
             pf_fn = None
     else:
         pf_fn = None
-    if gargs['skip_done'] and os.path.isfile(gargs['calib_fn']) \
-            and (
-                os.path.getmtime(std_cube_list[0]) < os.path.getmtime(gargs['calib_fn'])
-                or gargs['from_master']
-            ):
+    if gargs['skip_done'] and os.path.isfile(gargs['calib_fn']) and \
+        (os.path.getmtime(std_cube_list[0]) < os.path.getmtime(gargs['calib_fn'])
+            or gargs['from_master']):
         print("Skipping derivation of sensitivity function due to existing file.")
         return
     print("Deriving sensitivity function")

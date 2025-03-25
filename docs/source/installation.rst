@@ -11,7 +11,7 @@ To install PyWiFeS, follow these steps:
    
    .. code-block:: bash
    
-      git clone -b automation https://github.com/conken/pipeline.git
+      git clone -b automation https://github.com/PyWiFeS/pipeline.git
    
 2. Navigate to the project directory and install dependencies:
    

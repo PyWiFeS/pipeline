@@ -10,7 +10,7 @@ PyWiFeS is an automated and upgraded version of the original PyWiFeS pipeline (s
 Upgrades from the Previous Version
 ----------------------------------
 
-Main upgrades from the previous PyWiFeS version *as of August 2024*:
+Main upgrades from the previous PyWiFeS version *as of March 2025*:
 
 - Updated to Python 3, with bug fixes and headers for the new telescope setup.
 - Pip installable.
@@ -27,7 +27,7 @@ Main upgrades from the previous PyWiFeS version *as of August 2024*:
   - Users can create their own JSON5 file following the same structure as their preferred setup.
 - Logger file to track data usage and pipeline performance.
 - Implemented astrometry in the data cubes. The accuracy could be low (> 2 arcsec) in some cases. 
-- Extraction and splice of the spectra and splice of the 3D astrometrised cubes are now implemented.
+- Extraction and splicing of the spectra and splicing of the 3D astrometrised cubes are now implemented.
 - Added multiprocessing for faster execution.
 - Multiple quality plots are automatically generated and saved.
 - Organized output directory (`/data_products`).

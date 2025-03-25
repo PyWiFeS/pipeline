@@ -16,7 +16,7 @@ def _run_bpm_repair(metadata, gargs, prev_suffix, curr_suffix, **args):
     metadata : dict
         A dictionary containing metadata information of the FITS files.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         The suffix of the previous version of the FITS files.
     curr_suffix : str
@@ -58,4 +58,3 @@ def _run_bpm_repair(metadata, gargs, prev_suffix, curr_suffix, **args):
         pywifes.repair_bad_pix(
             input_filepath, output_filepath, gargs['arm'], data_hdu=gargs['my_data_hdu'], **args
         )
-

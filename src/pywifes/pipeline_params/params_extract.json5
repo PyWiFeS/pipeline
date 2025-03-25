@@ -1,10 +1,31 @@
 
 {
-    // All parameters must be specified. No defaults.
-    "npeaks": 3,  // Maximum number of sources to extract (in order of decreasing brightness).
-    "sigma_threshold": 3,  // Number of sigma a source must be above the background to be detected.
-    "r_arcsec": 2,  // Source extraction radius (in arcseconds). Sky annulus is between 3 and 4 * r_arcsec.
-    "border_width": 2,  // Number of edge spaxels to omit when peak-finding and defining colourbar range for output plots.
+    // Detection and Extraction Parameters
+    //
+    'detext_args': {
+        // --- Detection Parameters ---
+        "nsources": 3,  // Maximum number of sources to extract (in order of decreasing brightness).
+        "sigma_threshold": 3,  // Number of sigma a source must be above the background to be detected.
+        "border_width": 2,  // Number of edge spaxels to omit when source-finding and defining colourbar range for output plots.
+        "det_fwhm": 2.0,  // Full-width at half maximum (in pixels) of the Gaussian convolution kernal used for source-finding.
+        //
+        // --- Extraction Parameters ---
+        "extraction_method": "aperture",  // Method for extraction from datacube: Options: "aperture".
+        "r_arcsec": 2,  // Source extraction radius (in arcseconds).
+        "bkg_in_factor": 3,  // Sky annulus inner radius: bkg_in_factor * r_arcsec.
+        "bkg_out_factor": 4,  // Sky annulus outer radius: bkg_out_factor * r_arcsec.
+        "get_dq": true,  // Extract science aperture from DQ extension and return in output.
+        //
+        // - "debug": false,
+    },
+    //
+    // Splicing Parameters
+    //
+    'splice_args': {
+        "wstep": null,  // Wavelength step for output of spliced cubes and spectra. Value of null (None) uses (minimum) wavelength step of blue cube.
+    },
+    //
+    // General Parameters
+    //
     "plot": true,  // Create output plots.
-    "get_dq": true,  // Extract science aperture from DQ extension and return in output.
 }   

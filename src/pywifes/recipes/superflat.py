@@ -19,7 +19,7 @@ def _run_superflat(
         Metadata containing information about the FITS files from which extract the
         inputs.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         Previous suffix of the input files.
     curr_suffix : str

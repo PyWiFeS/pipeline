@@ -1,5 +1,4 @@
 import os
-from pywifes import pywifes
 from pywifes import wifes_calib
 from pywifes.wifes_utils import get_primary_std_obs_list, wifes_recipe
 
@@ -18,7 +17,7 @@ def _run_extract_stars(metadata, gargs, prev_suffix, curr_suffix, stdtype="all",
         The metadata containing information about the FITS files of the
         observations.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         The suffix of the previous data files.
     curr_suffix : str

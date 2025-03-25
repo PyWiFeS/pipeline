@@ -172,10 +172,14 @@ def load_wifes_cube(cube_fn, ytrim=[0, 0], return_dq=False):
     else:
         nx = 25
     ny, nlam = numpy.shape(f[1].data)
-    lam0 = f[1].header["CRVAL1"]
-    pix0 = f[1].header["CRPIX1"]
-    dlam = f[1].header["CDELT1"]
-    lam_array = lam0 + dlam * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
+    if "WAVELENGTH" in f:
+        lam_array = f["WAVELENGTH"].data
+    else:
+        lam0 = f[1].header["CRVAL1"]
+        pix0 = f[1].header["CRPIX1"]
+        dlam = f[1].header["CDELT1"]
+        lam_array = lam0 + dlam * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
+
     # get data and variance
     obj_cube_data = numpy.zeros([nlam, ny - sum(ytrim), nx], dtype="d")
     obj_cube_var = numpy.zeros([nlam, ny - sum(ytrim), nx], dtype="d")
@@ -323,7 +327,7 @@ def extract_wifes_stdstar(
         y_ctr, x_ctr = numpy.unravel_index(numpy.argmax(cube_im), cube_im.shape)
         if interactive_plot:
             plt.imshow(cube_im, origin='lower', aspect=(0.5 * bin_y))
-            plt.title('Flattened, trimmed standard star')
+            plt.title(f"Flattened, trimmed standard star. Centre: ({x_ctr + first + xtrim}, {y_ctr + 1 + ytrim})")
             plt.show()
             plt.close('all')
     print(f"Extracting STD from IFU (x,y) = ({x_ctr + first + xtrim}, {y_ctr + 1 + ytrim})")
@@ -343,6 +347,7 @@ def extract_wifes_stdstar(
     std_dq = numpy.sum(obj_cube_dq[:, obj_pix[0], obj_pix[1]], axis=1)
 
     # Enforce a S/N > 10 limit
+    std_var[std_var == 0] = 9E18
     std_flux[std_flux / numpy.sqrt(std_var) < 10] = numpy.nan
     if interactive_plot:
         plt.plot(lam_array, sky_flux, label='sky_flux')
@@ -356,8 +361,15 @@ def extract_wifes_stdstar(
         plt.close('all')
 
     # DIVIDE FLUX BY EXPTIME AND BIN SIZE!!!
-    dlam = lam_array[1] - lam_array[0]
-    fscale = exptime * dlam
+    dlam = numpy.zeros_like(lam_array)
+    dlam[1:] = lam_array[1:] - lam_array[:-1]
+    dlam[0] = dlam[1]
+    if numpy.all(numpy.isclose(dlam, dlam[0])):
+        lin_wave = True
+        dlam = dlam[0]
+    else:
+        lin_wave = False
+    fscale = exptime * numpy.abs(dlam)
     std_flux /= fscale
     std_var /= fscale**2
     sky_flux /= fscale
@@ -387,15 +399,21 @@ def extract_wifes_stdstar(
         numpy.savetxt(save_fn, save_data)
     elif save_mode == "iraf":
         out_header = f[1].header
-        out_header.set("CD1_1", f[1].header["CDELT1"])
-        out_header.set("CD2_2", 1)
-        out_header.set("CD3_3", 1)
-        out_header.set("LTM3_3", 1)
-        out_data = numpy.zeros([4, 1, len_filtered_lam], dtype="d")
+        if lin_wave:
+            out_header.set("CD1_1", f[1].header["CDELT1"])
+            out_header.set("CD2_2", 1)
+            out_header.set("CD3_3", 1)
+            out_header.set("LTM3_3", 1)
+            n_ext = 4
+        else:
+            n_ext = 5
+        out_data = numpy.zeros([n_ext, 1, len_filtered_lam], dtype="d")
         out_data[0, 0, :] = std_flux
         out_data[1, 0, :] = sky_flux
         out_data[2, 0, :] = std_var
         out_data[3, 0, :] = std_dq
+        if not lin_wave:
+            out_data[4, 0, :] = lam_array
         out_hdu = pyfits.PrimaryHDU(data=out_data, header=out_header)
         outfits = pyfits.HDUList([out_hdu])
         outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
@@ -422,11 +440,14 @@ def wifes_cube_divide(inimg, outimg, corr_wave, corr_flux):
         nslits = 25
     f3 = pyfits.open(inimg)
     # get the wavelength array
-    wave0 = f3[1].header["CRVAL1"]
-    pix0 = f3[1].header["CRPIX1"]
-    dwave = f3[1].header["CDELT1"]
-    nlam = numpy.shape(f3[1].data)[1]
-    wave_array = wave0 + dwave * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
+    if "WAVELENGTH" in f3:
+        wave_array = f3["WAVELENGTH"].data
+    else:
+        wave0 = f3[1].header["CRVAL1"]
+        pix0 = f3[1].header["CRPIX1"]
+        dwave = f3[1].header["CDELT1"]
+        nlam = numpy.shape(f3[1].data)[1]
+        wave_array = wave0 + dwave * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
     # calculate the flux calibration array
     fcal_array = corr_interp(wave_array)
     outfits = pyfits.HDUList(f3)
@@ -747,8 +768,10 @@ def derive_wifes_calibration(
             plt.legend()
 
             # Set y-limits to exclude peaks
-            lower_limit = numpy.nanmin([0, numpy.nanpercentile(scaled_flux, 0.2), numpy.nanmin(ref_flux)])
+            lower_limit = numpy.nanmin([numpy.nanpercentile(scaled_flux, 0.2), numpy.nanmin(ref_flux)])
             upper_limit = numpy.nanmax([numpy.nanpercentile(scaled_flux, 99.8), numpy.nanmax(ref_flux)])
+            lower_limit = 0 if numpy.isnan(lower_limit) else lower_limit
+            upper_limit = 1 if numpy.isnan(upper_limit) else upper_limit
             plt.ylim(lower_limit, upper_limit)
             plt.ylabel(r"Scaled Flux ")
 
@@ -1063,17 +1086,25 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
     # open data
     f3 = pyfits.open(inimg)
     # get the wavelength array
-    wave0 = f3[1].header["CRVAL1"]
-    pix0 = f3[1].header["CRPIX1"]
-    dwave = f3[1].header["CDELT1"]
+    if "WAVELENGTH" in f3:
+        wave_array = f3["WAVELENGTH"].data
+        dwave = numpy.zeros_like(wave_array)
+        dwave[1:] = wave_array[1:] - wave_array[:-1]
+        dwave[0] = dwave[1]
+        if numpy.all(numpy.isclose(dwave, dwave[0])):
+            dwave = dwave[0]
+    else:
+        wave0 = f3[1].header["CRVAL1"]
+        pix0 = f3[1].header["CRPIX1"]
+        dwave = f3[1].header["CDELT1"]
+        nlam = numpy.shape(f3[1].data)[1]
+        wave_array = wave0 + dwave * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
     exptime = f3[1].header["EXPTIME"]
     try:
         secz = f3[1].header["AIRMASS"]
     except Exception:
         secz = 1.0
         print("AIRMASS keyword not found, assuming airmass=1.0")
-    nlam = numpy.shape(f3[1].data)[1]
-    wave_array = wave0 + dwave * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
     std_file = "None"
     # calculate the flux calibration array
     if mode == "pywifes":
@@ -1091,10 +1122,15 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         inst_fcal_array = 10.0 ** (-0.4 * all_final_fvals)
     elif mode == "iraf":
         f = pyfits.open(calib_fn)
-        calib_wave = f[0].header["CRVAL1"] + f[0].header["CDELT1"] * (
-            numpy.arange(f[0].header["NAXIS1"], dtype="d") - f[0].header["CRPIX1"] + 1.0
-        )
-        calib_flux = f[0].data
+        if "WAVELENGTH" in f:
+            calib_wave = f["WAVELENGTH"].data
+        elif f[0].shape[0] == 5:
+            calib_wave = f[0].data[4, 0, :]
+        else:
+            calib_wave = f[0].header["CRVAL1"] + f[0].header["CDELT1"] * (
+                numpy.arange(f[0].header["NAXIS1"], dtype="d") - f[0].header["CRPIX1"] + 1.0
+            )
+        calib_flux = f[0].data[0, 0, :]
         calib_interp = interp.interp1d(
             calib_wave, calib_flux, bounds_error=False, fill_value=0.0
         )
@@ -1119,8 +1155,8 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         curr_hdu = i + 1
         curr_flux = f3[curr_hdu].data
         curr_var = f3[curr_hdu + nslits].data
-        out_flux = curr_flux / (fcal_array * exptime * dwave)
-        out_var = curr_var / ((fcal_array * exptime * dwave) ** 2)
+        out_flux = curr_flux / (fcal_array * exptime * numpy.abs(dwave))
+        out_var = curr_var / ((fcal_array * exptime * numpy.abs(dwave)) ** 2)
         # save to data cube
         outfits[curr_hdu].data = out_flux.astype("float32", casting="same_kind")
         outfits[curr_hdu].scale("float32")
@@ -1535,11 +1571,20 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
             airmass = 1.0
             print("AIRMASS keyword not found, assuming airmass=1.0")
     # get the wavelength array
-    wave0 = f3[1].header["CRVAL1"]
-    pix0 = f3[1].header["CRPIX1"]
-    dwave = f3[1].header["CDELT1"]
-    nlam = numpy.shape(f3[1].data)[1]
-    wave_array = wave0 + dwave * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
+    if "WAVELENGTH" in f3:
+        wave_array = f3["WAVELENGTH"].data
+        nlam = numpy.shape(wave_array)[0]
+        dwave = numpy.zeros_like(wave_array)
+        dwave[1:] = wave_array[1:] - wave_array[:-1]
+        dwave[0] = dwave[1]
+        if numpy.all(numpy.isclose(dwave, dwave[0])):
+            dwave = dwave[0]
+    else:
+        wave0 = f3[1].header["CRVAL1"]
+        pix0 = f3[1].header["CRPIX1"]
+        dwave = f3[1].header["CDELT1"]
+        nlam = numpy.shape(f3[1].data)[1]
+        wave_array = wave0 + dwave * (numpy.arange(nlam, dtype="d") - pix0 + 1.0)
 
     # do not shift sky if Nod & Shuffle has removed sky lines
     if shift_sky and is_nodshuffle(inimg):
@@ -1575,7 +1620,7 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
             best_shift = 0.
             best_ampl = 0
             for this_shift in numpy.arange(-3., 3.25, 0.25):
-                this_ampl = numpy.nanmean(sky_interp(targ_wave + this_shift * dwave) * targ_sky / numpy.amax(targ_sky))
+                this_ampl = numpy.nanmean(sky_interp(targ_wave + this_shift) * targ_sky / numpy.amax(targ_sky))
                 if this_ampl > best_ampl:
                     best_shift = this_shift
                     best_ampl = this_ampl
@@ -1583,15 +1628,15 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
             shift_list.append(best_shift)
 
             # calculate the telluric correction array
-            base_O2_corr = O2_interp(wave_array + best_shift * dwave)
+            base_O2_corr = O2_interp(wave_array + best_shift)
             O2_corr = base_O2_corr ** (airmass**O2_power)
-            base_H2O_corr = H2O_interp(wave_array + best_shift * dwave)
+            base_H2O_corr = H2O_interp(wave_array + best_shift)
             H2O_corr = base_H2O_corr ** (airmass**H2O_power)
             fcal_array = O2_corr * H2O_corr
 
             if interactive_plot:
                 plt.plot(targ_wave, targ_sky / numpy.amax(targ_sky), label='Target sky')
-                plt.plot(targ_wave, sky_interp(targ_wave + best_shift * dwave), label='Interpolated telluric sky (shifted {:.2f} pixels)'.format(best_shift))
+                plt.plot(targ_wave, sky_interp(targ_wave + best_shift), label='Interpolated telluric sky (shifted {:.2f} pixels)'.format(best_shift))
                 plt.legend()
                 plt.title(f"{os.path.basename(inimg)} - slit {first + i}")
                 plt.xlabel("Wavelength (A)")
@@ -1626,7 +1671,7 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
     outfits[0].header.set("PYWTO2P", O2_power, "PyWiFeS: telluric O2 power")
     outfits[0].header.set("PYWTH2OP", H2O_power, "PyWiFeS: telluric H2O power")
     if shift_sky:
-        outfits[0].header.set("PYWTSHFT", numpy.median(shift_list) * dwave, "PyWiFeS: median lambda shift of telluric (A)")
+        outfits[0].header.set("PYWTSHFT", numpy.median(shift_list), "PyWiFeS: median lambda shift of telluric (pix)")
     outfits.writeto(outimg, overwrite=True)
     f3.close()
     return

@@ -16,7 +16,7 @@ def _run_superflat_mef(metadata, gargs, prev_suffix, curr_suffix, source, **args
     metadata : str
         The metadata information.
     gargs : dict
-        A dictionary containing global arguments used by the processing steps. 
+        A dictionary containing global arguments used by the processing steps.
     prev_suffix : str
         The previous suffix.
     curr_suffix : str
