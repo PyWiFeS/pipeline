@@ -270,8 +270,9 @@ def aperture_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None,
             # to the aperture
             tell = numpy.nanmedian(
                 sec_image(source_ap,
-                          numpy.swapaxes(numpy.tile(tell_data,
-                                                    (sci_cube.shape[1], 1, 1)), 0, 1)),
+                          numpy.transpose(numpy.tile(tell_data,
+                                                     (sci_cube.shape[1], 1, 1)),
+                                          [2, 0, 1])),
                 axis=1)
         else:
             tell = tell_data

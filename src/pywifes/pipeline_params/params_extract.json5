@@ -23,6 +23,7 @@
     //
     'splice_args': {
         "wstep": null,  // Wavelength step for output of spliced cubes and spectra. Value of null (None) uses (minimum) wavelength step of blue cube.
+        "get_dq": true,  // Include DQ extension in spliced cubes and spectra.
     },
     //
     // General Parameters
