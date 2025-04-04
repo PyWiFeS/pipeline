@@ -412,7 +412,7 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
         last_hdr = f2[data_hdu].header
         f2.close()
         # HAEND, ZDEND, EXPTIME
-        outfits[data_hdu].header.set("EXPTIME", sum(exptime_list))
+        outfits[data_hdu].header.set("EXPTIME", numpy.sum(exptime_list))
         outfits[data_hdu].header.set("LSTEND", last_hdr["LSTEND"])
         outfits[data_hdu].header.set("UTCEND", last_hdr["UTCEND"])
         outfits[data_hdu].header.set("HAEND", last_hdr["HAEND"])
@@ -454,7 +454,7 @@ def imcombine_mef(
         The scaling method to be used. Options are 'exptime', 'per_slice_median'.
         Default: None.
     method : str, optional
-        The method to be used for combining the images. Options are 'media', 'sum',
+        The method to be used for combining the images. Options are 'median', 'sum',
         'nansafesum'.
         Default: 'median'.
     debug : bool, optional
@@ -481,6 +481,7 @@ def imcombine_mef(
     data_hdu_list = list(range(1, nslits + 1))
     var_hdu_list = list(range(nslits + 1, 2 * nslits + 1))
     dq_hdu_list = list(range(2 * nslits + 1, 3 * nslits + 1))
+    n_ext = len(f)
 
     for data_hdu, hdu_type in list(zip(data_hdu_list, ('data' for _ in data_hdu_list))) \
             + list(zip(var_hdu_list, ('var' for _ in var_hdu_list))) \
@@ -549,44 +550,48 @@ def imcombine_mef(
         gc.collect()
     # fix ephemeris data if images are co-added!!!
     if method == "sum" and scale is None:
+        mjdobs_list = []
         airmass_list = []
         exptime_list = []
         for i in range(nimg):
-            f2 = pyfits.getheader(inimg_list[i], ext=1)
+            f2 = pyfits.getheader(inimg_list[i], ext=0)
+            if "AIRMASS" in f2:
+                airmass_list.append(f2["AIRMASS"])
+            if "EXPTIME" in f2:
+                exptime_list.append(f2["EXPTIME"])
+            if "MJD-OBS" in f2:
+                mjdobs_list.append(f2["MJD-OBS"])
+        last_hdr = pyfits.getheader(inimg_list[numpy.argsort(mjdobs_list)[-1]], ext=0)
+        # Update HAEND, ZDEND, EXPTIME in each extension
+        for i in range(n_ext):
+            outfits[i].header.set("EXPTIME", numpy.sum(exptime_list))
             try:
-                if "AIRMASS" in f2:
-                    airmass_list.append(f2["AIRMASS"])
+                outfits[i].header.set("LSTEND", last_hdr["LSTEND"])
             except Exception:
                 pass
-            exptime_list.append(f2["EXPTIME"])
-        last_hdr = pyfits.getheader(inimg_list[-1], ext=1)
-        # HAEND, ZDEND, EXPTIME
-        outfits[1].header.set("EXPTIME", sum(exptime_list))
-        try:
-            outfits[1].header.set("LSTEND", last_hdr["LSTEND"])
-        except Exception:
-            pass
-        try:
-            outfits[1].header.set("UTCEND", last_hdr["UTCEND"])
-        except Exception:
-            pass
-        try:
-            outfits[1].header.set("HAEND", last_hdr["HAEND"])
-        except Exception:
-            pass
-        try:
-            outfits[1].header.set("ZDEND", last_hdr["ZDEND"])
-        except Exception:
-            pass
-        if len(airmass_list) > 0:
-            outfits[1].header.set("AIRMASS", numpy.nanmean(numpy.array(airmass_list)))
+            try:
+                outfits[i].header.set("UTCEND", last_hdr["UTCEND"])
+            except Exception:
+                pass
+            try:
+                outfits[i].header.set("HAEND", last_hdr["HAEND"])
+            except Exception:
+                pass
+            try:
+                outfits[i].header.set("ZDEND", last_hdr["ZDEND"])
+            except Exception:
+                pass
+            if len(airmass_list) > 0:
+                outfits[i].header.set("AIRMASS", numpy.nanmean(numpy.array(airmass_list)))
     # Fix effective exposure time if scaled by EXPTIME
     if scale == "exptime":
         if method == "median":
             new_exptime = 1.0
         else:
             new_exptime = float(nimg)
-        outfits[1].header.set("EXPTIME", new_exptime, "Effective exposure time after scaling")
+        for i in range(n_ext):
+            outfits[i].header.set("EXPTIME", new_exptime, "Effective exposure time after scaling")
+
     # (5) write to outfile!
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWCONUM", nimg, "PyWiFeS: number of coadded images")
@@ -756,6 +761,7 @@ def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None,
         exptime1 = f1[1].header["EXPTIME"]
         exptime2 = f2[1].header["EXPTIME"]
         scale_factor = exptime1 / exptime2
+
     else:
         scale_factor = 1.0
     # PART 1 - data HDUs
@@ -2668,17 +2674,20 @@ def wifes_slitlet_mef(
         var_img[numpy.isnan(full_data)] = 65535.**2
         dq_img[numpy.isnan(full_data)] = 1
 
-        # Linear row-by-row x-interpolation over NaNs from bad pixel mask (after adjusting VAR and DQ)
+        # Linear row-by-row x-interpolation over NaNs from bad pixel mask
+        # (after adjusting VAR and DQ)
         if nan_method == "interp":
             for row in numpy.arange(full_data.shape[0]):
                 if numpy.any(numpy.isnan(full_data[row, :])):
                     nans, x = nan_helper(full_data[row, :])
-                    full_data[row, :][nans] = numpy.interp(x(nans), x(~nans), full_data[row, :][~nans])
+                    full_data[row, :][nans] = numpy.interp(x(nans), x(~nans),
+                                                           full_data[row, :][~nans])
         # Replace NaNs with indicated value
         elif nan_method == "replace":
             full_data[numpy.isnan(full_data)] = repl_val
         else:
-            raise ValueError(f"Unknown nan_method '{nan_method}' in wifes_slitlet_mef for creation of {os.path.basename(outimg)}")
+            raise ValueError(f"Unknown nan_method '{nan_method}' in wifes_slitlet_mef "
+                             f"for creation of {os.path.basename(outimg)}")
 
     # ---------------------------
     # for each slitlet, save it to a single header extension

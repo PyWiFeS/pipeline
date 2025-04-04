@@ -479,7 +479,7 @@ def cube_matcher(paths_list):
     df["date_obs"] = pd.to_datetime(df["date_obs"], utc=True, format="ISO8601")
 
     df = df.sort_values("date_obs")
-    Nsec = 60  # allow Nsec seconds of difference between the arms
+    Nsec = 90  # allow Nsec seconds of difference between the arms
     df['Group'] = df["date_obs"].diff().dt.seconds.gt(Nsec).cumsum()
     matched_obs_arms = (
         df.groupby('Group')[["path", "arm"]]

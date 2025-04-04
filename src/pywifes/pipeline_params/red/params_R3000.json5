@@ -540,7 +540,7 @@
                 // - "mode": "iraf",  // FITS image format for input flux calibration file.
                 //
                 // Additional user options.
-                // - "interactive_plot": false,
+                // - "extinction_fn": null, // Extinction file path containing the extinction curve information. If null (None), defaults to standard SSO extinction curve.
             }
         },
         {
@@ -576,7 +576,7 @@
                 // Additional user options.
                 "plot": true,
                 // - "save_prefix": "telluric",
-                // - "interactive_plot": false,
+                "interactive_plot": true,
                 // - "debug": false,
                 }
         },

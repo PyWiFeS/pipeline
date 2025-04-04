@@ -32,9 +32,6 @@ def _run_flux_calib(metadata, gargs, prev_suffix, curr_suffix, mode="pywifes", *
         Extinction file path containing the extinction curve information. If None,
         defaults to standard SSO extinction curve.
         Default: None.
-    interactive_plot : bool, optional
-        Whether to interrupt processing to provide interactive plot to user.
-        Default: False.
 
     Returns
     -------

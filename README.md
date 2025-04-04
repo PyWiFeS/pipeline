@@ -4,6 +4,18 @@ The automated Python data reduction pipeline for WiFeS.
 
 ## Updates
 
+What's been done [20250403]:
+
+- update standard stars to use Nov 2024 edition of CALSPEC, where available
+
+- refine standard star flux calibration procedure
+
+- improve handling of coadded images, especially when exposure times differ between arms
+
+- bugfixes in spliced spectrum wavelength definition, airmass-dependence of first telluric standard
+
+### Previously ###
+
 What's been done [20250324]:
 
 - allow user to propagate telluric spectrum into datacubes and extracted spectra
@@ -29,10 +41,7 @@ From branch fji_deps_updates-and-spec_extract [20241205]:
 
 - Update dependencies to photutils >= 2.0.0 (requiring scipy requirement update) and to allow any numpy version.
 
-
-### Previously ###
-
-What's been done [20250115]:
+[20250115]:
 
 - new NeAr and CuAr line list from NIST (Ritz wavelengths in air)
 

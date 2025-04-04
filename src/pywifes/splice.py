@@ -27,8 +27,8 @@ def calculate_wavelength_array(
     - numpy.ndarray: Wavelength array calculated from the given parameters.
     """
     # Calculate the number of wavelength points needed
-    nwl = int((red_CRVAL + red_CDELT * (red_NAXIS - red_CRPIX)
-               - (blue_CRVAL - (blue_CRPIX - 1) * blue_CDELT)) / wstep)
+    nwl = int(numpy.ceil((red_CRVAL + red_CDELT * (red_NAXIS - red_CRPIX)
+                          - (blue_CRVAL - (blue_CRPIX - 1) * blue_CDELT)) / wstep))
     # Generate the wavelength array
     wl = (numpy.arange(nwl) - blue_CRPIX + 1) * wstep + blue_CRVAL
     return wl
@@ -100,7 +100,8 @@ class SingleSpec(object):
             self.wave_ext = True
         else:
             self.wl = (
-                numpy.arange(self.header["NAXIS1"], dtype="d") - (self.header["CRPIX1"] + 1)
+                numpy.arange(self.header["NAXIS1"], dtype="d")
+                - self.header["CRPIX1"] + 1
             ) * self.header["CDELT1"] + self.header["CRVAL1"]
             self.wave_ext = False
         self.min_wl = min(self.wl)
@@ -146,9 +147,6 @@ def join_spectra(blueSpec, redSpec, get_dq=False, wstep=None):
             blue_CRVAL1, blue_CDELT1, blue_CRPIX1, red_CRVAL1, red_CDELT1,
             red_CRPIX1, red_NAXIS1, wstep
         )
-
-    blueSpec.fluxvar[blueSpec.fluxvar < 1E-37] = 9E9
-    redSpec.fluxvar[redSpec.fluxvar < 1E-37] = 9E9
 
     # One does not need to interplolate the blue spectra if the wavelength is
     # set to the blue spectrum. However the code is robust to this.
@@ -284,6 +282,13 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
     hdulist[0].scale("float32")
 
     hdulist[0].header = redSpec.header.copy()
+    if "EXPTIME" in blueSpec.header and \
+            blueSpec.header["EXPTIME"] != hdulist[0].header["EXPTIME"]:
+        hdulist[0].header["EXPTRED"] = (hdulist[0].header["EXPTIME"],
+                                        "Exposure time in red arm")
+        hdulist[0].header["EXPTBLUE"] = (blueSpec.header["EXPTIME"],
+                                         "Exposure time in blue arm")
+        hdulist[0].header.remove("EXPTIME")
     hdulist[0].header["CRPIX1"] = 1
     hdulist[0].header["CRVAL1"] = wave_min
     hdulist[0].header["CDELT1"] = wstep_out
@@ -400,8 +405,8 @@ def join_cubes(blue_path, red_path, get_dq=False, wstep=None):
         blue_CRPIX1 = blue_header["CRPIX3"]
         blue_NAXIS1 = blue_header["NAXIS3"]
         blue_wavelength = (
-            (numpy.arange(blue_NAXIS1) - blue_CRPIX1 + 1) * blue_CDELT1
-        ) + blue_CRVAL1
+            (numpy.arange(blue_NAXIS1) - blue_CRPIX1 + 1) * blue_CDELT1 + blue_CRVAL1
+        )
     blue_hdu.close()
     blue_max_wavelength = max(blue_wavelength)
 
@@ -468,8 +473,6 @@ def join_cubes(blue_path, red_path, get_dq=False, wstep=None):
             # Average the two taking into account the buffer region and weighting
             flux = numpy.zeros(len(flux_B), float)
             fluxVar = numpy.zeros(len(flux_B), float)
-            fluxvar_B[fluxvar_B < 1E-37] = 9E9
-            fluxvar_R[fluxvar_R < 1E-37] = 9E9
 
             flux[blue_only] = flux_B[blue_only]
             fluxVar[blue_only] = fluxvar_B[blue_only]
@@ -551,6 +554,7 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
     if debug:
         print(arguments())
 
+    blue_header = fits.getheader(blue_path, 0)
     red_header = fits.getheader(red_path, 0)
 
     # Join the cubes
@@ -566,6 +570,13 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
     hdulist[0].scale("float32")
 
     hdulist[0].header = red_header
+    if "EXPTIME" in blue_header and \
+            blue_header["EXPTIME"] != hdulist[0].header["EXPTIME"]:
+        hdulist[0].header["EXPTRED"] = (hdulist[0].header["EXPTIME"],
+                                        "Exposure time in red arm")
+        hdulist[0].header["EXPTBLUE"] = (blue_header["EXPTIME"],
+                                         "Exposure time in blue arm")
+        hdulist[0].header.remove("EXPTIME")
     hdulist[0].header["CRPIX3"] = 1
     hdulist[0].header["CRVAL3"] = wave_min
     hdulist[0].header["CDELT3"] = wstep_out

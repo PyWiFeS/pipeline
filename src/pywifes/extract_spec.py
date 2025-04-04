@@ -833,7 +833,7 @@ def detect_extract_and_save(
                 bin_y=binning_y,
             )
             # Catch rotations near 90deg to adapt axis labels and ticks
-            if "TELPAN" in red_sci_hdr \
+            if red_sci_hdr is not None and "TELPAN" in red_sci_hdr \
                     and numpy.abs(numpy.mod(red_sci_hdr["TELPAN"], 180) - 90.) < 5.0:
                 ax1.coords[0].set_ticklabel_position('l')
                 ax1.set_ylabel('Right Ascension')
@@ -853,7 +853,7 @@ def detect_extract_and_save(
                 bin_y=binning_y,
             )
             # Catch rotations near 90deg to adapt axis labels and ticks
-            if "TELPAN" in blue_sci_hdr \
+            if blue_sci_hdr is not None and "TELPAN" in blue_sci_hdr \
                     and numpy.abs(numpy.mod(blue_sci_hdr["TELPAN"], 180) - 90.) < 5.0:
                 ax0.coords[0].set_ticklabel_position('l')
                 ax0.set_ylabel('Right Ascension')
@@ -861,9 +861,14 @@ def detect_extract_and_save(
                 ax0.set_xlabel('Declination')
 
             # Add PA to plot
-            if "ROTREF" in blue_sci_hdr and blue_sci_hdr["ROTREF"] == "POSITION_ANGLE" \
+            if blue_sci_hdr is not None and "ROTREF" in blue_sci_hdr\
+                    and blue_sci_hdr["ROTREF"] == "POSITION_ANGLE" \
                     and "TELPAN" in blue_sci_hdr:
                 plt.gcf().text(0.05, 0.05, r"PA = {:.1f}$^\circ$".format(blue_sci_hdr["TELPAN"]))
+            elif red_sci_hdr is not None and "ROTREF" in red_sci_hdr\
+                    and red_sci_hdr["ROTREF"] == "POSITION_ANGLE" \
+                    and "TELPAN" in red_sci_hdr:
+                plt.gcf().text(0.05, 0.05, r"PA = {:.1f}$^\circ$".format(red_sci_hdr["TELPAN"]))
 
             plt.tight_layout()
             fig_output = os.path.join(output_dir, plot_path)
