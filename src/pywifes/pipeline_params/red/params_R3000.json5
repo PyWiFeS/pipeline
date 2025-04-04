@@ -576,7 +576,7 @@
                 // Additional user options.
                 "plot": true,
                 // - "save_prefix": "telluric",
-                "interactive_plot": true,
+                // - "interactive_plot": false,
                 // - "debug": false,
                 }
         },
