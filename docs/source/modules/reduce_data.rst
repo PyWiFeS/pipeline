@@ -1,6 +1,5 @@
 .. _reduce-data:
 
-
 Reduce Data 
 ===============
 

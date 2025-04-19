@@ -62,25 +62,27 @@ def _run_flat_response(metadata, gargs, prev_suffix, curr_suffix, mode="all", **
             and os.path.getmtime(gargs['super_dflat_mef']) < os.path.getmtime(gargs['flat_resp_fn']):
         return
     print("Generating flatfield response function")
-    if mode == "all" and not os.path.isfile(gargs['super_tflat_mef']):
-        print("WARNING: No twilight superflat MEF found. Falling back to dome flat only.")
-        mode = "dome"
 
     if mode == "all":
-        pywifes.wifes_SG_response(
-            gargs['super_dflat_mef'],
-            gargs['super_tflat_mef'],
-            gargs['flat_resp_fn'],
-            wsol_fn=gargs['wsol_out_fn'],
-            plot_dir=gargs['plot_dir_arm'],
-            shape_fn=gargs['smooth_shape_fn'],
-            **args
-        )
+        if os.path.isfile(gargs['super_tflat_mef']):
+            spatial_inimg = gargs['super_tflat_mef']
+        else:
+            print("WARNING: No twilight superflat MEF found. Falling back to dome flat only.")
+            spatial_inimg = None
     elif mode == "dome":
-        pywifes.wifes_response_poly(
-            gargs['super_dflat_mef'], gargs['flat_resp_fn'], wsol_fn=gargs['wsol_out_fn'], shape_fn=gargs['smooth_shape_fn'], **args
-        )
+        spatial_inimg = None
     else:
-        print("Requested response mode not recognised")
-        raise ValueError("Requested response mode not recognised")
+        print(f"Requested response mode <{mode}> not recognised")
+        raise ValueError(f"Requested response mode <{mode}> not recognised")
+
+    pywifes.wifes_SG_response(
+        gargs['super_dflat_mef'],
+        gargs['flat_resp_fn'],
+        spatial_inimg=spatial_inimg,
+        wsol_fn=gargs['wsol_out_fn'],
+        plot_dir=gargs['plot_dir_arm'],
+        shape_fn=gargs['smooth_shape_fn'],
+        **args
+    )
+
     return

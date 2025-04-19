@@ -13,16 +13,16 @@ The pipeline will generate the `data_products` directory within the working dire
     - `xxx-Red-UTxxx.cube.fits`
     - `xxx-Splice-UTxxx.cube.fits`
     - ... 
-    - `xxx-Blue-UTxxx.spec.apx.fits`
-    - `xxx-Red-UTxxx.spec.apx.fits`
-    - `xxx-Splice-UTxxx.spec.apx.fits`
+    - `xxx-Blue-UTxxx.spec.detx.fits`
+    - `xxx-Red-UTxxx.spec.detx.fits`
+    - `xxx-Splice-UTxxx.spec.detx.fits`
     
     - plots
         - `UTxxx_detection_plot.png`
-        - `xxx-Blue-UTxxx_.spec.ap1.png`
-        - `xxx-Red-UTxxx_.spec.ap1.png`
+        - `xxx-Blue-UTxxx_.spec.det1.png`
+        - `xxx-Red-UTxxx_.spec.det1.png`
         - ...
-        - `xxx-Splice-UTxxx_.spec.ap1.png`
+        - `xxx-Splice-UTxxx_.spec.det1.png`
         - ... 
         - blue
             - `bias.png`

@@ -4,6 +4,21 @@ The automated Python data reduction pipeline for WiFeS.
 
 ## Updates
 
+What's been done [20250419]:
+
+- allow user to propagate applied extinction correction into datacubes and extracted spectra
+
+- allow user to separate nod-and-shuffle observations and process independently rather than subtracting
+
+- improved edge-handling for atmospheric differential refraction remapping
+
+- use enhanced flatfield algorithm when lacking twilight flats
+
+- improve spectral extraction for binning modes other than 1x2
+
+
+### Previously ###
+
 What's been done [20250403]:
 
 - update standard stars to use Nov 2024 edition of CALSPEC, where available
@@ -14,9 +29,7 @@ What's been done [20250403]:
 
 - bugfixes in spliced spectrum wavelength definition, airmass-dependence of first telluric standard
 
-### Previously ###
-
-What's been done [20250324]:
+[20250324]:
 
 - allow user to propagate telluric spectrum into datacubes and extracted spectra
 
@@ -340,7 +353,7 @@ When multiple sky frames are associated with a science image, they are scaled by
 
 **Other parameters**
 
-`--skip-done`: Skip already completed steps. This will check for the existence of the output files from each step, as well as whether the output files are newer than the input files -- if either part fails, the step will be executed.
+`--skip-done`: Skip already completed steps. This will check for the existence of the output files from each step, as well as whether the output files are newer than the input files -- if either part fails, the step will be executed. Note that this will not skip the extraction or splicing steps, but will overwrite existing files if `--extract` or `--extract-and-splice` are used.
 
 `--just-calib`: Triggers the data reduction in the absence of on-sky data (both science and calibration). It only produces basic calibration files.
 
@@ -350,9 +363,10 @@ When multiple sky frames are associated with a science image, they are scaled by
 
     /.../pipeline/pipeline_params/params_extract.json5
 
-If the inputs are Nod & Shuffle frames, the sky is not subtracted.
+The subtracted sky spectrum is included in the output. If the inputs are Nod & Shuffle frames, no sky is subtracted. Users may choose whether to propagate the data quality (DQ), applied telluric correction (TELLURICMODEL), and corrected atmospheric extinction (EXTINCTION) to the output spectrum.
 
-`--extract-and-splice`: In addition to the extraction described above, splice together the datacubes and extracted spectra. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON5 setup). 
+`--extract-and-splice`: In addition to the extraction described above, splice together the datacubes and extracted spectra. By default, the pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default pipeline setup). The user may specify an alternative wavelength spacing in the extraction JSON5 file, and both arms will be interpolated to that scale.
+
 
 ### Extra usabilities
 #### Multiprocessing

@@ -1,6 +1,9 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import get_sci_obs_list, get_std_obs_list, wifes_recipe
+from pywifes.wifes_utils import (
+    get_sci_obs_list, get_std_obs_list, is_nodshuffle, is_subnodshuffle, set_header,
+    wifes_recipe
+)
 
 
 # ------------------------------------------------------
@@ -9,7 +12,7 @@ from pywifes.wifes_utils import get_sci_obs_list, get_std_obs_list, wifes_recipe
 # since run_sky_sub_ns is called from run_sky_sub,
 # no need to have decorator here
 # @wifes_recipe
-def _run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix):
+def _run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
     """
     Subtract sky frames from science objects in nod-and-shuffle mode.
 
@@ -24,6 +27,12 @@ def _run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix):
     curr_suffix : str
         Current suffix of the file names (output).
 
+    Optional Function Arguments
+    ---------------------------
+    separate_ns : bool
+        Whether to separate the two N&S positions and progress them independently.
+        Default: False.
+
     Returns
     -------
     None
@@ -35,17 +44,45 @@ def _run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix):
         in_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, prev_suffix))
         out_fn = os.path.join(gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix))
         sky_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
-        if gargs['skip_done'] and os.path.isfile(out_fn) \
-                and os.path.getmtime(in_fn) < os.path.getmtime(out_fn) \
-                and os.path.getmtime(sky_fn) < os.path.getmtime(out_fn):
-            continue
-        print(f"Subtracting N+S sky frame for {os.path.basename(in_fn)}")
-        pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime")
+        if is_nodshuffle(in_fn) or is_subnodshuffle(in_fn):
+            if separate_ns:
+                if gargs['skip_done'] and os.path.isfile(out_fn) \
+                        and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
+                    pass
+                else:
+                    print(f"Copying N&S science image {os.path.basename(in_fn)}")
+                    pywifes.imcopy(in_fn, out_fn)
+
+                out_sky_fn = os.path.join(gargs['out_dir'], "%ss.p%s.fits" % (fn, curr_suffix))
+                if gargs['skip_done'] and os.path.isfile(out_sky_fn) \
+                        and os.path.getmtime(sky_fn) < os.path.getmtime(out_sky_fn):
+                    pass
+                else:
+                    print(f"Copying N&S sky image {os.path.basename(sky_fn)}")
+                    pywifes.imcopy(sky_fn, out_sky_fn)
+                    # Add 'sky' from N&S to science metadata
+                    metadata['sci'].append({"sci": [os.path.basename(out_sky_fn).replace(f".p{curr_suffix}.fits", "")], "sky": []})
+                    # Remove N&S label
+                    set_header(out_fn, "WIFESOBS", "ClassicalEqual")
+                    set_header(out_sky_fn, "WIFESOBS", "ClassicalEqual")
+            else:
+                if gargs['skip_done'] and os.path.isfile(out_fn) \
+                        and os.path.getmtime(in_fn) < os.path.getmtime(out_fn) \
+                        and os.path.getmtime(sky_fn) < os.path.getmtime(out_fn):
+                    continue
+                print(f"Subtracting N+S sky frame for {os.path.basename(in_fn)}")
+                pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime")
+        else:
+            if gargs['skip_done'] and os.path.isfile(out_fn) \
+                    and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
+                continue
+            print(f"Copying non-N&S image {os.path.basename(in_fn)}")
+            pywifes.imcopy(in_fn, out_fn)
     return
 
 
 @wifes_recipe
-def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix):
+def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, **args):
     """
     Subtract sky frames from science objects.
 
@@ -65,7 +102,7 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix):
     None
     """
     if gargs['obs_mode'] == "ns":
-        _run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix)
+        _run_sky_sub_ns(metadata, gargs, prev_suffix, curr_suffix, **args)
     else:
         # subtract sky frames from science objects
         for obs in metadata["sci"]:

@@ -497,7 +497,7 @@ def cube_matcher(paths_list):
                 base = os.path.basename(obs_arm["path"])
                 # Remove extention, Blue and Red- label to form the name
                 file_name = (
-                    os.path.splitext(base)[0].replace("Red--", "").replace("Blue-", "").replace("T2m3wb-", "").replace("T2m3wr-", "")
+                    os.path.splitext(base)[0].replace("Red--", "").replace("Blue-", "").replace("T2m3wb-", "").replace("T2m3wr-", "").replace("cut_", "")
                 )
                 matched_dict["file_name"] = file_name
         matched_dicts.append(matched_dict)

@@ -70,7 +70,8 @@ def _run_obs_coadd(metadata, gargs, prev_suffix, curr_suffix, method="sum", scal
         for fidx in range(worker, nmax):
             obs = obslist[fidx]
             p = multiprocessing.Process(target=_run_obs_coadd_indiv,
-                                        args=(obs, gargs, prev_suffix, curr_suffix, method, scale))
+                                        args=(obs, gargs, prev_suffix, curr_suffix,
+                                              method, scale))
             jobs.append(p)
             p.start()
 

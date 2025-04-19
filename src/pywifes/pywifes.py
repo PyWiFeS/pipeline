@@ -425,8 +425,8 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
     outfits.writeto(outimg, overwrite=True)
     # write the variance image, if requested
     if outvarimg is not None:
-        outfits[data_hdu].data = var_arr.astype("float32", casting="same_kind")
-        outfits[data_hdu].scale("float32")
+        outfits[data_hdu].data = var_arr.astype("float64", casting="same_kind")
+        outfits[data_hdu].scale("float64")
         outfits.writeto(outvarimg, overwrite=True)
     f.close()
     gc.collect()
@@ -538,8 +538,8 @@ def imcombine_mef(
                 coadd_data = numpy.nanmean(coadd_arr, axis=2) * nimg
             else:
                 raise ValueError(f"combine method '{method}' not yet supported")
-            outfits[data_hdu].data = coadd_data.astype("float32", casting="same_kind")
-            outfits[data_hdu].scale("float32")
+            outfits[data_hdu].data = coadd_data.astype("float64", casting="same_kind")
+            outfits[data_hdu].scale("float64")
         elif hdu_type == 'dq':
             coadd_data = numpy.nansum(coadd_arr, axis=2)
             # trim data beyond range
@@ -678,8 +678,8 @@ def imarith_mef(inimg1, operator, inimg2, outimg):
             op_var = var1 / (data2**2) + var2 * ((data1 / (data2**2)) ** 2)
         else:
             raise ValueError
-        outfits[var_hdu].data = op_var.astype("float32", casting="same_kind")
-        outfits[var_hdu].scale("float32")
+        outfits[var_hdu].data = op_var.astype("float64", casting="same_kind")
+        outfits[var_hdu].scale("float64")
         gc.collect()
 
     # PART 3 - dq HDUs
@@ -810,8 +810,8 @@ def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None,
             op_var = var1 / (data2**2) + var2 * ((data1 / (data2**2)) ** 2)
         else:
             raise ValueError
-        outfits[var_hdu].data = op_var.astype("float32", casting="same_kind")
-        outfits[var_hdu].scale("float32")
+        outfits[var_hdu].data = op_var.astype("float64", casting="same_kind")
+        outfits[var_hdu].scale("float64")
     # PART 3 - dq HDUs
     for dq_hdu in dq_hdu_list:
         dq1 = f1[dq_hdu].data
@@ -2773,11 +2773,11 @@ def wifes_slitlet_mef(
         var_data = var_img[mod_defs[2]:mod_defs[3], mod_defs[0]:mod_defs[1]]
         # create fits hdu
         hdu_name = "VAR%d" % i
-        new_hdu = pyfits.ImageHDU(var_data.astype("float32", casting="same_kind"), old_hdr, name=hdu_name)
+        new_hdu = pyfits.ImageHDU(var_data.astype("float64", casting="same_kind"), old_hdr, name=hdu_name)
         new_hdu.header.set("DETSEC", dim_str)
         new_hdu.header.set("DATASEC", dim_str)
         new_hdu.header.set("TRIMSEC", dim_str)
-        new_hdu.scale('float32')
+        new_hdu.scale('float64')
         outfits.append(new_hdu)
         gc.collect()
     # DATA QUALITY EXTENSIONS
@@ -3064,14 +3064,14 @@ def wifes_slitlet_mef_ns(
         obj_var[-ykill:, :] *= 0.0
         # create fits hdu for object variance
         hdu_name = "VAR%d" % (i + 1)
-        obj_hdu = pyfits.ImageHDU(obj_var.astype("float32", casting="same_kind"), old_hdr, name=hdu_name)
+        obj_hdu = pyfits.ImageHDU(obj_var.astype("float64", casting="same_kind"), old_hdr, name=hdu_name)
         obj_hdu.header.set("DETSEC", obj_dim_str)
         obj_hdu.header.set("DATASEC", obj_dim_str)
         obj_hdu.header.set("TRIMSEC", obj_dim_str)
         # fix the exposure time!!
         exptime_true = float(old_hdr["EXPTIME"])
         obj_hdu.header.set("EXPTIME", exptime_true, comment="Total NS exposure time")
-        obj_hdu.scale("float32")
+        obj_hdu.scale("float64")
         outfits_obj.append(obj_hdu)
         # ------------------
         # get the sky data
@@ -3097,14 +3097,14 @@ def wifes_slitlet_mef_ns(
         sky_var[-ykill:, :] *= 0.0
         # create fits hdu for sky variance
         hdu_name = "VAR%d" % (i + 1)
-        sky_hdu = pyfits.ImageHDU(sky_var.astype("float32", casting="same_kind"), old_hdr, name=hdu_name)
+        sky_hdu = pyfits.ImageHDU(sky_var.astype("float64", casting="same_kind"), old_hdr, name=hdu_name)
         sky_hdu.header.set("DETSEC", sky_dim_str)
         sky_hdu.header.set("DATASEC", sky_dim_str)
         sky_hdu.header.set("TRIMSEC", sky_dim_str)
         # fix the exposure time!!
         exptime_true = float(old_hdr["EXPTIME"])
         sky_hdu.header.set("EXPTIME", exptime_true, comment="Total NS exposure time")
-        sky_hdu.scale("float32")
+        sky_hdu.scale("float64")
         outfits_sky.append(sky_hdu)
         gc.collect()
     # ------------------------------------
@@ -3275,9 +3275,22 @@ def wifes_response_pixel(inimg, outimg, wsol_fn=None, debug=False):
     return
 
 
-def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, shape_fn=None, debug=False):
+def wifes_response_poly(
+    inimg,
+    outimg,
+    wsol_fn=None,
+    zero_var=True,
+    polydeg=7,
+    shape_fn=None,
+    plot=True,
+    plot_dir='.',
+    save_prefix="flat_response",
+    debug=False,
+):
+
     if debug:
         print(arguments())
+
     # check if halfframe
     halfframe = is_halfframe(inimg)
     if halfframe:
@@ -3346,6 +3359,7 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, s
             print("Transforming data for Slitlet %d" % (first + i))
             rect_data, lam_array = transform_data(orig_data, wave, return_lambda=True)
             curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
+            curr_norm_array_noxform = detransform_data(numpy.tile(curr_norm_array, (orig_data.shape[1], 1)), orig_data, wave)
             init_normed_data = rect_data / curr_norm_array
             normed_data = detransform_data(init_normed_data, orig_data, wave)
             if i == mid_slit_idx:
@@ -3355,14 +3369,22 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, s
 
         else:
             lam_array = numpy.arange(len(orig_data[0, :]), dtype="d")
-            curr_norm_array = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
-            normed_data = rect_data / curr_norm_array
+            curr_norm_array_noxform = 10.0 ** (numpy.polyval(smooth_poly, lam_array))
+            normed_data = rect_data / curr_norm_array_noxform
+
+        # Diagnostic plot: save some values for later
+        if plot and i == mid_slit_idx:
+            mid_row = (orig_data.shape[0] // 2)
+            x1 = numpy.arange(orig_data.shape[1])
+            y1 = orig_data[mid_row, :]
+            y3 = curr_norm_array_noxform[0, :]
+
         outfits[curr_hdu].data = normed_data.astype("float32", casting="same_kind")
         outfits[curr_hdu].scale("float32")
         if zero_var:
             var_hdu = curr_hdu + nslits
-            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype("float32", casting="same_kind")
-            outfits[var_hdu].scale("float32")
+            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype("float64", casting="same_kind")
+            outfits[var_hdu].scale("float64")
         # need to fit this for each slitlet
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWRESIN", "dome only", "PyWiFeS: flatfield inputs")
@@ -3370,6 +3392,42 @@ def wifes_response_poly(inimg, outimg, wsol_fn=None, zero_var=True, polydeg=7, s
     outfits[0].header.set("PYWRESPD", polydeg, "PyWiFeS: 2D response polydeg")
     outfits.writeto(outimg, overwrite=True)
     f.close()
+
+    # ---------------------------------------------
+    # Diagnostic plots
+    if plot:
+        fig = plt.figure(1, figsize=(10, 5))
+        grid = gridspec.GridSpec(2, 2, height_ratios=[3, 1], width_ratios=[4, 1])
+
+        # (1) spectral fit: plot the middle spectrum of the middle slit
+        ax_left = fig.add_subplot(grid[0, 0])
+        ax_left.set_title('Spectral Flatfield Correction')
+        ax_left.plot(x1, y1, "C0", label='Original flat lamp spectrum')
+        ax_left.plot(x1, y3, color="r", ls='dashed', label='Smooth function fit')
+        ax_left.legend()
+        ax_left.set_xlabel(r'X-axis pixel')
+        ax_left.set_ylabel('Flux')
+        ax_left.set_ylim(0.8 * numpy.nanmin(y1), 1.2 * numpy.nanmax(y1))
+        ax_left.set_yscale('log')
+
+        # (2) spectral fit residuals
+        ax_bottom = fig.add_subplot(grid[1, 0])
+        ax_bottom.axhline(1, ls='--', c='k')
+        ax_bottom.plot(x1, y1 / y3)
+        ax_bottom.set_ylabel('Ratio')
+        ax_bottom.set_ylim(0.85, 1.15)
+
+        # (3) illumination correction
+        ax_right = fig.add_subplot(grid[0, 1])
+        ax_right.set_title('Illumination Correction')
+        ax_right.text(0.5, 0.5, 'No Twilight Flats', horizontalalignment='center')
+
+        plt.tight_layout()
+        plot_name = f"{save_prefix}.png"
+        plot_path = os.path.join(plot_dir, plot_name)
+        plt.savefig(plot_path, dpi=300)
+        plt.close()
+
     return
 
 
@@ -3600,8 +3658,8 @@ def wifes_2dim_response(
         illum[:, i] = numpy.nanmedian(normed_data, axis=1)
         if zero_var:
             var_hdu = curr_hdu + nslits
-            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype("float32", casting="same_kind")
-            outfits[var_hdu].scale("float32")
+            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype("float64", casting="same_kind")
+            outfits[var_hdu].scale("float64")
         # need to fit this for each slitlet
 
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
@@ -3661,8 +3719,8 @@ def wifes_2dim_response(
 
 def wifes_SG_response(
     spec_inimg,
-    spatial_inimg,
     outimg,
+    spatial_inimg=None,
     wsol_fn=None,
     zero_var=True,
     plot=True,
@@ -3675,6 +3733,7 @@ def wifes_SG_response(
 ):
     if debug:
         print(arguments())
+
     # check if halfframe
     halfframe = is_halfframe(spec_inimg)
     if halfframe:
@@ -3692,7 +3751,8 @@ def wifes_SG_response(
 
     # open the two files!
     f1 = pyfits.open(spec_inimg)
-    f2 = pyfits.open(spatial_inimg)
+    if spatial_inimg is not None:
+        f2 = pyfits.open(spatial_inimg)
     ndy, ndx = numpy.shape(f1[1].data)
     arm = f1[0].header["CAMERA"]
     grating = f1[0].header["GRATINGB"] if arm == "WiFeSBlue" else f1[0].header["GRATINGR"]
@@ -3708,11 +3768,13 @@ def wifes_SG_response(
     except Exception:
         print("Could not retrieve number of input dome flats from header, defaulting to 1")
         nflat = 1.0
-    try:
-        ntflat = float(f2[0].header["PYWTWIN"])
-    except Exception:
-        print("Could not retrieve number of input twi flats from header, defaulting to 1")
-        ntflat = 1.0
+
+    if spatial_inimg is not None:
+        try:
+            ntflat = float(f2[0].header["PYWTWIN"])
+        except Exception:
+            print("Could not retrieve number of input twi flats from header, defaulting to 1")
+            ntflat = 1.0
 
     outfits = pyfits.HDUList(f1)
     pixel_response = numpy.ones((nslits, ndy, ndx))
@@ -3723,7 +3785,8 @@ def wifes_SG_response(
         print("Computing slitlet %d" % (i + first))
         curr_hdu = i + 1
         orig_spec_data = f1[curr_hdu].data
-        orig_spat_data = f2[curr_hdu].data
+        if spatial_inimg is not None:
+            orig_spat_data = f2[curr_hdu].data
 
         N = 25
         window_factor = 4 if arm == "WiFeSRed" else 3
@@ -3786,26 +3849,37 @@ def wifes_SG_response(
             f3.close()
 
             # SPATIAL FLAT
-            rect_spat_data, lam_array = transform_data(orig_spat_data, wave, return_lambda=True)
-            # define limits in untransformed coordinates
-            lam_min = numpy.amin((wave[:, 1500 // bin_x], wave[:, 2000 // bin_x]), axis=0)
-            lam_max = numpy.amax((wave[:, 1500 // bin_x], wave[:, 2000 // bin_x]), axis=0)
-            for row in range(rect_spat_data.shape[0]):
-                illum[i, row] = numpy.median(rect_spat_data[row, :][(lam_array >= lam_min[row]) * (lam_array <= lam_max[row])])
+            if spatial_inimg is not None:
+                rect_spat_data, lam_array = transform_data(orig_spat_data, wave, return_lambda=True)
+                # define limits in untransformed coordinates
+                lam_min = numpy.amin((wave[:, 1500 // bin_x], wave[:, 2000 // bin_x]), axis=0)
+                lam_max = numpy.amax((wave[:, 1500 // bin_x], wave[:, 2000 // bin_x]), axis=0)
+                for row in range(rect_spat_data.shape[0]):
+                    illum[i, row] = numpy.median(rect_spat_data[row, :][(lam_array >= lam_min[row]) * (lam_array <= lam_max[row])])
 
-            # Save the smooth fit to the middle row of the middle slice
+            # Save the smooth fit to the middle row of the middle slice of the spectral flat
+            # Do this here to avoid duplicating retrieval of wavelength info
             if i == mid_slit_idx:
                 smooth_wave = wave[(orig_spec_data.shape[0] // 2), :]
-                y3max = numpy.amax(y3)
+                y3max = numpy.nanmax(y3)
+                y3norm = numpy.log10(y3 / y3max)
+                y3n_interp = interp.interp1d(smooth_wave[~numpy.isnan(y3norm)],
+                                             y3norm[~numpy.isnan(y3norm)],
+                                             kind='linear',
+                                             bounds_error=False,
+                                             fill_value="extrapolate")
+                y3out = numpy.power(10, y3n_interp(smooth_wave))
                 with open(shape_fn, 'w') as of:
-                    for smooth_row in range(smooth_wave.shape[0]):
-                        of.write(f"{smooth_wave[smooth_row]} {y3[smooth_row] / y3max}\n")
+                    for smooth_pix in range(smooth_wave.shape[0]):
+                        of.write(f"{smooth_wave[smooth_pix]} {y3out[smooth_pix]}\n")
 
         else:
-            illum[i, :] = numpy.median(orig_spat_data[:, 1500 // bin_x:2000 // bin_x], axis=0)
+            if spatial_inimg is not None:
+                illum[i, :] = numpy.median(orig_spat_data[:, 1500 // bin_x:2000 // bin_x], axis=0)
 
     # Normalise spatial flat to a peak of 1
-    illum /= numpy.amax(illum)
+    if spatial_inimg is not None:
+        illum /= numpy.amax(illum)
     pixel_response = numpy.clip(illum[:, :, numpy.newaxis] * pixel_response, a_min=resp_min, a_max=None)
 
     for i in range(nslits):
@@ -3815,19 +3889,24 @@ def wifes_SG_response(
         outfits[curr_hdu].scale("float32")
         if zero_var:
             var_hdu = curr_hdu + nslits
-            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype("float32", casting="same_kind")
-            outfits[var_hdu].scale("float32")
+            outfits[var_hdu].data = (0.0 * outfits[var_hdu].data).astype("float64", casting="same_kind")
+            outfits[var_hdu].scale("float64")
 
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
-    outfits[0].header.set("PYWRESIN", "dome+twi", "PyWiFeS: flatfield inputs")
-    outfits[0].header.set("PYWTWIN", ntflat, "PyWiFeS: number of twilight flat images combined")
+    if spatial_inimg is not None:
+        outfits[0].header.set("PYWRESIN", "dome+twi", "PyWiFeS: flatfield inputs")
+    else:
+        outfits[0].header.set("PYWRESIN", "dome", "PyWiFeS: flatfield inputs")
+    if spatial_inimg is not None:
+        outfits[0].header.set("PYWTWIN", ntflat, "PyWiFeS: number of twilight flat images combined")
     outfits[0].header.set("PYWRESZV", zero_var, "PyWiFeS: 2D response zero_var")
     outfits[0].header.set("PYWRESW1", N, "PyWiFeS: 1st Savitzky-Golay window size")
     outfits[0].header.set("PYWRESW2", N * window_factor, "PyWiFeS: 2nd Savitzky-Golay window size")
     outfits[0].header.set("PYWRESMN", resp_min, "PyWiFeS: 2D response minimum response")
     outfits.writeto(outimg, overwrite=True)
     f1.close()
-    f2.close()
+    if spatial_inimg is not None:
+        f2.close()
 
     # ---------------------------------------------
     # Diagnostic plots
@@ -3844,7 +3923,9 @@ def wifes_SG_response(
         ax_left.legend()
         ax_left.set_xlabel(r'X-axis pixel')
         ax_left.set_ylabel('Flux')
-        ax_left.set_ylim(0.8 * numpy.nanmin(y1), 1.2 * numpy.nanmax(y1))
+        ymax = 1.2 * numpy.nanmax(y1)
+        ymin = numpy.nanmax([1, 0.8 * numpy.nanmin(y1)]) if ymax > 100 else numpy.nanmax([0.01, 0.8 * numpy.nanmin(y1)])
+        ax_left.set_ylim(ymin, ymax)
         ax_left.set_yscale('log')
 
         # (2) spectral fit residuals
@@ -3856,15 +3937,19 @@ def wifes_SG_response(
 
         # (3) illumination correction
         ax_right = fig.add_subplot(grid[0, 1])
-        ax_right.set_title('Illumination Correction\n(not wire-aligned)')
-        pos = ax_right.imshow(
-            illum.T, interpolation="nearest", origin="lower",
-            cmap=cm['gist_rainbow'], aspect=(0.5 * bin_y),
-            extent=[first - 0.5, first + nslits - 0.5, -0.5, illum.shape[1] - 0.5]
-        )
-        fig.colorbar(pos, ax=ax_right, shrink=0.9)
-        ax_right.set_xlabel('Slitlet')
-        ax_right.set_ylabel('Detector Y')
+        if spatial_inimg is not None:
+            ax_right.set_title('Illumination Correction\n(not wire-aligned)')
+            pos = ax_right.imshow(
+                illum.T, interpolation="nearest", origin="lower",
+                cmap=cm['gist_rainbow'], aspect=(0.5 * bin_y),
+                extent=[first - 0.5, first + nslits - 0.5, -0.5, illum.shape[1] - 0.5]
+            )
+            fig.colorbar(pos, ax=ax_right, shrink=0.9)
+            ax_right.set_xlabel('Slitlet')
+            ax_right.set_ylabel('Detector Y')
+        else:
+            ax_right.set_title('Illumination Correction')
+            ax_right.text(0.5, 0.5, 'No Twilight Flats', horizontalalignment='center')
 
         plt.tight_layout()
         plot_name = f"{save_prefix}.png"
@@ -4351,7 +4436,6 @@ def generate_wifes_cube(
                     curr_flux_flat,
                     (out_lambda_full, out_y_full),
                     method="linear",
-                    fill_value=0.0,
                     scale_factor=disp_ave,
                 )
 
@@ -4361,7 +4445,6 @@ def generate_wifes_cube(
                     curr_var_flat,
                     (out_lambda_full, out_y_full),
                     method="linear",
-                    fill_value=0.0,
                     scale_factor=disp_ave**2,
                 )
 
@@ -4386,7 +4469,6 @@ def generate_wifes_cube(
                     curr_flux_flat,
                     (out_lambda_full, out_y_full),
                     method="linear",
-                    fill_value=0.0,
                     scale_factor=disp_ave,
                 )
 
@@ -4395,7 +4477,6 @@ def generate_wifes_cube(
                     curr_var_flat,
                     (out_lambda_full, out_y_full),
                     method="linear",
-                    fill_value=0.0,
                     scale_factor=disp_ave**2,
                 )
 
@@ -4510,7 +4591,7 @@ def generate_wifes_cube(
         dq_data_cube_tmp = blockwise_mean_3D(dq_data_cube_tmp, [subsample, subsample, 1])
     outfits = pyfits.HDUList(f3)
     flux_data_cube_tmp = flux_data_cube_tmp.astype("float32", casting="same_kind")
-    var_data_cube_tmp = var_data_cube_tmp.astype("float32", casting="same_kind")
+    var_data_cube_tmp = var_data_cube_tmp.astype("float64", casting="same_kind")
     # trim data beyond range
     dq_data_cube_tmp[dq_data_cube_tmp > 32767] = 32767
     dq_data_cube_tmp[dq_data_cube_tmp < -32768] = -32768
@@ -4728,8 +4809,8 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     outfits = pyfits.HDUList([cube_hdu])
 
     # VARIANCE
-    var_hdu = pyfits.PrimaryHDU(obj_cube_var.astype("float32", casting="same_kind"), header=f[0].header)
-    var_hdu.scale("float32")
+    var_hdu = pyfits.PrimaryHDU(obj_cube_var.astype("float64", casting="same_kind"), header=f[0].header)
+    var_hdu.scale("float64")
     # Add header info
     var_hdu.name = 'VAR'
     var_hdu.header.set("CTYPE1", ctype1, "Type of co-ordinate on axis 1")
@@ -4804,8 +4885,23 @@ def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_p
     except Exception as e:
         print(f"Error attaching telluric model: {e}")
 
+    # Pass along corrected extinction spectrum, if present
+    try:
+        edata = f['Extinction'].data
+        ehead = f['Extinction'].header
+        ext_ext = pyfits.ImageHDU(data=edata, header=ehead, name="Extinction")
+        outfits.append(ext_ext)
+    except KeyError:
+        pass
+    except Exception as e:
+        print(f"Error attaching extinction spectrum: {e}")
+
     # SAVE IT
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
+    if "EQUINOX" in outfits[0].header and isinstance(outfits[0].header["EQUINOX"], str) \
+            and "J" in outfits[0].header["EQUINOX"]:
+        outfits[0].header["EQUINOX"] = (float(outfits[0].header["EQUINOX"].replace("J", "")),
+                                        "Equinox of coordinates")
     outfits.writeto(outimg, overwrite=True)
     f.close()
     return

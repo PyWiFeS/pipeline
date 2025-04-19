@@ -432,7 +432,9 @@
             "step": "sky_sub",
             "run": true,
             "suffix": "05",
-            "args": {}
+            "args": {
+                // - "separate_ns": false,  // Do not combine the two N&S positions, but keep both as independent images.
+            }
         },
         {
             "step": "obs_coadd",
@@ -466,7 +468,7 @@
             "args": {
                 "wmin_set": 5300.0,  // Minimum wavelength of output cube.
                 "wmax_set": 9800.0,  // Maximum wavelength of output cube.
-                "dw_set": null,  // If null (None), output cube wavelength step is set to mean of per-slitlet mean wavelength steps.
+                // - "dw_set": null,  // If null (None), output cube wavelength step is set to mean of per-slitlet mean wavelength steps.
                 "wavelength_ref": "VACUUM",  // Wavelength reference ("AIR" or "VACUUM").
                 // - "wave_native": false,  // Override wmin_set, wmax_set, dw_set and use native dispersion of central slitlet. N.B.: Prevents clean splicing of blue/red cubes and spectra.
                 //
@@ -490,7 +492,7 @@
             "suffix": null,
             "args": {
                 "stdtype": "flux",
-                // - "extract_radius": 5.0,  // Radius (arcseconds) within which to sum standard star flux.
+                "extract_radius": 6.0,  // Radius (arcseconds) within which to sum standard star flux.
                 // - "sky_radius": 8.0,  // Radius (arcseconds) outside of which to determine median sky.
                 // - "xtrim": 2,  // Number of x-axis spaxels to exclude from each side when peak-finding.
                 // - "ytrim": 4,  // Number of (unbinned) y-axis spaxels to exclude from each side when peak-finding.
@@ -508,12 +510,12 @@
             "args": {
                 // Method to fit ratio of observed-to-reference flux (in magnitude units) vs. wavelength.
                 // Options:
-                "method": "poly",  // Default. Use polynomial fit, mask outliers, interpolate over masked pixels with polynomial.
-                // - "method": "smooth_SG",  // Use Savitzky-Golay filter. Interpolate over high pixels and telluric regions with polynomial, smooth with S-G, mask outliers, boxcar-smooth, S-G smooth again, and interpolate onto desired wavelength grid.
+                // - "method": "poly",  // Default. Use polynomial fit, mask outliers, interpolate over masked pixels with polynomial.
+                "method": "smooth_SG",  // Use Savitzky-Golay filter. Interpolate over high pixels and telluric regions with polynomial, smooth with S-G, mask outliers, boxcar-smooth, S-G smooth again, and interpolate onto desired wavelength grid.
                 //
                 // - "polydeg": 30,  // Order of polynomial for fitting (used for both methods).
                 // - "excise_cut": 0.5,  // Fractional threshold for outliers (applied to magnitude units). Overridden with 0.003 if method = "smooth_SG".
-                // - "boxcar": 10,  // Boxcar smoothing length for method = "smooth_SG".
+                // - "boxcar": 11,  // Boxcar smoothing length for method = "smooth_SG".
                 //
                 "norm_stars": true,  // Recentre midpoint flux ratios at the minimum (in magnitude units) across all input standards.
                 // - "wave_min": null,  // Minimum wavelength to compute flux ratio. If null (None), defaults to minimum observed wavelength.
@@ -541,6 +543,7 @@
                 //
                 // Additional user options.
                 // - "extinction_fn": null, // Extinction file path containing the extinction curve information. If null (None), defaults to standard SSO extinction curve.
+                "save_extinction": true,  // Whether to save the extinction model that was applied to translate the flux calibration to airmass zero.
             }
         },
         {
@@ -549,7 +552,7 @@
             "suffix": null,
             "args": {
                 "stdtype": "telluric",
-                // - "extract_radius": 5.0,  // Radius (arcseconds) within which to sum standard star flux.
+                "extract_radius": 3.0,  // Radius (arcseconds) within which to sum standard star flux.
                 // - "sky_radius": 8.0,  // Radius (arcseconds) outside of which to determine median sky.
                 // - "xtrim": 2,  // Number of x-axis spaxels to exclude from each edge when peak-finding.
                 // - "ytrim": 4,  // Number of (unbinned) y-axis spaxels to exclude from each edge when peak-finding.

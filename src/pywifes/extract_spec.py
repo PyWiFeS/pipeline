@@ -11,7 +11,7 @@ from photutils.aperture import EllipticalAperture, EllipticalAnnulus
 from photutils.detection import DAOStarFinder
 import re
 
-from pywifes.wifes_utils import arguments
+from pywifes.wifes_utils import arguments, is_halfframe
 
 # Suppress the NoDetectionsWarning as we have set a warning for no detection
 import warnings
@@ -28,15 +28,17 @@ def extract_detection_name(spec_name):
 
 
 def extract_object_name(hdr):
-    if "OBJECT" in hdr:
+    if "OBJECT" in hdr and hdr["OBJECT"] != "":
         return hdr["OBJECT"] + " - "
+    elif "OBJNAME" in hdr and hdr["OBJNAME"] != "":
+        return hdr["OBJNAME"] + " - "
     return ""
 
 
 def extract_and_save(
     cube_path, sci, var, source_region, det_index, sky_region, output_dir, sci_hdr,
     var_hdr, extraction_method='aperture', dq_data=None, dq_hdr=None,
-    wave_data=None, tell_data=None,
+    wave_data=None, tell_data=None, ext=None, ext_hdr=None,
 ):
     if cube_path is not None:
         kwlist = [
@@ -69,10 +71,11 @@ def extract_and_save(
 
         # Extraction
         if extraction_method == 'aperture':
-            flux, fluxvar, dq, sky, tell = aperture_extract(sci, var, source_region,
-                                                            sky_ap=sky_region,
-                                                            dq_cube=dq_data,
-                                                            tell_data=tell_data)
+            flux, fvar, dq, sky, tell = aperture_extract(sci, var, source_region,
+                                                         sky_ap=sky_region,
+                                                         dq_cube=dq_data,
+                                                         tell_data=tell_data)
+
             kwlist.extend([
                 ["PYWXAMAJ", source_region.a,
                  "PyWiFeS: extraction semi-major axis (pixels)"],
@@ -88,9 +91,9 @@ def extract_and_save(
         base_output = base.replace("cube.fits", f"spec.det{det_index}.fits")
         print(f"Saving extracted spectra for detection {det_index} in {base}")
         output_path = os.path.join(output_dir, base_output)
-        write_1D_spec(flux, fluxvar, sci_hdr, var_hdr, output_path, dq_data=dq,
+        write_1D_spec(flux, fvar, sci_hdr, var_hdr, output_path, dq_data=dq,
                       dq_cube_header=dq_hdr, sky_data=sky, wave_data=wave_data,
-                      tell_data=tell, kwlist=kwlist)
+                      tell_data=tell, kwlist=kwlist, ext_data=ext, ext_hdr=ext_hdr)
 
 
 def plot_arm(ax, cube_path, sci, title, source_regions, sky_regions, border_width,
@@ -239,6 +242,13 @@ def aperture_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None,
     to the extraction region.
     """
 
+    fscale = numpy.abs(numpy.nanmax(sci_cube))
+    print(f"Temporary scaling by {fscale}")
+    if fscale == 0.0 or numpy.isnan(fscale):
+        fscale = 1.0
+    sci_cube = sci_cube.copy() / fscale
+    var_cube = var_cube.copy() / (fscale * fscale)
+
     fl = numpy.nansum(sec_image(source_ap, sci_cube), axis=1)
     var = numpy.nansum(sec_image(source_ap, var_cube), axis=1)
     sky = None
@@ -247,7 +257,11 @@ def aperture_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None,
         area = source_ap.area_overlap(sci_cube[sci_cube.shape[1] // 2, :, :],
                                       method="center")
         sky_var_sec = sec_image(sky_ap, var_cube)
-        sky_var_sec[sky_var_sec == 0.0] = 9E9
+        num_zero = numpy.count_nonzero(sky_var_sec == 0)
+        if num_zero:
+            med_var = numpy.nanmedian(var_cube)
+            print(f"Replacing {num_zero} 0-variance pixels with 10^4 x median: {1.0E4 * med_var}")
+            sky_var_sec[sky_var_sec == 0.0] = 1.0E4 * med_var
         sky_average = numpy.average(
             sec_image(sky_ap, sci_cube),
             weights=numpy.reciprocal(sky_var_sec),
@@ -258,6 +272,10 @@ def aperture_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None,
 
         fl -= sky
         var += sky_var * area
+
+        sky *= fscale
+    fl *= fscale
+    var *= (fscale * fscale)
 
     if dq_cube is not None:
         dq = numpy.nansum(sec_image(source_ap, dq_cube), axis=1)
@@ -284,7 +302,7 @@ def aperture_extract(sci_cube, var_cube, source_ap, sky_ap=None, dq_cube=None,
 
 def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
                   dq_data=None, dq_cube_header=None, sky_data=None, wave_data=None,
-                  tell_data=None, kwlist=None):
+                  tell_data=None, kwlist=None, ext_data=None, ext_hdr=None):
     """
     This function writes the 1D spectrum data and its variance to a FITS file.
     It updates the WCS headers to match the 1D spectrum header.
@@ -313,6 +331,10 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
         1D or 2D array containing the applied telluric model, or None.
     kwlist : list of lists, optional
         List of header [keyword, list, commment] entries to write to output file.
+    ext_data : numpy.ndarray, optional
+        1D array containing the corrected extinction that was applied, or None.
+    ext_hdr : astropy.io.fits.Header, optional
+        Header object from corrected extinction extension, or None.
 
     Returns
     -------
@@ -361,6 +383,8 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
             "CDELT3",
             "CRPIX2",
             "CRPIX3",
+            "CUNIT2",
+            "CUNIT3",
             "PC1_1",
             "PC1_2",
             "PC2_1",
@@ -379,9 +403,9 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
             hdulist[0].header.set(kw, val, desc)
 
     # Add variance data as an additional HDU
-    hdu_fluxvar = fits.ImageHDU(data=var_data.astype("float32", casting="same_kind"),
+    hdu_fluxvar = fits.ImageHDU(data=var_data.astype("float64", casting="same_kind"),
                                 header=var_cube_header_copy)
-    hdu_fluxvar.scale("float32")
+    hdu_fluxvar.scale("float64")
     hdulist.append(hdu_fluxvar)
 
     # Add data quality extention if provided
@@ -407,13 +431,30 @@ def write_1D_spec(sci_data, var_data, sci_cube_header, var_cube_header, output,
         hdu_wave.header['EXTNAME'] = 'WAVELENGTH'
         hdulist.append(hdu_wave)
 
-    # Add telluric extension if provided
+    # Add telluric extension, if provided
     if tell_data is not None:
         hdu_tell = fits.ImageHDU(data=tell_data.astype("float32", casting="same_kind"),
                                  header=sci_cube_header_copy)
         hdu_tell.scale("float32")
         hdu_tell.header['EXTNAME'] = 'TELLURICMODEL'
         hdulist.append(hdu_tell)
+
+    # Add corrected extinction extension, if provided
+    if ext_data is not None:
+        hdu_ext = fits.ImageHDU(data=ext_data.astype("float32", casting="same_kind"))
+        if ext_hdr is None:
+            for kw in ['CTYPE1', 'CUNIT1', 'CRVAL1', 'CDELT1', 'CRPIX1']:
+                if kw in sci_cube_header_copy:
+                    hdu_ext.header[kw] = sci_cube_header_copy[kw]
+            hdu_ext.header['COMMENT'] = 'Flux extinction correction applied to reach airmass zero'
+            hdu_ext.header['COMMENT'] = 'NB: the correction _in magnitudes_ scales linearly with airmass'
+            hdu_ext.header['AIRMASS'] = hdulist[0].header['AIRMASS']
+            hdu_ext.header['BUNIT'] = 'Flux fraction'
+        else:
+            hdu_ext.header = ext_hdr
+        hdu_ext.scale("float32")
+        hdu_ext.header['EXTNAME'] = 'EXTINCTION'
+        hdulist.append(hdu_ext)
 
     # Write the FITS file containing the 1D spectrum
     hdulist.writeto(output, overwrite=True)
@@ -501,7 +542,7 @@ def plot_regions(data_cube, source_regions, sky_regions=None, border_width=0, bi
     plt.gca().set_aspect(0.5 * bin_y)
 
 
-def read_cube_data(cube_path, get_dq=False):
+def read_cube_data(cube_path, get_dq=False, get_tell=False, get_extinct=False):
     cube_data = {
         "sci": None,
         "sci_hdr": None,
@@ -514,15 +555,21 @@ def read_cube_data(cube_path, get_dq=False):
         "binning_y": None,
         "wave": None,
         "tell": None,
+        "ext": None,
+        "ext_hdr": None,
     }
 
     if cube_path is not None:
-        sci, sci_hdr = fits.getdata(cube_path, ext=0, header=True)
-        var, var_hdr = fits.getdata(cube_path, extname="VAR", header=True)
+        cube = fits.open(cube_path, mode='readonly')
+        sci = cube[0].data
+        sci_hdr = cube[0].header
+        var = cube["VAR"].data
+        var_hdr = cube["VAR"].header
         if get_dq:
-            try:
-                dq, dq_hdr = fits.getdata(cube_path, extname="DQ", header=True)
-            except KeyError:
+            if "DQ" in cube:
+                dq = cube["DQ"].data
+                dq_hdr = cube["DQ"].header
+            else:
                 print("WARNING: No DQ extension in input cube.")
                 dq = None
                 dq_hdr = None
@@ -530,15 +577,31 @@ def read_cube_data(cube_path, get_dq=False):
             dq = None
             dq_hdr = None
 
-        try:
-            wave = fits.getdata(cube_path, extname="WAVELENGTH", header=False)
-        except KeyError:
+        if "WAVELENGTH" in cube:
+            wave = cube["WAVELENGTH"].data
+        else:
             wave = None
 
-        try:
-            tell = fits.getdata(cube_path, extname="TELLURICMODEL", header=False)
-        except KeyError:
+        if get_tell:
+            if "TELLURICMODEL" in cube:
+                tell = cube["TELLURICMODEL"].data
+            else:
+                tell = None
+        else:
             tell = None
+
+        if get_extinct:
+            if "EXTINCTION" in cube:
+                ext = cube["EXTINCTION"].data
+                ext_hdr = cube["EXTINCTION"].header
+            else:
+                ext = None
+                ext_hdr = None
+        else:
+            ext = None
+            ext_hdr = None
+
+        cube.close()
 
         wcs = WCS(sci_hdr).celestial
         binning_x, binning_y = [int(x) for x in sci_hdr["CCDSUM"].split()]
@@ -553,6 +616,8 @@ def read_cube_data(cube_path, get_dq=False):
         cube_data["binning_y"] = binning_y
         cube_data["wave"] = wave
         cube_data["tell"] = tell
+        cube_data["ext"] = ext
+        cube_data["ext_hdr"] = ext_hdr
 
     return cube_data
 
@@ -574,6 +639,8 @@ def detect_extract_and_save(
     plot=True,
     plot_path="detected_sources_plot.png",
     get_dq=True,
+    get_tell=True,
+    get_extinct=True,
     debug=False,
 ):
     """
@@ -630,6 +697,12 @@ def detect_extract_and_save(
     get_dq : bool, optional
         Whether to include the DQ extension in the output.
         Default: True.
+    get_tell : bool, optional
+        Whether to include the telluric model extension in the output.
+        Default: True.
+    get_extinct : bool, optional
+        Whether to include the corrected extinction extension in the output.
+        Default: True.
 
 
     General Parameters:
@@ -653,7 +726,8 @@ def detect_extract_and_save(
 
     # reading the data from cubes
     # Blue arm
-    blue_cube_data = read_cube_data(blue_cube_path, get_dq=get_dq)
+    blue_cube_data = read_cube_data(blue_cube_path, get_dq=get_dq, get_tell=get_tell,
+                                    get_extinct=get_extinct)
     blue_sci = blue_cube_data["sci"]
     blue_sci_hdr = blue_cube_data["sci_hdr"]
     blue_var = blue_cube_data["var"]
@@ -661,13 +735,17 @@ def detect_extract_and_save(
     blue_dq = blue_cube_data["dq"]
     blue_dq_hdr = blue_cube_data["dq_hdr"]
     blue_wcs = blue_cube_data["wcs"]
+    blue_ext = blue_cube_data["ext"]
+    blue_ext_hdr = blue_cube_data["ext_hdr"]
+
     if blue_cube_data["sci"] is not None:
         binning_x = blue_cube_data["binning_x"]
         binning_y = blue_cube_data["binning_y"]
-        objname = blue_sci_hdr["OBJECT"]
+        objname = extract_object_name(blue_sci_hdr)
 
     # Red arm
-    red_cube_data = read_cube_data(red_cube_path, get_dq=get_dq)
+    red_cube_data = read_cube_data(red_cube_path, get_dq=get_dq, get_tell=get_tell,
+                                   get_extinct=get_extinct)
     red_sci = red_cube_data["sci"]
     red_sci_hdr = red_cube_data["sci_hdr"]
     red_var = red_cube_data["var"]
@@ -676,10 +754,13 @@ def detect_extract_and_save(
     red_dq_hdr = red_cube_data["dq_hdr"]
     red_wcs = red_cube_data["wcs"]
     red_tell = red_cube_data["tell"]
+    red_ext = red_cube_data["ext"]
+    red_ext_hdr = red_cube_data["ext_hdr"]
+
     if red_cube_data["sci"] is not None:
         binning_x = red_cube_data["binning_x"]
         binning_y = red_cube_data["binning_y"]
-        objname = red_sci_hdr["OBJECT"]
+        objname = extract_object_name(red_sci_hdr)
 
     # Calculate pixel scale from binning
     pixel_scale_x = binning_x  # arcsec/pix
@@ -691,8 +772,10 @@ def detect_extract_and_save(
     # Automatic source detection in the collapsed cubes (red + blue)
 
     # Avoid the edges of size border_width on the statistics
+    xmin = 0 if is_halfframe(red_cube_path) else border_width
+    xmax = collapsed_cube.shape[1] if is_halfframe(red_cube_path) else -border_width
     collapsed_cube_no_edge = collapsed_cube[
-        border_width:-border_width, border_width:-border_width
+        border_width:-border_width, xmin:xmax
     ]
     _, median, std = sigma_clipped_stats(collapsed_cube_no_edge, sigma=3.0)
     threshold = median + (sigma_threshold * std)
@@ -702,21 +785,23 @@ def detect_extract_and_save(
                            fwhm=det_fwhm,
                            brightest=nsources,
                            exclude_border=False,
-                           ratio=1.0,
-                           theta=0.0,
+                           ratio=numpy.clip(pixel_scale_y / float(pixel_scale_x),
+                                            a_min=0.05, a_max=1.0),
+                           theta=90.0,
                            sharplo=0.3,
                            sharphi=1.0,
-                           roundlo=-1.0,
-                           roundhi=1.0,
+                           roundlo=-2.0 / pixel_scale_y,
+                           roundhi=2.0 / pixel_scale_y,
                            min_separation=3)
 
     try:
         detections = finder(collapsed_cube_no_edge)
     except ValueError:
-        print(f"No positive sources found in {blue_cube_path} / {red_cube_path}")
         detections = None
 
-    if detections:
+    if detections is None:
+        print(f"No positive sources found in {blue_cube_path} / {red_cube_path}")
+    else:
         fcol = Column(name='flux_sense', data=numpy.ones(len(detections),
                                                          dtype='float32'))
         detections.add_column(fcol)
@@ -725,10 +810,11 @@ def detect_extract_and_save(
         try:
             det2 = finder(-1.0 * collapsed_cube_no_edge)
         except ValueError:
-            print(f"No negative sources found in {blue_cube_path} / {red_cube_path}")
             det2 = None
 
-        if det2:
+        if det2 is None:
+            print(f"No negative sources found in {blue_cube_path} / {red_cube_path}")
+        else:
             fcol = Column(name='flux_sense', data=-1. * numpy.ones(len(det2),
                                                                    dtype='float32'))
             det2.add_column(fcol)
@@ -768,7 +854,6 @@ def detect_extract_and_save(
                 b_in=b_in,
                 b_out=b_out,
             )
-
         else:
             sky_regions = None
 
@@ -797,6 +882,8 @@ def detect_extract_and_save(
                     dq_data=blue_dq,
                     dq_hdr=blue_dq_hdr,
                     wave_data=blue_cube_data["wave"],
+                    ext=blue_ext,
+                    ext_hdr=blue_ext_hdr,
                 )
 
             # Extracting red cube
@@ -816,6 +903,8 @@ def detect_extract_and_save(
                     dq_hdr=red_dq_hdr,
                     wave_data=red_cube_data["wave"],
                     tell_data=red_tell,
+                    ext=red_ext,
+                    ext_hdr=red_ext_hdr,
                 )
 
         if plot:
@@ -953,10 +1042,8 @@ def plot_1D_spectrum(spec_path, plot_dir):
 
     # Customize the plot
     good = numpy.abs(flux) > 1E-37
-    ylims = [min(numpy.nanmin(flux[good]),
-                 numpy.nanpercentile(flux[good] - flux_error[good], 2)),
-             max(numpy.nanmax(flux[good]),
-                 numpy.nanpercentile(flux[good] + flux_error[good], 98))]
+    ylims = [numpy.nanmin(flux[good]) - numpy.nanmedian(flux_error[good]),
+             numpy.nanmax(flux[good]) + numpy.nanmedian(flux_error[good])]
     # Catch bad values
     if numpy.any(numpy.isnan(ylims)) or numpy.any(numpy.isinf(ylims)):
         ylims = [0, 1]

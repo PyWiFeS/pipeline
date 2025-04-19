@@ -119,6 +119,10 @@ class SingleSpec(object):
             self.tell = f["TELLURICMODEL"].data
         else:
             self.tell = None
+        if "EXTINCTION" in f:
+            self.ext = f["EXTINCTION"].data
+        else:
+            self.ext = None
         f.close()
 
 
@@ -200,9 +204,14 @@ def join_spectra(blueSpec, redSpec, get_dq=False, wstep=None):
         dq = numpy.zeros(len(flux_B), dtype=numpy.int16)
         dq_B = numpy.array(AB * blueSpec.dq).ravel()
         dq_R = numpy.array(AR * redSpec.dq).ravel()
+        dq_B[numpy.isnan(dq_B)] = 1
+        dq_R[numpy.isnan(dq_R)] = 1
         dq[blue_only] = dq_B[blue_only]
         dq[overlap] = numpy.amin((dq_B[overlap], dq_R[overlap]), axis=0)
         dq[red_only] = dq_R[red_only]
+
+        dq[dq > 0.1] = 1
+        dq[dq < 0] = 0
     else:
         dq = None
 
@@ -220,10 +229,22 @@ def join_spectra(blueSpec, redSpec, get_dq=False, wstep=None):
         tell = numpy.ones(len(flux_R), dtype=numpy.float32)
         tell_R = numpy.array(AR * redSpec.tell).ravel()
         tell[red_only] = tell_R[red_only]
+        tell[tell > 1] = 1
+        tell[tell < 0] = 0
     else:
         tell = None
 
-    return wstep, min(wl), flux, fluxVar, dq, sky, tell
+    if blueSpec.ext is not None and redSpec.ext is not None:
+        ext = numpy.ones(len(flux_B), dtype=numpy.float32)
+        ext_B = numpy.array(AB * blueSpec.ext).ravel()
+        ext_R = numpy.array(AR * redSpec.ext).ravel()
+        ext[blue_only] = ext_B[blue_only]
+        ext[overlap] = numpy.nanmean((ext_B[overlap], ext_R[overlap]), axis=0)
+        ext[red_only] = ext_R[red_only]
+    else:
+        ext = None
+
+    return wstep, min(wl), flux, fluxVar, dq, sky, tell, ext
 
 
 def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
@@ -270,7 +291,7 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
 
     # Join the spectra
     print("Splicing spectra.")
-    wstep_out, wave_min, flux, fluxVar, dq, sky, tell = join_spectra(
+    wstep_out, wave_min, flux, fluxVar, dq, sky, tell, ext = join_spectra(
         blueSpec, redSpec, get_dq=get_dq, wstep=wstep
     )
 
@@ -304,9 +325,9 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
     hdr_fluxvar["CUNIT1"] = "Angstrom"
     hdr_fluxvar["BUNIT"] = "(Flux)^2"
 
-    hdu_fluxvar = fits.ImageHDU(data=fluxVar.astype("float32", casting="same_kind"),
+    hdu_fluxvar = fits.ImageHDU(data=fluxVar.astype("float64", casting="same_kind"),
                                 header=hdr_fluxvar)
-    hdu_fluxvar.scale("float32")
+    hdu_fluxvar.scale("float64")
     hdulist.append(hdu_fluxvar)
 
     if get_dq:
@@ -347,10 +368,32 @@ def splice_spectra(blue_spec_path, red_spec_path, output_path, get_dq=False,
         hdr_tell["CUNIT1"] = "Angstrom"
 
         tell_data = tell.astype("float32", casting="same_kind")
-        tell_data[tell_data > 1] = 1.0
+        tell_data[tell_data > 1] = 1
+        tell_data[tell_data < 0] = 0
         hdu_tell = fits.ImageHDU(data=tell_data, header=hdr_tell)
         hdu_tell.scale("float32")
         hdulist.append(hdu_tell)
+
+    if ext is not None:
+        hdr_ext = fits.Header()
+        hdr_ext["EXTNAME"] = "EXTINCTION"
+        hdr_ext["CRPIX1"] = 1
+        hdr_ext["CRVAL1"] = wave_min
+        hdr_ext["CDELT1"] = wstep_out
+        hdr_ext["CTYPE1"] = "WAVE"
+        hdr_ext["CUNIT1"] = "Angstrom"
+        hdr_ext['COMMENT'] = 'Flux extinction correction applied to reach airmass zero'
+        hdr_ext['COMMENT'] = 'NB: the correction _in magnitudes_ scales linearly with airmass'
+        if 'AIRMASS' in hdulist[0].header:
+            hdr_ext['AIRMASS'] = hdulist[0].header['AIRMASS']
+        else:
+            hdr_ext['AIRMASS'] = (1.0, 'Airmass assumed equal to 1')
+        hdr_ext['BUNIT'] = 'Flux fraction'
+
+        ext_data = ext.astype("float32", casting="same_kind")
+        hdu_ext = fits.ImageHDU(data=ext_data, header=hdr_ext)
+        hdu_ext.scale("float32")
+        hdulist.append(hdu_ext)
 
     print("Saving spliced spectra.")
     hdulist.writeto(output_path, overwrite=True)
@@ -382,6 +425,20 @@ def join_cubes(blue_path, red_path, get_dq=False, wstep=None):
         red_wavelength = (
             (numpy.arange(red_NAXIS1) - red_CRPIX1 + 1) * red_CDELT1 + red_CRVAL1
         )
+
+    if "TELLURICMODEL" in red_hdu:
+        red_tell_array = red_hdu["TELLURICMODEL"].data
+        if red_tell_array.ndim == 1:
+            red_tell_array = red_tell_array[numpy.newaxis, :]
+        red_tell_array = numpy.transpose(red_tell_array)
+    else:
+        red_tell_array = None
+
+    if "EXTINCTION" in red_hdu:
+        red_ext_array = red_hdu["EXTINCTION"].data
+    else:
+        red_ext_array = None
+
     red_hdu.close()
     red_min_wavelength = min(red_wavelength)
 
@@ -407,6 +464,25 @@ def join_cubes(blue_path, red_path, get_dq=False, wstep=None):
         blue_wavelength = (
             (numpy.arange(blue_NAXIS1) - blue_CRPIX1 + 1) * blue_CDELT1 + blue_CRVAL1
         )
+
+    if "TELLURICMODEL" in blue_hdu:
+        blue_tell_array = blue_hdu["TELLURICMODEL"].data
+        if blue_tell_array.ndim == 1:
+            blue_tell_array = blue_tell_array[numpy.newaxis, :]
+        blue_tell_array = numpy.transpose(blue_tell_array)
+        if red_tell_array is None:
+            red_tell_array = numpy.ones((len(red_wavelength), blue_tell_array.shape[1]), dtype=float)
+    else:
+        if red_tell_array is None:
+            blue_tell_array = None
+        else:
+            blue_tell_array = numpy.ones((len(blue_wavelength), red_tell_array.shape[1]), dtype=float)
+
+    if "EXTINCTION" in blue_hdu:
+        blue_ext_array = blue_hdu["EXTINCTION"].data
+    else:
+        blue_ext_array = None
+
     blue_hdu.close()
     blue_max_wavelength = max(blue_wavelength)
 
@@ -503,9 +579,36 @@ def join_cubes(blue_path, red_path, get_dq=False, wstep=None):
                 dq_cube[overlap, i, j] = numpy.amax((dq_B[overlap],
                                                     dq_R[overlap]), axis=0)
                 dq_cube[red_only, i, j] = dq_R[red_only]
+        dq_cube[numpy.isnan(dq_cube)] = 1
         dq_cube[dq_cube > 0.1] = 1
+        dq_cube[dq_cube < 0] = 0
 
-    return wstep, min(wl), flux_cube, fluxvar_cube, dq_cube
+    if red_tell_array is not None:
+        tell = numpy.ones((len(flux), red_tell_array.shape[1]), dtype=float)
+        for slit in range(tell.shape[1]):
+            tell_B = numpy.array(AB * blue_tell_array[:, slit]).ravel()
+            tell_R = numpy.array(AR * red_tell_array[:, slit]).ravel()
+            tell[blue_only, slit] = tell_B[blue_only]
+            tell[overlap, slit] = numpy.mean((tell_B[overlap], tell_R[overlap]), axis=0)
+            tell[red_only, slit] = tell_R[red_only]
+        tell[tell > 1] = 1
+        tell[tell < 0] = 0
+    else:
+        tell = None
+
+    if blue_ext_array is not None and red_ext_array is not None:
+        ext = numpy.ones(len(flux), dtype=float)
+        ext_B = numpy.array(AB * blue_ext_array).ravel()
+        ext_R = numpy.array(AR * red_ext_array).ravel()
+        ext[blue_only] = ext_B[blue_only]
+        ext[overlap] = numpy.mean((ext_B[overlap], ext_R[overlap]), axis=0)
+        ext[red_only] = ext_R[red_only]
+        ext[ext > 1] = 1
+        ext[ext < 0] = 0
+    else:
+        ext = None
+
+    return wstep, min(wl), flux_cube, fluxvar_cube, dq_cube, tell, ext
 
 
 def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
@@ -559,7 +662,7 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
 
     # Join the cubes
     print("Splicing cubes.")
-    wstep_out, wave_min, flux, fluxVar, dq = join_cubes(
+    wstep_out, wave_min, flux, fluxVar, dq, tell, ext = join_cubes(
         blue_path, red_path, get_dq=get_dq, wstep=wstep
     )
 
@@ -592,9 +695,9 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
     hdr_fluxvar["CUNIT3"] = "Angstrom"
     hdr_fluxvar["BUNIT"] = "(Flux)^2"
 
-    hdu_fluxvar = fits.ImageHDU(data=fluxVar.astype("float32", casting="same_kind"),
+    hdu_fluxvar = fits.ImageHDU(data=fluxVar.astype("float64", casting="same_kind"),
                                 header=hdr_fluxvar)
-    hdu_fluxvar.scale("float32")
+    hdu_fluxvar.scale("float64")
     hdulist.append(hdu_fluxvar)
 
     if get_dq:
@@ -609,6 +712,43 @@ def splice_cubes(blue_path, red_path, output_path, get_dq=False, wstep=None,
         hdu_dq = fits.ImageHDU(data=dq.astype("int16", casting="unsafe"), header=hdr_dq)
         hdu_dq.scale("int16")
         hdulist.append(hdu_dq)
+
+    if tell is not None:
+        hdr_tell = fits.Header()
+        hdr_tell["EXTNAME"] = "TELLURICMODEL"
+        hdr_tell["CRPIX1"] = 1
+        hdr_tell["CRVAL1"] = wave_min
+        hdr_tell["CDELT1"] = wstep_out
+        hdr_tell["CTYPE1"] = "WAVE"
+        hdr_tell["CUNIT1"] = "Angstrom"
+
+        tell_data = tell.astype("float32", casting="same_kind")
+        tell_data[tell_data > 1] = 1
+        tell_data[tell_data < 0] = 0
+        hdu_tell = fits.ImageHDU(data=tell_data, header=hdr_tell)
+        hdu_tell.scale("float32")
+        hdulist.append(hdu_tell)
+
+    if ext is not None:
+        hdr_ext = fits.Header()
+        hdr_ext["EXTNAME"] = "EXTINCTION"
+        hdr_ext["CRPIX1"] = 1
+        hdr_ext["CRVAL1"] = wave_min
+        hdr_ext["CDELT1"] = wstep_out
+        hdr_ext["CTYPE1"] = "WAVE"
+        hdr_ext["CUNIT1"] = "Angstrom"
+        hdr_ext['COMMENT'] = 'Flux extinction correction applied to reach airmass zero'
+        hdr_ext['COMMENT'] = 'NB: the correction _in magnitudes_ scales linearly with airmass'
+        if 'AIRMASS' in hdulist[0].header:
+            hdr_ext['AIRMASS'] = hdulist[0].header['AIRMASS']
+        else:
+            hdr_ext['AIRMASS'] = (1.0, 'Airmass assumed equal to 1')
+        hdr_ext['BUNIT'] = 'Flux fraction'
+
+        ext_data = ext.astype("float32", casting="same_kind")
+        hdu_ext = fits.ImageHDU(data=ext_data, header=hdr_ext)
+        hdu_ext.scale("float32")
+        hdulist.append(hdu_ext)
 
     print("Saving spliced cube.")
     hdulist.writeto(output_path, overwrite=True)

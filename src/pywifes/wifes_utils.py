@@ -114,7 +114,7 @@ def is_taros(inimg):
         header = inimg[extnum].header
     else:
         raise TypeError(f"The is_taros function takes headers, filenames, or HDULists; given {type(inimg)}")
-    return 'TAROSREQ' in header
+    return 'OBSEQID' in header
 
 
 def hl_envelopes_idx(s, dmin=1, dmax=1, split=False, as_bool=False):
@@ -328,6 +328,13 @@ def load_config_file(filename):
     print(f"Loading configuration file: {file_path}")
     with open(file_path, "r") as f:
         return pyjson5.load(f)
+
+
+# Update header
+def set_header(filename, kw, kw_value, data_hdu=0):
+    fh = pyfits.open(filename, mode='update')
+    fh[data_hdu].header[kw] = kw_value
+    fh.close()
 
 
 # ------------------------------------------------------------------------

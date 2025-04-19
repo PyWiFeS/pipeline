@@ -3,7 +3,7 @@
 Installation
 ============
 
-PyWiFeS requires an installation environment with python 3.10, scipy 1.9.1, numpy <2.0, and pip.
+PyWiFeS requires an installation environment with python >=3.10, scipy >=1.15.1, numpy >=2, photutils >=2, and pip.
 
 To install PyWiFeS, follow these steps:
 

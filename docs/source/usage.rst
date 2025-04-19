@@ -61,14 +61,14 @@ When multiple sky frames are associated with a science image, they are scaled by
 
 **Other parameters**
 
-- `-skip-done`: Skip already completed steps. This will check for the existence of the output files from each step, as well as whether the output files are newer than the input files -- if either part fails, the step will be executed.
-- `-just-calib`: Triggers the data reduction in the absence of on-sky data (both science and calibration). It only produces basic calibration files.
-- `-greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
-- `-extract`: Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON5 file:
+- `--skip-done`: Skip already completed steps. This will check for the existence of the output files from each step, as well as whether the output files are newer than the input files -- if either part fails, the step will be executed.
+- `--just-calib`: Triggers the data reduction in the absence of on-sky data (both science and calibration). It only produces basic calibration files.
+- `--greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
+- `--extract`: Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON5 file:
 
     /.../pipeline/pipeline_params/params_extract.json5
 
-- `-extract-and-splice`: Automatically locate sources in the output datacubes, extract spectra, and splice the datacubes and spectra, using parameters defined in the JSON5 file above. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON5 setup). If the inputs are Nod & Shuffle frames, the sky is not subtracted.
+- `--extract-and-splice`: Automatically locate sources in the output datacubes, extract spectra, and splice the datacubes and spectra, using parameters defined in the JSON5 file above. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON5 setup). If the inputs are Nod & Shuffle frames, the sky has already been subtracted.
 
 
 Extra Usabilities

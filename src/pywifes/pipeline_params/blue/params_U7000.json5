@@ -144,7 +144,7 @@
                 "source": "wire",
                 //
                 // Pre-combination scaling options.
-                // - "sregion": null,  // Default: null (None). Specify x-pixel range to use for scaling calculation, e.g., "2000:2500". 
+                // - "sregion": null,  // Default: null (None). Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
                 //
                 // Scaling methods.
                 // Options:
@@ -430,7 +430,9 @@
             "step": "sky_sub",
             "run": true,
             "suffix": "05",
-            "args": {}
+            "args": {
+                // - "separate_ns": false,  // Do not combine the two N&S positions, but keep both as independent images.
+            }
         },
         {
             "step": "obs_coadd",
@@ -488,7 +490,7 @@
             "suffix": null,
             "args": {
                 "stdtype": "flux",
-                // - "extract_radius": 5.0,  // Radius (arcseconds) within which to sum standard star flux.
+                "extract_radius": 6.0,  // Radius (arcseconds) within which to sum standard star flux.
                 // - "sky_radius": 8.0,  // Radius (arcseconds) outside of which to determine median sky.
                 // - "xtrim": 2,  // Number of x-axis spaxels to exclude from each side when peak-finding.
                 // - "ytrim": 4,  // Number of (unbinned) y-axis spaxels to exclude from each side when peak-finding.
@@ -506,17 +508,17 @@
             "args": {
                 // Methods to fit ratio of observed-to-reference flux (in magnitude units) vs. wavelength.
                 // Options:
-                "method": "poly",  // Default. Use polynomial fit, mask outliers, interpolate over masked pixels with polynomial.
-                // - "method": "smooth_SG",  // Use Savitzky-Golay filter. Interpolate over high pixels and telluric regions with polynomial, smooth with S-G, mask outliers, boxcar-smooth, S-G smooth again, and interpolate onto desired wavelength grid.
+                // - "method": "poly",  // Default. Use polynomial fit, mask outliers, interpolate over masked pixels with polynomial.
+                "method": "smooth_SG",  // Use Savitzky-Golay filter. Interpolate over high pixels and telluric regions with polynomial, smooth with S-G, mask outliers, boxcar-smooth, S-G smooth again, and interpolate onto desired wavelength grid.
                 //
                 "polydeg": 25,  // Order of polynomial for fitting (used for both methods).
                 "excise_cut": 0.005,  // Fractional threshold for outliers (applied to magnitude units). Overridden with 0.003 if method = "smooth_SG".
-                "boxcar": 10,  // Boxcar smoothing length for method = "smooth_SG".
+                // - "boxcar": 11,  // Boxcar smoothing length for method = "smooth_SG".
                 "norm_stars": true,  // Recentre midpoint flux ratios at the minimum (in magnitude units) across all input standards.
                 // - "wave_min": null,  // Minimum wavelength to compute flux ratio. If null (None), defaults to minimum observed wavelength.
                 // - "wave_max": null,  // Maximum wavelength to compute flux ratio. If null (None), defaults to maximum observed wavelength.
                 // - "ytrim": 4,  // If standard star spectrum not previously extracted, mask this number of (unbinned) y-axis pixels when peak-finding.
-                "prefactor": false,  // Whether to remove the flatfield shape to ease fitting of sensitivity curve.
+                "prefactor": true,  // Whether to remove the flatfield shape to ease fitting of sensitivity curve.
                 //
                 // Additional user options.
                 "plot_stars": true,
@@ -538,6 +540,7 @@
                 //
                 // Additional user options.
                 // - "extinction_fn": null, // Extinction file path containing the extinction curve information. If null (None), defaults to standard SSO extinction curve.
+                "save_extinction": true,  // Whether to save the extinction model that was applied to translate the flux calibration to airmass zero.
             }
         },
         {
