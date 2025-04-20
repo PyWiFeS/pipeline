@@ -4,7 +4,7 @@ The automated Python data reduction pipeline for WiFeS.
 
 ## Updates
 
-What's been done [20250419]:
+What's been done [20250420]:
 
 - allow user to propagate applied extinction correction into datacubes and extracted spectra
 
@@ -16,6 +16,7 @@ What's been done [20250419]:
 
 - improve spectral extraction for binning modes other than 1x2
 
+- allow user to just extract or extract-and-splice existing datacubes without regenerating intermediate files
 
 ### Previously ###
 
@@ -367,6 +368,7 @@ The subtracted sky spectrum is included in the output. If the inputs are Nod & S
 
 `--extract-and-splice`: In addition to the extraction described above, splice together the datacubes and extracted spectra. By default, the pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default pipeline setup). The user may specify an alternative wavelength spacing in the extraction JSON5 file, and both arms will be interpolated to that scale.
 
+`--no-processing`: Skip data processing (if, for example, intermediate files have been deleted) and only extract or extract-and-splice the existing datacubes.
 
 ### Extra usabilities
 #### Multiprocessing
