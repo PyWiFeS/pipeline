@@ -11,9 +11,15 @@
         //
         // --- Extraction Parameters ---
         "extraction_method": "aperture",  // Method for extraction from datacube: Options: "aperture".
-        "r_arcsec": 2,  // Source extraction radius (in arcseconds).
-        "bkg_in_factor": 3,  // Sky annulus inner radius: bkg_in_factor * r_arcsec.
-        "bkg_out_factor": 4,  // Sky annulus outer radius: bkg_out_factor * r_arcsec.
+        "r_arcsec": 5,  // Source extraction radius (in arcseconds).
+        "ns_skysub": true,  // Force sky subtraction even if NodAndShuffle or SubNodAndShuffle
+        "sky_method": "same_slice",  // Method for measuring sky. Options: "annulus", "same_slice".
+        //
+        // Options for sky_method = "annulus"
+        "bkg_in_factor": 2,  // Sky annulus inner radius: bkg_in_factor * r_arcsec.
+        "bkg_out_factor": 3,  // Sky annulus outer radius: bkg_out_factor * r_arcsec.
+        //
+        "sky_stat": "median",  // Statistical method for calculating sky spectrum. Options: "wmean", "median".
         "get_dq": true,  // Extract science aperture from DQ extension and return in output.
         "get_tell": true,  // Extract science aperture from TelluricModel extension and return in output.
         "get_extinct": true,  // Include the applied atmospheric extinction correction in the output.

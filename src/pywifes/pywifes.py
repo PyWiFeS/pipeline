@@ -1433,7 +1433,7 @@ def subtract_overscan(
         subbed_data = next_data
 
     # (4) only modify data part of data_hdu for output
-    detsize_str = "[%d:%d,%d:%d]" % (1, ny, 1, nx)
+    detsize_str = "[%d:%d,%d:%d]" % (1, nx, 1, ny)
     outfits[data_hdu].header.set("DETSIZE", detsize_str)
     outfits[data_hdu].header.set("CCDSIZE", detsize_str)
     outfits[data_hdu].header.set("DATASEC", detsize_str)

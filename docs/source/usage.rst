@@ -8,11 +8,11 @@ Quick Start
 
 The pipeline is designed to be user-friendly and easy to use. The main routine is called `reduce_data.py` and is used to reduce the data. The pipeline will automatically determine the observing mode and the arm used (blue or red) by checking the headers of the raw data. The pipeline will then run the corresponding reduction script for the arm and observing mode.
 
-1. Put all raw data and calibration files in a dedicated directory, e.g., `/.../working_directory/my_raw_data`.
+1. Put all raw data and calibration files in a dedicated directory, e.g., `/.../my_raw_data`.
 2. Run the main reduction routine, giving the raw data directory path as an input parameter. The pipeline will run both arms automatically and choose the observing mode by checking the headers.
     .. code-block:: bash
 
-        ./reduce_data.py /.../working_directory/my_raw_data
+        ./reduce_data.py /.../my_raw_data
 
 
 User-Defined Reduction Parameters
@@ -23,14 +23,14 @@ User-Defined Reduction Parameters
 To specify the reduction steps for blue and red data, users can provide the paths to the respective JSON or JSON5 files using the `--red-params` and `--blue-params` flags as follows:
    .. code-block:: bash
 
-        ./reduce_data.py /.../working_directory/my_raw_data --red-params /.../user_red_param_file.json5 --blue-params /.../user_blue_param_file.json5
+        ./reduce_data.py /.../my_raw_data --red-params /.../user_red_param_file.json5 --blue-params /.../user_blue_param_file.json5
 
 **Reduce Data Using Master Calibration Files**
 
 To perform data reduction using master calibration files from previous reductions, use the `--from-master` flag along with the path to the directory containing all calibration files. Both blue and red data should be stored together in the same directory for coherence. If no path is specified after the `--from-master` flag, the default directory `./data_products/master_calib` is assumed.
    .. code-block:: bash
       
-       ./reduce_data.py /.../working_directory/my_raw_data --from-master /.../master_calibrations_directory
+       ./reduce_data.py /.../my_raw_data --from-master /.../master_calibrations_directory
 
 **Controlling How OBJECT Frames Are Coadded**
 
@@ -45,7 +45,7 @@ With the `prompt` option, the user makes the choice independently for each arm. 
 Example:
    .. code-block:: bash
 
-        ./reduce_data.py /.../working_directory/my_raw_data --coadd-mode prompt
+        ./reduce_data.py /.../my_raw_data --coadd-mode prompt
 
 **Association of SKY Frames with OBJECT Frames**
 
@@ -64,9 +64,17 @@ When multiple sky frames are associated with a science image, they are scaled by
 - `--skip-done`: Skip already completed steps. This will check for the existence of the output files from each step, as well as whether the output files are newer than the input files -- if either part fails, the step will be executed.
 - `--just-calib`: Triggers the data reduction in the absence of on-sky data (both science and calibration). It only produces basic calibration files.
 - `--greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
-- `--extract`: Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON5 file:
+- `--extract`: Automatically locate sources in the output datacubes and extract spectra. By default, uses the parameters defined in JSON5 file:
 
-    /.../pipeline/pipeline_params/params_extract.json5
+   .. code-block:: bash
+
+        /.../pipeline/pipeline_params/params_extract.json5
+
+- `--extract-params`: Specify path to alternative JSON or JSON5 file with extraction parameters.
+
+   .. code-block:: bash
+
+        ./reduce_data.py /.../my_raw_data --extract-params /.../user_extract_param_file.json5
 
 - `--extract-and-splice`: Automatically locate sources in the output datacubes, extract spectra, and splice the datacubes and spectra, using parameters defined in the JSON5 file above. The pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default JSON5 setup). If the inputs are Nod & Shuffle frames, the sky has already been subtracted.
 - `--no-processing`: Skip processing of files and use existing datacubes to extract or extract-and-splice.

@@ -3,20 +3,22 @@ import gc
 import multiprocessing
 from pywifes import pywifes
 from pywifes.multiprocessing_utils import _get_num_processes as get_num_proc
-from pywifes.wifes_utils import get_full_obs_list, get_sci_obs_list, get_std_obs_list, wifes_recipe
+from pywifes.wifes_utils import (
+    get_full_obs_list, is_nodshuffle, is_subnodshuffle, wifes_recipe
+)
 
 
 # ------------------------------------------------------
 # MEF file creation
 # ------------------------------------------------------
-def _run_slitlet_mef_indiv(fn, gargs, prev_suffix, curr_suffix, slitlet_fn, use_ns):
+def _run_slitlet_mef_indiv(fn, gargs, prev_suffix, curr_suffix, slitlet_fn):
     in_fn = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, prev_suffix))
     out_fn = os.path.join(gargs['out_dir'], '%s.p%s.fits' % (fn, curr_suffix))
     if gargs['skip_done'] and os.path.isfile(out_fn) \
             and os.path.getmtime(in_fn) < os.path.getmtime(out_fn):
         return
 
-    if use_ns:
+    if is_nodshuffle(in_fn) or is_subnodshuffle(in_fn):
         sky_fn = os.path.join(gargs['out_dir'], '%s.s%s.fits' % (fn, curr_suffix))
         pywifes.wifes_slitlet_mef_ns(in_fn, out_fn, sky_fn,
                                      data_hdu=gargs['my_data_hdu'],
@@ -75,10 +77,6 @@ def _run_slitlet_mef(metadata, gargs, prev_suffix, curr_suffix, **args):
     # Do not need MEF versions of individual frames for those with supercals (and with no "locals")
     excl_list = ["bias", "dark", "domeflat", "twiflat"]
     full_obs_list = get_full_obs_list(metadata, exclude=excl_list)
-    sci_obs_list = get_sci_obs_list(metadata)
-    std_obs_list = get_std_obs_list(metadata)
-    ns_proc_list = sci_obs_list + std_obs_list
-    ns = gargs['obs_mode'] == 'ns'
     # check the slitlet definition file
     if os.path.isfile(gargs['slitlet_def_fn']):
         slitlet_fn = gargs['slitlet_def_fn']
@@ -95,9 +93,8 @@ def _run_slitlet_mef(metadata, gargs, prev_suffix, curr_suffix, **args):
         jobs = []
         for fidx in range(worker, nmax):
             fn = full_obs_list[fidx]
-            use_ns = (ns and fn in ns_proc_list)
             p = multiprocessing.Process(target=_run_slitlet_mef_indiv, args=(
-                fn, gargs, prev_suffix, curr_suffix, slitlet_fn, use_ns))
+                fn, gargs, prev_suffix, curr_suffix, slitlet_fn))
             jobs.append(p)
             p.start()
 

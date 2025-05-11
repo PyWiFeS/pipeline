@@ -60,12 +60,6 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
             print("No science, standard, or arc files found in metadata.")
             raise ValueError("No science, standard, or arc files found in metadata.")
 
-        # Check observing mode
-        gargs['obs_mode'] = "classical"
-        if is_nodshuffle(temp_data_dir + reference_filename) \
-                or is_subnodshuffle(temp_data_dir + reference_filename):
-            gargs['obs_mode'] = "ns"
-
         # Check if is half-frame
         halfframe = is_halfframe(temp_data_dir + reference_filename)
         taros = is_taros(temp_data_dir + reference_filename)
@@ -444,9 +438,9 @@ def main():
         # Classify all raw data (red and blue arm)
         mode_save_fn = os.path.join(working_dir, "data_products/coadd_mode.json5")
         obs_metadatas = classify(temp_data_dir,
-                                greedy_stds=args.greedy_stds,
-                                coadd_mode=args.coadd_mode,
-                                mode_save_fn=mode_save_fn)
+                                 greedy_stds=args.greedy_stds,
+                                 coadd_mode=args.coadd_mode,
+                                 mode_save_fn=mode_save_fn)
 
         # Set grism_key dictionary due to different keyword names for red and blue arms.
         grism_key = {
@@ -581,7 +575,7 @@ def main():
                         blue_cube_path,
                         red_cube_path,
                         destination_dir,
-                        sky_sub=False if (ns or subns) else True,
+                        ns=ns,
                         subns=subns,
                         plot_path=plot_path,
                         **extract_args['detext_args'],
@@ -632,7 +626,12 @@ def main():
                         spliced_cube_path = os.path.join(destination_dir, spliced_cube_name)
 
                         # Splice cubes
-                        splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path, **extract_args['splice_args'])
+                        if os.path.isfile(spliced_cube_path) and \
+                            os.path.getmtime(blue_cube_path) < os.path.getmtime(spliced_cube_path) and \
+                                os.path.getmtime(red_cube_path) < os.path.getmtime(spliced_cube_path):
+                            print(f"Skipping splicing of cube {spliced_cube_name}. Output newer than input.")
+                        else:
+                            splice_cubes(match_cubes["Blue"], match_cubes["Red"], spliced_cube_path, **extract_args['splice_args'])
 
                         # Find blue spectra files matching the pattern 'xxx-Blue-UTxxx.spec.det*'
                         pattern_blue = os.path.join(
@@ -663,7 +662,12 @@ def main():
                             spliced_output.append(os.path.join(
                                 working_dir, destination_dir, spliced_spectrum_name
                             ))
-                            splice_spectra(blue_spec, red_spec, spliced_output[-1], **extract_args['splice_args'])
+                            if os.path.isfile(spliced_output[-1]) and \
+                                os.path.getmtime(blue_spec) < os.path.getmtime(spliced_output[-1]) and \
+                                    os.path.getmtime(red_spec) < os.path.getmtime(spliced_output[-1]):
+                                print(f"Skipping splicing of spectrum {spliced_output[-1]}. Output newer than input.")
+                            else:
+                                splice_spectra(blue_spec, red_spec, spliced_output[-1], **extract_args['splice_args'])
 
                     # Plot extracted spectra:
                     if extract_args["plot"]:

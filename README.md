@@ -4,17 +4,21 @@ The automated Python data reduction pipeline for WiFeS.
 
 ## Updates
 
-What's been done [20250420]:
+What's been done [20250509]:
 
 - allow user to propagate applied extinction correction into datacubes and extracted spectra
 
-- allow user to separate nod-and-shuffle observations and process independently rather than subtracting
+- allow user to separate Nod & Shuffle observations and process independently rather than subtracting
+
+- improve handling of nights of mixed Classical and Nod & Shuffle data
 
 - improved edge-handling for atmospheric differential refraction remapping
 
 - use enhanced flatfield algorithm when lacking twilight flats
 
 - improve spectral extraction for binning modes other than 1x2
+
+- new options for sky spectrum creation (science-sized aperture offset along the same IFU slice vs. annulus; median vs. weighted mean), and allow user to subtract sky from Nod & Shuffle frames
 
 - allow user to just extract or extract-and-splice existing datacubes without regenerating intermediate files
 
@@ -301,13 +305,27 @@ For more information, we refer the users to the [**PyWiFeS User Manual**](https:
    pywifes-reduce my_raw_data
    ```
 
+## Important Considerations
+The pipeline cannot handle mixed instrument configurations. Input raw_data folders should contain only a single combination of blue grating + beam splitter + red grating (bias frames are the exception, which may use any setup). All data should use the same CCD binning.
+
+In addition, the *science* data should all use either Full or Stellar (half-frame) readout regions. Full field calibration data (including standard star observations) will automatically be cut to Stellar size if the science data is Stellar. 
+
+The pipeline will appropriately handle mixed Classical and Nod & Shuffle (or Sub Nod & Shuffle) science observations, as long as the gratings and beam splitter match the available calibrations.
+
+A rule-of-thumb calibration dataset would include:
+1. bias >= 8 frames
+2. flat >= 9 frames (including from the night of the science data; showing no signs of shifts in the fringing pattern in the red arm)
+3. skyflat >= 6 frames
+4. arc >= 3 frames (from the night of the science data)
+5. wire >= 3 frames (from the night of the science data)
+6. standard >= 2 frames of one star (from the night of the science data, if possible) having IS_TELLURIC = 1 in reference_data/stdstar_lookup_table.dat
+
 ### User-Defined Reduction Parameters
 
 **Set reduction steps**
 
 To specify the reduction steps for blue and red data other than the defaults, users can provide the paths to the respective JSON or JSON5 files using the `--red-params` and `--blue-params` flags as follows:
    
-
     pywifes-reduce my_raw_data --red-params /.../user_red_param_file.json5 --blue-params /.../user_blue_param_file.json5
 
 
@@ -315,7 +333,6 @@ To specify the reduction steps for blue and red data other than the defaults, us
 
 Processing may be sped up by processing both arms simultaneously. Obviously, this entails utilising more of the machine's resources. To enable, use the `--run-both` flag as follows:
 
-    
     pywifes-reduce --run-both my_raw_data
 
     
@@ -360,11 +377,15 @@ When multiple sky frames are associated with a science image, they are scaled by
 
 `--greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
 
-`--extract`: Automatically locate sources in the output datacubes, extract sources with parameters defined in JSON5 file:
+`--extract`: Automatically locate sources in the output datacubes and extract sources. Default parameters defined in JSON5 file:
 
     /.../pipeline/pipeline_params/params_extract.json5
 
-The subtracted sky spectrum is included in the output. If the inputs are Nod & Shuffle frames, no sky is subtracted. Users may choose whether to propagate the data quality (DQ), applied telluric correction (TELLURICMODEL), and corrected atmospheric extinction (EXTINCTION) to the output spectrum.
+The subtracted sky spectrum is included in the output. Users may choose whether to propagate the data quality (DQ), applied telluric correction (TELLURICMODEL), and corrected atmospheric extinction (EXTINCTION) to the output spectrum. Users may choose whether to subtract the residual sky from Nod & Shuffle observations
+
+`--extract-params`: To specify extraction parameters other than the defaults, users can provide the path to the JSON or JSON5 file using the `--extract-params` flag as follows:
+
+    pywifes-reduce my_raw_data --extract --extract-params /.../user_extract_param_file.json5
 
 `--extract-and-splice`: In addition to the extraction described above, splice together the datacubes and extracted spectra. By default, the pipeline uses 2nd-order Lanczos (sinc) interpolation to map the red arm onto the finer wavelength spacing of the blue arm (the red arm wavelength spacing is 60% coarser in the default pipeline setup). The user may specify an alternative wavelength spacing in the extraction JSON5 file, and both arms will be interpolated to that scale.
 
@@ -395,16 +416,16 @@ The pipeline will generate the `data_products` directory within the working dire
     - `xxx-Red--UTxxx.cube.fits`
     - `xxx-Splice-UTxxx.cube.fits`
     - ... 
-    - `xxx-Blue-UTxxx.spec.apx.fits`
-    - `xxx-Red--UTxxx.spec.apx.fits`
-    - `xxx-Splice-UTxxx.spec.apx.fits`
+    - `xxx-Blue-UTxxx.spec.detN.fits`
+    - `xxx-Red--UTxxx.spec.detN.fits`
+    - `xxx-Splice-UTxxx.spec.detN.fits`
     
     - plots
         - `UTxxx_detection_plot.png`
-        - `xxx-Blue-UTxxx_.spec.ap1.png`
-        - `xxx-Red-UTxxx_.spec.ap1.png`
+        - `xxx-Blue-UTxxx_.spec.detN.png`
+        - `xxx-Red-UTxxx_.spec.detN.png`
         - ...
-        - `xxx-Splice-UTxxx_.spec.ap1.png`
+        - `xxx-Splice-UTxxx_.spec.detN.png`
         - ... 
         - blue
             - `bias.png`

@@ -508,8 +508,8 @@
             "args": {
                 // Methods to fit ratio of observed-to-reference flux (in magnitude units) vs. wavelength.
                 // Options:
-                // - "method": "poly",  // Default. Use polynomial fit, mask outliers, interpolate over masked pixels with polynomial.
-                "method": "smooth_SG",  // Use Savitzky-Golay filter. Interpolate over high pixels and telluric regions with polynomial, smooth with S-G, mask outliers, boxcar-smooth, S-G smooth again, and interpolate onto desired wavelength grid.
+                "method": "poly",  // Default. Use polynomial fit, mask outliers, interpolate over masked pixels with polynomial.
+                // - "method": "smooth_SG",  // Use Savitzky-Golay filter. Interpolate over high pixels and telluric regions with polynomial, smooth with S-G, mask outliers, boxcar-smooth, S-G smooth again, and interpolate onto desired wavelength grid.
                 //
                 "polydeg": 25,  // Order of polynomial for fitting (used for both methods).
                 "excise_cut": 0.005,  // Fractional threshold for outliers (applied to magnitude units). Overridden with 0.003 if method = "smooth_SG".

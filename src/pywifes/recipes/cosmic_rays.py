@@ -2,7 +2,10 @@ from astropy.io import fits as pyfits
 import os
 import gc
 from pywifes.lacosmic import lacos_wifes
-from pywifes.wifes_utils import get_sci_obs_list, get_sky_obs_list, get_std_obs_list, wifes_recipe
+from pywifes.wifes_utils import (
+    get_sci_obs_list, get_sky_obs_list, get_std_obs_list,
+    is_nodshuffle, is_subnodshuffle, wifes_recipe
+)
 
 
 # ------------------------------------------------------
@@ -67,7 +70,7 @@ def _run_cosmic_rays(
             is_multithread=multithread,
             max_processes=max_processes,
         )
-        if gargs['obs_mode'] == "ns":
+        if is_nodshuffle(in_fn) or is_subnodshuffle(in_fn):
             # Also process extracted sky slitlets.
             in_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, curr_suffix))
@@ -108,7 +111,7 @@ def _run_cosmic_rays(
             is_multithread=multithread,
             max_processes=max_processes,
         )
-        if gargs['obs_mode'] == "ns":
+        if is_nodshuffle(in_fn) or is_subnodshuffle(in_fn):
             # Also process extracted sky slitlets.
             in_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
             out_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, curr_suffix))

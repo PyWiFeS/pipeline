@@ -1157,7 +1157,7 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
     # apply flux cal to data!
     outfits = pyfits.HDUList(f3)
     if save_extinction:
-        ext_ext = pyfits.ImageHDU(data=obj_ext, name="EXTINCTION")
+        ext_ext = pyfits.ImageHDU(data=obj_ext.astype('float32', casting='same_kind'), name="EXTINCTION")
         for kw in ['CTYPE1', 'CUNIT1', 'CRVAL1', 'CDELT1', 'CRPIX1']:
             if kw in outfits[1].header:
                 ext_ext.header[kw] = outfits[1].header[kw]
@@ -1165,6 +1165,7 @@ def calibrate_wifes_cube(inimg, outimg, calib_fn, mode="pywifes", extinction_fn=
         ext_ext.header['COMMENT'] = 'NB: the correction _in magnitudes_ scales linearly with airmass'
         ext_ext.header['AIRMASS'] = secz
         ext_ext.header['BUNIT'] = 'Flux fraction'
+        ext_ext.scale('float32')
         outfits.append(ext_ext)
     for i in range(nslits):
         curr_hdu = i + 1
@@ -1678,11 +1679,13 @@ def apply_wifes_telluric(inimg, outimg, tellcorr_fn, airmass=None, shift_sky=Tru
             if numpy.all(numpy.isclose(shift_list, shift_list[0])):
                 telldata = telldata[0, :]
                 hcomment = "Applied telluric model for all slits"
-        tellext = pyfits.ImageHDU(data=telldata, name="TelluricModel")
+        tellext = pyfits.ImageHDU(data=telldata.astype('float32', casting="same_kind"),
+                                  name="TelluricModel")
         for kw in ['CTYPE1', 'CUNIT1', 'CRVAL1', 'CDELT1', 'CRPIX1']:
             if kw in outfits[1].header:
                 tellext.header[kw] = outfits[1].header[kw]
         tellext.header['COMMENT'] = hcomment
+        tellext.scale("float32")
         outfits.append(tellext)
     outfits[0].header.set("PYWIFES", __version__, "PyWiFeS version")
     outfits[0].header.set("PYWTSTDF", tellstd_list, "PyWiFeS: telluric standard(s)")
