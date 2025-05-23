@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="pywifes",
-    version="1.0.0",
+    version="2.0.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     python_requires=">=3.10",
@@ -18,5 +18,5 @@ setup(
         "setuptools",
         "wheel",
     ],
-    description="A Python package for optical data reduction pipeline.",
+    description="A Python package for reduction of data from the WiFeS IFU spectrograph.",
 )

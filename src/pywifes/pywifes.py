@@ -3601,7 +3601,11 @@ def wifes_2dim_response(
             except Exception:
                 print("Could not retrieve number of input dome flats from header, defaulting to 1")
                 nflat = 1.0
-            force_idx = numpy.nonzero(nflat * numpy.nanmedian(rect_spec_data, axis=0) < 100.0)
+            if 'PYWICOFF' in f1[0].header:
+                ic_off = float(f1[0].header['PYWICOFF'])
+            else:
+                ic_off = 0.0
+            force_idx = numpy.nonzero(nflat * numpy.nanmedian(rect_spec_data, axis=0) < 100.0 - ic_off)
             next_normed_data[:, force_idx] = 1.
 
             # SPATIAL FLAT
@@ -3649,7 +3653,11 @@ def wifes_2dim_response(
             except Exception:
                 print("Could not retrieve number of input dome flats from header, defaulting to 1")
                 nflat = 1.0
-            force_idx = numpy.nonzero(nflat * numpy.nanmedian(normed_data, axis=0) < 100.0)
+            if 'PYWICOFF' in f1[0].header:
+                ic_off = float(f1[0].header['PYWICOFF'])
+            else:
+                ic_off = 0.0
+            force_idx = numpy.nonzero(nflat * numpy.nanmedian(rect_spec_data, axis=0) < 100.0 - ic_off)
             normed_data[:, force_idx] = 1.
 
             normed_data[numpy.nonzero(normed_data < resp_min)] = resp_min
@@ -3768,6 +3776,10 @@ def wifes_SG_response(
     except Exception:
         print("Could not retrieve number of input dome flats from header, defaulting to 1")
         nflat = 1.0
+    if 'PYWICOFF' in f1[0].header:
+        ic_off = float(f1[0].header['PYWICOFF'])
+    else:
+        ic_off = 0.0
 
     if spatial_inimg is not None:
         try:
@@ -3840,7 +3852,7 @@ def wifes_SG_response(
                     y3 = numpy.power(10, intermed2)
 
         # Force pixel_response to 1 at wavelengths where sum of median counts < 100 (S/N ~ 10)
-        pixel_response[i][nflat * orig_spec_data < 100.] = 1.
+        pixel_response[i][nflat * orig_spec_data < 100. - ic_off] = 1.
 
         # rectify twilight data to take consistent wavelength regions
         if wsol_fn is not None:

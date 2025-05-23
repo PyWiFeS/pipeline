@@ -833,8 +833,9 @@ def detect_extract_and_save(
     # Automatic source detection in the collapsed cubes (red + blue)
 
     # Avoid the edges of size border_width on the statistics
-    xmin = 0 if is_halfframe(red_cube_path) else border_width
-    xmax = collapsed_cube.shape[1] if is_halfframe(red_cube_path) else -border_width
+    this_cube_path = red_cube_path if red_cube_path is not None else blue_cube_path
+    xmin = 0 if is_halfframe(this_cube_path) else border_width
+    xmax = collapsed_cube.shape[1] if is_halfframe(this_cube_path) else -border_width
     collapsed_cube_no_edge = collapsed_cube[
         border_width:-border_width, xmin:xmax
     ]
