@@ -10,7 +10,7 @@ PyWiFeS is an automated and upgraded version of the original PyWiFeS pipeline (s
 Upgrades from the Previous Version
 ----------------------------------
 
-Main upgrades from the previous PyWiFeS version *as of March 2025*:
+Main upgrades from the previous PyWiFeS version *as of May 2025*:
 
 - Updated to Python 3, with bug fixes and headers for the new telescope setup.
 - Pip installable.

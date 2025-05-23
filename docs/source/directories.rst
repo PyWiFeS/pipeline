@@ -8,7 +8,8 @@ The pipeline generates a directory structure to store the **reduced data**. The 
 The pipeline will generate the `data_products` directory within the working directory `/.../working_directory` containing the reduced data, a logger file to track the information from the reduction process, and the following structure: 
 
 - data_products
-    - `pywifes_logger.log` 
+    - `blue.log` 
+    - `red.log` 
     - `xxx-Blue-UTxxx.cube.fits`
     - `xxx-Red-UTxxx.cube.fits`
     - `xxx-Splice-UTxxx.cube.fits`

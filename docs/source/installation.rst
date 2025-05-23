@@ -7,11 +7,11 @@ PyWiFeS requires an installation environment with python >=3.10, scipy >=1.15.1,
 
 To install PyWiFeS, follow these steps:
 
-1. Clone the repository (automation branch):
+1. Clone the repository (main branch):
    
    .. code-block:: bash
    
-      git clone -b automation https://github.com/PyWiFeS/pipeline.git
+      git clone -b main https://github.com/PyWiFeS/pipeline.git
    
 2. Navigate to the project directory and install dependencies:
    
