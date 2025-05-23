@@ -7,7 +7,7 @@
 Welcome to the PyWiFeS User Manual!
 ===================================
 
-PyWiFeS is an automated Python data reduction pipeline for the Wide Field Spectrograp (WiFeS).
+PyWiFeS is an automated Python data reduction pipeline for the Wide Field Spectrograph (WiFeS).
 
 An overview of the WiFeS instrument itself can be found on its `RSAA webpage <https://rsaa.anu.edu.au/observatories/telescopes/wifes>`_.
 
