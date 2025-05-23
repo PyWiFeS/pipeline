@@ -2,7 +2,7 @@
 
 The automated Python data reduction pipeline for WiFeS, the Wide Field Spectrograph, an optical integral field spectrograph for the ANU 2.3m telescope at Siding Spring Observatory. 
 
-WiFeS has a field of view of 25x38 arcseconds, with R~3000 VPH gratings that cover the full optical wavelength range in a single exposure, as well as R~7000 VPH gratings that offer higher spectral resolution for smaller wavelength ranges. WiFeS was described in two papers led by the Principal Investigator, the late Michael Dopita, in [2007](https://ui.adsabs.harvard.edu/abs/2007Ap%26SS.310..255D/abstract) and [2010](https://ui.adsabs.harvard.edu/abs/2010Ap%26SS.327..245D/abstract).
+WiFeS has a field of view of 25x38 arcseconds, with R=3000 VPH gratings that cover the full optical wavelength range in a single exposure, as well as R=7000 VPH gratings that offer higher spectral resolution for smaller wavelength ranges. WiFeS was described in two papers led by the Principal Investigator, the late Michael Dopita, in [2007](https://ui.adsabs.harvard.edu/abs/2007Ap%26SS.310..255D/abstract) and [2010](https://ui.adsabs.harvard.edu/abs/2010Ap%26SS.327..245D/abstract).
 
 The original version of PyWiFeS was described by [Childress et al. (2014)](https://ui.adsabs.harvard.edu/abs/2014Ap%26SS.349..617C/abstract).
 
