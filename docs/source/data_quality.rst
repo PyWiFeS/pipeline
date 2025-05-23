@@ -113,7 +113,7 @@ Collapsed data cube images for both arms. This plot shows the automatically dete
 
 
 Automatic Extracted Spectrum: xxx-WiFeS-xxx.spec.detx.png
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Plot of extracted spectrum for one detection. Versions are generated for each arm, as well as for the spliced spectrum, if generated.
 
 .. image:: _static/OBK-124352-WiFeS-Blue-UT20240529T083012-7.spec.det1.png
