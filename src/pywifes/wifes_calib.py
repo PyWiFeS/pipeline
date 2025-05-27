@@ -485,6 +485,7 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     It has the advantage of preserving the original shape and
     features of the signal better than other types of filtering
     approaches, such as moving averages techniques.
+
     Parameters
     ----------
     y : array_like, shape (N,)
@@ -513,13 +514,21 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     Examples
     --------
     t = np.linspace(-4, 4, 500)
+
     y = np.exp( -t**2 ) + np.random.normal(0, 0.05, t.shape)
+
     ysg = savitzky_golay(y, window_size=31, order=4)
+
     import matplotlib.pyplot as plt
+
     plt.plot(t, y, label='Noisy signal')
+
     plt.plot(t, np.exp(-t**2), 'k', lw=1.5, label='Original signal')
+
     plt.plot(t, ysg, 'r', label='Filtered signal')
+
     plt.legend()
+
     plt.show()
 
     References
@@ -530,6 +539,7 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     2. Numerical Recipes 3rd Edition: The Art of Scientific Computing
        W.H. Press, S.A. Teukolsky, W.T. Vetterling, B.P. Flannery
        Cambridge University Press ISBN-13: 9780521880688
+
     """
     try:
         window_size = numpy.abs(int(window_size))
