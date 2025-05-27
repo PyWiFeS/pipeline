@@ -36,6 +36,10 @@ def _run_overscan_sub(metadata, gargs, prev_suffix, curr_suffix, poly_high_oscan
         Override epoch-based overscan regions with the specified values ([ymin, ymax, xmin, xmax],
         where the max values indicate the last pixel to be included).
         Default: None.
+    science_regions : list
+        Override epoch-based science regions with the specified values ([ymin, ymax, xmin, xmax],
+        where the max values indicate the last pixel to be included).
+        Default: None.
     gain : float
         Override epoch-based gain value. Units: e-/ADU.
         Default: None.

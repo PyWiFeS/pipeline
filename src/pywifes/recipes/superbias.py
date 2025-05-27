@@ -60,7 +60,6 @@ def _run_superbias(metadata, gargs, prev_suffix, curr_suffix, method="row_med", 
                 data_hdu=gargs['my_data_hdu'],
                 method=method,
                 plot_dir=gargs['plot_dir_arm'],
-                arm=gargs['arm'],
                 **args,
             )
         else:

@@ -5,9 +5,10 @@
             "run": true,
             "suffix": "00",
             "args": {
-                // Values determined from headers / timestamp. Must manually set all 4 to override.
+                // Values determined from headers / timestamp. Must manually set all 5 to override.
                 // - "detector_regions": null,
                 // - "overscan_regions": null,
+                // - "science_regions": null,
                 // - "gain": null,
                 // - "rdnoise": null,
                 //

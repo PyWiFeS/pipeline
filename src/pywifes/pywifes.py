@@ -606,7 +606,7 @@ def imcombine_mef(
 # ------------------------------------------------------------------------
 def imarith_mef(inimg1, operator, inimg2, outimg):
     """
-    Performs arithmetic operations between two images.
+    Performs arithmetic operations between two multi-extension images.
 
     Parameters
     ----------
@@ -835,6 +835,27 @@ def scaled_imarith_mef(inimg1, operator, inimg2, outimg, scale=None,
 
 
 def imarith(inimg1, operator, inimg2, outimg, data_hdu=0):
+    """
+    Performs arithmetic operations between two images.
+
+    Parameters
+    ----------
+    inimg1 : str
+        The path to the first input image.
+    operator : str
+        The operator to be used for combining the images.
+        Options: '+', '-', '*', '/'.
+    inimg2 : str
+        The path to the second input image.
+    outimg : str
+        The path to the output image.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+
+    Returns
+    -------
+    None
+    """
     f1 = pyfits.open(inimg1)
     f2 = pyfits.open(inimg2)
     outfits = pyfits.HDUList(f1)
@@ -881,6 +902,25 @@ def imarith(inimg1, operator, inimg2, outimg, data_hdu=0):
 
 
 def imarith_float_mef(inimg1, operator, scale, outimg):
+    """
+    Performs arithmetic operations between two floating point multi-extension images.
+
+    Parameters
+    ----------
+    inimg1 : str
+        The path to the first input image.
+    operator : str
+        The operator to be used for combining the images.
+        Options: '+', '-', '*', '/'.
+    inimg2 : str
+        The path to the second input image.
+    outimg : str
+        The path to the output image.
+
+    Returns
+    -------
+    None
+    """
     # check if halfframe
     halfframe = is_halfframe(inimg1)
     if halfframe:
@@ -957,6 +997,27 @@ def imarith_float_mef(inimg1, operator, scale, outimg):
 
 
 def imarith_float(inimg1, operator, scale, outimg, data_hdu=0):
+    """
+    Performs arithmetic operations between two floating point images.
+
+    Parameters
+    ----------
+    inimg1 : str
+        The path to the first input image.
+    operator : str
+        The operator to be used for combining the images.
+        Options: '+', '-', '*', '/'.
+    inimg2 : str
+        The path to the second input image.
+    outimg : str
+        The path to the output image.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+
+    Returns
+    -------
+    None
+    """
     return imarith_float_mef(
         inimg1,
         operator,
@@ -969,6 +1030,20 @@ def imarith_float(inimg1, operator, scale, outimg, data_hdu=0):
 
 
 def imcopy(inimg, outimg):
+    """
+    Copy one image to a new filename.
+
+    Parameters
+    ----------
+    inimg : str
+        The path to the input image.
+    outimg : str
+        The path to the output image.
+
+    Returns
+    -------
+    None
+    """
     f = pyfits.open(inimg)
     outfits = pyfits.HDUList(f)
     outfits.writeto(outimg, overwrite=True)
@@ -1179,6 +1254,24 @@ default_detector_values = {
 
 
 def determine_detector_epoch(inimg, data_hdu=0):
+    """
+    Determine the observing epoch of the image, which defines detector
+    properties like overscan regions, gain, and read noise.
+
+    Parameters
+    ----------
+    inimg : str
+        The path to the input image.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+
+    Returns
+    -------
+    epoch : str
+        The code for the observing epoch.
+
+    None
+    """
     f = pyfits.open(inimg)
     orig_hdr = f[data_hdu].header
     f.close()
@@ -1225,13 +1318,28 @@ def convert_ccd_to_bindata_pix(pix_defs, bin_x, bin_y):
 
 
 def make_overscan_mask(dflat, omask, data_hdu=0, debug=False):
-    # From a domeflat, get the slice y-axis locations from a median cut
-    # through the centre. Then use the mean of the illuminated and
-    # non-illuminated pixels to define a threshold. Rows above the
-    # threshold will be masked (value = 0) from the overscan calculation
-    # due to elevated counts in those rows. Note that the output FITS
-    # image has a single axis, so gets treated by many tools as having
-    # only an x-axis extent.
+    """
+    From a domeflat, get the slice y-axis locations from a median cut
+    through the centre. Then use the mean of the illuminated and
+    non-illuminated pixels to define a threshold. Rows above the
+    threshold will be masked (value = 0) from the overscan calculation
+    due to elevated counts in those rows. Note that the output FITS
+    image has a single axis, so gets treated by many tools as having
+    only an x-axis extent.
+
+    Parameters
+    ----------
+    dflat : str
+        The path to the input domeflat image.
+    omask : str
+        The path to the output image mask.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+
+    Returns
+    -------
+    None
+    """
     if debug:
         print(arguments())
     fdata = pyfits.getdata(dflat, ext=data_hdu)
@@ -1253,14 +1361,26 @@ def make_overscan_mask(dflat, omask, data_hdu=0, debug=False):
 
 
 def correct_readout_shift(indata, verbose=False):
-    """In the early period of Automated Observations, the red arm readout was
+    """
+    In the early period of Automated observations, the red arm readout was
     sometimes affected by a problem of extra pixels early in the data stream,
     which shifted the pixels positions throughout the recorded image.
-    Per Ian Price:
+    Per Ian Price (ANU):
         The amplifier is use is at the upper right of the image and you essentially
         need to chop the last N pixels from the image and insert N pixels at the
         start of the image to 'slide it right' and undo the wrap-around the original
         problem caused.
+
+    Parameters
+    ----------
+    indata : numpy.ndarray
+        Input data array.
+    verbose : bool
+        Whether to report when data has been shifted.
+
+    Returns
+    -------
+    Corrected data array (or original, if unmodified).
     """
     redmin = 4199  # gives a good agreement with Taros wavelength solution
     redvalmin = 600
@@ -1287,14 +1407,51 @@ def subtract_overscan(
     data_hdu=0,
     detector_regions=None,
     overscan_regions=None,
+    science_regions=None,
     gain=None,
     rdnoise=None,
     omaskfile=None,
-    omask_threshold=500.0,  # per-row mean ADU relative to row with lowest mean
+    omask_threshold=500.0,
     interactive_plot=False,
     verbose=False,
     debug=False,
 ):
+    """
+    Subtract the overscan.
+
+    Parameters
+    ----------
+    inimg : str
+        The path to the input image.
+    outimg : str
+        The path to the output image.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+    detector_regions : list, optional
+        List of full detector [ymin, ymax, xmin, xmax] pixel coordinates in FITS (1-indexed) format. Default is None (to determine from epoch).
+    overscan_regions : list, optional
+        List of overscan [ymin, ymax, xmin, xmax] pixel coordinates in FITS (1-indexed) format. Default is None (to determine from epoch).
+    science_regions : list, optional
+        List of science [ymin, ymax, xmin, xmax] pixel coordinates in FITS (1-indexed) format. Default is None (to determine from epoch).
+    gain : float, optional
+        CCD gain in e-/ADU. Default is None (to determine from epoch).
+    rdnoise : float, optional
+        CCD readnoise in e-. Default is None (to determine from epoch).
+    omaskfile : str, optional
+        The path to the maskfile defining the slice/interslice regions. Default is None.
+    omask_threshold : float, optional
+        Threshold above which to mask pixels from overscan fit. Threshold is per-row mean ADU relative to row with lowest mean. Default is 500.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user. Default is False.
+    verbose : bool
+        Whether to report when data has been checked for readout shifts. Default is False.
+    debug : bool, optional
+        Whether to report the parameters used in this function call. Default is False.
+
+    Returns
+    -------
+    None
+    """
     if debug:
         print(arguments())
     # (0) open file, initialize HDUList that will be saved at output
@@ -1313,6 +1470,7 @@ def subtract_overscan(
     if (
         (detector_regions is None)
         or (overscan_regions is None)
+        or (science_regions is None)
         or (gain is None)
         or (rdnoise is None)
     ):
@@ -1457,10 +1615,36 @@ def subtract_overscan(
 # ------------------------------------------------------------------------
 def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
                    interp_buffer=3, interactive_plot=False, verbose=False, debug=False):
-    """Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
+    """
+    Handle bad pixels. Performs immediate linear x-interpolation across bad pixels in
     calibration frames, but sets bad pixels to NaN for STANDARD, OBJECT, and SKY frames.
     The NaN pixels are interpolated across in same way after the VAR and DQ extensions
     are created, so that the affected pixels are flagged appropriately.
+
+    Parameters
+    ----------
+    inimg : str
+        The path to the input image.
+    outimg : str
+        The path to the output image.
+    arm : str
+        Either 'blue' or 'red'.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+    flat_littrow : bool, optional
+        Mask the Littrow ghosts in flats and skyflats. Applies linear interpolation, as with bad pixels in calibrations. Default is False.
+    interp_buffer : int, optional
+        Number of additional pixels to median combine with the first on each x-axis edge of a masking region. Default is 3.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user. Default is False.
+    verbose : bool
+        Whether to report method applied (determined by IMAGETYP header keyword). Default is False.
+    debug : bool, optional
+        Whether to report the parameters used in this function call. Default is False.
+
+    Returns
+    -------
+    None
     """
     if debug:
         print(arguments())
@@ -1675,7 +1859,6 @@ def repair_bad_pix(inimg, outimg, arm, data_hdu=0, flat_littrow=False,
 
 
 # ------------------------------------------------------------------------
-# inter-slitlet bias subtraction method
 def fit_wifes_interslit_bias(
     inimg,
     data_hdu=0,
@@ -1685,6 +1868,33 @@ def fit_wifes_interslit_bias(
     y_polydeg=1,
     interactive_plot=False,
 ):
+    """
+    Inter-slitlet bias determination.
+
+    Parameters
+    ----------
+    inimg : str
+        The path to the input image.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+    slitlet_def_file : str, optional
+        The path to the pickle file defining the slitlet boundaries. Default is None.
+    method : str, optional
+        Method to fit interslit bias level. Options are "row_med" (per-column mean of
+        points within 20 counts of the column's median), "surface" (fit 2D surface to
+        bias level), "median" (median of the interslice regions from the entire frame).
+        Default is "row_med".
+    x_polydeg : int, optional
+        For method="surface", polynomial degree of the fit in the x-axis. Default is 1.
+    y_polydeg : int, optional
+        For method="surface", polynomial degree of the fit in the y-axis. Default is 1.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user. Default is False.
+
+    Returns
+    -------
+    Numpy ndarray of the bias level.
+    """
     # ---------------------------
     # (0) open file, initialize HDUList that will be saved at output
     f = pyfits.open(inimg)
@@ -1864,7 +2074,7 @@ def fit_wifes_interslit_bias(
             bias_val = numpy.nanmedian(curr_data[numpy.nonzero(curr_map)])
             out_data[reg[0]:reg[1] + 1, reg[2]:reg[3] + 1] = bias_val
         else:
-            print("only row_med and median methods currently supported")
+            print("only row_med, surface, and median methods currently supported")
     # ---------------------------
     # (4) return it!
     return out_data
@@ -1880,6 +2090,35 @@ def save_wifes_interslit_bias(
     y_polydeg=1,
     interactive_plot=False,
 ):
+    """
+    Save the inter-slitlet bias level.
+
+    Parameters
+    ----------
+    inimg : str
+        The path to the input image.
+    outimg : str
+        The path to the output bias level image.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+    slitlet_def_file : str, optional
+        The path to the pickle file defining the slitlet boundaries. Default is None.
+    method : str, optional
+        Method to fit interslit bias level. Options are "row_med" (per-column mean of
+        points within 20 counts of the column's median), "surface" (fit 2D surface to
+        bias level), "median" (median of the interslice regions from the entire frame).
+        Default is "surface".
+    x_polydeg : int, optional
+        For method="surface", polynomial degree of the fit in the x-axis. Default is 1.
+    y_polydeg : int, optional
+        For method="surface", polynomial degree of the fit in the y-axis. Default is 1.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user. Default is False.
+
+    Returns
+    -------
+    None.
+    """
     # (0) open file, initialize HDUList that will be saved at output
     f = pyfits.open(inimg)
     outfits = pyfits.HDUList(f)
@@ -1911,6 +2150,35 @@ def subtract_wifes_interslit_bias(
     y_polydeg=1,
     interactive_plot=False,
 ):
+    """
+    Subtract the inter-slitlet bias level.
+
+    Parameters
+    ----------
+    inimg : str
+        The path to the input image.
+    outimg : str
+        The path to the output bias level image.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+    slitlet_def_file : str, optional
+        The path to the pickle file defining the slitlet boundaries. Default is None.
+    method : str, optional
+        Method to fit interslit bias level. Options are "row_med" (per-column mean of
+        points within 20 counts of the column's median), "surface" (fit 2D surface to
+        bias level), "median" (median of the interslice regions from the entire frame).
+        Default is "surface".
+    x_polydeg : int, optional
+        For method="surface", polynomial degree of the fit in the x-axis. Default is 1.
+    y_polydeg : int, optional
+        For method="surface", polynomial degree of the fit in the y-axis. Default is 1.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user. Default is False.
+
+    Returns
+    -------
+    None.
+    """
     # (0) open file, initialize HDUList that will be saved at output
     f = pyfits.open(inimg)
     outfits = pyfits.HDUList(f)
@@ -1932,10 +2200,24 @@ def subtract_wifes_interslit_bias(
     return
 
 
-# ------------------------------------------------------------------------
-# bias subtraction method
-
 def wifes_bias_model(p, x, camera):
+    """
+    Generate bias model from parametrised fit. Model includes constant, linear term, and
+    two exponentials (with an additional Gaussian term for the blue arm).
+
+    Parameters
+    ----------
+    p : list or 1D array
+        Parameter values of fit.
+    x : Numpy array
+        Pixel number.
+    camera : str
+        Label of camera/arm ("WiFeSRed" or not).
+
+    Returns
+    -------
+    Numpy ndarray of the bias model.
+    """
     if camera == "WiFeSRed":
         model = p[0]
         model += p[1] * numpy.exp(p[2] / numpy.abs(x - p[3]))
@@ -1950,7 +2232,28 @@ def wifes_bias_model(p, x, camera):
     return model
 
 
-def error_wifes_bias_model(p, x, z, err, camera, fjac=None):
+def error_wifes_bias_model(p, x, z, err, camera):
+    """
+    Generate bias model from parametrised fit. Model includes constant, linear term, and
+    two exponentials (with an additional Gaussian term for the blue arm).
+
+    Parameters
+    ----------
+    p : list or 1D array
+        Parameter values of fit.
+    x : Numpy array
+        Pixel number.
+    z : Numpy array
+        Pixel value.
+    err : Numpy array
+        Array of pixel value errors.
+    camera : str
+        Label of camera/arm ("WiFeSRed" or not).
+
+    Returns
+    -------
+    List of status value and residual array.
+    """
     status = 0
     residual = (wifes_bias_model(p, x, camera) - z) / err
     return [status, residual]
@@ -1959,7 +2262,6 @@ def error_wifes_bias_model(p, x, z, err, camera, fjac=None):
 def generate_wifes_bias_fit(
     bias_img,
     outimg,
-    arm,
     method="row_med",
     data_hdu=0,
     plot=True,
@@ -1967,6 +2269,34 @@ def generate_wifes_bias_fit(
     save_prefix='bias',
     verbose=False,
 ):
+    """
+    Fit the bias level.
+
+    Parameters
+    ----------
+    bias_img : str
+        The path to the input bias image.
+    outimg : str
+        The path to the output bias level image.
+    method : str, optional
+        Method to fit bias level. Options are "row_med" (per-column mean of points
+        within 20 counts of the column's median), "fit" (collapse along y-axis and
+        fit a parametrised shape). Default is "row_med".
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+    plot : bool, optional
+        Whether to output a diagnostic plot. Default is False.
+    plot_dir : str, optional
+        Directory for output of plot (if requested). Default is '.'.
+    save_prefix : str, optional
+        Prefix for plot (if requested). Default is 'bias'.
+    verbose : bool, optional
+        If method="fit", whether to report progress of MPFit. Default is False.
+
+    Returns
+    -------
+    None.
+    """
     # get object and bias data
     f1 = pyfits.open(bias_img)
     orig_data = f1[data_hdu].data
@@ -2196,7 +2526,36 @@ def derive_slitlet_profiles(
     debug=False,
 ):
     """
-    Description: from input flatfield exposure, determine the locations of each slit.
+    From input flatfield exposure, determine the locations of each slit.
+
+    Parameters
+    ----------
+    flatfield_fn : str
+        The path to the input flatfield image.
+    output_fn : str
+        The path to the output file with slitlet positions.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+    verbose : bool, optional
+        Whether to report shifts relative to default slit positions. Default is False.
+    shift_global : bool, optional
+        Whether to shift all slits by the mean shift value (versus shifting slits individually).
+        Default is True.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user. Default is False.
+    bin_x : int, optional
+        If specified, override the CCD binning indicated in the header with this value for the x axis.
+        Default is None.
+    bin_y : int, optional
+        If specified, override the CCD binning indicated in the header with this value for the y axis.
+        Default is None.
+    debug : bool, optional
+        Whether to report the parameters used in this function call. Default is False.
+
+    Returns
+    -------
+    None.
+
     """
     if debug:
         print(arguments())
@@ -2361,6 +2720,54 @@ def interslice_cleanup(
 
     (This however assumes a Gaussian distribution, which isn't at all the case
     but still useful as a guide/metric.)
+
+    Parameters
+    ----------
+    input_fn : str
+        The path to the input flatfield image.
+    output_fn : str
+        The path to the output file with slitlet positions.
+    slitlet_def_file : str, optional
+        Path to a file containing slitlet definitions. If not specified, baseline values will be used.
+    bin_x : int, optional
+        If specified, override the CCD binning indicated in the header with this value for the x axis.
+        Default is None.
+    bin_y : int, optional
+        If specified, override the CCD binning indicated in the header with this value for the y axis.
+        Default is None.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+    offset : float, optional
+        Fraction of median whole-frame background level to add back to flat to avoid negative values.
+        Default is 0.4.
+    buffer : int, optional
+        Number of y-axis pixels on either side of each slitlet in which to avoid background fitting.
+        Default is 0.
+    radius : float, optional
+        Sigma for 2D Gaussian filtering (with "method" = "2D"). Equal in both axes. Default is 10.
+    nsig_lim : float, optional
+        Clipping threshold in number of standard deviations above median. Computed independently for
+        each slitlet. Default is 5.0.
+    verbose : bool, optional
+        Whether to report progress. Default is False.
+    plot : bool, optional
+        Whether to output a diagnostic plot. Default is True.
+    plot_dir : str, optional
+        Directory for output of plot (if requested). Default is '.'.
+    save_prefix : str, optional
+        Prefix for plot (if requested). Default is 'cleanup_'.
+    method : str, optional
+        Method to fit interslice region. Options are "2D" (fit 2D Gaussian-smoothed shape 
+        to interslice segments), "1D" (use median value of each cosmic-ray-filtered 
+        interslice segment). Default is "2D".
+    debug : bool, optional
+        Whether to report the parameters used in this function call. Default is False.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user. Default is False.
+
+    Returns
+    -------
+    None
     """
     if debug:
         print(arguments())
@@ -2626,6 +3033,37 @@ def wifes_slitlet_mef(
     inimg, outimg, data_hdu=0, bin_x=None, bin_y=None, slitlet_def_file=None,
     nan_method="interp", repl_val=0.0, debug=False,
 ):
+    """
+    Create multi-extension FITS file from a single input image.
+
+    Parameters
+    ----------
+    inimg : str
+        The path to the input image.
+    outimg : str
+        The path to the output multi-extension image.
+    data_hdu : int, optional
+        The HDU index for the data extension in the input images. Default is 0.
+    bin_x : int, optional
+        If specified, override the CCD binning indicated in the header with this value for the x axis.
+        Default is None.
+    bin_y : int, optional
+        If specified, override the CCD binning indicated in the header with this value for the y axis.
+        Default is None.
+    slitlet_def_file : str, optional
+        Path to a file containing slitlet definitions. If not specified, baseline values will be used.
+    nan_method : str, optional
+        Method to treat NaN pixels. Options are "interp" (apply linear interpolation in x-direction),
+        "replace" (replace with constant value). Default is "interp".
+    repl_val : float, optional
+        Constant to replace NaN values with if "method" = "replace". Default is 0.0.
+    debug : bool, optional
+        Whether to report the parameters used in this function call. Default is False.
+
+    Returns
+    -------
+    None.
+    """
     if debug:
         print(arguments())
     f = pyfits.open(inimg)
@@ -3222,6 +3660,26 @@ def wifes_slitlet_mef_ns(
 
 # ------------------------------------------------------------------------
 def wifes_response_pixel(inimg, outimg, wsol_fn=None, debug=False):
+    """
+    Generate response array by dividing flatfield by the median along each axis.
+    Operates separately on each slitlet.
+
+    Parameters
+    ----------
+    inimg : str
+        The file path to the input image.
+    outimg : str
+        The file path to the output image.
+    wsol_fn : str, optional
+        The file path to the wavelength solution. Default is None.
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default is False.
+
+    Returns
+    -------
+    None.
+    """
     if debug:
         print(arguments())
     # check if halfframe
@@ -3287,7 +3745,39 @@ def wifes_response_poly(
     save_prefix="flat_response",
     debug=False,
 ):
+    """
+    Generate response array by fitting dome flatfield with polynomials in log(count)-space.
+    Operates separately on each slitlet.
 
+    Parameters
+    ----------
+    inimg : str
+        The file path to the input image.
+    outimg : str
+        The file path to the output image.
+    wsol_fn : str, optional
+        The file path to the wavelength solution. Default is None.
+    zero_var : bool, optional
+        Whether to set the VAR extensions to zero in the output file. Default is True.
+    polydeg : int, optional
+        Degree of polynomial to fit. Default is 7.
+    shape_fn : str, optional
+        If defined, outputs shape of central slice's central pixel to aid later flux
+        calibration to the given filename. Default is None.
+    plot : bool, optional
+        Whether to output a diagnostic plot. Default is True.
+    plot_dir : str, optional
+        Directory for output of plot (if requested). Default is '.'.
+    save_prefix : str, optional
+        Prefix for plot (if requested). Default is 'flat_response'.
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default is False.
+
+    Returns
+    -------
+    None.
+    """
     if debug:
         print(arguments())
 
@@ -3443,8 +3933,41 @@ def wifes_2dim_response(
     polydeg=7,
     resp_min=1.0e-4,
     debug=False,
-    interactive_plot=False,
 ):
+    """
+    Generate response array by fitting dome and twilight flatfields with polynomials in
+    log(count)-space. Operates separately on each slitlet.
+
+    Parameters
+    ----------
+    spec_inimg : str
+        The file path to the input domeflat image.
+    spatial_inimg : str
+        The file path to the input twilight flat image.
+    outimg : str
+        The file path to the output image.
+    wsol_fn : str, optional
+        The file path to the wavelength solution. Default is None.
+    zero_var : bool, optional
+        Whether to set the VAR extensions to zero in the output file. Default is True.
+    plot : bool, optional
+        Whether to output a diagnostic plot. Default is True.
+    plot_dir : str, optional
+        Directory for output of plot (if requested). Default is '.'.
+    save_prefix : str, optional
+        Prefix for plot (if requested). Default is 'flat_response'.
+    polydeg : int, optional
+        Degree of polynomial to fit. Default is 7.
+    resp_min : float, optional
+        Minimum response value in output file. Default is 1.0e-4.
+    debug : bool, optional
+        Whether to report the parameters used in this function call.
+        Default is False.
+
+    Returns
+    -------
+    None.
+    """
     if debug:
         print(arguments())
     # check if halfframe
@@ -3739,6 +4262,42 @@ def wifes_SG_response(
     debug=False,
     interactive_plot=False,
 ):
+    """
+    Generate response array by fitting dome and twilight flatfields with Savitzky-Golay filter in
+    log(count)-space. Operates separately on each slitlet.
+
+    Parameters
+    ----------
+    spec_inimg : str
+        The file path to the input domeflat image.
+    spatial_inimg : str
+        The file path to the input twilight flat image.
+    outimg : str
+        The file path to the output image.
+    wsol_fn : str, optional
+        The file path to the wavelength solution. Default is None.
+    zero_var : bool, optional
+        Whether to set the VAR extensions to zero in the output file. Default is True.
+    plot : bool, optional
+        Whether to output a diagnostic plot. Default is True.
+    plot_dir : str, optional
+        Directory for output of plot (if requested). Default is '.'.
+    save_prefix : str, optional
+        Prefix for plot (if requested). Default is 'flat_response'.
+    resp_min : float, optional
+        Minimum response value in output file. Default is 1.0e-4.
+    shape_fn : str, optional
+        If defined, outputs shape of central slice's central pixel to aid later flux
+        calibration to the given filename. Default is None.
+    debug : bool, optional
+        Whether to report the parameters used in this function call. Default is False.
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user. Default is False.
+
+    Returns
+    -------
+    None.
+    """
     if debug:
         print(arguments())
 
@@ -3989,6 +4548,45 @@ def derive_wifes_wire_solution(
     save_prefix='wire_fit_params',
     debug=False,
 ):
+    """
+    Trace the wire image to determine position of centre of each slitlet.
+    
+    Parameters
+    ----------
+    inimg : str
+        Path to the input wire image.
+    out_file : str
+        Path to the output wire solution.
+    bin_x : int, optional
+        Binning factor in the x-direction. If not specified, it will be read from the header.
+    bin_y : int, optional
+        Binning factor in the y-direction. If not specified, it will be read from the header.
+    fit_zones : list, optional
+        List of per-slitlet y-axis region limits to define background against which to locate
+        wire. Unbinned pixels. Default is [16, 26, 54, 70].
+    flux_threshold : float, optional
+        Minimum flux difference for wire relative to background. Default value assumes a
+        superwire scaled by "percentileN". Default is 0.001.
+    wire_polydeg : int, optional
+        Degree of polynomial in x-direction to fit. Default is 1.
+    xlims : str or list, optional
+        Either "default" or a 2-element list defining the x-axis range for the wire fitting.
+        Default is "default".
+    interactive_plot : bool, optional
+        Whether to interrupt processing to provide interactive plot to user. Default is False.
+    plot : bool, optional
+        Whether to output a diagnostic plot. Default is True.
+    plot_dir : str, optional
+        Directory for output of plot (if requested). Default is '.'.
+    save_prefix : str, optional
+        Prefix for plot (if requested). Default is 'wire_fit_params'.
+    debug : bool, optional
+        Whether to report the parameters used in this function call. Default is False.
+
+    Returns
+    -------
+    None
+    """
     if debug:
         print(arguments())
     # note: later have these parameters as user-input kwargs
@@ -4200,6 +4798,62 @@ def generate_wifes_cube(
     print_progress=False,
     debug=False,
 ):
+    """
+    Prepare data cube for assembly by unifying wavelength solution and slitlet centering
+    (and optionally resampling flux to correct atmospheric differential refraction). The
+    output cube remains as a multi-extension FITS file with one extension per slitlet.
+
+    Parameters
+    ----------
+    inimg : str
+        Path to the input image.
+    outimg : str
+        Path to the output image.
+    wire_fn : str
+        Path to the wire solution.
+    wsol_fn : str
+        Path to the wavelength solution.
+    wmin_set : float, optional
+        Minimum wavelength of output cube. Reverts to minimum in data if wmin_set is smaller or None. Default is None.
+    wmax_set : float, optional
+        Maximum wavelength of output cube. Reverts to maximum in data if wmax_set is larger or None. Default is None.
+    dw_set : float, optional
+        Wavelength step in output cube. Reverts to mean of per-slitlet mean wavelength steps if dw_set is None. Default is None.
+    wavelength_ref : str, optional
+        Wavelength reference for output cube. Options are "AIR", "VACUUM". Default is "AIR".
+    wave_native : bool, optional
+        Override wmin_set, wmax_set, dw_set and use native dispersion of central slitlet.
+        N.B.: Prevents clean splicing of blue/red cubes and spectra. Default is False.
+    bin_x : int, optional
+        Binning factor in the x-direction. If not specified, it will be read from the header.
+    bin_y : int, optional
+        Binning factor in the y-direction. If not specified, it will be read from the header.
+    ny_orig : int, optional
+        Number of unbinned y-axis pixels in each slitlet. Default is 76.
+    offset_orig : int, optional
+        Number of (unbinned) y-axis pixels that the wire is offset from the field centre.
+        Default is 2.
+    verbose : bool, optional
+        Whether to report additional diagnostic info. Default is True.
+    adr : bool, optional
+        Apply atmospheric differential refraction correction. Default is False.
+    subsample : int, optional
+        Divide each spatial dimension into "subsample" components. Minimises effects of
+        intergerisation of pixel shifts, but increases processing time by subsample^2. Default is 1.
+    multithread : bool, optional
+        Run step using "multiprocessing" module. Default is False.
+    max_processes : int, optional
+        Number of simultaneous processes allowed. Non-positive values default to os.cpu_count().
+        Default is -1.
+    print_progress : bool, optional
+        Write interpolation progress to screen/log. Default is False.
+    debug : bool, optional
+        Whether to report the parameters used in this function call. Default is False.
+
+    Returns
+    -------
+    None
+    """
     if debug:
         print(arguments())
     # ---------------------------
@@ -4653,6 +5307,29 @@ def generate_wifes_cube(
 
 # ------------------------------------------------------------------------
 def generate_wifes_3dcube(inimg, outimg, halfframe=False, taros=False, nan_bad_pixels=False, debug=False):
+    """
+    Convert multi-extension FITS datacube into a single three-dimensional FITS image.
+
+    Parameters
+    ----------
+    inimg : str
+        Path to the input image.
+    outimg : str
+        Path to the output image.
+    halfframe : bool, optional
+        Whether the input image uses stellar (half-frame) readout mode. Default is False.
+    taros : bool, optional
+        Whether the input image was acquired with Taros (prior to the Automated 2.3m operations).
+        Default is False.
+    nan_bad_pixels : bool, optional
+        Set FLUX extension to NaN where DQ extension > 0. Default is False.
+    debug : bool, optional
+        Whether to report the parameters used in this function call. Default is False.
+
+    Returns
+    -------
+    None
+    """
     # load in data
     if debug:
         print(arguments())
