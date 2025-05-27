@@ -13,18 +13,28 @@ def calculate_wavelength_array(
     Calculates the wavelength array for the merged blue and red spectra, using the
     wavelength step of the blue spectrum.
 
-    Parameters:
-    - blue_CRVAL (float): Wavelength of the reference pixel for the blue spectrum.
-    - blue_CDELT (float): Wavelength increment per pixel for the blue spectrum.
-    - blue_CRPIX (float): Reference pixel for the blue spectrum.
-    - red_CRVAL (float): Wavelength of the reference pixel for the red spectrum.
-    - red_CDELT (float): Wavelength increment per pixel for the red spectrum.
-    - red_CRPIX (float): Reference pixel for the red spectrum.
-    - red_NAXIS (int): Number of pixels in the red spectrum.
-    - wstep (float): Wavelength increment per pixel for the output spectrum.
+    Parameters
+    ----------
+    blue_CRVAL : float
+        Wavelength of the reference pixel for the blue spectrum.
+    blue_CDELT : float
+        Wavelength increment per pixel for the blue spectrum.
+    blue_CRPIX : float
+        Reference pixel for the blue spectrum.
+    red_CRVAL : float
+        Wavelength of the reference pixel for the red spectrum.
+    red_CDELT : float
+        Wavelength increment per pixel for the red spectrum.
+    red_CRPIX : float
+        Reference pixel for the red spectrum.
+    red_NAXIS : int
+        Number of pixels in the red spectrum.
+    wstep : float
+        Wavelength increment per pixel for the output spectrum.
 
-    Returns:
-    - numpy.ndarray: Wavelength array calculated from the given parameters.
+    Returns
+    -------
+    Wavelength array calculated from the given parameters.
     """
     # Calculate the number of wavelength points needed
     nwl = int(numpy.ceil((red_CRVAL + red_CDELT * (red_NAXIS - red_CRPIX)
@@ -44,12 +54,17 @@ def a_lanczos(x_original, x, a=2, missing=numpy.nan):
     Returns transformation matrix for Lanczos (sinc) interpolation
 
     Inputs
-        x_original:  x-values at which the original function is sampled
-        x:  x-values to which we want to interpolate
-        a:  integer order of the kernel
-        missing:  value to use for missing data (default:  numpy.nan)
+        x_original : array
+            x-values at which the original function is sampled
+        x : array
+            x-values to which we want to interpolate
+        a : int, optional
+            integer order of the kernel. Default is 2.
+        missing : float/NaN
+            value to use for missing data (default:  numpy.nan)
     Outputs
-        A:  sparse representation of the transformation matrix
+        A : array
+            sparse representation of the transformation matrix
     """
     if not is_evenly_sampled(x_original):
         print("a_lanczos:  warning -- x_original not evenly sampled!")
