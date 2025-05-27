@@ -28,9 +28,7 @@ import pywifes.recipes as recipes
 def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_dir,
                   working_dir, params_path, grism_key, just_calib, plot_dir,
                   from_master, extra_skip_steps, return_dict, skip_done):
-    """
-    Reduces the data for an individual arm.
-    """
+    # Reduces the data for an individual arm.
 
     try:
         # ------------------------------------------------------------------------
@@ -251,6 +249,7 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
 
 
 def main():
+    # Main script
     start_time = datetime.datetime.now()
     print(f"Pipeline started at {start_time}")
 

@@ -11,6 +11,6 @@ See the Usage section for the command line arguments accepted by `reduce_data.py
 
 .. automodule:: reduce_data
    :members:
-   :undoc-members: main, run_arm_individ
+   :undoc-members:
    :show-inheritance: 
 
