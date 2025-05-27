@@ -344,7 +344,7 @@ def get_full_obs_list(metadata, exclude=None):
     """
     Get the full observation list from the given metadata.
 
-    Parameters:
+    Parameters
     ----------
         metadata : dict
             A dictionary containing metadata information.
@@ -353,7 +353,7 @@ def get_full_obs_list(metadata, exclude=None):
             A list of imagetypes to exclude from the returned observation list.
             Default: None.
 
-    Returns:
+    Returns
     -------
         list
             The full observation list.
@@ -409,7 +409,7 @@ def get_std_obs_list(metadata, type="all"):
     """
     Get a list of standard observations.
 
-    Parameters:
+    Parameters
     ----------
     - metadata : dict
         The metadata containing information about the observations.
@@ -418,8 +418,8 @@ def get_std_obs_list(metadata, type="all"):
         Options: 'all', 'flux', 'telluric'.
         Default: 'all'.
 
-    Returns:
-    --------
+    Returns
+    -------
     - std_obs_list : list
         A list of standard observation filenames.
     """
@@ -438,13 +438,13 @@ def get_sky_obs_list(metadata):
     """
     Get a list of sky observations from the metadata.
 
-    Parameters:
+    Parameters
     ----------
         metadata : dict
             The metadata containing information about the observations.
 
-    Returns:
-    --------
+    Returns
+    -------
         list
             A list of sky observation filenames.
     """
@@ -513,7 +513,7 @@ def get_primary_std_obs_list(metadata, stdtype="all"):
     """
     Get the list of primary standard observations based on the given metadata and type.
 
-    Parameters:
+    Parameters
     ----------
         metadata : dict
             The metadata containing information about the observations.
@@ -522,13 +522,13 @@ def get_primary_std_obs_list(metadata, stdtype="all"):
             Options: 'all', 'telluric', 'flux'.
             Default: 'all'.
 
-    Returns:
-    --------
+    Returns
+    -------
         list
             The list of primary standard observations.
 
-    Raises:
-    -------
+    Raises
+    ------
         ValueError
             If the standard star type is not understood.
     """

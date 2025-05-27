@@ -480,14 +480,14 @@ def wifes_cube_divide(inimg, outimg, corr_wave, corr_flux):
 
 def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     """
-     Smooth (and optionally differentiate) data with a Savitzky-Golay filter.
-     The Savitzky-Golay filter removes high frequency noise from data.
-     It has the advantage of preserving the original shape and
-     features of the signal better than other types of filtering
-     approaches, such as moving averages techniques.
-     Parameters
-     ----------
-     y : array_like, shape (N,)
+    Smooth (and optionally differentiate) data with a Savitzky-Golay filter.
+    The Savitzky-Golay filter removes high frequency noise from data.
+    It has the advantage of preserving the original shape and
+    features of the signal better than other types of filtering
+    approaches, such as moving averages techniques.
+    Parameters
+    ----------
+    y : array_like, shape (N,)
         the values of the time history of the signal.
     window_size : int
         the length of the window. Must be an odd integer number.
@@ -524,10 +524,10 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
 
     References
     ----------
-    .. [1] A. Savitzky, M. J. E. Golay, Smoothing and Differentiation of
+    1. A. Savitzky, M. J. E. Golay, Smoothing and Differentiation of
        Data by Simplified Least Squares Procedures. Analytical
        Chemistry, 1964, 36 (8), pp 1627-1639.
-    .. [2] Numerical Recipes 3rd Edition: The Art of Scientific Computing
+    2. Numerical Recipes 3rd Edition: The Art of Scientific Computing
        W.H. Press, S.A. Teukolsky, W.T. Vetterling, B.P. Flannery
        Cambridge University Press ISBN-13: 9780521880688
     """

@@ -52,7 +52,7 @@ def cut_fits_to_half_frame(inimg_path, outimg_prefix="cut_", to_taros=False):
     inimg_path : str
         Path to the input FITS file.
     outimg_prefix : str, optional
-        Prefix for the output FITS file. Default is "cut_".
+        Prefix for the output FITS file. Default is "cut\_".
     to_taros : bool, optional
         Whether to extract the TAROS-style top half or the Automation-style middle
         half.
@@ -2755,7 +2755,7 @@ def interslice_cleanup(
     plot_dir : str, optional
         Directory for output of plot (if requested). Default is '.'.
     save_prefix : str, optional
-        Prefix for plot (if requested). Default is 'cleanup_'.
+        Prefix for plot (if requested). Default is 'cleanup\_'.
     method : str, optional
         Method to fit interslice region. Options are "2D" (fit 2D Gaussian-smoothed shape 
         to interslice segments), "1D" (use median value of each cosmic-ray-filtered 
