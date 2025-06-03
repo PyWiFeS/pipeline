@@ -35,7 +35,10 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
     None
     """
     # Subtract sky frames from science objects.
-    for obs in metadata["sci"]:
+
+    # Create a stable copy to enable additions without repetitions
+    this_metadata_sci = metadata["sci"].copy()
+    for obs in this_metadata_sci:
         if len(obs["sky"]) > 0:
             # Prepare the separate sky exposure, if defined.
             if len(obs["sky"]) > 1:
@@ -103,6 +106,9 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                             # Remove N&S label
                             set_header(out_fn, "WIFESOBS", "ClassicalEqual")
                             set_header(out_sky_fn, "WIFESOBS", "ClassicalEqual")
+                            # Set header flag to aid separate extraction
+                            set_header(out_fn, "SPLIT_NS", 1.0)
+                            set_header(out_sky_fn, "SPLIT_NS", -1.0)
                     else:
                         # Subtract Nod and Shuffle positions.
                         if gargs['skip_done'] and os.path.isfile(out_fn) \

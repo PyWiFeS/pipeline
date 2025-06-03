@@ -893,7 +893,7 @@ def detect_extract_and_save(
         positions = numpy.transpose((detections["xcentroid"], detections["ycentroid"]))
 
         # Account for any trimmed border
-        positions = positions + border_width
+        positions = positions + numpy.array([xmin, border_width])
 
         # Set the apertures
         a = r_arcsec / pixel_scale_x

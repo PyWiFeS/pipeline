@@ -460,7 +460,7 @@ def classify(data_dir, naxis2_to_process=0, greedy_stds=False, coadd_mode='all',
 
 def cube_matcher(paths_list):
     arm_list = []
-    date_obs_list = []
+    mjd_obs_list = []
     for path in paths_list:
         fits_header = pyfits.getheader(path)
         if "ARM" in fits_header:
@@ -469,18 +469,21 @@ def cube_matcher(paths_list):
             arm_list.append(re.sub("WiFeS", "", fits_header["CAMERA"]))
         else:
             arm_list.append("unknown_arm")
-        date_obs_list.append(fits_header["DATE-OBS"])
+        if "SPLIT_NS" in fits_header:
+            split_ns = fits_header["SPLIT_NS"]
+        else:
+            split_ns = 1.0
+        mjd_obs_list.append(fits_header["MJD-OBS"] * split_ns)
+
 
     if not paths_list:
         print("Found no cubes to process. Exiting.")
         return None
 
-    df = pd.DataFrame({"path": paths_list, "arm": arm_list, "date_obs": date_obs_list})
-    df["date_obs"] = pd.to_datetime(df["date_obs"], utc=True, format="ISO8601")
-
-    df = df.sort_values("date_obs")
+    df = pd.DataFrame({"path": paths_list, "arm": arm_list, "mjd_obs": mjd_obs_list})
+    df = df.sort_values("mjd_obs")
     Nsec = 90  # allow Nsec seconds of difference between the arms
-    df['Group'] = df["date_obs"].diff().dt.seconds.gt(Nsec).cumsum()
+    df['Group'] = df["mjd_obs"].diff().gt(Nsec/86400.).cumsum()
     matched_obs_arms = (
         df.groupby('Group')[["path", "arm"]]
         .apply(lambda x: x.to_dict("records"))

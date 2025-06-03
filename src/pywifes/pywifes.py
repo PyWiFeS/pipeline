@@ -421,7 +421,7 @@ def imcombine(inimg_list, outimg, method="median", nonzero_thresh=100., scale=No
     # (5) write to outfile!
     outfits[data_hdu].header.set("PYWIFES", __version__, "PyWiFeS version")
     if kwstring is not None and commstring is not None:
-        outfits[data_hdu].header.set(f"PYW{kwstring[:5].upper()}", nimg, f"PyWiFeS: number of {commstring[:30]} exposures combined")
+        outfits[data_hdu].header.set(f"PYW{kwstring[:5].upper()}", nimg, f"PyWiFeS: number of {commstring[:30]} combined")
     outfits.writeto(outimg, overwrite=True)
     # write the variance image, if requested
     if outvarimg is not None:
@@ -4469,7 +4469,7 @@ def wifes_SG_response(
     else:
         outfits[0].header.set("PYWRESIN", "dome", "PyWiFeS: flatfield inputs")
     if spatial_inimg is not None:
-        outfits[0].header.set("PYWTWIN", ntflat, "PyWiFeS: number of twilight flat images combined")
+        outfits[0].header.set("PYWTWIN", ntflat, "PyWiFeS: number of twilight flats combined")
     outfits[0].header.set("PYWRESZV", zero_var, "PyWiFeS: 2D response zero_var")
     outfits[0].header.set("PYWRESW1", N, "PyWiFeS: 1st Savitzky-Golay window size")
     outfits[0].header.set("PYWRESW2", N * window_factor, "PyWiFeS: 2nd Savitzky-Golay window size")

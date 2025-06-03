@@ -85,7 +85,7 @@ def _run_superflat(
             return
         print(f"List of {source} flats: {flat_list}")
         kwstring = "FLATN"
-        commstring = "lamp flat"
+        commstring = "lamp flats"
         outvarimg = os.path.join(gargs['master_dir'], f"wifes_{gargs['arm']}_super_domeflat_raw_var.fits")
         save_prefix = f"dflat_{save_prefix}"
     elif source == "twi":
@@ -99,7 +99,7 @@ def _run_superflat(
             return
         print(f"List of {source} flats: {flat_list}")
         kwstring = "TWIN"
-        commstring = "twilight flat"
+        commstring = "twilight flats"
         save_prefix = f"twi_{save_prefix}"
     elif source == "wire":
         out_fn = gargs['super_wire_raw']
@@ -112,7 +112,7 @@ def _run_superflat(
             return
         print(f"List of wire frames: {flat_list}")
         kwstring = "WIREN"
-        commstring = "wire"
+        commstring = "wires"
     elif source == "arc":
         out_fn = gargs['super_arc_raw']
         flat_list = [
@@ -124,7 +124,7 @@ def _run_superflat(
             return
         print(f"List of arc frames: {flat_list}")
         kwstring = "ARCN"
-        commstring = "arc"
+        commstring = "arcs"
     else:
         print(f"Calibration type '{source}' not recognised")
         raise ValueError(f"Calibration type '{source}' not recognised")
