@@ -83,7 +83,8 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                 out_fn = os.path.join(
                     gargs['out_dir'], "%s.p%s.fits" % (fn, curr_suffix)
                 )
-                if is_nodshuffle(in_fn) or is_subnodshuffle(in_fn):
+                ns_input = is_nodshuffle(in_fn)
+                if ns_input or is_subnodshuffle(in_fn):
                     # For Nod and Shuffle, locate the file containing the second position.
                     sky_fn = os.path.join(gargs['out_dir'], "%s.s%s.fits" % (fn, prev_suffix))
                     if separate_ns:
@@ -107,12 +108,13 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                             # Update headers
                             fh = fits.open(out_fn, mode="update")
                             fh_sky = fits.open(out_sky_fn, mode="update")
-                            for extnum in range(len(fh)):
+                            for extnum in range(len(fh_sky)):
                                 # Remove N&S label
                                 fh[extnum].header["WIFESOBS"] = "ClassicalEqual"
                                 fh_sky[extnum].header["WIFESOBS"] = "ClassicalEqual"
-                                # Update exposure time for sky
-                                fh_sky[extnum].header["EXPTIME"] = fh_sky[extnum].header["SEXPTIME"]
+                                # If not sub-frame Nod and Shuffle, update sky exposure time
+                                if ns_input and "SEXPTIME" in fh_sky[extnum].header:
+                                    fh_sky[extnum].header["EXPTIME"] = fh_sky[extnum].header["SEXPTIME"]
                                 # Set header flag to aid separate extraction
                                 fh[extnum].header["SPLIT_NS"] = (1.0, "First position of split N&S obs")
                                 fh_sky[extnum].header["SPLIT_NS"] = (-1.0, "Second position of split N&S obs")
@@ -125,14 +127,13 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                                 and os.path.getmtime(sky_fn) < os.path.getmtime(out_fn):
                             continue
                         print(f"Subtracting N+S sky frame for {os.path.basename(in_fn)}")
-                        # Update headers
-                        fh = fits.open(in_fn, mode="update")
-                        fh_sky = fits.open(sky_fn, mode="update")
-                        for extnum in range(len(fh)):
-                            # Update exposure time for sky
-                            fh_sky[extnum].header["EXPTIME"] = fh_sky[extnum].header["SEXPTIME"]
-                        fh.close()
-                        fh_sky.close()
+                        # If not sub-frame Nod and Shuffle, update sky exposure time
+                        if ns_input:
+                            fh_sky = fits.open(sky_fn, mode="update")
+                            for extnum in range(len(fh_sky)):
+                                if "SEXPTIME" in fh_sky[extnum].header:
+                                    fh_sky[extnum].header["EXPTIME"] = fh_sky[extnum].header["SEXPTIME"]
+                            fh_sky.close()
                         pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime")
                 else:
                     # For Classical observations, copy the science image.
