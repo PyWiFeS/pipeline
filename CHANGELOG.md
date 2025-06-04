@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [main - 2.0] - 2025-05-22
 
-Public release back into the main branch with a range of upgrades.
+Public release back into the main branch with a range of upgrades. With contributions from Christopher Onken, Brent Miszalski, Felipe Jimenez-Ibarra, and more.
 
 ### Changed
 

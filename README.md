@@ -1,12 +1,10 @@
 # PyWiFeS 
 
-The automated Python data reduction pipeline for WiFeS, the Wide Field Spectrograph, an optical integral field spectrograph for the ANU 2.3m telescope at Siding Spring Observatory. 
+PyWiFeS is the automated Python data reduction pipeline for WiFeS, the Wide Field Spectrograph, an optical integral field spectrograph for the ANU 2.3m telescope at Siding Spring Observatory. 
 
 WiFeS has a field of view of 25x38 arcseconds, with R=3000 VPH gratings that cover the full optical wavelength range in a single exposure, as well as R=7000 VPH gratings that offer higher spectral resolution for smaller wavelength ranges. WiFeS was described in two papers led by the Principal Investigator, the late Michael Dopita, in [2007](https://ui.adsabs.harvard.edu/abs/2007Ap%26SS.310..255D/abstract) and [2010](https://ui.adsabs.harvard.edu/abs/2010Ap%26SS.327..245D/abstract).
 
-The original version of PyWiFeS was described by [Childress et al. (2014)](https://ui.adsabs.harvard.edu/abs/2014Ap%26SS.349..617C/abstract).
-
-A publication describing PyWiFeS version 2 is in preparation.
+The current version of PyWiFeS is compatible with data from both the automated 2.3m operations and the previous manual (in-person or remote) operations through TAROS. The upgrade of the 2.3m telescope for automated observing was described by [Price et al. (2024)](https://ui.adsabs.harvard.edu/abs/2024PASA...41...57P/abstract). The original version of PyWiFeS was described by [Childress et al. (2014)](https://ui.adsabs.harvard.edu/abs/2014Ap%26SS.349..617C/abstract). A publication describing PyWiFeS version 2 is in preparation.
 
 ## User Manual
 For more information, we refer the users to the [**PyWiFeS User Manual**](https://www.mso.anu.edu.au/pywifes/doku.php?id=documentation). This manual explains the general structure of the pipeline, the steps of the data reduction, or technical details about the Python modules and functions.

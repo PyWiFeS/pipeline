@@ -14,7 +14,7 @@ WiFeS has a field of view of 25x38 arcseconds, with R=3000 VPH gratings that cov
 
 WiFeS was described in two papers led by the Principal Investigator, the late Michael Dopita, in `2007 <https://ui.adsabs.harvard.edu/abs/2007Ap%26SS.310..255D/abstract>`_ and `2010 <https://ui.adsabs.harvard.edu/abs/2010Ap%26SS.327..245D/abstract>`_.
 
-PyWiFeS is written in Python and is open-source, allowing users to modify and extend the code to suit their needs.
+PyWiFeS is written in Python and is open-source, allowing users to modify and extend the code to suit their needs. PyWiFeS is compatible with data from the automated 2.3m telescope as well as the previous manual telescope operations through TAROS. The upgrade of the 2.3m for automated observations was described by `Price et al. (2024) <https://ui.adsabs.harvard.edu/abs/2024PASA...41...57P/abstract>`_
 
 The original version of PyWiFeS was described by `Childress et al. (2014) <https://ui.adsabs.harvard.edu/abs/2014Ap%26SS.349..617C/abstract>`_.
 A publication describing PyWiFeS version 2 is in preparation.

@@ -1,7 +1,8 @@
+import astropy.io.fits as fits
 import os
 from pywifes import pywifes
 from pywifes.wifes_utils import (
-    get_std_obs_list, is_nodshuffle, is_subnodshuffle, set_header, wifes_recipe
+    get_std_obs_list, is_nodshuffle, is_subnodshuffle, wifes_recipe
 )
 
 
@@ -103,12 +104,20 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                             pywifes.imcopy(sky_fn, out_sky_fn)
                             # Add 'sky' from N&S to science metadata
                             metadata['sci'].append({"sci": [os.path.basename(out_sky_fn).replace(f".p{curr_suffix}.fits", "")], "sky": []})
-                            # Remove N&S label
-                            set_header(out_fn, "WIFESOBS", "ClassicalEqual")
-                            set_header(out_sky_fn, "WIFESOBS", "ClassicalEqual")
-                            # Set header flag to aid separate extraction
-                            set_header(out_fn, "SPLIT_NS", 1.0)
-                            set_header(out_sky_fn, "SPLIT_NS", -1.0)
+                            # Update headers
+                            fh = fits.open(out_fn, mode="update")
+                            fh_sky = fits.open(out_sky_fn, mode="update")
+                            for extnum in range(len(fh)):
+                                # Remove N&S label
+                                fh[extnum].header["WIFESOBS"] = "ClassicalEqual"
+                                fh_sky[extnum].header["WIFESOBS"] = "ClassicalEqual"
+                                # Update exposure time for sky
+                                fh_sky[extnum].header["EXPTIME"] = fh_sky[extnum].header["SEXPTIME"]
+                                # Set header flag to aid separate extraction
+                                fh[extnum].header["SPLIT_NS"] = (1.0, "First position of split N&S obs")
+                                fh_sky[extnum].header["SPLIT_NS"] = (-1.0, "Second position of split N&S obs")
+                            fh.close()
+                            fh_sky.close()
                     else:
                         # Subtract Nod and Shuffle positions.
                         if gargs['skip_done'] and os.path.isfile(out_fn) \
@@ -116,6 +125,14 @@ def _run_sky_sub(metadata, gargs, prev_suffix, curr_suffix, separate_ns=False):
                                 and os.path.getmtime(sky_fn) < os.path.getmtime(out_fn):
                             continue
                         print(f"Subtracting N+S sky frame for {os.path.basename(in_fn)}")
+                        # Update headers
+                        fh = fits.open(in_fn, mode="update")
+                        fh_sky = fits.open(sky_fn, mode="update")
+                        for extnum in range(len(fh)):
+                            # Update exposure time for sky
+                            fh_sky[extnum].header["EXPTIME"] = fh_sky[extnum].header["SEXPTIME"]
+                        fh.close()
+                        fh_sky.close()
                         pywifes.scaled_imarith_mef(in_fn, "-", sky_fn, out_fn, scale="exptime")
                 else:
                     # For Classical observations, copy the science image.
