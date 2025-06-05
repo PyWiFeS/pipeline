@@ -6,6 +6,8 @@ WiFeS has a field of view of 25x38 arcseconds, with R=3000 VPH gratings that cov
 
 The current version of PyWiFeS is compatible with data from both the automated 2.3m operations and the previous manual (in-person or remote) operations through TAROS. The upgrade of the 2.3m telescope for automated observing was described by [Price et al. (2024)](https://ui.adsabs.harvard.edu/abs/2024PASA...41...57P/abstract). The original version of PyWiFeS was described by [Childress et al. (2014)](https://ui.adsabs.harvard.edu/abs/2014Ap%26SS.349..617C/abstract). A publication describing PyWiFeS version 2 is in preparation.
 
+The development of PyWiFeS version 2 was made possible by grant LE230100063 from the Australian Research Council.
+
 ## User Manual
 For more information, we refer the users to the [**PyWiFeS User Manual**](https://www.mso.anu.edu.au/pywifes/doku.php?id=documentation). This manual explains the general structure of the pipeline, the steps of the data reduction, or technical details about the Python modules and functions.
 

@@ -21,6 +21,8 @@ A publication describing PyWiFeS version 2 is in preparation.
 
 Addition details are available in the `PyWiFeS User Manual <https://www.mso.anu.edu.au/pywifes/doku.php?id=documentation>`_. The manual explains the general structure of the pipeline, the steps of the data reduction, or technical details about the Python modules and functions.
 
+The development of PyWiFeS version 2 was made possible by grant LE230100063 from the Australian Research Council.
+
 This documentation will guide you through installation, usage, main features and general information of the pipeline, and will provide you details about the different modules available.
 
 .. toctree::
