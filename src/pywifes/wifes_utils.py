@@ -69,13 +69,21 @@ def is_halfframe(inimg, data_hdu=0):
     return ystop - ystart + 1 == 2056
 
 
-def is_nodshuffle(inimg, data_hdu=0):
+def is_nodshuffle(inimg):
     """
     Report whether this exposure is a Nod & Shuffle frame.
     """
-    f = pyfits.open(inimg)
-    ns = f[data_hdu].header["WIFESOBS"]
-    f.close()
+    if isinstance(inimg, pyfits.header.Header):
+        header = inimg
+    elif isinstance(inimg, str):
+        extnum = 1 if re.search('.fz', inimg) else 0
+        header = pyfits.getheader(inimg, ext=extnum)
+    elif isinstance(inimg, pyfits.hdu.hdulist.HDUList):
+        extnum = 1 if re.search('.fz', inimg.filename()) else 0
+        header = inimg[extnum].header
+    else:
+        raise TypeError(f"The is_nodshuffle function takes headers, filenames, or HDULists; given {type(inimg)}")
+    ns = header["WIFESOBS"]
     return ns == "NodAndShuffle"
 
 

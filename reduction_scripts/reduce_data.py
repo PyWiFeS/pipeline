@@ -58,11 +58,13 @@ def run_arm_indiv(temp_data_dir, obs_metadatas, arm, master_dir, output_master_d
             print("No science, standard, or arc files found in metadata.")
             raise ValueError("No science, standard, or arc files found in metadata.")
 
-        # Check if is half-frame
-        halfframe = is_halfframe(temp_data_dir + reference_filename)
+        # Check if reference image was taken with TAROS
         taros = is_taros(temp_data_dir + reference_filename)
-        gargs['halfframe'] = halfframe
         gargs['taros'] = taros
+
+        # Check if reference image is half-frame
+        halfframe = is_halfframe(temp_data_dir + reference_filename)
+        gargs['halfframe'] = halfframe
         if halfframe:
             print(f"Cutting data to half-frame with to_taros = {taros}")
             obs_metadata = pywifes.calib_to_half_frame(obs_metadata, temp_data_dir,
@@ -431,7 +433,6 @@ def main():
 
         all_fits_names = get_file_names(user_data_dir, "*.fits*")
         # Copy raw data from user's direcory into temporaty raw directory.
-        # TODO: Copying files to a user dir should be optional (adds extra time)
         copy_files(user_data_dir, temp_data_dir, all_fits_names)
 
         # Classify all raw data (red and blue arm)

@@ -7,6 +7,7 @@ import re
 import string
 
 from pywifes import wifes_calib
+from pywifes.wifes_utils import is_taros, is_nodshuffle
 
 
 def _column_name_generator():
@@ -429,9 +430,13 @@ def classify(data_dir, naxis2_to_process=0, greedy_stds=False, coadd_mode='all',
 
     for filename in filenames:
         try:
-            f = pyfits.open(data_dir + filename)
+            f = pyfits.open(data_dir + filename, mode="update")
             camera = f[0].header["CAMERA"]
             naxis2 = f[0].header["NAXIS2"]
+            # Fix TAROS Nod-and-Shuffle exposure times
+            if is_taros(f) and is_nodshuffle(f) and "NSUBEXPS" in f[0].header:
+                f[0].header["SEXPTIME"] = f[0].header["NSUBEXPS"] * f[0].header["EXPTIME"]
+                f[0].header["EXPTIME"] = f[0].header["NSUBEXPS"] * f[0].header["EXPTIME"]
             f.close()
         except Exception:
             continue
