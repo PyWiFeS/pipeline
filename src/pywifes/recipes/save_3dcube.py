@@ -1,11 +1,11 @@
 import os
 from pywifes import pywifes
-from pywifes.wifes_utils import get_primary_sci_obs_list, get_primary_std_obs_list, is_halfframe, is_taros, wifes_recipe
+from pywifes.wifes_utils import (
+    get_primary_sci_obs_list, get_primary_std_obs_list, is_halfframe, is_taros,
+    wifes_recipe
+)
 
 
-# ------------------------------------------------------
-# 3D datacube generation
-# ------------------------------------------------------
 @wifes_recipe
 def _run_save_3dcube(metadata, gargs, prev_suffix, curr_suffix, **args):
     '''

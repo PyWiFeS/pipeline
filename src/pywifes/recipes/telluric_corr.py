@@ -1,7 +1,7 @@
 import os
-from pywifes import pywifes
-from pywifes import wifes_calib
+
 from pywifes.wifes_utils import get_primary_sci_obs_list, get_primary_std_obs_list, wifes_recipe
+from pywifes import wifes_calib
 
 
 # ------------------------------------------------------

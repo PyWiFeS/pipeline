@@ -561,14 +561,10 @@ def main():
                         taros = is_taros(red_cube_path)
                         ns = is_nodshuffle(red_cube_path)
                         subns = is_subnodshuffle(red_cube_path)
-                        ns = is_nodshuffle(red_cube_path)
-                        std = is_standard(red_cube_path)
                     else:
                         taros = is_taros(blue_cube_path)
                         ns = is_nodshuffle(blue_cube_path)
                         subns = is_subnodshuffle(blue_cube_path)
-                        ns = is_nodshuffle(blue_cube_path)
-                        std = is_standard(blue_cube_path)
 
                     # Run auto-extraction
                     detect_extract_and_save(
