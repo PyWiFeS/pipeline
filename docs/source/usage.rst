@@ -25,6 +25,8 @@ To specify the reduction steps for blue and red data, users can provide the path
 
         ./reduce_data.py /.../my_raw_data --red-params /.../user_red_param_file.json5 --blue-params /.../user_blue_param_file.json5
 
+The default parameters (annotated, with various options) are normally read by the pipeline from pip's site-packages/pywifes/pipeline_params/[blue,red]/ directory. The files in the installation directory are copied by pip and changes in the installation directory will not be seen by the pipeline without reinstalling.
+
 **Reduce Data Using Master Calibration Files**
 
 To perform data reduction using master calibration files from previous reductions, use the `--from-master` flag along with the path to the directory containing all calibration files. Both blue and red data should be stored together in the same directory for coherence. If no path is specified after the `--from-master` flag, the default directory `./data_products/master_calib` is assumed.
@@ -64,11 +66,11 @@ When multiple sky frames are associated with a science image, they are scaled by
 - `--skip-done`: Skip already completed steps. This will check for the existence of the output files from each step, as well as whether the output files are newer than the input files -- if either part fails, the step will be executed.
 - `--just-calib`: Triggers the data reduction in the absence of on-sky data (both science and calibration). It only produces basic calibration files.
 - `--greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
-- `--extract`: Automatically locate sources in the output datacubes and extract spectra. By default, uses the parameters defined in JSON5 file:
+- `--extract`: Automatically locate sources in the output datacubes and extract spectra. By default, uses the parameters defined in JSON5 file (normally in pip's site-packages/pywifes directory rather than the install directory):
 
    .. code-block:: bash
 
-        /.../pipeline/pipeline_params/params_extract.json5
+        /.../pipeline_params/params_extract.json5
 
 - `--extract-params`: Specify path to alternative JSON or JSON5 file with extraction parameters.
 
@@ -88,7 +90,7 @@ When multiprocessing is enabled, the pipeline *may* do the job faster. This will
 
 To enable the multithreading option, please follow these steps:
 
-1. Open the `.json5` file that corresponds to your grating. That is, `reduction_scripts/pipeline_parms/<arm>/params_<grating>.json5`.
+1. Open the `.json5` file that corresponds to your grating in pip's site-packages/pywifes folder (or in the installation folder and then reinstall with pip). That is, `/pipeline_parms/<arm>/params_<grating>.json5`.
 2. Set `"multithread": true` in all the cases. There should be a total of 6 `"multithread"`, 3 for each of the blue and red arms in the following steps: `"step": "wave_soln"`, `"step": "cosmic_rays"`, and `"step": "cube_gen"`.
 3. [Optional] Set `max_processes` to the *maximum* number of sub-processes you would like to launch for `"step": "cosmic_rays"`, and `"step": "cube_gen"`. If `-1`, the pipeline will use as many processes as there are hardware & logical cores on your device, which may be larger than the number of *available* cores, e.g., for Slurm users. Limiting the number of sub-processes can improve the efficiency and availability of your device.
 4. Run the pipeline following the instructions below.
