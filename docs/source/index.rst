@@ -39,7 +39,7 @@ This documentation will guide you through installation, usage, main features and
 Reporting Issues or Suggestions
 ===============================
 
-If you encounter any issues or have suggestions for improving the pipeline, please `open a new issue on the GitHub repository <https://github.com/PyWiFeS/pipeline/issues>`_.
+If you encounter any issues or have suggestions for improving the pipeline, please `open a new issue on the GitHub repository <https://github.com/PyWiFeS/pywifes/issues>`_.
 
 Indices and tables
 ==================

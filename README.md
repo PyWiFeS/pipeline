@@ -14,7 +14,7 @@ For more information, we refer the users to the [**PyWiFeS User Manual**](https:
 ## Installation
 1. Download or clone this branch of the `pipeline` repository:
     ```sh
-   git clone -b main https://github.com/PyWiFeS/pipeline.git
+   git clone -b main https://github.com/PyWiFeS/pywifes.git
    ```
 2. Set up a python environment (via conda, for example) with:
 
@@ -215,4 +215,4 @@ Finally, we find `data_products/master_calib`, which is a directory with all mas
 
 
 ## Reporting Issues or Suggestions
-If you encounter any issues or have suggestions for improving the pipeline, please [**open a new issue**](https://github.com/PyWiFeS/pipeline) in the `issues` tab and fill out the provided template. Your feedback is very valuable!
+If you encounter any issues or have suggestions for improving the pipeline, please [**open a new issue**](https://github.com/PyWiFeS/pywifes) in the `issues` tab and fill out the provided template. Your feedback is very valuable!
