@@ -11,7 +11,7 @@ To install PyWiFeS, follow these steps:
    
    .. code-block:: bash
    
-      git clone -b main https://github.com/PyWiFeS/pipeline.git
+      git clone -b main https://github.com/PyWiFeS/pywifes.git
    
 2. Navigate to the project directory and install dependencies:
    
@@ -19,14 +19,14 @@ To install PyWiFeS, follow these steps:
    
       pip install .
    
-3. Set the `PYWIFES_DIR` environment variable to your reference data directory:
+3. Set the `PYWIFES_DIR` environment variable to the reference data directory in your installation folder:
    
    .. code-block:: bash
    
-      export PYWIFES_DIR=/.../pipeline/reference_data
+      export PYWIFES_DIR=/.../pywifes/reference_data
 
 4. If desired, set up an alias for the main reduction routine:
    
    .. code-block:: bash
    
-      alias pywifes-reduce='/.../pipeline/reduction_scripts/reduce_data.py'
+      alias pywifes-reduce='/.../pywifes/reduction_scripts/reduce_data.py'

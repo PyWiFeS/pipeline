@@ -14,7 +14,7 @@ For more information, we refer the users to the [**PyWiFeS User Manual**](https:
 ## Installation
 1. Download or clone this branch of the `pipeline` repository:
     ```sh
-   git clone -b main https://github.com/PyWiFeS/pipeline.git
+   git clone -b main https://github.com/PyWiFeS/pywifes.git
    ```
 2. Set up a python environment (via conda, for example) with:
 
@@ -32,19 +32,19 @@ For more information, we refer the users to the [**PyWiFeS User Manual**](https:
    ```
 4. Point the environment variable `PYWIFES_DIR` to your reference data directory. There are a few possible ways to do that:
     1. In your conda env, run the following:
-    ```conda env config vars set PYWIFES_DIR=/your/path/to/pipeline/reference_data```
+    ```conda env config vars set PYWIFES_DIR=/your/path/to/pywifes/reference_data```
     ```conda env config vars unset PYTHONPATH```
     Then deactivate and reactivate the conda env.
     2. Add the following line to your `~/.bashrc` so it will run on login:
     ```sh
-    export PYWIFES_DIR=/.../.../pipeline/reference_data
+    export PYWIFES_DIR=/your/path/to/pywifes/reference_data
     ```
     3. Or run the command manually before 'Running the Pipeline'.
     4. Alternatively, if `PYWIFES_DIR` is not set, the pipeline searches the program's *install* directory.
     For this approach to work, you would instead need to install with `pip install -e .`
 5.  If desired, set up an alias for the main reduction routine `reduce_data.py`: 
     ```sh
-    alias pywifes-reduce='/.../pipeline/reduction_scripts/reduce_data.py'
+    alias pywifes-reduce='/.../pywifes/reduction_scripts/reduce_data.py'
     ```    
 
 ## Running the Pipeline
@@ -77,6 +77,7 @@ To specify the reduction steps for blue and red data other than the defaults, us
    
     pywifes-reduce my_raw_data --red-params /.../user_red_param_file.json5 --blue-params /.../user_blue_param_file.json5
 
+The default parameters (annotated, with various options) are normally read by the pipeline from pip's site-packages/pywifes/pipeline_params/[blue,red]/ directory. The files in the installation directory are copied by pip and changes in the installation directory will not be seen by the pipeline without reinstalling.
 
 **Reduce Both Arms in Parallel**
 
@@ -126,9 +127,9 @@ When multiple sky frames are associated with a science image, they are scaled by
 
 `--greedy-stds`: Treat observations vaguely near known standard stars as STANDARD frames even if IMAGETYP = 'OBJECT'. If this option is not set, only IMAGETYP = 'STANDARD' frames are used as standards.
 
-`--extract`: Automatically locate sources in the output datacubes and extract sources. Default parameters defined in JSON5 file:
+`--extract`: Automatically locate sources in the output datacubes and extract sources. Default parameters defined in JSON5 file (normally in pip's site-packages/pywifes directory):
 
-    /.../pipeline/pipeline_params/params_extract.json5
+    /.../pipeline_params/params_extract.json5
 
 The subtracted sky spectrum is included in the output. Users may choose whether to propagate the data quality (DQ), applied telluric correction (TELLURICMODEL), and corrected atmospheric extinction (EXTINCTION) to the output spectrum. Users may choose whether to subtract the residual sky from Nod & Shuffle observations
 
@@ -145,7 +146,7 @@ The subtracted sky spectrum is included in the output. Users may choose whether 
 When multiprocessing is enabled, the pipeline *may* do the job faster. This will depend on the operative system used to run the pipeline. The multiprocessing setup is recommended for **Linux** users, as they will see a significant improvement in the computation time. On the other side, Mac OS users might get a similar running time (or just slightly faster) than in one-process mode. 
 To enable the multithreading option, please follow these steps:
 
-1. Open the `.json5` file that corresponds to your grating. That is, `reduction_scripts/pipeline_parms/params_<grating>.json5`.
+1. Open the `.json5` file that corresponds to your grating in pip's site-packages/pywifes folder (or in the installation folder and then reinstall with pip). That is, `/pipeline_parms/<arm>/params_<grating>.json5`.
 2. Set `"multithread": true` in all the cases. There should be a total of 6 `"multithread"`, 3 for each of the blue and red arms in the following steps: `"step": "wave_soln"`, `"step": "cosmic_rays"`, and `"step": "cube_gen"`.
 3. [Optional] Set `max_processes` to the *maximum* number of sub-processes you would like to launch for `"step": "cosmic_rays"`, and `"step": "cube_gen"`. If `-1`, the pipeline will use as many processes as there are hardware & logical cores on your device, which may be larger than the number of *available* cores, e.g. for Slurm users. Limiting the number of sub-processes can improve the efficiency and availability of your device.
 4. Run the pipeline following the instructions above.
@@ -215,4 +216,4 @@ Finally, we find `data_products/master_calib`, which is a directory with all mas
 
 
 ## Reporting Issues or Suggestions
-If you encounter any issues or have suggestions for improving the pipeline, please [**open a new issue**](https://github.com/PyWiFeS/pipeline) in the `issues` tab and fill out the provided template. Your feedback is very valuable!
+If you encounter any issues or have suggestions for improving the pipeline, please [**open a new issue**](https://github.com/PyWiFeS/pywifes) in the `issues` tab and fill out the provided template. Your feedback is very valuable!
