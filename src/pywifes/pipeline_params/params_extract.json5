@@ -1,0 +1,40 @@
+
+{
+    // Detection and Extraction Parameters
+    //
+    'detext_args': {
+        // --- Detection Parameters ---
+        "nsources": 3,  // Maximum number of sources to extract (in order of decreasing brightness).
+        "sigma_threshold": 3,  // Number of sigma a source must be above the background to be detected.
+        "border_width": 2,  // Number of edge spaxels to omit when source-finding and defining colourbar range for output plots.
+        "det_fwhm": 2.0,  // Full-width at half maximum (in pixels) of the Gaussian convolution kernal used for source-finding.
+        //
+        // --- Extraction Parameters ---
+        "extraction_method": "aperture",  // Method for extraction from datacube: Options: "aperture".
+        "r_arcsec": 5,  // Source extraction radius (in arcseconds).
+        "ns_skysub": true,  // Force sky subtraction even if NodAndShuffle or SubNodAndShuffle
+        "sky_method": "annulus",  // Method for measuring sky. Options: "annulus", "same_slice".
+        //
+        // Options for sky_method = "annulus"
+        "bkg_in_factor": 2,  // Sky annulus inner radius: bkg_in_factor * r_arcsec.
+        "bkg_out_factor": 3,  // Sky annulus outer radius: bkg_out_factor * r_arcsec.
+        //
+        "sky_stat": "wmean",  // Statistical method for calculating sky spectrum. Options: "wmean", "median".
+        "get_dq": true,  // Extract science aperture from DQ extension and return in output.
+        "get_tell": false,  // Extract science aperture from TelluricModel extension and return in output.
+        "get_extinct": false,  // Include the applied atmospheric extinction correction in the output.
+        //
+        // - "debug": false,
+    },
+    //
+    // Splicing Parameters
+    //
+    'splice_args': {
+        "wstep": null,  // Wavelength step for output of spliced cubes and spectra. Value of null (None) uses (minimum) wavelength step of blue cube.
+        "get_dq": true,  // Include DQ extension in spliced cubes and spectra.
+    },
+    //
+    // General Parameters
+    //
+    "plot": true,  // Create output plots.
+}   

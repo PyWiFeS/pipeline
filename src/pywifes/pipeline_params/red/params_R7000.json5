@@ -1,0 +1,614 @@
+{
+    "red": [
+        {
+            "step": "overscan_sub",
+            "run": true,
+            "suffix": "00",
+            "args": {
+                // Values determined from headers / timestamp. Must manually set all 5 to override.
+                // - "detector_regions": null,
+                // - "overscan_regions": null,
+                // - "science_regions": null,
+                // - "gain": null,
+                // - "rdnoise": null,
+                //
+                // Treatment of elevated overscan counts when row level is high.
+                // - "poly_high_oscan": true,
+                // If "poly_high_oscan" = True and any row has mean ADU above threshold (relative to row with lowest mean), constructs polynomial to estimate overscan.
+                // - "omask_threshold": 500.0,
+                //
+                // Additional user options.
+                // - "verbose": false,
+                // - "interactive_plot": false,
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "bpm_repair",
+            "run": true,
+            "suffix": "01",
+            "args": {
+                // Mask the Littrow ghosts in flats and skyflats (linear interpolation, as with bad pixels in calibrations).
+                // Not recommended for R7000 as ghosts are weak and fall completely on science apertures.
+                // - "flat_littrow": false,
+                //
+                // Number of additional pixels to median combine with the first on each x-axis edge of a masking region.
+                // - "interp_buffer": 3,
+                //
+                // Additional user options.
+                // - "verbose": false,
+                // - "interactive_plot": false,
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "superbias",
+            "run": true,
+            "suffix": null,
+            "args": {
+                // Methods to determine 2D bias.
+                // Options:
+                "method": "row_med",  // Default. Compute median row of coadded bias, filter outliers, add y-axis Gaussian-blurred residuals.
+                // - "method": "fit",  // No recent usage. Fit constant + linear + multi-exponential model to x-axis trends in coadded bias.
+                //
+                // Additional user options.
+                "plot": true,
+                // - "save_prefix": "bias",
+                "verbose": true,
+            }
+        },
+        {
+            "step": "bias_sub",
+            "run": true,
+            "suffix": "02",
+            "args": {
+                // Methods to handle bias.
+                // Options:
+                "method": "subtract",  // Default. Subtract the superbias.
+                // - "method": "copy",  // Copy input data to output filename (i.e., no superbias subtraction).
+            }
+        },
+        {
+            "step": "superflat",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "dome",
+                //
+                // Pre-combination scaling options.
+                // - "sregion": null,  // Default: null (None). Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
+                //
+                // Scaling methods.
+                // Options:
+                "scale": "midrow_ratio",  // Use the middle row of each input to scale by the median per-x-pixel ratio to the first input.
+                // - "scale": null,  // Default. Apply no scaling.
+                // - "scale": "median",  // Scale by the median value of the whole image.
+                // - "scale": "median_nonzero",  // Scale by the median value pixels above "nonzero_thresh".
+                // - "scale": "exptime",  // Scale by the exposure time.
+                // - "scale": "percentileN",  // Scale by the Nth percentile counts of the image, e.g., "percentile90".
+                //
+                // Threshold for counting pixels to "median_nonzero" scaling.
+                // - "nonzero_thresh": 100.,
+                //
+                // Combining methods.
+                // Options:
+                // - "method": "median",  // Default. NaN-safe median combine.
+                // - "method": "sum",  // NaN-safe sum combine.
+                // - "method": "mean",  // NaN-safe mean combine.
+                //
+                // Additional user options.
+                "plot": true,
+                // - "save_prefix": "imcombine_inputs",
+                // - "interactive_plot": false,
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "superflat",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "twi",
+                //
+                // Pre-combination scaling options.
+                // - "sregion": null,  // Default: null (None). Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
+                //
+                // Scaling methods.
+                // Options:
+                "scale": "midrow_ratio",  // Use the middle row of each input to scale by the median per-x-pixel ratio to the first input.
+                // - "scale": null,  // Default. Apply no scaling.
+                // - "scale": "median",  // Scale by the median value of the whole image.
+                // - "scale": "median_nonzero",  // Scale by the median value pixels above "nonzero_thresh".
+                // - "scale": "exptime",  // Scale by the exposure time.
+                // - "scale": "percentileN",  // Scale by the Nth percentile counts of the image, e.g., "percentile90".
+                //
+                // Threshold for counting pixels to "median_nonzero" scaling.
+                // "nonzero_thresh": 100.,
+                //
+                // Combining methods.
+                // Options:
+                // - "method": "median",  // Default. NaN-safe median combine.
+                // - "method": "sum",  // NaN-safe sum combine.
+                // - "method": "mean",  // NaN-safe mean combine.
+                //
+                // Additional user options.
+                "plot": true,
+                // - "save_prefix": "imcombine_inputs",
+                // - "interactive_plot": false,
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "superflat",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "wire",
+                //
+                // Pre-combination scaling options.
+                // - "sregion": null,  // Default: null (None). Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
+                //
+                // Scaling methods.
+                // Options:
+                "scale": "percentile90",  // Scale by the Nth percentile counts of the image, e.g., "percentile90".
+                // - "scale": null,  // Default. Apply no scaling.
+                // - "scale": "median",  // Scale by the median value of the whole image.
+                // - "scale": "median_nonzero",  // Scale by the median value pixels above "nonzero_thresh".
+                // - "scale": "midrow_ratio",  // Use the middle row of each input to scale by the median per-x-pixel ratio to the first input.
+                // - "scale": "exptime",  // Scale by the exposure time.
+                //
+                // Threshold for counting pixels to "median_nonzero" scaling.
+                // - "nonzero_thresh": 100.,
+                //
+                // Combining methods.
+                // Options:
+                // - "method": "median",  // Default. NaN-safe median combine.
+                // - "method": "sum",  // NaN-safe sum combine.
+                // - "method": "mean",  // NaN-safe mean combine.
+                //
+                // Additional user options.
+                // - "plot": false,
+                // - "save_prefix": "imcombine_inputs",
+                // - "interactive_plot": false,
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "superflat",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "arc",
+                //
+                // Pre-combination scaling options.
+                // - "sregion": null,  // Default: null (None). Specify x-pixel range to use for scaling calculation, e.g., "2000:2500".
+                //
+                // Scaling methods.
+                // Options:
+                "scale": "exptime",  // Scale by the exposure time.
+                // - "scale": null,  // Default. Apply no scaling.
+                // - "scale": "median",  // Scale by the median value of the whole image.
+                // - "scale": "median_nonzero",  // Scale by the median value pixels above "nonzero_thresh".
+                // - "scale": "midrow_ratio",  // Use the middle row of each input to scale by the median per-x-pixel ratio to the first input.
+                // - "scale": "percentile90",  // Scale by the Nth percentile counts of the image, e.g., "percentile90".
+                //
+                // Threshold for counting pixels to "median_nonzero" scaling.
+                // - "nonzero_thresh": 100.,
+                //
+                // Combining methods.
+                // Options:
+                // - "method": "median",  // Default. NaN-safe median combine.
+                // - "method": "sum",  // NaN-safe sum combine.
+                // - "method": "mean",  // NaN-safe mean combine.
+                //
+                // Additional user options.
+                // - "plot": false,
+                // - "save_prefix": "imcombine_inputs",
+                // - "interactive_plot": false,
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "slitlet_profile",
+            "run": true,
+            "suffix": null,
+            "args": {
+                // - "shift_global": true,  // Use the mean of the per-slitlet shifts measured, rather than the individual fits.
+                //
+                // Additional user options.
+                // - "verbose": false,
+                // - "interactive_plot": false,
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "flat_cleanup",
+            "run": true,
+            "suffix": null,
+            "args": {
+                // Which type(s) of flats to remove scattered light from.
+                "type": [
+                    "dome", "twi"
+                ],
+                //
+                // Methods for fitting scattered light.
+                // Options:
+                // - "method": "2D",  // Default. Fit 2D Gaussian-smoothed shape to interslice segments.
+                // - "method": "1D",  // Use median value of each cosmic-ray-filtered interslice segment.
+                // 
+                "radius": 10.0, // Sigma for 2D Gaussian filtering (with "method" = "2D"). Equal in both axes.
+                //
+                "nsig_lim": 5.0, // Clipping threshold in number of standard deviations above median. Computed independently for each slitlet.
+                //
+                "buffer": 4,  // Number of y-axis pixels on either side of each slitlet in which to avoid background fitting.
+                "offsets": [   // Fraction of median whole-frame background level to add back to flat to avoid negative values. One value per "type".
+                    0.4, 0.4
+                ],
+                //
+                // Additional user options.
+                "plot": true,
+                // - "save_prefix": "cleanup_",
+                "verbose": true,
+                // - "interactive_plot": false,
+                // - "debug": false,
+           }
+        },
+        {
+            "step": "superflat_mef",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "dome",
+                //
+                // Treatment of NaN values in data.
+                // Options:
+                // - "nan_method": "interp",  // Default. Apply linear interpolation in x-direction.
+                // - "nan_method": "replace",  // Replace NaN values with constant "repl_val".
+                //
+                // - "repl_val": 0.0,  // Constant to replace NaN values with if "nan_method" = "replace".
+                //
+                // Additional user options.
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "superflat_mef",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "twi",
+                //
+                // Treatment of NaN values in data.
+                // Options:
+                // - "nan_method": "interp",  // Default. Apply linear interpolation in x-direction.
+                // - "nan_method": "replace",  // Replace NaN values with constant "repl_val".
+                //
+                // - "repl_val": 0.0,  // Constant to replace NaN values with if "nan_method" = "replace".
+                //
+                // Additional user options.
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "superflat_mef",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "wire",
+                //
+                // Treatment of NaN values in data.
+                // Options:
+                // - "nan_method": "interp",  // Default. Apply linear interpolation in x-direction.
+                // - "nan_method": "replace",  // Replace NaN values with constant "repl_val".
+                //
+                // - "repl_val": 0.0,  // Constant to replace NaN values with if "nan_method" = "replace".
+                //
+                // Additional user options.
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "superflat_mef",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "source": "arc",
+                //
+                // Treatment of NaN values in data.
+                // Options:
+                // - "nan_method": "interp",  // Default. Apply linear interpolation in x-direction.
+                // - "nan_method": "replace",  // Replace NaN values with constant "repl_val".
+                //
+                // - "repl_val": 0.0,  // Constant to replace NaN values with if "nan_method" = "replace".
+                //
+                // Additional user options.
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "slitlet_mef",
+            "run": true,
+            "suffix": "03",
+            "args": {
+                // Treatment of NaN values in data.
+                // Options:
+                // - "nan_method": "interp",  // Default. Apply linear interpolation in x-direction.
+                // - "nan_method": "replace",  // Replace NaN values with constant "repl_val".
+                //
+                // - "repl_val": 0.0,  // Constant to replace NaN values with if "nan_method" = "replace".
+                //
+                // Additional user options.
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "wave_soln",
+            "run": true,
+            "suffix": null,
+            "args": {
+                // Method for fitting wavelength solution.
+                // Options:
+                "method": "optical",  // Default. Use optical model of spectrograph to frame wavelength solution.
+                // - "method": "poly",  // Use polynomial method for wavelength solution.
+                //
+                // Optical method parameters:
+                "shift_method": "xcorr_all", // Default. Shift model to fit every row of every slitlet.
+                // - "shift_method": "xcorr_single",  // Shift model to central row of each slitlet.
+                // - "shift_method": "xcorr_grid",  // Shift optical model by sampling in y-axis.
+                // - "shift_method": null,  // Guess the wavelengths using the optical model.
+                // 
+                "find_method": "mpfit",  // Default. Use Levenberg-Marquardt least-squares fitter assuming Gaussian line.
+                // - "find_method": "loggauss",  // Use numpy least-squares fitter to log of flux.
+                // - "find_method": "least_squares",  // Use scipy least-squares fitter assuming Gaussian line.
+                //
+                "doalphapfit": true,  // Fit each slitlet angle of incidence.
+                "dlam_cut_start": 5.0,  // Initial threshold for matching to line lists.
+                // "flux_threshold_nsig": 3.0,  // Number of sigma above the background for line detection.
+                // "epsilon": 0.005,  // Threshold for excluding lines when matching to exclusion list.
+                // "automatic": false,  // Exclude lines with large residuals.
+                // "sigma": 1.0,  // RMS threshold offset from mean for excluding lines if "automatic" = True.
+                // "decimate": false,  // Perform initial fit with 10% of data.
+                "multithread": true,  // Run step using "multiprocessing" module.
+                //
+                // Poly method parameters:
+                // - "dlam_cut_start": 7.0,  // Initial threshold for matching to line lists.
+                // - "dlam_cut": 3.0,  // Subsequent threshold for matching to line lists.
+                // - "x_polydeg": 4,  // Order of x-axis polynomial.
+                // - "y_polydeg": 2,  // Order of y-axis polynomial.
+                // - "flux_threshold_nsig": 3.0,  // Number of sigma above the background for line detection.
+                // - "deriv_threshold_nsig": 1.0,  // Threshold for number of sigma different from median flux derivative per x pixel.
+                //
+                // Additional user options.
+                "plot": true,
+                // - "plot_slices": false,  // Whether to plot per-slice fits
+                // - "verbose": false,
+            }
+        },
+        {
+            "step": "wire_soln",
+            "run": true,
+            "suffix": null,
+            "args": {
+                // - "fit_zones": [16, 26, 54, 70],  // Per-slitlet y-axis region limits to define background against which to locate wire. Unbinned pixels.
+                // - "flux_threshold": 0.001,  // Minimum flux difference for wire relative to background. Default value assumes a superwire scaled by "percentileN".
+                // - "wire_polydeg": 1,  // Order of polynomial to fit wire position.
+                // - "xlims": "default",  // Either "default" or a 2-element list defining the x-axis range for the wire fitting.
+                //
+                // Additional user options.
+                "plot": true
+                // - "save_prefix": "wire_fit_params",
+                // - "interactive_plot": false,
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "flat_response",
+            "run": true,
+            "suffix": null,
+            "args": {
+                // Methods for system response.
+                // Options:
+                "mode": "all",  // Default. Determine system response from both dome flat and twilight flat.
+                // - "mode": "dome",  // Determine system response only from dome flat.
+                //
+                // - "zero_var": true,  // Set the VAR extension values to zero in the output MEF.
+                // - "resp_min": 1.0e-4,  // Minimum value allowed in final flatfield.
+                //
+                // Additional user options.
+                // - "plot": true,
+                // - "save_prefix": "flat_response",
+                // - "interactive_plot": false,
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "cosmic_rays",
+            "run": true,
+            "suffix": "04",
+            "args": {
+                "multithread": true,  // Run step using "multiprocessing" module.
+                "max_processes": -1,  // Number of simultaneous processes allowed. Non-positive values default to os.cpu_count().
+            }
+        },
+        {
+            "step": "sky_sub",
+            "run": true,
+            "suffix": "05",
+            "args": {
+                // - "separate_ns": false,  // Do not combine the two N&S positions, but keep both as independent images.
+            }
+        },
+        {
+            "step": "obs_coadd",
+            "run": true,
+            "suffix": "06",
+            "args": {
+                // Methods for coadding associated observations.
+                // Options:
+                "method": "sum",  // Sum each slitlet.
+                // - "method": "median",  // Default. Combine images as the NaN-safe median. Take care if inputs are not spatially aligned.
+                // - "method": "nansafesum",  // Combine images as the NaN-safe sum. Take care if inputs are not spatially aligned.
+                //
+                // Scaling of inputs.
+                // Options:
+                // - "scale": null,  // Default. Do not scale the inputs.
+                // - "scale": "per_slice_median",  // Scale each slitlet by its NaN-safe median counts before coadding.
+                // - "scale": "exptime",  // Scale each image by its exposure time.
+
+            }
+        },
+        {
+            "step": "flatfield",
+            "run": true,
+            "suffix": "07",
+            "args": {}
+        },
+        {
+            "step": "cube_gen",
+            "run": true,
+            "suffix": "08",
+            "args": {
+                "wmin_set": 5294.0,  // Minimum wavelength of output cube.
+                "wmax_set": 7060.0,  // Maximum wavelength of output cube.
+                // - "dw_set": null,  // If null (None), output cube wavelength step is set to mean of per-slitlet mean wavelength steps.
+                // - "wavelength_ref": "AIR",  // Wavelength reference ("AIR" or "VACUUM").
+                // - "wave_native": false,  // Override wmin_set, wmax_set, dw_set and use native dispersion of central slitlet. N.B.: Prevents clean splicing of blue/red cubes and spectra.
+                //
+                "adr": true,  // Apply atmospheric differential refraction correction.
+                //
+                // - "subsample": 1,  // Divide each spatial dimension into "subsample" components. Minimises effects of intergerisation of pixel shifts, but increases processing time by subsample^2.
+                // - "offset_orig": 2,  // Number of (unbinned) y-axis pixels that the wire is offset from the field centre.
+                //
+                // - "multithread": false,  // Run step using "multiprocessing" module.
+                // - "max_processes": -1,  // Number of simultaneous processes allowed. Non-positive values default to os.cpu_count().
+                //
+                // Additional user options.
+                // - "verbose": true,
+                // - "print_progress": false,  // Write interpolation progress to screen/log.
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "extract_stars",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "stdtype": "flux",
+                "extract_radius": 6.0,  // Radius (arcseconds) within which to sum standard star flux.
+                // - "sky_radius": 8.0,  // Radius (arcseconds) outside of which to determine median sky.
+                // - "xtrim": 2,  // Number of x-axis spaxels to exclude from each side when peak-finding.
+                // - "ytrim": 4,  // Number of (unbinned) y-axis spaxels to exclude from each side when peak-finding.
+                // - "wmask": 500,  // Number of wavelength pixels at each end to mask when peak-finding
+                //
+                // Additional user options.
+                // - "interactive_plot": false,
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "derive_calib",
+            "run": true,
+            "suffix": null,
+            "args": {
+                // Method to fit ratio of observed-to-reference flux (in magnitude units) vs. wavelength.
+                // Options:
+                "method": "poly",  // Default. Use polynomial fit, mask outliers, interpolate over masked pixels with polynomial.
+                // - "method": "smooth_SG",  // Use Savitzky-Golay filter. Interpolate over high pixels and telluric regions with polynomial, smooth with S-G, mask outliers, boxcar-smooth, S-G smooth again, and interpolate onto desired wavelength grid.
+                //
+                "polydeg": 10,  // Order of polynomial for fitting (used for both methods).
+                // - "excise_cut": 0.5,  // Fractional threshold for outliers (applied to magnitude units). Overridden with 0.003 if method = "smooth_SG".
+                // - "boxcar": 11,  // Boxcar smoothing length for method = "smooth_SG".
+                "norm_stars": true,  // Recentre midpoint flux ratios at the minimum (in magnitude units) across all input standards.
+                // - "wave_min": null,  // Minimum wavelength to compute flux ratio. If null (None), defaults to minimum observed wavelength.
+                // - "wave_max": null,  // Maximum wavelength to compute flux ratio. If null (None), defaults to maximum observed wavelength.
+                // - "ytrim": 4,  // If standard star spectrum not previously extracted, mask this number of (unbinned) y-axis pixels when peak-finding.
+                "prefactor": true,  // Whether to remove the flatfield shape to ease fitting of sensitivity curve.
+                //
+                // Additional user options.
+                "plot_stars": true,
+                "plot_sensf": true,
+                // - "plot_name": "flux_calibration_solution.png",
+                // - "interactive_plot": false,
+                // - "debug": false,
+                }
+        },
+        {
+            "step": "flux_calib",
+            "run": true,
+            "suffix": "09",
+            "args": {
+                // Format for flux calibration input.
+                // Options:
+                // - "mode": "pywifes",  // Default. Pickle format for input flux calibration file.
+                // - "mode": "iraf",  // FITS image format for input flux calibration file.
+                //
+                // Additional user options.
+                // - "extinction_fn": null, // Extinction file path containing the extinction curve information. If null (None), defaults to standard SSO extinction curve.
+                "save_extinction": true,  // Whether to save the extinction model that was applied to translate the flux calibration to airmass zero.
+            }
+        },
+        {
+            "step": "extract_stars",
+            "run": true,
+            "suffix": null,
+            "args": {
+                "stdtype": "telluric",
+                "extract_radius": 3.0,  // Radius (arcseconds) within which to sum standard star flux.
+                // - "sky_radius": 8.0,  // Radius (arcseconds) outside of which to determine median sky.
+                // - "xtrim": 2,  // Number of x-axis spaxels to exclude from each edge when peak-finding.
+                // - "ytrim": 4,  // Number of (unbinned) y-axis spaxels to exclude from each edge when peak-finding.
+                // - "wmask": 500,  // Number of wavelength pixels at each end to mask when peak-finding
+                //
+                // Additional user options.
+                // - "interactive_plot": false,
+                // - "debug": false,
+            }
+        },
+        {
+            "step": "derive_telluric",
+            "run": true,
+            "suffix": null,
+            "args": {
+                // - "polydeg": 4,  // Order of polynomial fit to the (flux-corrected) standard star flux vs. wavelength.
+                // - "telluric_threshold": 0.97,  // Omit correction when ratio of observed-to-smoothed flux is above the threshold.
+                // - "fit_wmin": 5400.0,  // Minimum wavelength in which to fit telluric correction.
+                // - "fit_wmax": 10000.0,  // Maximum wavelength in which to fit telluric correction.
+                // - "H2O_power": 0.72,  // H2O line corrections are scaled to the power (1/airmass^H2O_power).
+                // - "O2_power": 0.40,  // O2 line corrections are scaled to the power (1/airmass^O2_power).
+                // - "ytrim": 4,  // If standard star spectrum not previously extracted, mask this number of (unbinned) y-axis pixels when peak-finding.
+                //
+                // Additional user options.
+                "plot": true,
+                // - "save_prefix": "telluric",
+                // - "interactive_plot": false,
+                // - "debug": false,
+                }
+        },
+        {
+            "step": "telluric_corr",
+            "run": true,
+            "suffix": "10",
+            "args": {
+                // - "shift_sky": true,  // Whether to shift sky from telluric standard to match object sky lines. (Automatically disabled for Nod & Shuffle.)
+                "sky_wmin": 6355.0,   // Minimum wavelength to fit if shifting based on sky lines.
+                "sky_wmin": 6370.0,   // Maximum wavelength to fit if shifting based on sky lines.
+                //
+                // Additional user options.
+                "save_telluric": true,  // Whether to save the applied telluric model to the datacube.
+                // - "interactive_plot": false,  // Whether to show the user plots of the telluric sky shift.
+            }
+        },
+        {
+            "step": "save_3dcube",
+            "run": true,
+            "suffix": "cube",
+            "args": {
+                "nan_bad_pixels": true,  // Set FLUX extension = NaN where DQ extension > 0
+                //
+                // Additional user options.
+                // - "debug": false,
+            }
+        }
+    ]
+
+}
